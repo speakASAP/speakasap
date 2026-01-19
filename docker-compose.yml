@@ -1,0 +1,284 @@
+version: '3.8'
+
+services:
+  # speakasap-content-service
+  speakasap-content-service:
+    build:
+      context: .
+      dockerfile: ./services/content-service/Dockerfile
+    container_name: speakasap-content-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${CONTENT_SERVICE_PORT:-4201}
+      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_content_db}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-microservice:${AI_MICROSERVICE_PORT:-3380}}
+      SERVICE_NAME: speakasap-content-service
+    ports:
+      - "${CONTENT_SERVICE_PORT:-4201}:4201"
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4201/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # speakasap-certification-service
+  speakasap-certification-service:
+    build:
+      context: .
+      dockerfile: ./services/certification-service/Dockerfile
+    container_name: speakasap-certification-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${CERTIFICATION_SERVICE_PORT:-4202}
+      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_certification_db}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      SERVICE_NAME: speakasap-certification-service
+    ports:
+      - "${CERTIFICATION_SERVICE_PORT:-4202}:4202"
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4202/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # speakasap-assessment-service
+  speakasap-assessment-service:
+    build:
+      context: .
+      dockerfile: ./services/assessment-service/Dockerfile
+    container_name: speakasap-assessment-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${ASSESSMENT_SERVICE_PORT:-4203}
+      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_assessment_db}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      SERVICE_NAME: speakasap-assessment-service
+    ports:
+      - "${ASSESSMENT_SERVICE_PORT:-4203}:4203"
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4203/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # speakasap-course-service
+  speakasap-course-service:
+    build:
+      context: .
+      dockerfile: ./services/course-service/Dockerfile
+    container_name: speakasap-course-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${COURSE_SERVICE_PORT:-4205}
+      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_course_db}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      SERVICE_NAME: speakasap-course-service
+    ports:
+      - "${COURSE_SERVICE_PORT:-4205}:4205"
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4205/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # speakasap-education-service
+  speakasap-education-service:
+    build:
+      context: .
+      dockerfile: ./services/education-service/Dockerfile
+    container_name: speakasap-education-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${EDUCATION_SERVICE_PORT:-4206}
+      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_education_db}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      SERVICE_NAME: speakasap-education-service
+    ports:
+      - "${EDUCATION_SERVICE_PORT:-4206}:4206"
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4206/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # speakasap-user-service
+  speakasap-user-service:
+    build:
+      context: .
+      dockerfile: ./services/user-service/Dockerfile
+    container_name: speakasap-user-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${USER_SERVICE_PORT:-4207}
+      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_user_db}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-microservice:${AUTH_MICROSERVICE_PORT:-3370}}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      SERVICE_NAME: speakasap-user-service
+    ports:
+      - "${USER_SERVICE_PORT:-4207}:4207"
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4207/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # speakasap-payment-service
+  speakasap-payment-service:
+    build:
+      context: .
+      dockerfile: ./services/payment-service/Dockerfile
+    container_name: speakasap-payment-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PAYMENT_SERVICE_PORT:-4208}
+      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_payment_db}
+      PAYMENTS_MICROSERVICE_URL: ${PAYMENTS_MICROSERVICE_URL:-http://payments-microservice:${PAYMENTS_MICROSERVICE_PORT:-3468}}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      SERVICE_NAME: speakasap-payment-service
+    ports:
+      - "${PAYMENT_SERVICE_PORT:-4208}:4208"
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4208/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # speakasap-notification-service
+  speakasap-notification-service:
+    build:
+      context: .
+      dockerfile: ./services/notification-service/Dockerfile
+    container_name: speakasap-notification-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${NOTIFICATION_SERVICE_PORT:-4209}
+      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_notification_db}
+      NOTIFICATIONS_MICROSERVICE_URL: ${NOTIFICATIONS_MICROSERVICE_URL:-http://notifications-microservice:${NOTIFICATIONS_MICROSERVICE_PORT:-3368}}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      SERVICE_NAME: speakasap-notification-service
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT:-4209}:4209"
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4209/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # speakasap-api-gateway
+  speakasap-api-gateway:
+    build:
+      context: .
+      dockerfile: ./services/api-gateway/Dockerfile
+    container_name: speakasap-api-gateway
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${API_GATEWAY_PORT:-4210}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-microservice:${AUTH_MICROSERVICE_PORT:-3370}}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      SERVICE_NAME: speakasap-api-gateway
+    ports:
+      - "${API_GATEWAY_PORT:-4210}:4210"
+    depends_on:
+      - speakasap-content-service
+      - speakasap-certification-service
+      - speakasap-assessment-service
+      - speakasap-course-service
+      - speakasap-education-service
+      - speakasap-user-service
+      - speakasap-payment-service
+      - speakasap-notification-service
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4210/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # speakasap-frontend
+  speakasap-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: speakasap-frontend
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${FRONTEND_PORT:-4211}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://speakasap-api-gateway:4210}
+    ports:
+      - "${FRONTEND_PORT:-4211}:4211"
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:4211/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # speakasap-salary-service
+  speakasap-salary-service:
+    build:
+      context: .
+      dockerfile: ./services/salary-service/Dockerfile
+    container_name: speakasap-salary-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${SALARY_SERVICE_PORT:-4212}
+      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_salary_db}
+      PAYMENTS_MICROSERVICE_URL: ${PAYMENTS_MICROSERVICE_URL:-http://payments-microservice:${PAYMENTS_MICROSERVICE_PORT:-3468}}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      SERVICE_NAME: speakasap-salary-service
+    ports:
+      - "${SALARY_SERVICE_PORT:-4212}:4212"
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4212/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # speakasap-financial-service
+  speakasap-financial-service:
+    build:
+      context: .
+      dockerfile: ./services/financial-service/Dockerfile
+    container_name: speakasap-financial-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${FINANCIAL_SERVICE_PORT:-4213}
+      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_financial_db}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      SERVICE_NAME: speakasap-financial-service
+    ports:
+      - "${FINANCIAL_SERVICE_PORT:-4213}:4213"
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4213/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  nginx-network:
+    external: true
+    name: nginx-network
