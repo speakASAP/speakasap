@@ -53,6 +53,7 @@ class NotificationClient(object):
             message: Email message body (supports {{template}} variables)
             template_data: Optional template variables for message (dict)
             attachments: Optional list of attachment file paths
+            Note: contentType parameter removed - notifications-microservice auto-detects content type
 
         Returns:
             Dict with success status and notification ID
@@ -72,6 +73,8 @@ class NotificationClient(object):
 
         if attachments:
             payload['attachments'] = attachments
+
+        # contentType removed - notifications-microservice auto-detects content type from message
 
         url = '{}/notifications/send'.format(self.base_url)
 
@@ -173,9 +176,12 @@ def send_email(to, subject, message, **kwargs):
         subject: Email subject
         message: Email message body
         **kwargs: Additional arguments (template_data, attachments, etc.)
+                  Note: contentType is ignored - microservice auto-detects content type
 
     Returns:
         Dict with success status and notification ID
     """
+    # Filter out contentType if passed - microservice auto-detects content type
+    kwargs.pop('contentType', None)
     client = get_notification_client()
     return client.send_email(to=to, subject=subject, message=message, **kwargs)
