@@ -11,6 +11,26 @@ Each task file contains:
 - Implementation steps
 - Outputs and acceptance criteria
 
+## Orchestration (Phase 0)
+
+Global dependency graph:
+
+```text
+Phase 0 (Marathon) → Phase 1+ (per ROADMAP)
+```
+
+Task groups (parallel batches):
+
+- Contract + Data: TASK-01, TASK-03 (parallel after TASK-01 starts)
+- Infra: TASK-04 (depends on TASK-01)
+- Integration: TASK-02 (depends on TASK-01)
+- Validation: TASK-05 (depends on TASK-01 through TASK-04)
+
+Sync points are documented in:
+
+- `docs/refactoring/SPEAKASAP_REFACTORING_PLAN.md`
+- `docs/refactoring/MARATHON_PHASE0_VALIDATION.md`
+
 ## Phase 0: Marathon Extraction (Immediate)
 
 Note: `marathon` is a standalone product in `/Users/sergiystashok/Documents/GitHub/marathon` with repo `git@github.com:speakASAP/marathon.git`.

@@ -39,6 +39,24 @@ Refactor the legacy Django monolith (`speakasap-portal`) into a modern, modular 
 4. Validate feature parity and switch traffic to new service for marathons.
 5. Deprecate legacy marathon code after stable cutover.
 
+## Phase 0 Sync Points (Hard Gates)
+
+Sync A: API contract + data mapping frozen  
+
+- Requires: `MARATHON_API_CONTRACT.md`, `MARATHON_DATA_MAPPING.md` approved
+
+Sync B: Infra + env config validated  
+
+- Requires: `MARATHON_INFRA_PLAN.md` validated, env keys documented
+
+Sync C: Legacy integration shim verified  
+
+- Requires: shim design and rollback path documented
+
+Sync D: Cutover checklist approved  
+
+- Requires: `MARATHON_PHASE0_VALIDATION.md` GO decision
+
 ## Roadmap Alignment
 
 The work aligns with the phased roadmap in `docs/refactoring/ROADMAP.md`:
