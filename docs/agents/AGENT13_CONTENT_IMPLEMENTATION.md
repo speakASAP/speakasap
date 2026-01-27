@@ -123,6 +123,7 @@ Implement the Content Service as a complete NestJS application with all API endp
   - Database: `speakasap_content_db`
   - Logging service URL
   - AI service URL (for TASK-15 integration)
+  - Include NOTIFICATIONS_* keys (even if not used yet)
 
 - **Add Extensive Logging:**
   - Controller entry logging (request details)
@@ -175,6 +176,7 @@ Implement the Content Service as a complete NestJS application with all API endp
    - Database configuration
    - Logging service URL
    - AI service URL
+   - NOTIFICATIONS_* keys
 
 6. **`speakasap/content-service/scripts/deploy.sh`**
    - Deployment script

@@ -18,6 +18,7 @@ Design the Content Service API contract and Prisma schema based on legacy conten
 - `docs/refactoring/PHASE1_TASK_DECOMPOSITION.md` - Task details
 - ai-microservice documentation
 - Marathon service as reference: `/Users/sergiystashok/Documents/GitHub/marathon` (for patterns)
+- Shared services guidance: `docs/infrastructure/SHARED_SERVICES.md` (NOTIFICATIONS_* keys)
 
 ## Scope
 
@@ -71,12 +72,16 @@ Design the Content Service API contract and Prisma schema based on legacy conten
   - Error codes and messages
   - Filtering and sorting options
   - Pagination details
+  - Legacy URL mapping (list legacy endpoints replaced by each new endpoint)
 
 - **Define AI Integration Points:**
   - Translation endpoints (using ai-microservice)
   - Content generation endpoints (if needed)
   - Integration patterns
   - Error handling for AI calls
+
+- **Shared Service Keys Guidance:**
+  - Include NOTIFICATIONS_* keys in contract docs or .env.example guidance
 
 - **Create Data Mapping Document:**
   - Map legacy Django models to Prisma models
