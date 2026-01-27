@@ -72,6 +72,91 @@ Phase 0 outputs:
 - **Status**: Phase 0 - Verification
 - **Dependencies**: TASK-01 through TASK-04
 
-## Phase 1+ (Aligned to ROADMAP)
+### TASK-09: Marathon Shim Audit Fixes
 
-- Subsequent phases follow `docs/refactoring/ROADMAP.md` and will be decomposed into agent tasks once Phase 0 is completed.
+- **Prompt**: `docs/agents/AGENT09_MARATHON_SHIM_FIXES.md`
+- **Status**: Phase 0 - Bug Fixes
+- **Dependencies**: TASK-02, TASK-05
+- **Agent Type**: Integration Adapter Agent
+
+## Phase 0 Completion
+
+**Status:** 🟡 95% Complete - Awaiting Cutover Execution
+
+**Completion Checklist:** `docs/refactoring/PHASE0_COMPLETION_CHECKLIST.md`
+
+**Remaining Items:**
+
+- Cutover execution and validation
+- `.env` + `.env.example` synchronization (local + prod)
+- Service stability monitoring (1 week minimum)
+- Final sign-off
+
+---
+
+## Phase 1: Foundation & Infrastructure - Content Service
+
+**Status:** 📋 Planning Complete - Ready for Execution
+
+**Task Decomposition:** `docs/refactoring/PHASE1_TASK_DECOMPOSITION.md`
+
+**Scope:**
+
+- Infrastructure setup and foundation
+- Content Service extraction (read-only)
+- AI microservice integration
+- Notifications-microservice integration
+
+**Task Groups:**
+
+- Group A: Infrastructure Setup (TASK-11) - Sequential
+- Group B: Content Service (TASK-12, TASK-13, TASK-14, TASK-15) - Parallel after Group A
+- Group C: Validation (TASK-16) - After Group B
+
+### TASK-11: Project Setup and Infrastructure Foundation
+
+- **Prompt**: `docs/agents/AGENT11_INFRA_SETUP.md`
+- **Status**: Phase 1 - Foundation
+- **Dependencies**: Phase 0 completion
+- **Agent Type**: Infra/Docker Agent
+
+### TASK-12: Content Service Design and API Contract
+
+- **Prompt**: `docs/agents/AGENT12_CONTENT_DESIGN.md`
+- **Status**: Phase 1 - Design
+- **Dependencies**: TASK-11
+- **Agent Type**: Backend Service Agent (Design)
+
+### TASK-13: Content Service Implementation
+
+- **Prompt**: `docs/agents/AGENT13_CONTENT_IMPLEMENTATION.md`
+- **Status**: Phase 1 - Implementation
+- **Dependencies**: TASK-11, TASK-12
+- **Agent Type**: Backend Service Agent (Implementation)
+
+### TASK-14: Content Data Migration
+
+- **Prompt**: `docs/agents/AGENT14_CONTENT_MIGRATION.md`
+- **Status**: Phase 1 - Data Migration
+- **Dependencies**: TASK-12, TASK-13
+- **Agent Type**: Data Migration Agent
+
+### TASK-15: AI Microservice Integration
+
+- **Prompt**: `docs/agents/AGENT15_AI_INTEGRATION.md`
+- **Status**: Phase 1 - Integration
+- **Dependencies**: TASK-12, TASK-13
+- **Agent Type**: Integration Adapter Agent
+
+### TASK-16: Phase 1 Validation and Cutover Checklist
+
+- **Prompt**: `docs/agents/AGENT16_PHASE1_VALIDATION.md`
+- **Status**: Phase 1 - Validation
+- **Dependencies**: TASK-11 through TASK-15
+- **Agent Type**: QA/Contract Validator Agent
+
+---
+
+## Phase 2+ (Aligned to ROADMAP)
+
+- Subsequent phases follow `docs/refactoring/ROADMAP.md` and will be decomposed into agent tasks after Phase 1 completion.

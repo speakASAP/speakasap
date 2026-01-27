@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Language {
+  id          Int      @id @default(autoincrement())
+  code        String   @db.VarChar(2) @unique
+  machineName String   @db.VarChar(255)
+  name        String   @db.VarChar(255)
+  iconPath    String   @db.VarChar(255)
+  order       Int      @default(0)
+  speaker     String   @db.VarChar(255) @default("носитель")
+
+  grammarCourse   GrammarCourse?
+  phoneticsCourse PhoneticsCourse?
+  songsCourse     SongsCourse?
+  words           Word[]
+
+  @@index([order])
+  @@index([name])
+}
+
+model GrammarCourse {
+  id              Int     @id @default(autoincrement())
+  title           String  @db.VarChar(255)
+  materialLanguage String @db.VarChar(2) @default("ru")
+  metaKeywords    String? @db.Text
+  metaDescription String? @db.Text
+  languageId      Int     @unique
+  language        Language @relation(fields: [languageId], references: [id])
+  lessons         GrammarLesson[]
+}
+
+model GrammarLesson {
+  id              Int     @id @default(autoincrement())
+  title           String  @db.VarChar(512)
+  courseId        Int
+  template        String  @db.VarChar(255)
+  alias           String? @db.VarChar(255)
+  url             String  @db.VarChar(255)
+  section         String? @db.VarChar(255)
+  teaser          String? @db.Text
+  order           Int     @default(0)
+  metaKeywords    String? @db.Text
+  metaDescription String? @db.Text
+
+  course GrammarCourse @relation(fields: [courseId], references: [id])
+
+  @@index([courseId, order])
+}
+
+model PhoneticsCourse {
+  id              Int     @id @default(autoincrement())
+  title           String  @db.VarChar(255)
+  materialLanguage String @db.VarChar(2) @default("ru")
+  metaKeywords    String? @db.Text
+  metaDescription String? @db.Text
+  languageId      Int     @unique
+  language        Language @relation(fields: [languageId], references: [id])
+  lessons         PhoneticsLesson[]
+}
+
+model PhoneticsLesson {
+  id              Int     @id @default(autoincrement())
+  title           String  @db.VarChar(255)
+  courseId        Int
+  order           Int
+  metaKeywords    String? @db.Text
+  metaDescription String? @db.Text
+
+  course PhoneticsCourse @relation(fields: [courseId], references: [id])
+
+  @@index([courseId, order])
+}
+
+model SongsCourse {
+  id               Int     @id @default(autoincrement())
+  title            String  @db.VarChar(255)
+  materialLanguage String  @db.VarChar(2) @default("ru")
+  languageId       Int     @unique
+  language         Language @relation(fields: [languageId], references: [id])
+  lessons          SongsLesson[]
+}
+
+model SongsLesson {
+  id       Int    @id @default(autoincrement())
+  title    String @db.VarChar(255)
+  courseId Int
+  order    Int
+
+  course SongsCourse @relation(fields: [courseId], references: [id])
+
+  @@index([courseId, order])
+}
+
+model Word {
+  id            Int     @id @default(autoincrement())
+  word          String  @db.VarChar(255)
+  transcription String? @db.VarChar(255)
+  translation   String? @db.Text
+  languageId    Int
+
+  language Language @relation(fields: [languageId], references: [id])
+  themes   WordThemeRelation[]
+
+  @@unique([word, languageId, translation])
+  @@index([word])
+}
+
+model WordTheme {
+  id          Int     @id @default(autoincrement())
+  name        String  @db.VarChar(255)
+  moduleClass String  @db.VarChar(255) @default("")
+  order       Int     @default(0)
+
+  words WordThemeRelation[]
+
+  @@index([order])
+  @@index([name])
+}
+
+model WordThemeRelation {
+  id      Int @id @default(autoincrement())
+  wordId  Int
+  themeId Int
+  order   Int @default(0)
+
+  word  Word      @relation(fields: [wordId], references: [id])
+  theme WordTheme @relation(fields: [themeId], references: [id])
+
+  @@unique([wordId, themeId, order])
+  @@index([themeId, order])
+}
