@@ -63,6 +63,22 @@ echo -e "${GREEN}Found nginx-microservice at: $NGINX_MICROSERVICE_PATH${NC}"
 echo -e "${GREEN}Deploying service: $SERVICE_NAME${NC}"
 echo ""
 
+if [ ! -f "$PROJECT_ROOT/.env" ]; then
+    echo -e "${RED}Error: .env not found in $PROJECT_ROOT${NC}"
+    echo "Create .env from .env.example and set PORT and PORT_GREEN at minimum."
+    exit 1
+fi
+
+if ! grep -q '^PORT=' "$PROJECT_ROOT/.env"; then
+    echo -e "${RED}Error: PORT is missing in .env${NC}"
+    exit 1
+fi
+
+if ! grep -q '^PORT_GREEN=' "$PROJECT_ROOT/.env"; then
+    echo -e "${RED}Error: PORT_GREEN is missing in .env${NC}"
+    exit 1
+fi
+
 echo -e "${BLUE}Validating docker-compose files...${NC}"
 if [ ! -f "$PROJECT_ROOT/docker-compose.blue.yml" ]; then
     echo -e "${RED}Error: docker-compose.blue.yml not found in $PROJECT_ROOT${NC}"
