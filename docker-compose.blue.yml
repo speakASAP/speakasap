@@ -1,0 +1,530 @@
+services:
+  # speakasap-content-service
+  speakasap-content-service:
+    build:
+      context: .
+      dockerfile: ./services/content-service/Dockerfile
+    container_name: speakasap-content-service-blue
+    ports:
+      - "${CONTENT_SERVICE_PORT:-4201}:${CONTENT_SERVICE_PORT:-4201}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME:-speakasap-content-service}
+      - PORT=${CONTENT_SERVICE_PORT:-4201}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - AI_SERVICE_URL=${AI_SERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${CONTENT_SERVICE_PORT:-4201}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  # speakasap-certification-service
+  speakasap-certification-service:
+    build:
+      context: .
+      dockerfile: ./services/certification-service/Dockerfile
+    container_name: speakasap-certification-service-blue
+    ports:
+      - "${CERTIFICATION_SERVICE_PORT:-4202}:${CERTIFICATION_SERVICE_PORT:-4202}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME:-speakasap-certification-service}
+      - PORT=${CERTIFICATION_SERVICE_PORT:-4202}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${CERTIFICATION_SERVICE_PORT:-4202}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  # speakasap-assessment-service
+  speakasap-assessment-service:
+    build:
+      context: .
+      dockerfile: ./services/assessment-service/Dockerfile
+    container_name: speakasap-assessment-service-blue
+    ports:
+      - "${ASSESSMENT_SERVICE_PORT:-4203}:${ASSESSMENT_SERVICE_PORT:-4203}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME:-speakasap-assessment-service}
+      - PORT=${ASSESSMENT_SERVICE_PORT:-4203}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${ASSESSMENT_SERVICE_PORT:-4203}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  # speakasap-course-service
+  speakasap-course-service:
+    build:
+      context: .
+      dockerfile: ./services/course-service/Dockerfile
+    container_name: speakasap-course-service-blue
+    ports:
+      - "${COURSE_SERVICE_PORT:-4205}:${COURSE_SERVICE_PORT:-4205}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME:-speakasap-course-service}
+      - PORT=${COURSE_SERVICE_PORT:-4205}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${COURSE_SERVICE_PORT:-4205}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  # speakasap-education-service
+  speakasap-education-service:
+    build:
+      context: .
+      dockerfile: ./services/education-service/Dockerfile
+    container_name: speakasap-education-service-blue
+    ports:
+      - "${EDUCATION_SERVICE_PORT:-4206}:${EDUCATION_SERVICE_PORT:-4206}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME:-speakasap-education-service}
+      - PORT=${EDUCATION_SERVICE_PORT:-4206}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${EDUCATION_SERVICE_PORT:-4206}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  # speakasap-user-service
+  speakasap-user-service:
+    build:
+      context: .
+      dockerfile: ./services/user-service/Dockerfile
+    container_name: speakasap-user-service-blue
+    ports:
+      - "${USER_SERVICE_PORT:-4207}:${USER_SERVICE_PORT:-4207}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME:-speakasap-user-service}
+      - PORT=${USER_SERVICE_PORT:-4207}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${USER_SERVICE_PORT:-4207}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  # speakasap-payment-service
+  speakasap-payment-service:
+    build:
+      context: .
+      dockerfile: ./services/payment-service/Dockerfile
+    container_name: speakasap-payment-service-blue
+    ports:
+      - "${PAYMENT_SERVICE_PORT:-4208}:${PAYMENT_SERVICE_PORT:-4208}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME:-speakasap-payment-service}
+      - PORT=${PAYMENT_SERVICE_PORT:-4208}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${PAYMENT_SERVICE_PORT:-4208}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  # speakasap-notification-service
+  speakasap-notification-service:
+    build:
+      context: .
+      dockerfile: ./services/notification-service/Dockerfile
+    container_name: speakasap-notification-service-blue
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT:-4209}:${NOTIFICATION_SERVICE_PORT:-4209}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME:-speakasap-notification-service}
+      - PORT=${NOTIFICATION_SERVICE_PORT:-4209}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${NOTIFICATION_SERVICE_PORT:-4209}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  # speakasap-api-gateway
+  speakasap-api-gateway:
+    build:
+      context: .
+      dockerfile: ./services/api-gateway/Dockerfile
+    container_name: speakasap-api-gateway-blue
+    ports:
+      - "${API_GATEWAY_PORT:-4210}:${API_GATEWAY_PORT:-4210}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME:-speakasap-api-gateway}
+      - PORT=${API_GATEWAY_PORT:-4210}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    depends_on:
+      - speakasap-content-service
+      - speakasap-certification-service
+      - speakasap-assessment-service
+      - speakasap-course-service
+      - speakasap-education-service
+      - speakasap-user-service
+      - speakasap-payment-service
+      - speakasap-notification-service
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${API_GATEWAY_PORT:-4210}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  # speakasap-frontend
+  speakasap-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: speakasap-frontend-blue
+    ports:
+      - "${FRONTEND_PORT:-4211}:${FRONTEND_PORT:-4211}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - PORT=${FRONTEND_PORT:-4211}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:${FRONTEND_PORT:-4211}/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # speakasap-salary-service
+  speakasap-salary-service:
+    build:
+      context: .
+      dockerfile: ./services/salary-service/Dockerfile
+    container_name: speakasap-salary-service-blue
+    ports:
+      - "${SALARY_SERVICE_PORT:-4212}:${SALARY_SERVICE_PORT:-4212}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME:-speakasap-salary-service}
+      - PORT=${SALARY_SERVICE_PORT:-4212}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${SALARY_SERVICE_PORT:-4212}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  # speakasap-financial-service
+  speakasap-financial-service:
+    build:
+      context: .
+      dockerfile: ./services/financial-service/Dockerfile
+    container_name: speakasap-financial-service-blue
+    ports:
+      - "${FINANCIAL_SERVICE_PORT:-4213}:${FINANCIAL_SERVICE_PORT:-4213}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME:-speakasap-financial-service}
+      - PORT=${FINANCIAL_SERVICE_PORT:-4213}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${FINANCIAL_SERVICE_PORT:-4213}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+networks:
+  nginx-network:
+    external: true
+    name: nginx-network

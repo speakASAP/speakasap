@@ -1,0 +1,60 @@
+# Base template for SpeakASAP services.
+# Copy into a service folder and customize values.
+# This template follows the marathon service pattern for consistency.
+#
+# Usage:
+# 1. Copy this file to your service directory
+# 2. Replace 'service-name' with your actual service name
+# 3. Update environment variables as needed
+# 4. Create docker-compose.blue.yml and docker-compose.green.yml based on this template
+
+services:
+  service-name:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: service-name
+    ports:
+      - "${PORT}:${PORT}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${SERVICE_NAME}
+      - PORT=${PORT}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - PAYMENTS_MICROSERVICE_URL=${PAYMENTS_MICROSERVICE_URL}
+      - AI_SERVICE_URL=${AI_SERVICE_URL}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5000}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30000}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT:-5000}
+      - NOTIFICATION_SERVICE_TIMEOUT=${NOTIFICATION_SERVICE_TIMEOUT:-10000}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT:-5000}
+      - RETRY_MAX_ATTEMPTS=${RETRY_MAX_ATTEMPTS:-3}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-1000}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${PORT}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+networks:
+  nginx-network:
+    external: true
+    name: nginx-network
