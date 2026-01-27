@@ -240,3 +240,12 @@ content-service/
 2. **Docker Compose Location**: Moved to root level (`speakasap/docker-compose.blue.yml`, `speakasap/docker-compose.green.yml`) to match statex structure
 3. **SharedModule**: Created to properly export PrismaService globally for all feature modules
 4. **Database Migrations**: Created and applied (though AGENT13 said not to create migrations, they were needed for deployment)
+5. **Environment Variables**: `.env.example` updated to include `NOTIFICATIONS_MICROSERVICE_URL` and `NOTIFICATIONS_MICROSERVICE_PORT` as required by AGENT13
+6. **Port Variables**: `.env.example` updated to use `CONTENT_SERVICE_PORT` and `CONTENT_SERVICE_PORT_GREEN` to match docker-compose files
+7. **Duplicate Files Removed**: Removed duplicate docker-compose files from `content-service/` directory (now only at root level)
+
+### Validation Fixes Applied
+
+- ✅ Added `NOTIFICATIONS_MICROSERVICE_URL` and `NOTIFICATIONS_MICROSERVICE_PORT` to `.env.example`
+- ✅ Fixed port variable names in `.env.example` (`CONTENT_SERVICE_PORT` instead of `PORT`)
+- ✅ Removed duplicate docker-compose files from `content-service/` directory
