@@ -6,16 +6,16 @@ ENV npm_config_update_notifier=false
 ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x
 
 FROM base AS deps
-COPY content-service/package*.json ./
-COPY content-service/prisma ./prisma
+COPY package*.json ./
+COPY prisma ./prisma
 RUN npm install --omit=dev
 
 FROM base AS build
-COPY content-service/package*.json ./
-COPY content-service/prisma ./prisma
+COPY package*.json ./
+COPY prisma ./prisma
 RUN npm install
-COPY content-service/tsconfig*.json ./
-COPY content-service/src ./src
+COPY tsconfig*.json ./
+COPY src ./src
 RUN npm run build
 
 FROM node:22-alpine AS runtime
@@ -27,7 +27,7 @@ ENV npm_config_update_notifier=false
 ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-COPY content-service/package*.json ./
-COPY content-service/prisma ./prisma
+COPY package*.json ./
+COPY prisma ./prisma
 EXPOSE ${PORT}
 CMD ["node", "dist/main.js"]
