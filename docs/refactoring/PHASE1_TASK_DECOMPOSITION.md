@@ -191,6 +191,7 @@ Design the Content Service API contract and data model based on legacy content a
 - Define pagination (max 30 items)
 - Document ai-microservice integration points
 - Create data mapping document
+- Include legacy URL mapping for each new endpoint
 
 #### Do Not
 
@@ -271,6 +272,19 @@ Implement the Content Service as a NestJS application with all API endpoints, bu
 - `speakasap/content-service/.env.example` - Environment variables template
 - `speakasap/content-service/scripts/deploy.sh` - Deployment script
 - `speakasap/content-service/README.md` - Service documentation
+
+#### Execution Status
+
+**Status:** 🚧 In Progress
+
+**Progress:**
+- ✅ NestJS application structure created
+- ✅ Controllers/services for read-only endpoints
+- ✅ Prisma integration and logging
+- ✅ Docker configs and deploy script
+- ✅ `.env.example` and README created
+- ⬜ Build/run verification pending
+- ⬜ Prisma validate with `DATABASE_URL` pending
 
 #### Exit Criteria
 
