@@ -17,11 +17,13 @@ All required endpoints are implemented and match legacy behavior. One minor disc
 ### 1. Winners Endpoints
 
 #### `GET /api/v1/winners`
+
 - **Status:** ✅ **MATCH**
 - **File:** `marathon/src/winners/winners.controller.ts:12-20`
 - **Service:** `marathon/src/winners/winners.service.ts:64-106`
 
 **Verification:**
+
 - ✅ Endpoint exists
 - ✅ Pagination: `limit` parameter respected (default 24, max 30)
 - ✅ Ordering: gold desc → silver desc → bronze desc (`medalOrder` constant)
@@ -30,6 +32,7 @@ All required endpoints are implemented and match legacy behavior. One minor disc
 - ⚠️ **Note:** Returns paginated object `{ items, page, limit, total, nextPage, prevPage }` instead of array. Legacy expects array, but shim can extract `items` array.
 
 **Evidence:**
+
 ```typescript
 // winners.service.ts:44-55
 const medalFilter = {
@@ -47,17 +50,20 @@ const medalOrder = [
 ```
 
 #### `GET /api/v1/winners/:winnerId`
+
 - **Status:** ✅ **MATCH**
 - **File:** `marathon/src/winners/winners.controller.ts:22-27`
 - **Service:** `marathon/src/winners/winners.service.ts:108-136`
 
 **Verification:**
+
 - ✅ Endpoint exists
 - ✅ Same filtering (only winners with medals > 0)
 - ✅ Response shape matches `WinnerDetailSerializer`: includes `reviews` array
 - ✅ Reviews shape matches `MarathonReviewSerializer`: `marathon`, `state`, `completed`, `review`, `thanks`
 
 **Evidence:**
+
 ```typescript
 // winners.service.ts:21-23
 export type WinnerDetail = WinnerSummary & {
@@ -70,11 +76,13 @@ export type WinnerDetail = WinnerSummary & {
 ### 2. Reviews Endpoint
 
 #### `GET /api/v1/reviews`
+
 - **Status:** ✅ **MATCH**
 - **File:** `marathon/src/reviews/reviews.controller.ts:8-11`
 - **Service:** `marathon/src/reviews/reviews.service.ts:127-130`
 
 **Verification:**
+
 - ✅ Endpoint exists
 - ✅ Public endpoint (no auth guard)
 - ✅ Returns static reviews list
@@ -82,6 +90,7 @@ export type WinnerDetail = WinnerSummary & {
 - ✅ Content matches legacy `REVIEWS` constant (10 reviews)
 
 **Evidence:**
+
 ```typescript
 // reviews.service.ts:4-8
 export type Review = {
@@ -96,11 +105,13 @@ export type Review = {
 ### 3. Random Answer Endpoint
 
 #### `GET /api/v1/answers/random`
+
 - **Status:** ✅ **MATCH**
 - **File:** `marathon/src/answers/answers.controller.ts:8-21`
 - **Service:** `marathon/src/answers/answers.service.ts:18-69`
 
 **Verification:**
+
 - ✅ Endpoint exists
 - ✅ Query params: `stepId` (required), `excludeMarathonerId` (optional)
 - ✅ Only completed answers (`isCompleted: true`)
@@ -109,6 +120,7 @@ export type Review = {
 - ✅ Response shape matches `AnswerSerializer`: `marathoner { name }`, `report`, `complete_time`
 
 **Evidence:**
+
 ```typescript
 // answers.service.ts:4-10
 export type RandomAnswer = {
@@ -127,17 +139,20 @@ export type RandomAnswer = {
 ### 4. My Marathons Endpoints
 
 #### `GET /api/v1/me/marathons`
+
 - **Status:** ✅ **MATCH**
 - **File:** `marathon/src/me/me.controller.ts:13-15`
 - **Service:** `marathon/src/me/me.service.ts:36-61`
 
 **Verification:**
+
 - ✅ Endpoint exists
 - ✅ Auth required (`@UseGuards(AuthGuard)`)
 - ✅ Returns user's marathoners (filtered by `userId`)
 - ✅ Response shape matches `MyMarathonSerializer`: all required fields present
 
 **Evidence:**
+
 ```typescript
 // me.service.ts:14-26
 export type MyMarathon = {
@@ -156,11 +171,13 @@ export type MyMarathon = {
 ```
 
 #### `GET /api/v1/me/marathons/:marathonerId`
+
 - **Status:** ✅ **MATCH**
 - **File:** `marathon/src/me/me.controller.ts:18-24`
 - **Service:** `marathon/src/me/me.service.ts:63-95`
 
 **Verification:**
+
 - ✅ Endpoint exists
 - ✅ Auth required (`@UseGuards(AuthGuard)`)
 - ✅ Returns specific marathoner for the user (filtered by `userId` and `marathonerId`)
@@ -171,17 +188,20 @@ export type MyMarathon = {
 ### 5. Languages Endpoint
 
 #### `GET /api/v1/marathons/languages`
+
 - **Status:** ✅ **MATCH**
 - **File:** `marathon/src/marathons/marathons.controller.ts:17-20`
 - **Service:** `marathon/src/marathons/marathons.service.ts:110-141`
 
 **Verification:**
+
 - ✅ Endpoint exists
 - ✅ Public endpoint (no auth guard)
 - ✅ Response shape matches `MarathonLanguageSerializer`: `id`, `code`, `small_icon`, `payment_url`, `name`, `full_name`, `url`
 - ⚠️ **Note:** `small_icon` is empty string (hardcoded metadata in `LANGUAGE_METADATA`). Acceptable for Phase 0.
 
 **Evidence:**
+
 ```typescript
 // marathons.service.ts:18-26
 export type MarathonLanguage = {
@@ -200,17 +220,20 @@ export type MarathonLanguage = {
 ### 6. Registration Endpoint
 
 #### `POST /api/v1/registrations`
+
 - **Status:** ✅ **MATCH**
 - **File:** `marathon/src/registrations/registrations.controller.ts:8-11`
 - **Service:** `marathon/src/registrations/registrations.service.ts:27-79`
 
 **Verification:**
+
 - ✅ Endpoint exists
 - ✅ Anonymous only (no auth guard)
 - ✅ Creates marathoner (`MarathonParticipant`)
 - ✅ Returns `marathonerId` and `redirectUrl`
 
 **Evidence:**
+
 ```typescript
 // registrations.service.ts:13-16
 export type RegistrationResponse = {
@@ -229,6 +252,7 @@ export type RegistrationResponse = {
 - ✅ Auth implementation: `marathon/src/shared/auth.guard.ts` validates Bearer token via auth service
 
 **Evidence:**
+
 ```typescript
 // me.controller.ts:9
 @UseGuards(AuthGuard)
@@ -240,19 +264,24 @@ export class MeController { ... }
 ## Response Shape Parity
 
 ### Winners
+
 - ✅ List: `id`, `name`, `gold`, `silver`, `bronze`, `avatar` (matches `WinnerSerializer`)
 - ✅ Detail: includes `reviews` array (matches `WinnerDetailSerializer`)
 
 ### Reviews
+
 - ✅ `name`, `photo`, `text` (matches `ReviewSerializer`)
 
 ### Random Answer
+
 - ✅ `marathoner { name }`, `report`, `complete_time` (matches `AnswerSerializer`)
 
 ### My Marathons
+
 - ✅ `title`, `type`, `needs_payment`, `registered`, `id`, `bonus_total`, `bonus_left`, `can_change_report_time`, `report_time`, `current_step`, `answers` (matches `MyMarathonSerializer`)
 
 ### Languages
+
 - ✅ `id`, `code`, `small_icon`, `payment_url`, `name`, `full_name`, `url` (matches `MarathonLanguageSerializer`)
 
 ---
@@ -295,6 +324,7 @@ export class MeController { ... }
 ### ✅ **GO for Parity Readiness**
 
 **Rationale:**
+
 1. All 8 required endpoints are implemented
 2. All response shapes match legacy serializers
 3. Auth requirements are correctly enforced
@@ -302,6 +332,7 @@ export class MeController { ... }
 5. Minor discrepancies (pagination format, empty small_icon) are acceptable and can be handled by shim
 
 **Recommendations:**
+
 1. ✅ Proceed with shim implementation (AGENT08)
 2. ✅ Test pagination format handling in shim
 3. ⚠️ Language `small_icon` is empty string (acceptable for Phase 0 - visual enhancement only)

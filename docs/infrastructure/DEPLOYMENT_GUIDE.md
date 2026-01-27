@@ -93,11 +93,13 @@ FRONTEND_URL=https://speakasap.com
 ### .env Sync Process
 
 **Local Development:**
+
 1. Copy `.env.example` to `.env`
 2. Fill in all required values
 3. Never commit `.env` to git
 
 **Production:**
+
 1. SSH to production server
 2. Navigate to service directory
 3. Update `.env` with production values
@@ -136,11 +138,13 @@ cd ~/nginx-microservice
 ### Rollback
 
 If deployment fails, the script automatically:
+
 1. Switches traffic back to blue
 2. Stops green containers
 3. Logs the error
 
 Manual rollback:
+
 ```bash
 cd ~/nginx-microservice
 ./scripts/blue-green/rollback.sh speakasap-content-service
@@ -149,10 +153,12 @@ cd ~/nginx-microservice
 ## Health Checks
 
 All services must implement a `/health` endpoint that returns:
+
 - `200 OK` when healthy
 - Any other status when unhealthy
 
 Health check configuration in docker-compose:
+
 ```yaml
 healthcheck:
   test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${PORT}/health"]
