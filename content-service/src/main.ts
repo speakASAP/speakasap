@@ -22,10 +22,21 @@ async function bootstrap(): Promise<void> {
     validateEnv();
     console.log('Environment validated');
     console.log('Creating NestJS application...');
+    console.log('Creating ContentLogger...');
+    let logger;
+    try {
+      logger = new ContentLogger();
+      console.log('ContentLogger created successfully');
+    } catch (loggerError) {
+      console.error('Failed to create ContentLogger:', loggerError);
+      console.error('Logger error:', (loggerError as Error)?.message);
+      throw loggerError;
+    }
     let app;
     try {
+      console.log('Creating NestFactory...');
       app = await NestFactory.create(AppModule, {
-        logger: new ContentLogger(),
+        logger: logger,
       });
       console.log('NestJS application created');
     } catch (createError) {
