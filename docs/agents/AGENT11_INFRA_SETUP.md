@@ -37,7 +37,7 @@ Create the project structure, Docker configuration templates, shared microservic
   ```text
   speakasap/
   ├── README.md
-  ├── docker-compose.base.yml
+  ├── docker-compose.yml
   ├── .env.example
   ├── scripts/
   │   └── deploy.sh
@@ -110,7 +110,7 @@ Create the project structure, Docker configuration templates, shared microservic
    - How to use base templates
    - Port allocation reference
 
-2. **`speakasap/docker-compose.base.yml`**
+2. **`speakasap/docker-compose.yml`**
    - Base Docker Compose template
    - Blue/green deployment structure
    - Health check configuration
@@ -164,7 +164,7 @@ Create the project structure, Docker configuration templates, shared microservic
 
    ```bash
    cd speakasap
-   docker compose -f docker-compose.base.yml config
+   docker compose -f docker-compose.yml config
    # Should validate without errors
    ```
 

@@ -140,7 +140,7 @@ Set up the `speakasap` project structure, Docker configuration, and shared micro
 #### Outputs
 
 - `speakasap/README.md` - Project structure documentation
-- `speakasap/docker-compose.base.yml` - Base Docker Compose template
+- `speakasap/docker-compose.yml` - Base Docker Compose template
 - `speakasap/.env.example` - Base environment variables template
 - `speakasap/scripts/deploy.sh` - Deployment script template
 - `speakasap/docs/infrastructure/SHARED_SERVICES.md` - Shared service connection guide

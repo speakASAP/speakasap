@@ -3,7 +3,7 @@ services:
     build:
       context: ./content-service
       dockerfile: Dockerfile
-    container_name: speakasap-content-service-speakasap-green
+    container_name: speakasap-content-green
     ports:
       - "${CONTENT_SERVICE_PORT_GREEN}:${CONTENT_SERVICE_PORT}"
     env_file:

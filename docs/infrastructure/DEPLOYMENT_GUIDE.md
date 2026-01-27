@@ -169,7 +169,7 @@ healthcheck:
 
 ## Docker Compose Template
 
-Use `docker-compose.base.yml` as a template:
+Use `docker-compose.yml` as a template:
 
 1. Copy to service directory
 2. Replace `service-name` with actual service name
@@ -231,6 +231,6 @@ Ensure ports are unique across all services. Check `docs/infrastructure/PORT_ALL
 
 - Port Allocation: `docs/infrastructure/PORT_ALLOCATION.md`
 - Shared Services: `docs/infrastructure/SHARED_SERVICES.md`
-- Base Template: `docker-compose.base.yml`
+- Base Template: `docker-compose.yml`
 - Deployment Script: `scripts/deploy.sh`
 - Marathon Reference: `/Users/sergiystashok/Documents/GitHub/marathon`

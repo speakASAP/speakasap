@@ -9,28 +9,28 @@ Phase 1+ services.
 ```text
 speakasap/
 ├── README.md                    # This file
-├── docker-compose.base.yml      # Base Docker Compose template
+├── docker-compose.yml           # Base Docker Compose template
 ├── docker-compose.blue.yml      # Blue environment (all services)
-├── docker-compose.green.yml    # Green environment (all services)
-├── .env.example                # Environment variables template
+├── docker-compose.green.yml     # Green environment (all services)
+├── .env.example                 # Environment variables template
 ├── scripts/
-│   └── deploy.sh          # Deployment script template
+│   └── deploy.sh                # Deployment script template
 ├── shared/                      # Shared utilities
-│   └── notifications/          # Notification client
+│   └── notifications/           # Notification client
 └── docs/
     ├── agents/                  # Agent task definitions
-    ├── infrastructure/         # Infrastructure documentation
+    ├── infrastructure/          # Infrastructure documentation
     │   ├── SHARED_SERVICES.md
     │   ├── PORT_ALLOCATION.md
     │   └── DEPLOYMENT_GUIDE.md
-    └── refactoring/            # Refactoring plans and tasks
+    └── refactoring/             # Refactoring plans and tasks
 ```
 
 ## Quick Start
 
 ### 1. Create a New Service
 
-1. Copy `docker-compose.base.yml` to your service directory
+1. Copy `docker-compose.yml` to your service directory
 2. Replace `service-name` with your actual service name
 3. Create `docker-compose.blue.yml` and `docker-compose.green.yml` based on the template
 4. Update container names to include `-blue` and `-green` suffixes
@@ -97,7 +97,7 @@ See `docs/infrastructure/DEPLOYMENT_GUIDE.md` for complete deployment instructio
 
 ### Base Template
 
-`docker-compose.base.yml` provides a template following marathon service patterns:
+`docker-compose.yml` provides a template following marathon service patterns:
 
 - Multi-stage build support
 - Blue/green deployment ready
@@ -107,7 +107,7 @@ See `docs/infrastructure/DEPLOYMENT_GUIDE.md` for complete deployment instructio
 
 ### Usage
 
-1. Copy `docker-compose.base.yml` to service directory
+1. Copy `docker-compose.yml` to service directory
 2. Replace `service-name` with actual service name
 3. Update environment variables
 4. Create blue and green variants
