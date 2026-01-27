@@ -7,6 +7,9 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
     "postinstall": "npm run prisma:generate"
   },
   "dependencies": {

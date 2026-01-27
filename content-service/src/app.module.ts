@@ -7,12 +7,12 @@ import { DictionaryModule } from './dictionary/dictionary.module';
 import { SongsModule } from './songs/songs.module';
 import { LanguagesModule } from './languages/languages.module';
 import { RequestContextMiddleware } from './shared/request-context.middleware';
-import { PrismaService } from './shared/prisma.service';
+import { SharedModule } from './shared/shared.module';
 
 @Module({
-  imports: [GrammarModule, PhoneticsModule, DictionaryModule, SongsModule, LanguagesModule],
+  imports: [SharedModule, GrammarModule, PhoneticsModule, DictionaryModule, SongsModule, LanguagesModule],
   controllers: [AppController],
-  providers: [AppService, PrismaService],
+  providers: [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
