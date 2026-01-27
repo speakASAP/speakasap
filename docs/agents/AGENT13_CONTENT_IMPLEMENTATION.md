@@ -16,7 +16,7 @@ Implement the Content Service as a complete NestJS application with all API endp
 - `speakasap/content-service/prisma/schema.prisma` - Prisma schema (from TASK-12)
 - `docs/refactoring/CONTENT_DATA_MAPPING.md` - Data mapping (from TASK-12)
 - Marathon service as reference: `/Users/sergiystashok/Documents/GitHub/marathon`
-- Infrastructure templates: `speakasap/docker-compose.base.yml`, `speakasap/.env.example` (from TASK-11)
+- Infrastructure templates: `speakasap/docker-compose.yml`, `speakasap/.env.example` (from TASK-11)
 - Shared service utilities: `speakasap/docs/infrastructure/SHARED_SERVICES.md` (from TASK-11)
 
 ## Scope
