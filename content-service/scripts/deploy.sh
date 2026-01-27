@@ -20,7 +20,7 @@ echo -e "${BLUE}║      Content Service - Production Deployment              �
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-SERVICE_NAME="speakasap-content-service"
+SERVICE_NAME="speakasap"
 
 NGINX_MICROSERVICE_PATH="${NGINX_MICROSERVICE_PATH:-}"
 

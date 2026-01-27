@@ -27,7 +27,7 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 
 # Service name
-SERVICE_NAME="speakasap-content-service"
+SERVICE_NAME="speakasap"
 
 # Detect nginx-microservice path
 # Try common production paths first, then fallback to relative path
