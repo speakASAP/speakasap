@@ -1,10 +1,6 @@
 #!/bin/bash
-# Deployment script template for SpeakASAP services.
-# Integrates with nginx-microservice blue/green deployment.
-# Follows marathon service deployment pattern for consistency.
-#
-# Usage: ./scripts/deploy.sh [service-name]
-# If service-name is not provided, attempts to detect from .env SERVICE_NAME or directory name.
+# Content Service Deployment Script
+# Deploys the content-service using nginx-microservice blue/green system.
 
 set -e
 
@@ -23,49 +19,53 @@ echo ""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Determine service name
-SERVICE_NAME="$1"
+SERVICE_DIR="$PROJECT_ROOT/content-service"
+ENV_FILE="$PROJECT_ROOT/.env"
 
-if [ -z "$SERVICE_NAME" ]; then
-  # Try to detect from .env file
-  if [ -f "$PROJECT_ROOT/.env" ]; then
-    SERVICE_NAME=$(grep -E "^SERVICE_NAME=" "$PROJECT_ROOT/.env" | cut -d'=' -f2 | tr -d '"' | tr -d "'" | xargs)
-  fi
-  
-  # If still not found, try directory name
-  if [ -z "$SERVICE_NAME" ]; then
-    SERVICE_NAME=$(basename "$PROJECT_ROOT")
-  fi
+if [ -f "$ENV_FILE" ]; then
+  SERVICE_NAME=$(grep -E "^SERVICE_NAME=" "$ENV_FILE" | cut -d'=' -f2 | tr -d '"' | tr -d "'" | xargs)
 fi
 
-if [ -z "$SERVICE_NAME" ]; then
-  echo -e "${RED}Error: Service name required${NC}"
-  echo "Usage: ./scripts/deploy.sh [service-name]"
-  echo "Example: ./scripts/deploy.sh speakasap-content-service"
-  echo ""
-  echo "Or set SERVICE_NAME in .env file"
+SERVICE_NAME="${SERVICE_NAME:-content-service}"
+
+if [ ! -d "$SERVICE_DIR" ]; then
+  echo -e "${RED}Error: content-service directory not found in $PROJECT_ROOT${NC}"
   exit 1
 fi
 
-# Validate docker-compose files exist
-if [ ! -f "$PROJECT_ROOT/docker-compose.blue.yml" ]; then
-  echo -e "${RED}Error: docker-compose.blue.yml not found in $PROJECT_ROOT${NC}"
+if [ ! -f "$ENV_FILE" ]; then
+  echo -e "${RED}Error: .env not found in $PROJECT_ROOT${NC}"
+  echo "Create .env from .env.example and set CONTENT_SERVICE_PORT and CONTENT_SERVICE_PORT_GREEN."
   exit 1
 fi
 
-if [ ! -f "$PROJECT_ROOT/docker-compose.green.yml" ]; then
-  echo -e "${RED}Error: docker-compose.green.yml not found in $PROJECT_ROOT${NC}"
+if ! grep -q '^CONTENT_SERVICE_PORT=' "$ENV_FILE"; then
+  echo -e "${RED}Error: CONTENT_SERVICE_PORT is missing in .env${NC}"
   exit 1
 fi
 
-# Validate docker-compose files
+if ! grep -q '^CONTENT_SERVICE_PORT_GREEN=' "$ENV_FILE"; then
+  echo -e "${RED}Error: CONTENT_SERVICE_PORT_GREEN is missing in .env${NC}"
+  exit 1
+fi
+
+if [ ! -f "$SERVICE_DIR/docker-compose.blue.yml" ]; then
+  echo -e "${RED}Error: docker-compose.blue.yml not found in $SERVICE_DIR${NC}"
+  exit 1
+fi
+
+if [ ! -f "$SERVICE_DIR/docker-compose.green.yml" ]; then
+  echo -e "${RED}Error: docker-compose.green.yml not found in $SERVICE_DIR${NC}"
+  exit 1
+fi
+
 echo -e "${BLUE}Validating docker-compose files...${NC}"
-if ! docker compose -f "$PROJECT_ROOT/docker-compose.blue.yml" config --quiet 2>/dev/null; then
+if ! docker compose -f "$SERVICE_DIR/docker-compose.blue.yml" config --quiet 2>/dev/null; then
   echo -e "${RED}Error: docker-compose.blue.yml is invalid${NC}"
   exit 1
 fi
 
-if ! docker compose -f "$PROJECT_ROOT/docker-compose.green.yml" config --quiet 2>/dev/null; then
+if ! docker compose -f "$SERVICE_DIR/docker-compose.green.yml" config --quiet 2>/dev/null; then
   echo -e "${RED}Error: docker-compose.green.yml is invalid${NC}"
   exit 1
 fi
