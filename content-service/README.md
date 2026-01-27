@@ -12,7 +12,7 @@ Read-only Content Service (NestJS + TypeScript) for legacy content apps:
 ## Deployment (blue/green)
 
 - Use deployment script:
-  - `cd /home/statex/content-service`
+  - `cd /home/statex/speakasap`
   - `./scripts/deploy.sh`
 
 ## API
