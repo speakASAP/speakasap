@@ -63,12 +63,14 @@
    - ✅ Re-run audits: Both AGENT07 and AGENT08 should show GO
 
 2. **Marathon service health check**
+
    ```bash
    curl -f $MARATHON_URL/health
    # Expected: 200 OK
    ```
 
 3. **Environment variables configured**
+
    ```bash
    grep -E "MARATHON_(URL|SHIM_ENABLED|API_KEY)" speakasap-portal/.env
    # Verify MARATHON_URL is set, MARATHON_SHIM_ENABLED=false
@@ -84,6 +86,7 @@
    - Verify all prerequisites are GO
 
 2. **Enable shim**  
+
    ```bash
    cd speakasap-portal
    cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
@@ -107,6 +110,7 @@
    - ✅ No frontend errors related to response format
 
 5. **Smoke tests**  
+
    ```bash
    # Winners (shim transforms to DRF format: {count, next, previous, results[]})
    curl -s https://<portal>/marathon/api/winners.json | jq '.results[0]'
@@ -161,12 +165,14 @@
 **Symptoms:** Frontend errors, missing data, pagination not working
 
 **Check:**
+
 1. Verify shim transformation is working: Check response format matches DRF `{count, next, previous, results[]}`
 2. Check browser console for API errors
 3. Verify shim logs show successful transformation
 4. Test API directly: `curl https://<portal>/marathon/api/winners.json | jq '.'` should show DRF format
 
 **Action:** If transformation not working:
+
 - Check shim code in `speakasap-portal/marathon/api_views/winners.py:56-70`
 - Verify new service returns expected format
 - Roll back immediately (set `MARATHON_SHIM_ENABLED=false`) if needed
@@ -176,6 +182,7 @@
 **Symptoms:** `/marathon/api/my/{id}.json` returns array instead of object
 
 **Check:**
+
 1. Verify routing fix applied: `grep "MyMarathon" speakasap-portal/marathon/api_urls.py`
 2. Check shim logs for `marathon shim get my marathon` (should show detail endpoint calls)
 
@@ -186,6 +193,7 @@
 **Symptoms:** Many `marathon shim … failed` logs, frequent legacy fallbacks
 
 **Check:**
+
 1. Marathon service health: `curl $MARATHON_URL/health`
 2. Network connectivity between portal and marathon service
 3. Marathon service logs for errors
