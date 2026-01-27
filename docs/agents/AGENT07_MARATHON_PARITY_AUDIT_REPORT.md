@@ -20,39 +20,39 @@ The marathon service implements all required endpoints with correct business log
 ### ✅ Winners Endpoints
 
 | Endpoint | Legacy Route | New Service Route | Status | File Reference |
-|----------|--------------|-------------------|--------|----------------|
+| -------- | ------------ | ----------------- | ------ | -------------- |
 | List | `GET /marathon/api/winners.json` | `GET /api/v1/winners` | ✅ Exists | `src/winners/winners.controller.ts:12` |
 | Detail | `GET /marathon/api/winners/{id}.json` | `GET /api/v1/winners/{winnerId}` | ✅ Exists | `src/winners/winners.controller.ts:22` |
 
 ### ✅ Random Report Endpoint
 
 | Endpoint | Legacy Route | New Service Route | Status | File Reference |
-|----------|--------------|-------------------|--------|----------------|
+| -------- | ------------ | ----------------- | ------ | -------------- |
 | Random | `GET /marathon/api/random_report/{step}.json?marathoner=` | `GET /api/v1/answers/random?stepId=&excludeMarathonerId=` | ✅ Exists | `src/answers/answers.controller.ts:8` |
 
 ### ✅ My Marathons Endpoints
 
 | Endpoint | Legacy Route | New Service Route | Status | File Reference |
-|----------|--------------|-------------------|--------|----------------|
+| -------- | ------------ | ----------------- | ------ | -------------- |
 | List | `GET /marathon/api/my.json` | `GET /api/v1/me/marathons` | ✅ Exists | `src/me/me.controller.ts:13` |
 | Detail | `GET /marathon/api/my/{id}.json` | `GET /api/v1/me/marathons/{marathonerId}` | ✅ Exists | `src/me/me.controller.ts:18` |
 
 ### ✅ Languages Endpoint
 
 | Endpoint | Legacy Route | New Service Route | Status | File Reference |
-|----------|--------------|-------------------|--------|----------------|
+| -------- | ------------ | ----------------- | ------ | -------------- |
 | List | `GET /marathon/api/languages.json` | `GET /api/v1/marathons/languages` | ✅ Exists | `src/marathons/marathons.controller.ts:17` |
 
 ### ✅ Reviews Endpoint
 
 | Endpoint | Legacy Route | New Service Route | Status | File Reference |
-|----------|--------------|-------------------|--------|----------------|
+| -------- | ------------ | ----------------- | ------ | -------------- |
 | List | `GET /marathon/api/reviews.json` | `GET /api/v1/reviews` | ✅ Exists | `src/reviews/reviews.controller.ts:8` |
 
 ### ✅ Registration Endpoint
 
 | Endpoint | Legacy Route | New Service Route | Status | File Reference |
-|----------|--------------|-------------------|--------|----------------|
+| -------- | ------------ | ----------------- | ------ | -------------- |
 | Register | `POST /marathon/api/register.json` | `POST /api/v1/registrations` | ✅ Exists | `src/registrations/registrations.controller.ts:8` |
 
 ---

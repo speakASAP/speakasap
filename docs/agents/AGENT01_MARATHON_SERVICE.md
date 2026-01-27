@@ -13,7 +13,7 @@ Define the domain boundary, API contract, and initial product structure for `mar
 ## Completion status (as of 2026-01-26)
 
 | Output / criterion | Status | Notes |
-|--------------------|--------|--------|
+| ------------------ | ------ | ------ |
 | API contract documented | ✅ Done | `docs/refactoring/MARATHON_API_CONTRACT.md` |
 | Service skeleton / implementation | ✅ Done | NestJS app in `marathon` repo: marathons, registrations, winners |
 | DB schema proposal | ✅ Done | Prisma schema in `marathon/prisma/schema.prisma`; aligns with `MARATHON_DATA_MAPPING.md` |

@@ -18,7 +18,7 @@ Critical routing bug identified: `GET /marathon/api/my/{id}.json` endpoint incor
 ## 1. Endpoint Mapping: Legacy → New Service
 
 | Legacy Route | New Service Route | View/Handler | Status | File Reference |
-|--------------|-------------------|--------------|--------|----------------|
+| ------------ | ----------------- | ------------ | ------ | -------------- |
 | `GET /marathon/api/winners.json` | `GET /api/v1/winners` | `WinnerListView.list()` | ✅ Mapped | `api_views/winners.py:32-65` |
 | `GET /marathon/api/winners/{id}.json` | `GET /api/v1/winners/{winnerId}` | `WinnerView.retrieve()` | ✅ Mapped | `api_views/winners.py:75-108` |
 | `GET /marathon/api/random_report/{step}.json?marathoner=` | `GET /api/v1/answers/random?stepId={step}&excludeMarathonerId={marathoner}` | `RandomReportView.retrieve()` | ✅ Mapped | `api_views/winners.py:131-170` |
@@ -79,14 +79,14 @@ url(r'^my/(?P<pk>\d+)\.json', MyMarathon.as_view()),  # Use RetrieveAPIView
 ### Required Variables
 
 | Variable | Usage | Status | Evidence |
-|----------|-------|--------|----------|
+| -------- | ----- | ------ | -------- |
 | `MARATHON_URL` | Base URL for new service | ✅ Used | All 8 shims check `os.getenv('MARATHON_URL')` |
 | `MARATHON_SHIM_ENABLED` | Toggle to enable/disable shim | ✅ Used | All 8 shims check with default `'false'` |
 
 ### Optional Variables
 
 | Variable | Usage | Status | Evidence |
-|----------|-------|--------|----------|
+| -------- | ----- | ------ | -------- |
 | `MARATHON_API_KEY` | API key for new service auth | ✅ Used | Conditionally added to headers if present |
 
 **Verification Pattern (used in all shims):**
@@ -125,7 +125,7 @@ if api_key:
 **Status:** ✅ **SAFE**
 
 | Condition | Behavior | Implementation | Status |
-|-----------|----------|----------------|--------|
+| --------- | -------- | -------------- | ------ |
 | 5xx response | Fallback to legacy | `if response.status_code >= 500: return super().*()` | ✅ |
 | Timeout/Exception | Fallback to legacy | `except Exception: return super().*()` | ✅ |
 | 4xx response | Return new service response | Returns `Response(response.json(), status=response.status_code)` | ✅ |
@@ -161,7 +161,7 @@ All shims log:
 **Log Patterns:**
 
 | Endpoint | Success Log | Error Log | User ID | Status |
-|----------|-------------|-----------|---------|--------|
+| -------- | ----------- | --------- | ------- | ------ |
 | Winners list | `'marathon shim list winners'` | `'marathon shim list winners failed'` | No | ✅ |
 | Winner detail | `'marathon shim get winner'` | `'marathon shim get winner failed'` | No | ✅ |
 | Random report | `'marathon shim random report'` | `'marathon shim random report failed'` | No | ✅ |
@@ -201,21 +201,21 @@ logger.error(
 ### Winners Endpoints
 
 | Legacy | New Service | Status |
-|--------|-------------|--------|
+| ------ | ----------- | ------ |
 | Query params passed through | `params=request.GET` | ✅ |
 | `{id}` → `{winnerId}` | URL parameter: `kwargs.get('pk')` | ✅ |
 
 ### Random Report
 
 | Legacy | New Service | Status |
-|--------|-------------|--------|
+| ------ | ----------- | ------ |
 | `{step}` → `stepId` | `params = {'stepId': step_id}` | ✅ |
 | `?marathoner=` → `excludeMarathonerId` | `if marathoner_id: params['excludeMarathonerId'] = marathoner_id` | ✅ |
 
 ### My Marathons
 
 | Legacy | New Service | Status |
-|--------|-------------|--------|
+| ------ | ----------- | ------ |
 | `{id}` → `{marathonerId}` | ❌ Not mapped (routing bug) | ❌ |
 | Auth header forwarded | `headers['Authorization'] = auth_header` | ✅ |
 
@@ -224,7 +224,7 @@ logger.error(
 ### Registration
 
 | Legacy | New Service | Status |
-|--------|-------------|--------|
+| ------ | ----------- | ------ |
 | Request body forwarded | `json=request.data` | ✅ |
 | Redirect URL handled | `redirect_url = payload.get('redirectUrl')` | ✅ |
 

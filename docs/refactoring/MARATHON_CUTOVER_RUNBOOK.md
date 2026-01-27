@@ -9,7 +9,7 @@
 ## Prerequisites (all must be GO)
 
 | Gate | Status | Reference |
-|------|--------|-----------|
+| ---- | ------ | --------- |
 | **Parity audit (AGENT07)** | ✅ **GO** | `AGENT07_MARATHON_PARITY_AUDIT_REPORT.md` — pagination format: shim transformation added |
 | **Shim audit (AGENT08)** | ✅ **GO** | `AGENT08_LEGACY_SHIM_AUDIT_REPORT.md` — routing bug fixed, 404 handling standardized |
 | **Phase 0 validation** | ✅ GO | `MARATHON_PHASE0_VALIDATION.md` — contract, data mapping, infra validated |

@@ -9,7 +9,7 @@
 ## 1. Endpoint Existence & Params
 
 | Checklist item | Implementation | Status |
-|----------------|----------------|--------|
+| -------------- | -------------- | ------ |
 | `GET /api/v1/winners` (list) | `winners.controller.ts` `@Get()`, `page` & `limit` query | ✅ |
 | `GET /api/v1/winners/:winnerId` (detail) | `winners.controller.ts` `@Get(':winnerId')` | ✅ |
 | `GET /api/v1/answers/random?stepId=&excludeMarathonerId=` | `answers.controller.ts` `@Get('random')` | ✅ |
@@ -26,7 +26,7 @@ Base path `api/v1` and `health` exclusion: `main.ts` (line 14).
 ## 2. Winners
 
 | Rule | Location | Status |
-|------|----------|--------|
+| ---- | -------- | ------ |
 | Pagination `limit`; default 24 | `winners.controller.ts` L19: `limit ? parseInt(limit, 10) : 24` | ✅ |
 | Limit max 30 | `winners.service.ts` `MAX_PAGE_SIZE = 30`, `Math.min(..., MAX_PAGE_SIZE)` | ✅ |
 | Order gold desc, silver desc, bronze desc | `winners.service.ts` `medalOrder` | ✅ |
@@ -41,7 +41,7 @@ Base path `api/v1` and `health` exclusion: `main.ts` (line 14).
 ## 3. Random Report (`/answers/random`)
 
 | Rule | Location | Status |
-|------|----------|--------|
+| ---- | -------- | ------ |
 | Only completed answers | `answers.service.ts` `where: { isCompleted: true }` | ✅ |
 | Exclude marathoner when provided | `excludeMarathonerId` → `participantId: { not }` | ✅ |
 | 404 when no match | `answers.controller.ts` `NotFoundException('No random answer found')` | ✅ |
@@ -52,7 +52,7 @@ Base path `api/v1` and `health` exclusion: `main.ts` (line 14).
 ## 4. My Marathons
 
 | Rule | Location | Status |
-|------|----------|--------|
+| ---- | -------- | ------ |
 | Auth required | `me.controller.ts` `@UseGuards(AuthGuard)` | ✅ |
 | List & detail | `@Get()`, `@Get(':marathonerId')` | ✅ |
 | Shape: title, type, needs_payment, registered, id, bonus_total, bonus_left, can_change_report_time, report_time, current_step, answers | `MyMarathon` in `me.service.ts` | ✅ |
@@ -64,7 +64,7 @@ Base path `api/v1` and `health` exclusion: `main.ts` (line 14).
 ## 5. Languages
 
 | Rule | Location | Status |
-|------|----------|--------|
+| ---- | -------- | ------ |
 | Shape: id, code, small_icon, payment_url, name, full_name, url | `MarathonLanguage` in `marathons.service.ts`, `listLanguages()` | ✅ |
 | Public | No guard on `marathons` controller | ✅ |
 
@@ -73,7 +73,7 @@ Base path `api/v1` and `health` exclusion: `main.ts` (line 14).
 ## 6. Reviews
 
 | Rule | Location | Status |
-|------|----------|--------|
+| ---- | -------- | ------ |
 | Static list; shape name, photo, text | `reviews.service.ts` `REVIEWS`, `Review` type | ✅ |
 | Public | No guard on `reviews` controller | ✅ |
 
@@ -82,7 +82,7 @@ Base path `api/v1` and `health` exclusion: `main.ts` (line 14).
 ## 7. Registration
 
 | Rule | Location | Status |
-|------|----------|--------|
+| ---- | -------- | ------ |
 | Anonymous only | No auth guard on `registrations` controller | ✅ |
 | Creates marathoner | `registrations.service.ts` `prisma.marathonParticipant.create` | ✅ |
 | Returns marathonerId, redirectUrl | `RegistrationResponse` | ✅ |
@@ -93,7 +93,7 @@ Base path `api/v1` and `health` exclusion: `main.ts` (line 14).
 ## 8. Auth / Access
 
 | Rule | Status |
-|------|--------|
+| ---- | ------ |
 | `me` endpoints require auth | ✅ `AuthGuard` |
 | Winners, reviews, random report public | ✅ No guards |
 | Register anonymous only | ✅ No guard |
@@ -103,7 +103,7 @@ Base path `api/v1` and `health` exclusion: `main.ts` (line 14).
 ## 9. Pagination Envelope
 
 | Item | Status |
-|------|--------|
+| ---- | ------ |
 | Winners list returns `{ items, page, limit, total, nextPage, prevPage }` | ✅ `WinnersPaginated` |
 | Legacy DRF uses `{ count, next, previous, results }` | ⚠️ **Different** |
 

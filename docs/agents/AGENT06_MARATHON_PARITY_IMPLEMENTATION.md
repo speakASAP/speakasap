@@ -16,7 +16,7 @@ Close the gaps listed in `MARATHON_PARITY_CHECKLIST.md` by implementing missing 
 `speakasap/docs/refactoring/MARATHON_PARITY_CHECKLIST.md`
 
 | Item | Status | Notes |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | `GET /reviews` | ✅ Done | Static list matching `ReviewSerializer`: name, photo, text |
 | `GET /answers/random` | ✅ Done | Qs: `stepId`, `excludeMarathonerId`; matches `AnswerSerializer`: marathoner, report, complete_time |
 | `GET /me/marathons` | ✅ Done | Auth required; matches `MyMarathonSerializer` shape |

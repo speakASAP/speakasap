@@ -9,7 +9,7 @@
 ## 1. Mapping: Legacy → New Endpoints
 
 | Legacy route | New service | View / handler | Status |
-|--------------|-------------|----------------|--------|
+| ------------ | ----------- | -------------- | ------ |
 | `GET /marathon/api/winners.json` | `GET /api/v1/winners` | `WinnerListView` | ✅ Mapped |
 | `GET /marathon/api/winners/{id}.json` | `GET /api/v1/winners/{winnerId}` | `WinnerView` | ✅ Mapped |
 | `GET /marathon/api/random_report/{step}.json?marathoner=` | `GET /api/v1/answers/random?stepId=&excludeMarathonerId=` | `RandomReportView` | ✅ Mapped |
@@ -39,7 +39,7 @@
 ## 3. Env Keys
 
 | Key | Used | Notes |
-|-----|------|--------|
+| --- | ---- | ------ |
 | `MARATHON_URL` | ✅ All shim paths | Required when shim enabled. Present in `.env` (e.g. `https://marathon.statex.cz`). |
 | `MARATHON_SHIM_ENABLED` | ✅ All shim paths | Default `'false'`; must be `'true'` to enable. |
 | `MARATHON_API_KEY` | ✅ All shim paths | Optional; sent as `X-Api-Key` when set. |
@@ -49,7 +49,7 @@
 ## 4. Fallback Behavior
 
 | Condition | Behavior | Verified |
-|-----------|----------|----------|
+| --------- | -------- | -------- |
 | `MARATHON_SHIM_ENABLED` false or unset | Legacy behavior | ✅ |
 | `MARATHON_URL` missing | Legacy behavior | ✅ |
 | New service returns **5xx** | Fall back to legacy | ✅ |
