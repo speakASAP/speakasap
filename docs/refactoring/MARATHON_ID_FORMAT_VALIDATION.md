@@ -57,7 +57,7 @@ The legacy marathon system uses **numeric IDs** (`\d+`) for entities (marathoner
 ### 2.2 Affected Endpoints
 
 | Legacy Endpoint | New Service Endpoint | ID Type Mismatch | Impact |
-|----------------|---------------------|------------------|--------|
+| -------------- | ------------------- | ---------------- | ------ |
 | `GET /marathon/api/my/{id}.json` | `GET /api/v1/me/marathons/{marathonerId}` | ✅ **Yes** | High - Detail view will fail |
 | `GET /marathon/api/winners/{id}.json` | `GET /api/v1/winners/{winnerId}` | ✅ **Yes** | Medium - Winner detail will fail |
 | `GET /marathon/api/random_report/{step}.json` | `GET /api/v1/answers/random?stepId={stepId}` | ✅ **Yes** | Medium - Random report will fail |
@@ -107,7 +107,7 @@ Added ID format detection and logging to shim endpoints:
 ### 3.2 Logging Coverage
 
 | Endpoint | Entry Log | Forwarding Log | Response Log | Mismatch Warning |
-|----------|-----------|----------------|-------------|------------------|
+| -------- | --------- | -------------- | ----------- | ---------------- |
 | `MyMarathon.retrieve()` | ✅ | ✅ | ✅ | ✅ |
 | `WinnerView.retrieve()` | ✅ | ✅ | ✅ | ✅ |
 | `RandomReportView.retrieve()` | ✅ | ✅ | ✅ | ✅ |

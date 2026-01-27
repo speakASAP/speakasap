@@ -16,7 +16,7 @@
 **Implemented Endpoints:**
 
 | Endpoint | Route | Status | Notes |
-|----------|-------|--------|-------|
+| -------- | ----- | ------ | ----- |
 | Reviews | `GET /api/v1/reviews` | ✅ Working | Returns static reviews list matching legacy format |
 | Random Report | `GET /api/v1/answers/random` | ✅ Working | Query params: `stepId`, `excludeMarathonerId` |
 | My Marathons List | `GET /api/v1/me/marathons` | ✅ Working | Auth required, matches `MyMarathonSerializer` |
@@ -133,7 +133,7 @@ cd nginx-microservice && ./scripts/blue-green/health-check.sh marathon
 ### Service Endpoints
 
 | Endpoint | Status | Response |
-|----------|--------|----------|
+| -------- | ------ | -------- |
 | `/health` | ✅ Working | `{"status":"ok"}` |
 | `/api/v1/reviews` | ✅ Working | Returns reviews array |
 | `/api/v1/winners` | ✅ Working | Returns paginated response |

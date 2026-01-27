@@ -3,7 +3,7 @@
 Reserved port range for SpeakASAP services is **42xx**.
 
 | Service | Port | Notes |
-|--------|------|------|
+| ------ | ---- | ---- |
 | speakasap-content-service | 4201 | Phase 1 |
 | speakasap-certification-service | 4202 | Phase 2 |
 | speakasap-assessment-service | 4203 | Phase 2 |

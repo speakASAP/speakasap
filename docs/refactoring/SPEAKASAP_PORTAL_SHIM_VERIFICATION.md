@@ -184,7 +184,7 @@ url = '{}/api/v1/reviews'.format(marathon_url.rstrip('/'))
 ### Endpoint Coverage (8/8)
 
 | Endpoint | Legacy Route | New Service Route | Status | File |
-|----------|--------------|-------------------|--------|------|
+| -------- | ------------ | ----------------- | ------ | ---- |
 | Winners list | `GET /marathon/api/winners.json` | `GET /api/v1/winners` | ✅ | `winners.py:32` |
 | Winner detail | `GET /marathon/api/winners/{id}.json` | `GET /api/v1/winners/{winnerId}` | ✅ | `winners.py:96` |
 | Random report | `GET /marathon/api/random_report/{step}.json` | `GET /api/v1/answers/random` | ✅ | `winners.py:152` |

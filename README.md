@@ -53,7 +53,7 @@ speakasap/
 All services use ports in the **42xx** range:
 
 | Service | Port | Phase |
-|---------|------|-------|
+| ------- | ---- | ----- |
 | Content Service | 4201 | Phase 1 |
 | Certification Service | 4202 | Phase 2 |
 | Assessment Service | 4203 | Phase 2 |

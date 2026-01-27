@@ -86,7 +86,7 @@ The legacy Django monolith (40+ apps) will be decomposed into **10 speakasap mic
 The new SpeakASAP platform will integrate with **7 critical shared microservices** from the statex.cz ecosystem:
 
 | Microservice | Port | Usage | Integration Phase |
-|--------------|------|-------|-------------------|
+| ------------ | ---- | ----- | ----------------- |
 | **auth-microservice** | 3370 | User authentication, JWT tokens, social auth | Phase 3 (User Service) |
 | **database-server** | 5432/6379 | PostgreSQL + Redis for all services | Phase 1 (Foundation) |
 | **logging-microservice** | 3367 | Centralized logging for all services | Phase 1 (Foundation) |
@@ -492,7 +492,7 @@ The `orders` app has multiple payment integration sub-apps:
 #### Complete App List with Microservice Mapping
 
 | Django App | Purpose | Target Microservice | Notes |
-|------------|---------|---------------------|-------|
+| ---------- | ------- | ------------------- | ----- |
 | `portal` | Core portal application (middleware, utilities) | All services | Core infrastructure logic distributed across services |
 | `students` | Student profiles, registration, status tracking | speakasap-user-service | Core user management |
 | `employees` | Teachers and staff management | speakasap-user-service, speakasap-salary-service | Split: profiles → user-service, contracts → salary-service |
@@ -802,7 +802,7 @@ Based on domain-driven design principles and business boundaries, the platform s
 The new speakasap platform will leverage the following existing shared microservices:
 
 | Existing Microservice | Usage in SpeakASAP | Integration Points | Priority | Integration Phase |
-|----------------------|-------------------|-------------------|----------|------------------|
+| -------------------- | ----------------- | ----------------- | -------- | ---------------- |
 | **auth-microservice** | User authentication, JWT tokens | All services for authentication | **Critical** | Phase 3 (User Service) |
 | **database-server** | PostgreSQL + Redis | All services for data storage and caching | **Critical** | Phase 1 (Foundation) |
 | **logging-microservice** | Centralized logging | All services for log collection | **Critical** | Phase 1 (Foundation) |
@@ -1384,7 +1384,7 @@ Following statex.cz port allocation strategy:
 **Port Range**: 42xx (speakasap application)
 
 | Service | Port | Description |
-|---------|------|-------------|
+| ------- | ---- | ----------- |
 | **speakasap-content-service** | 4201 | Content management (grammar, phonetics, dictionary) |
 | **speakasap-certification-service** | 4202 | Certificates and achievements |
 | **speakasap-assessment-service** | 4203 | Tests and assessments |
@@ -1533,7 +1533,7 @@ Each service subscribes to relevant events and updates its state accordingly.
 ### 13.5 Integration Points Summary
 
 | Integration Type | Source | Target | Method |
-|-----------------|--------|--------|--------|
+| --------------- | ------ | ------ | ------ |
 | Authentication | All services | auth-microservice | JWT tokens |
 | Database | All services | database-server | PostgreSQL schemas |
 | Logging | All services | logging-microservice | HTTP API |

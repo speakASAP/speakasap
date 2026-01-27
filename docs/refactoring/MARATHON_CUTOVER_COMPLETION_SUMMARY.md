@@ -87,7 +87,7 @@
 ### Prerequisites Status
 
 | Gate | Status | Notes |
-|------|--------|-------|
+| ---- | ------ | ----- |
 | **Parity audit (AGENT07)** | ✅ **GO** | Frontend updated to handle new format |
 | **Shim audit (AGENT08)** | ✅ **GO** | Routing bug fixed, permissions updated |
 | **Phase 0 validation** | ✅ **GO** | Contract, data mapping, infra validated |
