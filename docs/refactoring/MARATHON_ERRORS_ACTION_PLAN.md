@@ -55,10 +55,10 @@ grep -E "marathon shim|marathon.*failed" logs/*.log 2>/dev/null | tail -100
 - **Docker:** `docker compose logs marathon --tail 200` (from marathon repo root).
 - **Blue/green:** Use the active stack (e.g. `docker-compose.blue.yml` or `docker-compose.green.yml`) and the corresponding container name (e.g. `marathon-blue`, `marathon-green`).
 
-**On production (dev server):**
+**On production (alfares server):**
 
 ```bash
-ssh dev
+ssh alfares
 cd ~/Documents/Github/marathon
 docker compose -f docker-compose.green.yml logs marathon-green --tail 200
 # or blue, depending on active deployment
@@ -152,7 +152,7 @@ Marathon DB has no (or little) migrated data yet. Behavior is expected until:
 
 | # | Action | Owner | Notes |
 |---|--------|-------|--------|
-| A1 | Confirm `MARATHON_URL`, `MARATHON_SHIM_ENABLED`, `MARATHON_API_KEY` in `speakasap-portal/.env` on dev/prod | DevOps | Ensure values match deployment (e.g. blue/green URL). |
+| A1 | Confirm `MARATHON_URL`, `MARATHON_SHIM_ENABLED`, `MARATHON_API_KEY` in `speakasap-portal/.env` on alfares/prod | DevOps | Ensure values match deployment (e.g. blue/green URL). |
 | A2 | Run log checks (§2) for speakasap-portal and marathon on target env | Dev | Grep “marathon shim”, “marathon … failed”, “ID format mismatch”, auth errors. |
 | A3 | Confirm marathon health: `curl -s $MARATHON_URL/health` | Dev | Expect `{"status":"ok"}`. |
 | A4 | Smoke-test shim-off: `MARATHON_SHIM_ENABLED=false` → legacy endpoints work | Dev | Baseline before enabling shim. |
@@ -211,7 +211,7 @@ Marathon DB has no (or little) migrated data yet. Behavior is expected until:
 ## 7. Recommended First Actions
 
 1. **Check logs** (Phase A):
-   - On **speakasap** (portal): `ssh speakasap`, `cd speakasap-portal`, then grep log paths for `marathon shim`, `marathon ... failed`, `ID format mismatch`, and auth-related errors. On **dev** (marathon): `ssh dev`, `cd ~/Documents/Github/marathon`, then docker compose logs.
+   - On **speakasap** (portal): `ssh speakasap`, `cd speakasap-portal`, then grep log paths for `marathon shim`, `marathon ... failed`, `ID format mismatch`, and auth-related errors. On **alfares** (marathon): `ssh alfares`, `cd ~/Documents/Github/marathon`, then docker compose logs.
    - Query centralized logging (`GET /api/logs/query`) for `service=speakasap-portal` and `service=marathon`, filter by `level=error` and by "marathon shim" messages.
 2. **Confirm env:** `MARATHON_URL`, `MARATHON_SHIM_ENABLED`, `MARATHON_API_KEY` in `speakasap-portal/.env` on the environment you’re debugging.
 3. **Health check:** `curl -s $MARATHON_URL/health` → `{"status":"ok"}`.

@@ -144,8 +144,9 @@ class NotificationClient(object):
                 last_exc = e
                 total_duration = time.time() - start_time
                 err_label = 'TIMEOUT' if isinstance(e, requests.Timeout) else 'CONNECTION ERROR'
-                logger.warning('[NotificationClient] send_email() - Request ID: %s - %s on attempt %d/%d after %.3fs: %s (timeout=%ss)',
-                               request_id, err_label, attempt, max_attempts, total_duration, str(e), self.timeout)
+                # Log every timeout as ERROR so connectivity/slow execution is visible in logs
+                logger.error('[NotificationClient] send_email() - Request ID: %s - %s on attempt %d/%d after %.3fs: %s (timeout=%ss)',
+                             request_id, err_label, attempt, max_attempts, total_duration, str(e), self.timeout)
                 if attempt < max_attempts:
                     time.sleep(2)
                     continue
