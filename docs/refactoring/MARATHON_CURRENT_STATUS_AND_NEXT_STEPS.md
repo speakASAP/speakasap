@@ -1,9 +1,9 @@
 # Marathon Refactoring - Current Status and Next Steps
 
 **Date:** 2026-02-18  
-**Status:** Deployed. Marathon API at **marathon.alfares.cz**. **Legacy marathon removed from portal:** server-rendered marathon pages and Django models removed; `/marathon/` redirects to new service; API shim is model-free (UUID-only; 503 when service unavailable). **Archive legacy DB on prod:** run migration `0023_remove_marathon_legacy_models` to drop marathon tables. **statex is in sunset** — use **speakasap** for portal and **dev** for marathon.  
+**Status:** Deployed. Marathon API at **marathon.alfares.cz**. **Legacy marathon removed from portal:** server-rendered marathon pages and Django models removed; `/marathon/` redirects to new service; API shim is model-free (UUID-only; 503 when service unavailable). **Archive legacy DB on prod:** run migration `0023_remove_marathon_legacy_models` to drop marathon tables. **statex is in sunset** — use **speakasap** for portal and **alfares** for marathon.  
 **Issue:** ~~404~~ Resolved. Nginx uses backend block (path-preserving `location /api/` + `location /health`). Registry: `services.backend`, `api_routes` empty; `marathon/nginx/nginx-api-routes.conf` has no route lines.  
-**Note:** The domain (marathon.alfares.cz) now serves the **frontend** at `GET /` (see `MARATHON_FRONTEND_REFACTORING.md`). Service info for API clients is at `GET /info`. Previously API-only. **marathon.alfares.cz runs on the dev server** — `ssh dev`, then `cd ~/Documents/Github/` (or repo root). **Portal/legacy run on the speakasap server** — `ssh speakasap`, then `cd speakasap-portal`.
+**Note:** The domain (marathon.alfares.cz) now serves the **frontend** at `GET /` (see `MARATHON_FRONTEND_REFACTORING.md`). Service info for API clients is at `GET /info`. Previously API-only. **marathon.alfares.cz runs on the alfares server** — `ssh alfares`, then `cd ~/Documents/Github/` (or repo root). **Portal/legacy run on the speakasap server** — `ssh speakasap`, then `cd speakasap-portal`.
 
 ---
 
@@ -143,7 +143,7 @@
 
 ### Production
 
-- **Marathon API (marathon.alfares.cz):** on **dev** server — `ssh dev`, `cd ~/Documents/Github/` (marathon and nginx-microservice there).
+- **Marathon API (marathon.alfares.cz):** on **alfares** server — `ssh alfares`, `cd ~/Documents/Github/` (marathon and nginx-microservice there).
 - **Portal:** on **speakasap** server — `ssh speakasap`, `cd speakasap-portal`. Set `MARATHON_URL=https://marathon.alfares.cz` and `MARATHON_SHIM_ENABLED=true` in `speakasap-portal/.env`; restart portal.
 
 ---
@@ -169,7 +169,7 @@
 
 1. **Export from legacy DB** on **speakasap** (`ssh speakasap && cd speakasap-portal`): script that reads `marathon_marathon`, `marathon_step`, `marathon_marathoner`, `marathon_answer`, `marathon_winner` and joins with `auth_user` / `language_language`. Output: JSON or CSV per entity.
 2. **Transform:** Map legacy IDs to new UUIDs; build slug from language/marathon; set languageCode from language.machine_name; normalize dates and booleans.
-3. **Load into new DB** on **dev** (`ssh dev`): marathon service DB (DATABASE_URL there). Insert in order: Marathon → MarathonStep → MarathonParticipant → StepSubmission; MarathonWinner last. Use Prisma client or raw SQL respecting FK order.
+3. **Load into new DB** on **alfares** (`ssh alfares`): marathon service DB (DATABASE_URL there). Insert in order: Marathon → MarathonStep → MarathonParticipant → StepSubmission; MarathonWinner last. Use Prisma client or raw SQL respecting FK order.
 4. **Verify:** Counts and spot-checks; call marathon.alfares.cz API (e.g. `/api/v1/winners`, `/api/v1/me/marathons`) after mapping portal users to new `userId` if needed.
 
 **Note:** Legacy uses integer PKs and FKs; new uses UUIDs. Keep a mapping table (e.g. legacy_marathon_id → new Marathon.id) if the portal shim or MarathonIdMapping must resolve legacy IDs to new UUIDs.
@@ -180,9 +180,9 @@
   `cd speakasap-portal && python manage.py export_marathon_data --output marathon_export.json`  
   Writes `marathon_export.json` (marathons, steps, marathoners, answers, winners).
 
-- **Transfer:** Copy `marathon_export.json` to dev (e.g. `scp marathon_export.json dev:~/Documents/Github/marathon/`).
+- **Transfer:** Copy `marathon_export.json` to alfares (e.g. `scp marathon_export.json alfares:~/Documents/Github/marathon/`).
 
-- **Load (on dev):**  
+- **Load (on alfares):**  
   `cd marathon && node scripts/load-marathon-export.js marathon_export.json`  
   Or Python (when DB reachable): `pip install -r scripts/requirements-load.txt && python3 scripts/load_marathon_export.py marathon_export.json`  
   Requires `DATABASE_URL` in marathon `.env`. Inserts in order; writes `marathon_id_mapping.json` beside the export for optional MarathonIdMapping population in the portal.
@@ -286,7 +286,7 @@ Log lines `marathon shim list my marathons` and `marathon shim get my marathon` 
 
 1. ✅ Smoke test done (health, reviews, winners, languages, random, me/marathons).
 2. ✅ Legacy shim enabled in portal: `MARATHON_SHIM_ENABLED=true`, `MARATHON_URL=https://marathon.alfares.cz` in speakasap-portal `.env`.
-3. ✅ Data migration (export → load into marathon DB on dev): done; new API returns 3608 winners (verified via `GET https://marathon.alfares.cz/api/v1/winners`).
+3. ✅ Data migration (export → load into marathon DB on alfares): done; new API returns 3608 winners (verified via `GET https://marathon.alfares.cz/api/v1/winners`).
 4. ✅ Portal ID mapping: `marathon_id_mapping.json` loaded on speakasap via `python manage.py load_marathon_id_mapping`; shim resolves legacy numeric IDs to UUIDs.
 5. ✅ Cutover in place: shim logs show successful forwarding (list winners, random report with UUID mapping, etc.). Fast winners API (DB-only list) and placeholder-first frontend deployed.
 
