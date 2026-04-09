@@ -113,9 +113,6 @@ FRONTEND_URL=https://speakasap.com
 # From service directory
 # Service name detected from .env SERVICE_NAME or directory name
 ./scripts/deploy.sh
-
-# Or specify service name explicitly
-./scripts/deploy.sh speakasap-content-service
 ```
 
 ### Manual Deployment
@@ -177,6 +174,10 @@ Use `docker-compose.yml` as a template:
 4. Create `docker-compose.blue.yml` and `docker-compose.green.yml` based on template
 5. Ensure container names include `-blue` and `-green` suffixes
 
+## Nginx API routes
+
+Copy `nginx/nginx-api-routes.conf.template` to `nginx/nginx-api-routes.conf`. List public API path prefixes, one per line. `deploy-smart.sh` reads this from the service directory on the server. Details: `shared/docs/NGINX_LOCAL_CONFIG.md` in the workspace.
+
 ## Network Configuration
 
 All services must connect to `nginx-network`:
@@ -200,11 +201,12 @@ cd ~/nginx-microservice
 ### Docker Compose Validation Errors
 
 ```bash
-# Validate blue configuration
+# Validate blue / green (uses .env in repo root)
 docker compose -f docker-compose.blue.yml config
-
-# Validate green configuration
 docker compose -f docker-compose.green.yml config
+
+# Base template docker-compose.yml needs required vars in the .env
+# (e.g. PORT, DATABASE_URL, LOGGING_SERVICE_URL) or `config` will fail on empty interpolation
 ```
 
 ### Health Check Failures

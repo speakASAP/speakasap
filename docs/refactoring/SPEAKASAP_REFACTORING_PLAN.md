@@ -31,13 +31,27 @@ Refactor the legacy Django monolith (`speakasap-portal`) into a modern, modular 
 - Respect request limit: max 30 items per request.
 - No separate dev environment. Build and run directly on the future production server.
 
-## Phase 0: Marathon Extraction (Immediate Focus)
+## Phase 0: Marathon Extraction — ✅ Complete (reference)
 
-1. Define API contract for marathon and legacy integration.
-2. Implement `marathon` container (NestJS) with its own DB schema.
-3. Add legacy integration shim to route marathon flows to the new product.
-4. Validate feature parity and switch traffic to new service for marathons.
-5. Deprecate legacy marathon code after stable cutover.
+Phase 0 is **closed**. Evidence and checklists: `docs/refactoring/PHASE0_COMPLETION_CHECKLIST.md`, `docs/refactoring/MARATHON_PHASE0_VALIDATION.md`.
+
+Original objectives (achieved for the marathon slice):
+
+1. API contract for marathon and legacy integration.
+2. `marathon` container (NestJS) with its own DB schema.
+3. Legacy integration shim routing marathon flows to the new product.
+4. Validation and cutover path for marathon traffic.
+5. Legacy marathon code deprecation only after stable cutover (per runbook).
+
+## Phase 1: Foundation & Content Service — **Current focus**
+
+**Goal:** Infrastructure foundation in `speakasap` plus **speakasap-content-service** (read-only), port **4201**, database **`speakasap_content_db`**, integrations: **logging**, **ai-microservice** (and notifications wiring per infra task).
+
+**Orchestration:** `docs/refactoring/PHASE1_TASK_DECOMPOSITION.md`, `docs/refactoring/PHASE1_ORCHESTRATION_SUMMARY.md`, `docs/refactoring/SPEAKASAP_REFACTORING_TASKS_INDEX.md`.
+
+**Agent prompts:** `docs/agents/AGENT11_INFRA_SETUP.md` … `AGENT16_PHASE1_VALIDATION.md`.
+
+**Lead orchestrator prompt:** `docs/agents/master-prompt.md`.
 
 ## Phase 0 Sync Points (Hard Gates)
 

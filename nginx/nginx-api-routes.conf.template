@@ -1,0 +1,7 @@
+# Copy to nginx/nginx-api-routes.conf in this repo (or repo root nginx-api-routes.conf).
+# One route per line; lines starting with # and blank lines are ignored.
+# Routes must start with /. See shared/docs/NGINX_LOCAL_CONFIG.md.
+#
+# Example (adjust paths to your API):
+# /api/content
+# /api/health
