@@ -2,6 +2,8 @@
 
 This index lists the agent tasks for the SpeakASAP refactoring program. Each task has a dedicated agent prompt in `docs/agents/`.
 
+**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 1 is active; Phase 0 is closed).
+
 ## Task Structure
 
 Each task file contains:
@@ -11,7 +13,7 @@ Each task file contains:
 - Implementation steps
 - Outputs and acceptance criteria
 
-## Orchestration (Phase 0)
+## Orchestration (Phase 0) — ✅ Complete
 
 Global dependency graph:
 
@@ -19,7 +21,7 @@ Global dependency graph:
 Phase 0 (Marathon) → Phase 1+ (per ROADMAP)
 ```
 
-Task groups (parallel batches):
+Task groups (historical parallel batches):
 
 - Contract + Data: TASK-01, TASK-03 (parallel after TASK-01 starts)
 - Infra: TASK-04 (depends on TASK-01)
@@ -31,7 +33,25 @@ Sync points are documented in:
 - `docs/refactoring/SPEAKASAP_REFACTORING_PLAN.md`
 - `docs/refactoring/MARATHON_PHASE0_VALIDATION.md`
 
-## Phase 0: Marathon Extraction (Immediate)
+## Orchestration (Phase 1) — Active
+
+Global dependency graph:
+
+```text
+Phase 0 (complete) → Phase 1 (Foundation + Content Service)
+TASK-11 → TASK-12 → TASK-13 → (TASK-14 ∥ TASK-15) → TASK-16
+```
+
+Parallel batches:
+
+- **After TASK-11:** TASK-12 only (contract freeze = Sync B prerequisite).
+- **After TASK-12:** TASK-13 (implementation).
+- **After TASK-13:** TASK-14 and TASK-15 **in parallel** (migration vs AI integration).
+- **After TASK-11…TASK-15:** TASK-16 (validation / cutover GO).
+
+Docs: `PHASE1_TASK_DECOMPOSITION.md`, `PHASE1_ORCHESTRATION_SUMMARY.md`.
+
+## Phase 0: Marathon Extraction (complete)
 
 Note: `marathon` is a standalone product in `/Users/sergiystashok/Documents/GitHub/marathon` with repo `git@github.com:speakASAP/marathon.git`.
 
@@ -41,43 +61,6 @@ Phase 0 outputs:
 - `docs/refactoring/MARATHON_DATA_MAPPING.md`
 - `docs/refactoring/MARATHON_INFRA_PLAN.md`
 - `docs/refactoring/MARATHON_PHASE0_VALIDATION.md`
-
-### TASK-01: Marathon Design and API Contract
-
-- **Prompt**: `docs/agents/AGENT01_MARATHON_SERVICE.md`
-- **Status**: Phase 0 - Foundation
-- **Dependencies**: None
-
-### TASK-02: Legacy Integration Shim for Marathon
-
-- **Prompt**: `docs/agents/AGENT02_LEGACY_INTEGRATION_SHIM.md`
-- **Status**: Phase 0 - Integration
-- **Dependencies**: TASK-01
-
-### TASK-03: Data Mapping and Migration Plan
-
-- **Prompt**: `docs/agents/AGENT03_DATA_MIGRATION_CONTRACTS.md`
-- **Status**: Phase 0 - Data
-- **Dependencies**: TASK-01
-
-### TASK-04: Infra and Docker Setup for Marathon
-
-- **Prompt**: `docs/agents/AGENT04_INFRA_DOCKER.md`
-- **Status**: Phase 0 - Infrastructure
-- **Dependencies**: TASK-01
-
-### TASK-05: Validation and Cutover Checklist
-
-- **Prompt**: `docs/agents/AGENT05_VALIDATION.md`
-- **Status**: Phase 0 - Verification
-- **Dependencies**: TASK-01 through TASK-04
-
-### TASK-09: Marathon Shim Audit Fixes
-
-- **Prompt**: `docs/agents/AGENT09_MARATHON_SHIM_FIXES.md`
-- **Status**: Phase 0 - Bug Fixes
-- **Dependencies**: TASK-02, TASK-05
-- **Agent Type**: Integration Adapter Agent
 
 ## Phase 0 Completion
 
@@ -91,7 +74,7 @@ Phase 0 outputs:
 
 ## Phase 1: Foundation & Infrastructure - Content Service
 
-**Status:** 📋 Planning Complete - Ready for Execution
+**Status:** 🔄 **In execution** — next: **TASK-11** (see `PHASE1_ORCHESTRATION_SUMMARY.md`)
 
 **Task Decomposition:** `docs/refactoring/PHASE1_TASK_DECOMPOSITION.md`
 
@@ -104,9 +87,9 @@ Phase 0 outputs:
 
 **Task Groups:**
 
-- Group A: Infrastructure Setup (TASK-11) - Sequential
-- Group B: Content Service (TASK-12, TASK-13, TASK-14, TASK-15) - Parallel after Group A
-- Group C: Validation (TASK-16) - After Group B
+- Group A: Infrastructure Setup (TASK-11) — sequential
+- Group B: Content Service — TASK-12 → TASK-13 → (TASK-14 ∥ TASK-15)
+- Group C: Validation (TASK-16) — after TASK-11…TASK-15
 
 ### TASK-11: Project Setup and Infrastructure Foundation
 
@@ -118,7 +101,7 @@ Phase 0 outputs:
 ### TASK-12: Content Service Design and API Contract
 
 - **Prompt**: `docs/agents/AGENT12_CONTENT_DESIGN.md`
-- **Status**: Phase 1 - Design
+- **Status**: Phase 1 - Design — **Lead Orchestrator GO 2026-04-09** (see sign-off in prompt)
 - **Dependencies**: TASK-11
 - **Agent Type**: Backend Service Agent (Design)
 

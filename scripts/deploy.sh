@@ -62,14 +62,18 @@ echo -e "${BLUE}║        SpeakASAP Application - Production Deployment        
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Service name and display name (first letter uppercase for messages)
-SERVICE_NAME="speakasap"
-DISPLAY_NAME="$(echo "${SERVICE_NAME:0:1}" | tr 'a-z' 'A-Z')${SERVICE_NAME:1}"
+# Nginx registry service name (deploy-smart.sh). Separate from per-container SERVICE_NAME in compose.
+DEPLOY_SERVICE_NAME="${DEPLOY_SERVICE_NAME:-speakasap}"
 
-# Detect nginx-microservice path
-# Try common production paths first, then fallback to relative path
-NGINX_MICROSERVICE_PATH=""
+# Detect nginx-microservice path: env override first, then standard locations
+NGINX_MICROSERVICE_PATH="${NGINX_MICROSERVICE_PATH:-}"
 
+if [ -n "$NGINX_MICROSERVICE_PATH" ] && [ ! -d "$NGINX_MICROSERVICE_PATH" ]; then
+    echo -e "${RED}❌ Error: NGINX_MICROSERVICE_PATH is set but not a directory: $NGINX_MICROSERVICE_PATH${NC}"
+    exit 1
+fi
+
+if [ -z "$NGINX_MICROSERVICE_PATH" ]; then
 # Check common production paths
 if [ -d "/home/statex/nginx-microservice" ]; then
     NGINX_MICROSERVICE_PATH="/home/statex/nginx-microservice"
@@ -83,6 +87,7 @@ elif [ -d "$(dirname "$PROJECT_ROOT")/nginx-microservice" ]; then
     NGINX_MICROSERVICE_PATH="$(dirname "$PROJECT_ROOT")/nginx-microservice"
 elif [ -d "$PROJECT_ROOT/../nginx-microservice" ]; then
     NGINX_MICROSERVICE_PATH="$(cd "$PROJECT_ROOT/../nginx-microservice" && pwd)"
+fi
 fi
 
 # Validate nginx-microservice path
@@ -115,7 +120,7 @@ if [ ! -x "$DEPLOY_SCRIPT" ]; then
 fi
 
 echo -e "${GREEN}✅ Found nginx-microservice at: $NGINX_MICROSERVICE_PATH${NC}"
-echo -e "${GREEN}✅ Deploying service: $SERVICE_NAME${NC}"
+echo -e "${GREEN}✅ Deploying service (registry): $DEPLOY_SERVICE_NAME${NC}"
 echo ""
 
 # Validate docker-compose files exist before deployment
@@ -166,7 +171,7 @@ echo ""
 cd "$NGINX_MICROSERVICE_PATH"
 end_phase "Pre-deployment Setup"
 START_TIME=$(get_timestamp_seconds)
-"$DEPLOY_SCRIPT" "$SERVICE_NAME" 2>&1 | {
+"$DEPLOY_SCRIPT" "$DEPLOY_SERVICE_NAME" 2>&1 | {
     build_started=0; start_containers_started=0; health_check_started=0
     while IFS= read -r line; do echo "$line"
         if echo "$line" | grep -qE "Phase 0:.*Infrastructure"; then start_phase "Phase 0: Infrastructure Check"
@@ -220,8 +225,8 @@ else
     echo ""
     echo "Please check the error messages above and:"
     echo "  1. Verify nginx-microservice is properly configured"
-    echo "  2. Check service registry file exists: $NGINX_MICROSERVICE_PATH/service-registry/$SERVICE_NAME.json"
+    echo "  2. Check service registry file exists: $NGINX_MICROSERVICE_PATH/service-registry/$DEPLOY_SERVICE_NAME.json"
     echo "  3. Review deployment logs"
-    echo "  4. Check service health: cd $NGINX_MICROSERVICE_PATH && ./scripts/blue-green/health-check.sh $SERVICE_NAME"
+    echo "  4. Check service health: cd $NGINX_MICROSERVICE_PATH && ./scripts/blue-green/health-check.sh $DEPLOY_SERVICE_NAME"
     exit 1
 fi

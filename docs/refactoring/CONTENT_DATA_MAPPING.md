@@ -1,174 +1,134 @@
-# Content Service Data Mapping
+# Content Service — Legacy Django → Prisma Data Mapping
 
-## Scope
+**Legacy:** `/Users/sergiystashok/Documents/GitHub/speakasap-portal`. **Target schema:** `speakasap/content-service/prisma/schema.prisma`
 
-Legacy apps:
+## 1. Legacy model inventory
 
-- `grammar`
-- `phonetics`
-- `dictionary`
-- `songs`
-- `language`
+### 1.1 `language.Language`
 
-Non-content dependencies:
+| Django field | Type | Notes |
+|--------------|------|--------|
+| `code` | CharField(2) | Unique business key |
+| `machine_name` | CharField(255) | Template / URL segment |
+| `name` | CharField(255) | Russian label |
+| `icon` | ImageField | File on disk → migrated to `iconPath` string |
+| `order` | Int | |
+| `speaker` | CharField | Default “носитель” |
 
-- `portal.models.MetaMixin`
-- `portal.models.MaterialLanguageMixin`
+**Not stored in content DB (by design):** `ANDROID_URLS`, `IOS_URLS`, `SUPPORT`, `CZ_GENT`, pymorphy/Morpher behavior — portal-only or future user/product services.
 
-`LessonProgressMixin` only adds behavior, no stored fields.
+### 1.2 `grammar`
 
-## Model Mapping
+| Model | Django fields | Mixins |
+|--------|----------------|--------|
+| `GrammarCourse` | `title`, `language` OneToOne | `MaterialLanguageMixin` (`material_language`), `MetaMixin` (`meta_keywords`, `meta_description`) |
+| `GrammarLesson` | `title`, `course` FK, `template`, `alias`, `url`, `section`, `teaser`, `order` | `MetaMixin` |
 
-### Language (`language.models.Language`)
+**Out of scope for rows:** `Exercise` class — filesystem templates under `grammar/templates/`, not DB. TASK-13+ may serve HTML/static via storage/CDN separately.
 
-Target: `Language`
+**Progress:** `LessonProgressMixin` adds **methods only** (no columns on grammar tables).
 
-Fields:
+### 1.3 `phonetics`
 
-- `code` → `code`
-- `machine_name` → `machineName`
-- `name` → `name`
-- `icon` (ImageField) → `iconPath` (string)
-- `order` → `order`
-- `speaker` → `speaker`
+| Model | Fields | Mixins |
+|--------|--------|--------|
+| `PhoneticsCourse` | `title`, `language` OneToOne | MaterialLanguage, Meta |
+| `PhoneticsLesson` | `title`, `course` FK, `order` | Meta |
 
-Notes:
+Template path is derived: `phonetics/{material_language}/{lang}/{order}.html` — not a DB column.
 
-- `icon` is stored as a relative path (Django `ImageField`); API should expose `iconUrl` derived from this path.
-- `ANDROID_URLS`, `IOS_URLS`, `SUPPORT`, and computed properties are derived, not stored.
+### 1.4 `songs`
 
-### GrammarCourse (`grammar.models.GrammarCourse`)
+| Model | Fields | Mixins |
+|--------|--------|--------|
+| `SongsCourse` | `title`, `language` OneToOne | MaterialLanguage only |
+| `SongsLesson` | `title`, `course` FK, `order` | (no Meta in legacy model) |
 
-Target: `GrammarCourse`
+Template: `songs/{lang}/{order}.html`.
 
-Fields:
+### 1.5 `dictionary`
 
-- `title` → `title`
-- `language_id` → `languageId` (1:1)
-- `material_language` (MaterialLanguageMixin) → `materialLanguage`
-- `meta_keywords` (MetaMixin, TextField) → `metaKeywords` (Text)
-- `meta_description` (MetaMixin, TextField) → `metaDescription` (Text)
+| Model | Constraints |
+|--------|-------------|
+| `Word` | `word`, `transcription`, `translation`, `language` FK; **unique_together** (`word`, `language`, `translation`) |
+| `WordTheme` | `name`, `module_class`, `order` |
+| `WordThemeRelation` | `word`, `theme`, `order`; **unique_together** (`word`, `theme`, `order`) |
 
-### GrammarLesson (`grammar.models.GrammarLesson`)
+---
 
-Target: `GrammarLesson`
+## 2. Prisma models (target)
 
-Fields:
+| Prisma model | Legacy source |
+|--------------|----------------|
+| `Language` | `language.Language` |
+| `GrammarCourse` | `grammar.GrammarCourse` |
+| `GrammarLesson` | `grammar.GrammarLesson` |
+| `PhoneticsCourse` | `phonetics.PhoneticsCourse` |
+| `PhoneticsLesson` | `phonetics.PhoneticsLesson` |
+| `SongsCourse` | `songs.SongsCourse` |
+| `SongsLesson` | `songs.SongsLesson` |
+| `Word` | `dictionary.Word` |
+| `WordTheme` | `dictionary.WordTheme` |
+| `WordThemeRelation` | `dictionary.WordThemeRelation` |
 
-- `title` → `title`
-- `course_id` → `courseId`
-- `template` → `template`
-- `alias` → `alias`
-- `url` (SlugField) → `url`
-- `section` → `section`
-- `teaser` (TextField) → `teaser` (Text)
-- `order` → `order`
-- `meta_keywords` (TextField) → `metaKeywords` (Text)
-- `meta_description` (TextField) → `metaDescription` (Text)
+---
 
-Notes:
+## 3. Field mapping (legacy → Prisma)
 
-- `exercises` and `exercises_count` are derived from filesystem templates and not stored in DB.
+| Legacy | Prisma | Transform |
+|--------|--------|-----------|
+| `Language.code` | `Language.code` | Direct |
+| `Language.machine_name` | `Language.machineName` | camelCase |
+| `Language.name` | `Language.name` | Direct |
+| `Language.icon` (file) | `Language.iconPath` | Migration: store relative path or key agreed in TASK-14 |
+| `Language.order` | `Language.order` | Direct |
+| `Language.speaker` | `Language.speaker` | Direct |
+| `GrammarCourse.material_language` | `GrammarCourse.materialLanguage` | Direct |
+| `GrammarCourse.meta_*` | `GrammarCourse.metaKeywords` / `metaDescription` | Direct |
+| `GrammarLesson.*` | `GrammarLesson.*` | Same names (camelCase in Prisma) |
+| `PhoneticsCourse` / `PhoneticsLesson` | Same pattern | |
+| `SongsCourse` / `SongsLesson` | Prisma has no meta on lessons (matches legacy `SongsLesson` without MetaMixin) | |
+| `Word.module_class` on theme | `WordTheme.moduleClass` | |
+| `WordThemeRelation` | `WordThemeRelation` with `@@unique([wordId, themeId, order])` | Equivalent to legacy |
 
-### PhoneticsCourse (`phonetics.models.PhoneticsCourse`)
+---
 
-Target: `PhoneticsCourse`
+## 4. Relationships
 
-Fields:
+- Legacy **OneToOne** `GrammarCourse.language` → Prisma `GrammarCourse.languageId` **unique** FK → `Language`; optional back-relation `grammarCourse`.
+- Same for `PhoneticsCourse`, `SongsCourse`.
+- `GrammarLesson.courseId` → `GrammarCourse.id` (1:N).
+- `Word.languageId` → `Language`; `Word.themes` via `WordThemeRelation`.
+- `WordTheme.words` via `WordThemeRelation`.
 
-- `title` → `title`
-- `language_id` → `languageId` (1:1)
-- `material_language` → `materialLanguage`
-- `meta_keywords` (TextField) → `metaKeywords` (Text)
-- `meta_description` (TextField) → `metaDescription` (Text)
+---
 
-### PhoneticsLesson (`phonetics.models.PhoneticsLesson`)
+## 5. Indexes (performance)
 
-Target: `PhoneticsLesson`
+As in `schema.prisma`:
 
-Fields:
+- `Language`: `order`, `name`
+- `GrammarLesson`: `[courseId, order]`
+- `PhoneticsLesson`: `[courseId, order]`
+- `SongsLesson`: `[courseId, order]`
+- `Word`: `word`, unique composite `[word, languageId, translation]`
+- `WordTheme`: `order`, `name`
+- `WordThemeRelation`: `[themeId, order]`, unique `[wordId, themeId, order]`
 
-- `title` → `title`
-- `course_id` → `courseId`
-- `order` → `order`
-- `meta_keywords` (TextField) → `metaKeywords` (Text)
-- `meta_description` (TextField) → `metaDescription` (Text)
+---
 
-### SongsCourse (`songs.models.SongsCourse`)
+## 6. Migration strategy (TASK-14)
 
-Target: `SongsCourse`
+1. **Freeze** legacy content writes during cutover window (or accept delta sync).
+2. **Order:** `Language` first → courses → lessons → `WordTheme` → `Word` → `WordThemeRelation` (FK order).
+3. **IDs:** Prefer **new serial IDs** in Postgres with a side mapping table `{legacy_table, legacy_pk, new_id}` if URLs must stay stable; or preserve numeric PKs if dump/import allows (simpler for `GET /:id`).
+4. **Icons:** Export files to object storage or static CDN; persist path in `iconPath`.
+5. **Templates:** Not in this schema; migrate static files separately and point frontends to asset URLs.
+6. **Validation:** Row counts per table legacy vs new; spot-check FK integrity; unique constraints on `Word` and `WordThemeRelation`.
 
-Fields:
+---
 
-- `title` → `title`
-- `language_id` → `languageId` (1:1)
-- `material_language` → `materialLanguage`
+## 7. Out of scope (content DB)
 
-### SongsLesson (`songs.models.SongsLesson`)
-
-Target: `SongsLesson`
-
-Fields:
-
-- `title` → `title`
-- `course_id` → `courseId`
-- `order` → `order`
-
-### Word (`dictionary.models.Word`)
-
-Target: `Word`
-
-Fields:
-
-- `word` → `word`
-- `transcription` → `transcription`
-- `translation` (TextField) → `translation` (Text)
-- `language_id` → `languageId`
-
-Constraints:
-
-- Unique: `(word, languageId, translation)`
-
-### WordTheme (`dictionary.models.WordTheme`)
-
-Target: `WordTheme`
-
-Fields:
-
-- `name` → `name`
-- `module_class` (blank=True, default empty string) → `moduleClass` (String, default "")
-- `order` → `order`
-
-### WordThemeRelation (`dictionary.models.WordThemeRelation`)
-
-Target: `WordThemeRelation`
-
-Fields:
-
-- `word_id` → `wordId`
-- `theme_id` → `themeId`
-- `order` → `order`
-
-Constraints:
-
-- Unique: `(wordId, themeId, order)`
-
-## Relationships
-
-- `GrammarCourse.languageId` → `Language.id` (one-to-one)
-- `GrammarLesson.courseId` → `GrammarCourse.id` (one-to-many)
-- `PhoneticsCourse.languageId` → `Language.id` (one-to-one)
-- `PhoneticsLesson.courseId` → `PhoneticsCourse.id` (one-to-many)
-- `SongsCourse.languageId` → `Language.id` (one-to-one)
-- `SongsLesson.courseId` → `SongsCourse.id` (one-to-many)
-- `Word.languageId` → `Language.id` (many-to-one)
-- `WordThemeRelation.wordId` → `Word.id` (many-to-one)
-- `WordThemeRelation.themeId` → `WordTheme.id` (many-to-one)
-
-## Migration Strategy
-
-1. Export legacy tables for the listed models.
-2. Insert `Language` first, then course tables, then lesson tables.
-3. Insert `Word` and `WordTheme`, then `WordThemeRelation`.
-4. Validate counts and unique constraints.
-5. Verify ordering fields (`order`) match legacy behavior.
+- User lesson progress (`flow.LessonProgress`) → education / user domain, not read-only content API.
+- Django `Exercise` dynamic imports → not migrated as relational data.

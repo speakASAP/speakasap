@@ -5,7 +5,10 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONTENT_SERVICE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Docker compose files for this stack live at speakasap repo root (sibling of content-service/).
+SPEAKASAP_ROOT="$(cd "$CONTENT_SERVICE_ROOT/.." && pwd)"
+PROJECT_ROOT="$SPEAKASAP_ROOT"
 
 cd "$PROJECT_ROOT"
 
@@ -17,10 +20,16 @@ NC='\033[0m'
 
 # Load NODE_ENV from .env file to determine environment
 NODE_ENV=""
-if [ -f "$PROJECT_ROOT/.env" ]; then
+if [ -f "$SPEAKASAP_ROOT/.env" ]; then
     set -a
     # shellcheck source=/dev/null
-    source "$PROJECT_ROOT/.env" 2>/dev/null || true
+    source "$SPEAKASAP_ROOT/.env" 2>/dev/null || true
+    set +a
+    NODE_ENV="${NODE_ENV:-}"
+elif [ -f "$CONTENT_SERVICE_ROOT/.env" ]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$CONTENT_SERVICE_ROOT/.env" 2>/dev/null || true
     set +a
     NODE_ENV="${NODE_ENV:-}"
 fi

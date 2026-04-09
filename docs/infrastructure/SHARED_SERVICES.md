@@ -68,6 +68,31 @@ AI_SERVICE_URL=
 AI_MICROSERVICE_PORT=
 ```
 
+## Connection examples
+
+### Logging microservice
+
+Send structured JSON logs via HTTP to `LOGGING_SERVICE_URL` (path from `LOGGING_SERVICE_API_PATH`, often `/api/logs`). Include ISO 8601 `timestamp` and `duration_ms` on request handlers. See `logging-microservice/README.md` in the ecosystem for DTO shape.
+
+### Database
+
+Use `DATABASE_URL` or `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_PASSWORD`/`DB_NAME`. From another container on `nginx-network`, PostgreSQL is typically `db-server-postgres:5432`.
+
+### Auth
+
+Validate JWTs or resolve users by calling `AUTH_SERVICE_URL` over HTTP from the service (no shared npm package; use your stack’s HTTP client with timeouts from env).
+
+### Notifications
+
+Call `NOTIFICATIONS_MICROSERVICE_URL` for outbound email/Telegram/WhatsApp; use service-level timeouts and retries from env (`NOTIFICATION_SERVICE_TIMEOUT`, `NOTIFICATION_RETRY_*`).
+
+## .env sync (local and production)
+
+1. Add new keys to `.env.example` first (keys only, no secrets).
+2. Copy into local `.env` and production `.env` on the server.
+3. Use `shared/scripts/compare-env.sh speakasap` or `shared/scripts/env-diff-summary.sh` from the GitHub workspace when aligning with other hosts.
+4. After changing keys, run `docker compose -f docker-compose.blue.yml config --quiet` (and green) before deploy.
+
 ## Notes
 
 - Use env-driven configuration only.

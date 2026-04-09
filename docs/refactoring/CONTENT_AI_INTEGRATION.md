@@ -1,87 +1,73 @@
-# Content Service AI Integration
+# Content Service ↔ AI Microservice Integration Plan
 
-## Overview
+**Related:** TASK-15 / AGENT15 (implementation), ROADMAP Phase 1 (content + AI). **Constraint:** Read-only content API stays **GET**; any AI-powered **mutations** or heavy compute belong in dedicated flows (orchestrator, jobs), not silent side effects on simple reads.
 
-Content Service is read-only and can optionally enrich dictionary entries with AI-assisted translations or suggestions. AI usage must be optional and fail-safe.
+## 1. Configuration
 
-## Configuration
+| Env key | Purpose |
+|---------|---------|
+| `AI_SERVICE_URL` | Base URL for ai-microservice (e.g. `http://ai-microservice:3380`) |
 
-- `AI_SERVICE_URL` (required when AI features enabled)
-- `HTTP_TIMEOUT` (request timeout)
-- `RETRY_MAX_ATTEMPTS`
-- `RETRY_DELAY_MS`
+Align with `docs/infrastructure/SHARED_SERVICES.md`. No hardcoded hosts in code (TASK-13/15).
 
-## Integration Points
+Optional timeouts/retries should reuse existing patterns in content-service `.env.example` (`HTTP_TIMEOUT`, `RETRY_*`) — do not increase timeouts to mask hangs; log latency and upstream errors.
 
-### 1. Dictionary Translation Enrichment
+## 2. Current ecosystem reality
 
-Use ai-microservice to suggest translations for a given `word` in a target language.
+The ai-microservice repository today centers on **orchestrated NLP / analysis** (e.g. orchestrator → nlp-service, free-ai-service). There is **no stable, documented “translate text” HTTP contract** in tree comparable to logging/notifications.
 
-Request shape:
+Therefore this document defines **integration points and contracts to implement or adopt** in TASK-15, without inventing product names that do not exist in code.
 
-```json
-{
-  "sourceLanguage": "en",
-  "targetLanguage": "ru",
-  "text": "apple"
-}
-```
+## 3. Use cases (SpeakASAP content)
 
-Response shape:
+### 3.1 On-demand translation
 
-```json
-{
-  "translations": ["яблоко", "апельсин"],
-  "confidence": 0.92
-}
-```
+**Need:** Translate `Word.translation` teasers, grammar `teaser`, or UI strings when target locale ≠ material language.
 
-Behavior:
+**Pattern:**
 
-- If AI is unavailable, return stored dictionary data only.
-- Never block core content responses on AI calls.
+1. **Preferred:** `POST` to a small **ai-orchestrator** (or dedicated) route, e.g. body `{ "text": "...", "sourceLang": "ru", "targetLang": "en" }`, response `{ "translatedText": "..." }`.
+2. **Cache:** Key `(hash(text), source, target)` in Redis (shared database-server) to avoid repeat calls — implemented in TASK-15, not in read-only GET handlers if it adds latency; optional `GET ?translate=true` flag is a **product decision** (can violate “read-only” semantics if it triggers writes to cache — prefer **separate** `GET /api/v1/.../translated` or client calls AI directly via gateway).
 
-### 2. Content Tag Suggestions (Optional)
+**Fallback:** If AI unavailable, return original field and `translationStatus: "fallback"` in envelope **only** if API is extended; otherwise log error and return unmodified content.
 
-Suggest tags for grammar lessons or songs based on text fields.
+### 3.2 Content generation (optional / later)
 
-Request shape:
+**Need:** Generate examples, drills, or summaries for lessons.
 
-```json
-{
-  "languageCode": "en",
-  "title": "Present Simple",
-  "content": "..."
-}
-```
+**Pattern:** Async job (queue or orchestrator workflow) → writes to staging tables or CMS — **out of scope** for Phase 1 read-only content service unless product explicitly adds write APIs later.
 
-Response shape:
+## 4. Error handling
 
-```json
-{
-  "tags": ["grammar", "tense", "beginner"]
-}
-```
+| Scenario | Behavior |
+|----------|----------|
+| AI timeout | Log `duration_ms`, ERROR; return content without AI enrichment |
+| 4xx/5xx from AI | Log status + truncated body; same fallback |
+| Invalid API key / auth | Log ERROR; do not leak secrets to client |
 
-## Error Handling
+Use **logging-microservice** with ISO timestamps per platform standard.
 
-- Network errors: log and skip enrichment.
-- Timeout: log and skip enrichment.
-- AI error response: log `error.code` and `error.message`, skip enrichment.
+## 5. Notifications (shared keys)
 
-## Logging
+If AI pipeline sends user-facing alerts (e.g. generation failed), use **notifications-microservice** with keys from `.env.example`:
 
-All AI calls should be logged (no sensitive data):
+- `NOTIFICATIONS_MICROSERVICE_URL`, `NOTIFICATIONS_MICROSERVICE_PORT`
+- Template IDs: `NOTIFICATION_ORDER_CREATED`, etc. (add **content-specific** keys when implementing, e.g. `NOTIFICATION_CONTENT_AI_FAILED`, in `.env.example` keys-only)
 
-- operation (`dictionary.translate`, `content.tags`)
-- language codes
-- input size
-- latency
-- result status (`success`, `timeout`, `error`)
+Content read endpoints **must not** send notifications by default.
 
-## Fallback Strategy
+## 6. Security
 
-If AI enrichment is disabled or fails:
+- Service-to-service: network isolation on Docker `nginx-network`; optional internal API key header defined in TASK-15.
+- No user content in logs (PII).
 
-- Return stored content as-is.
-- Do not reduce core response fields.
+## 7. Deliverables for TASK-15
+
+- Thin **AI client** in content-service (existing path suggestion: `src/shared/ai-client.service.ts`).
+- Concrete routes once ai-microservice exposes a stable translate (or LLM) endpoint — update this doc with **exact path + DTO**.
+
+## 8. Verification
+
+- [ ] All AI calls use `AI_SERVICE_URL` from env
+- [ ] Failures logged with timestamp and `duration_ms`
+- [ ] User-facing responses degrade gracefully without 500 when AI is optional

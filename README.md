@@ -13,6 +13,8 @@ speakasap/
 ├── docker-compose.blue.yml      # Blue environment (all services)
 ├── docker-compose.green.yml     # Green environment (all services)
 ├── .env.example                 # Environment variables template
+├── nginx/
+│   └── nginx-api-routes.conf
 ├── scripts/
 │   └── deploy.sh                # Deployment script template
 ├── shared/                      # Shared utilities
@@ -47,6 +49,8 @@ speakasap/
 ```bash
 ./scripts/deploy.sh
 ```
+
+`deploy.sh` calls nginx-microservice `deploy-smart.sh` with **`SERVICE_NAME`**. Set it in `.env` when your service registry JSON uses another key. Optional: **`NGINX_MICROSERVICE_PATH`** if nginx-microservice is not in a standard location.
 
 ## Port Allocation
 

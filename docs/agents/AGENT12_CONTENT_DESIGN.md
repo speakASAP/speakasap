@@ -171,3 +171,21 @@ Design the Content Service API contract and Prisma schema based on legacy conten
 - Migration task: `docs/agents/AGENT14_CONTENT_MIGRATION.md` (TASK-14)
 - AI integration task: `docs/agents/AGENT15_AI_INTEGRATION.md` (TASK-15)
 - Tasks index: `docs/refactoring/SPEAKASAP_REFACTORING_TASKS_INDEX.md`
+
+---
+
+## Lead Orchestrator sign-off (TASK-12)
+
+**Date:** 2026-04-09  
+**Verdict:** **GO** — design deliverables satisfy exit criteria; TASK-13+ may proceed against this contract.
+
+| Exit criterion | Evidence |
+|----------------|----------|
+| Legacy models analyzed | `docs/refactoring/CONTENT_DATA_MAPPING.md` §1 (language, grammar, phonetics, songs, dictionary) |
+| API contract complete | `docs/refactoring/CONTENT_API_CONTRACT.md` — `/health`, `/api/v1/languages`, `languages/:code`, grammar/phonetics/songs/dictionary list + `:id`, plus supporting `*/courses` and dictionary themes (superset of AGENT12 list) |
+| Prisma schema | `content-service/prisma/schema.prisma` — models, relations, indexes |
+| Data mapping | `CONTENT_DATA_MAPPING.md` §2–3, migration notes |
+| AI integration | `docs/refactoring/CONTENT_AI_INTEGRATION.md` |
+| Schema validation | `DATABASE_URL=postgresql://user:pass@localhost:5432/db npx prisma validate` → **valid** (placeholder URL; real `.env` required for migrate/generate) |
+
+**Notes:** Verification checklist items in this doc (API pagination/errors, mapping) were spot-checked against the contract and mapping files; implementation drift vs contract is a TASK-13/16 concern, not a blocker for freezing the design baseline.

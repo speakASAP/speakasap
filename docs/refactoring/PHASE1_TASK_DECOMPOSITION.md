@@ -1,9 +1,10 @@
 # Phase 1 Task Decomposition
 
 **Date:** 2026-01-26  
-**Status:** 📋 Planning  
+**Last updated:** 2026-04-09  
+**Status:** 🔄 **In execution** (orchestration: `docs/agents/master-prompt.md`, summary: `PHASE1_ORCHESTRATION_SUMMARY.md`)  
 **Phase:** Foundation & Infrastructure - Content Service  
-**Lead Orchestrator:** Task Decomposition Complete
+**Lead Orchestrator:** Task decomposition approved; follow sync gates A–D
 
 ---
 
@@ -57,12 +58,12 @@ Phase 6 → Phase 7 (Migration & Decommissioning)
 
 ---
 
-### Group B: Content Service (Parallel after Group A)
+### Group B: Content Service (staggered parallel after Group A)
 
-**Can be executed in parallel?** YES - Can run in parallel after TASK-11  
-**Dependencies:** TASK-11  
-**Outputs:** Content service implementation, API endpoints, data migration  
-**Agents Count:** 3 (Backend Service Agent, Data Migration Agent, Integration Agent)
+**Can be executed in parallel?** **Partially** — TASK-12 after TASK-11; TASK-13 after TASK-11+TASK-12; **TASK-14 and TASK-15 in parallel** after TASK-12+TASK-13  
+**Dependencies:** TASK-11, then TASK-12, then TASK-13; then TASK-14 ∥ TASK-15  
+**Outputs:** Contract docs, NestJS service, migration artifacts, AI integration  
+**Agents Count:** Up to 3 in the wave after TASK-13 (design/impl sequential first)
 
 **Tasks:**
 
@@ -278,6 +279,7 @@ Implement the Content Service as a NestJS application with all API endpoints, bu
 **Status:** ✅ Complete
 
 **Progress:**
+
 - ✅ NestJS application structure created
 - ✅ Controllers/services for read-only endpoints
 - ✅ Prisma integration and logging
@@ -517,7 +519,7 @@ Phase 1 is considered **COMPLETE** when:
 
 ## Agent Prompts Location
 
-Agent prompts will be created in:
+Agent prompts (canonical — copy into worker agents):
 
 - `docs/agents/AGENT11_INFRA_SETUP.md`
 - `docs/agents/AGENT12_CONTENT_DESIGN.md`
@@ -530,26 +532,11 @@ Agent prompts will be created in:
 
 ## Next Steps
 
-1. **Review and Approve Task Decomposition**
-   - Lead Orchestrator reviews this document
-   - Adjustments made if needed
-   - Task decomposition approved
-
-2. **Create Agent Prompts**
-   - Create detailed agent prompts for each task
-   - Include DO/DO NOT rules
-   - Define exit criteria clearly
-
-3. **Begin Phase 1 Execution**
-   - Start with TASK-11 (Infrastructure Setup)
-   - Follow sync points
-   - Monitor progress
-
-4. **Update Tasks Index**
-   - Add Phase 1 tasks to `SPEAKASAP_REFACTORING_TASKS_INDEX.md`
-   - Update master prompt with Phase 1 scope
+1. **Run TASK-15** — `docs/agents/AGENT15_AI_INTEGRATION.md` (AI integration into `content-service`).
+2. **Run TASK-16** — `docs/agents/AGENT16_PHASE1_VALIDATION.md` (validation report, cutover checklist, GO/NO-GO).
+3. **Keep** `SPEAKASAP_REFACTORING_TASKS_INDEX.md` and `PHASE1_ORCHESTRATION_SUMMARY.md` aligned with actual task completion.
 
 ---
 
-**Last Updated:** 2026-01-26  
-**Status:** 📋 Ready for Review and Approval
+**Last Updated:** 2026-04-09  
+**Status:** 🔄 In execution
