@@ -293,14 +293,16 @@ Log lines `marathon shim list my marathons` and `marathon shim get my marathon` 
 **Legacy code removed (2026-02-20):** Server-rendered marathon views, templates references, legacy serializers and management commands have been removed or stubbed in speakasap-portal. Only the API shim (rest/urls marathons/), redirect (speakasap_site marathon_redirect_view, marathon.host_url), and shared form widgets (AnswerForm for grammar/seven) remain. **Archive legacy DB on prod:** run migration (see runbook below). **Check prod logs** (after deploy): `ssh speakasap && cd speakasap-portal && tail -f logs/app.log logs/app_errors.log` per prod.mdc.
 
 **Report Generated:** 2026-02-18  
-**Last Updated:** 2026-02-22 (frontend refactoring complete; verification done)
+**Last Updated:** 2026-04-09 (Step 7 redirect and monitoring baseline re-verified)
 
 ---
 
 ## Frontend refactoring complete (Steps 0–7)
 
-**Status:** Full SPA at marathon.alfares.cz is implemented and deployed. Browser smoke test passed (2026-02-22).
+**Status:** Full SPA at marathon.alfares.cz is implemented and deployed. Browser smoke test passed (2026-02-22) and Step 7 closure checks re-run (2026-04-09).
 
 - **Plan:** `MARATHON_FRONTEND_REFACTORING.md` (Steps 0–8). Steps 0–7 done; Step 8 = rollback procedure only.
 - **Verification:** `MARATHON_VERIFICATION_CHECKLIST.md` — Test run table and 7.1–7.4. 7.1 smoke test completed for /, /de/, /winners, /about, /reviews, /profile, /register, /awards, /support, /rules, /faq, /api/v1/health.
-- **Next (optional):** 7.2 redirect check (speakasap.com/marathon → marathon.alfares.cz); 7.4 ongoing log monitoring. Step 8 rollback if ever needed.
+- **Step 7 follow-up (2026-04-09):** Redirect chain re-verified: `/marathon/` -> `https://marathon.alfares.cz`, `/marathon/german/` -> `https://marathon.alfares.cz/german/`.
+- **Monitoring (2026-04-09):** Marathon logger now resolves logging hostnames for both colors (`logging-microservice-backend-green` and `logging-microservice-backend-blue`, plus logical `logging-microservice`) so centralized logging works regardless of active blue/green container. Centralized logging shows service `marathon.alfares.cz` in `/api/logs/services`.
+- **Next (optional):** Step 8 rollback procedure only (if incident requires rollback).

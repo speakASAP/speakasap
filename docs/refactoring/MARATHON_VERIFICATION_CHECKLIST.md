@@ -26,6 +26,18 @@ Manual follow-up: open Console (F12) on key pages to confirm no errors; test `/w
 
 **7.1 smoke test:** Completed 2026-02-22 (all main URLs loaded; home screenshot confirmed).
 
+## 2026-04-09 follow-up (Step 7 closure)
+
+- Redirect check:
+  - `GET https://speakasap.com/marathon/` -> `302 Location: https://marathon.alfares.cz`
+  - `GET https://speakasap.com/marathon/german/` -> `302 Location: https://marathon.alfares.cz/german/`
+- Health/API check:
+  - `GET https://marathon.alfares.cz/health` -> `{"status":"ok"}`
+  - `GET https://marathon.alfares.cz/api/v1/health` -> frontend HTML response observed (route is served by SPA, not JSON health endpoint)
+- Centralized logging check:
+  - `GET https://logging.alfares.cz/health` -> OK
+  - After prod fix (2026-04-09): marathon logger supports blue/green-safe fallback hosts (`logging-microservice`, `logging-microservice-backend-green`, `logging-microservice-backend-blue`); `GET https://logging.alfares.cz/api/logs/services` includes `marathon.alfares.cz`.
+
 ## 7.1 Smoke test — main URLs
 
 Open each URL (marathon.alfares.cz or your deployed base). Confirm: page loads, expected content visible, no console errors (F12 → Console).
