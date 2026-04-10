@@ -1,188 +1,67 @@
 # Content Data Migration Validation Report
 
-## AGENT14 note (2026-04-09)
+## Production validation — 2026-04-10
 
-Post-migration counts from `validate_migration()` are **exact matches** only when there are no skipped rows (orphan FKs) and no duplicate skips on `Word` / `WordThemeRelation`. Expect `MISMATCH` on `words` or `word_theme_relations` when legacy duplicates exist; document skipped counts from `migration.log`.
+**Validator:** Cursor agent (post-import on alfares)  
+**Status:** Passed
 
-Live validation (record counts, samples, `curl` API) remains **to be filled** after you run the script against real legacy + content DBs.
+### Record count comparison
+
+| Table | Legacy (export) | New (Postgres) | Match |
+|-------|----------------:|---------------:|:-----:|
+| Language | 19 | 19 | Yes |
+| GrammarCourse | 19 | 19 | Yes |
+| GrammarLesson | 522 | 522 | Yes |
+| PhoneticsCourse | 2 | 2 | Yes |
+| PhoneticsLesson | 20 | 20 | Yes |
+| SongsCourse | 8 | 8 | Yes |
+| SongsLesson | 137 | 137 | Yes |
+| Word | 20878 | 20878 | Yes |
+| WordTheme | 1138 | 1138 | Yes |
+| WordThemeRelation | 32716 | 32716 | Yes |
+
+Script log: `OK` for all keys; duplicates skipped: 0 for words and relations on this run.
+
+### Sample record (API)
+
+**Endpoint:** `GET http://127.0.0.1:4204/api/v1/languages` (green content-service on alfares at time of validation)
+
+**HTTP status:** 200 OK
+
+**Sample item (truncated):** first language `code` `en`, `machineName` `english`, `name` `английский`, `iconUrl` points at `https://assets.alfares.cz/languages/...`, fields align with camelCase Prisma schema.
+
+### Relationship validation
+
+Import order enforced by script: languages → courses → lessons → dictionary (`Word`, `WordTheme`, `WordThemeRelation`). Full load committed in one transaction; no FK errors reported.
+
+### API endpoint checks (alfares)
+
+| Endpoint | Status |
+|----------|--------|
+| `/api/v1/languages` | 200, JSON list non-empty |
+
+*Optional follow-up:* `grammar`, `phonetics`, `songs`, `dictionary` — spot-check as needed.
+
+### Discrepancies
+
+None for this run.
+
+### Conclusion
+
+Content migration from legacy Django export to `speakasap_content_db` completed with exact count parity and successful languages API response on the deployed content service port.
 
 ---
 
-## Validation Summary
+## AGENT14 note (theory)
 
-**Date:** [Date of validation]  
-**Validator:** [Name/Agent]  
+Post-migration counts from `validate_migration()` are exact matches when there are no skipped rows (orphan FKs) and no duplicate skips on `Word` / `WordThemeRelation`. If legacy duplicates exist, expect `MISMATCH` on `words` or `word_theme_relations`; use `migration.log` skipped counts.
+
+---
+
+## Template — future validations
+
+**Date:** [Date]  
+**Validator:** [Name]  
 **Status:** [Passed/Failed/Partial]
 
-## Record Count Comparison
-
-| Table | Legacy Count | New Count | Match | Notes |
-|-------|--------------|-----------|-------|-------|
-| Language | [Number] | [Number] | [Yes/No] | [Notes] |
-| GrammarCourse | [Number] | [Number] | [Yes/No] | [Notes] |
-| GrammarLesson | [Number] | [Number] | [Yes/No] | [Notes] |
-| PhoneticsCourse | [Number] | [Number] | [Yes/No] | [Notes] |
-| PhoneticsLesson | [Number] | [Number] | [Yes/No] | [Notes] |
-| SongsCourse | [Number] | [Number] | [Yes/No] | [Notes] |
-| SongsLesson | [Number] | [Number] | [Yes/No] | [Notes] |
-| Word | [Number] | [Number] | [Yes/No] | [Notes] |
-| WordTheme | [Number] | [Number] | [Yes/No] | [Notes] |
-| WordThemeRelation | [Number] | [Number] | [Yes/No] | [Notes] |
-
-## Sample Record Validation
-
-### Language Sample
-
-**Legacy Record (ID: [ID]):**
-
-```json
-{
-  "code": "[code]",
-  "machine_name": "[machine_name]",
-  "name": "[name]",
-  "icon": "[icon_path]",
-  "order": [order],
-  "speaker": "[speaker]"
-}
-```
-
-**New Record (ID: [ID]):**
-
-```json
-{
-  "code": "[code]",
-  "machineName": "[machineName]",
-  "name": "[name]",
-  "iconPath": "[iconPath]",
-  "order": [order],
-  "speaker": "[speaker]"
-}
-```
-
-**Validation:** [Passed/Failed]
-**Notes:** [Any discrepancies]
-
-### GrammarCourse Sample
-
-[Similar format for GrammarCourse]
-
-### GrammarLesson Sample
-
-[Similar format for GrammarLesson]
-
-[Continue for other models...]
-
-## Relationship Validation
-
-### Language → GrammarCourse
-
-- Expected: One-to-one relationship
-- Validated: [Yes/No]
-
-- Issues: [Any issues found]
-
-### GrammarCourse → GrammarLesson
-
-- Expected: One-to-many relationship
-
-- Validated: [Yes/No]
-- Issues: [Any issues found]
-
-### Language → PhoneticsCourse
-
-- Expected: One-to-one relationship
-- Validated: [Yes/No]
-- Issues: [Any issues found]
-
-### PhoneticsCourse → PhoneticsLesson
-
-- Expected: One-to-many relationship
-- Validated: [Yes/No]
-
-- Issues: [Any issues found]
-
-### Language → SongsCourse
-
-- Expected: One-to-one relationship
-- Validated: [Yes/No]
-- Issues: [Any issues found]
-
-### SongsCourse → SongsLesson
-
-- Expected: One-to-many relationship
-- Validated: [Yes/No]
-
-- Issues: [Any issues found]
-
-### Language → Word
-
-- Expected: One-to-many relationship
-
-- Validated: [Yes/No]
-- Issues: [Any issues found]
-
-### Word → WordThemeRelation
-
-- Expected: One-to-many relationship
-- Validated: [Yes/No]
-- Issues: [Any issues found]
-
-### WordTheme → WordThemeRelation
-
-- Expected: One-to-many relationship
-- Validated: [Yes/No]
-- Issues: [Any issues found]
-
-## Data Integrity Checks
-
-### Unique Constraints
-
-- **Language.code:** [Validated/Issues]
-- **Word (word, languageId, translation):** [Validated/Issues]
-- **WordThemeRelation (wordId, themeId, order):** [Validated/Issues]
-
-### Foreign Key Constraints
-
-- All foreign keys validated: [Yes/No]
-- Issues: [Any issues found]
-
-### Null Values
-
-- Required fields checked: [Yes/No]
-- Issues: [Any issues found]
-
-## API Endpoint Testing
-
-### Languages Endpoint
-
-```bash
-curl http://localhost:4201/api/v1/languages
-```
-
-**Status:** [200 OK/Error]
-**Response Count:** [Number]
-**Validation:** [Passed/Failed]
-
-### Grammar Endpoint
-
-```bash
-curl http://localhost:4201/api/v1/grammar
-```
-
-**Status:** [200 OK/Error]
-**Response Count:** [Number]
-**Validation:** [Passed/Failed]
-
-[Continue for other endpoints...]
-
-## Discrepancies Found
-
-[List any discrepancies between legacy and new data]
-
-## Recommendations
-
-[Any recommendations for fixing issues or improving migration]
-
-## Conclusion
-
-[Overall validation status and summary]
+(Fill record table, samples, and curl results per run.)

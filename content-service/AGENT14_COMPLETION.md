@@ -1,8 +1,8 @@
 # AGENT14 Content Migration - Implementation Complete
 
-## Status: ✅ Tooling complete (live run = operator)
+## Status: ✅ Tooling complete + production import (2026-04-10)
 
-All migration **code and docs** are in place. Running against real DBs requires the portal’s supported Python/Django venv (see `scripts/README_MIGRATION.md`). 2026-04-09: script hardening (savepoints, validation table map, logging, bootstrap, rollback shell).
+Migration **code and docs** are in place. **Live file-based export/import** was executed: `speakasap` (portal, Python 3.4) → tarball → `alfares` (`--truncate-first` into `speakasap_content_db`). Record counts matched; see `docs/refactoring/CONTENT_DATA_MIGRATION_LOG.md` and `CONTENT_DATA_VALIDATION.md`. 2026-04-09: script hardening (savepoints, validation table map, logging, bootstrap, rollback shell).
 
 ## Implementation Summary
 
@@ -103,23 +103,13 @@ python3 migrate-content-data.py --dry-run
 
 See `scripts/README_MIGRATION.md`. Import runs on alfares using `content-service/scripts/migrate-content-data.py` inside the cloned speakasap repo.
 
-## Next Steps
+## Next Steps (maintenance)
 
-1. **Execute Migration:**
-   - Run dry-run first to verify
-   - Execute actual migration
-   - Monitor migration.log for progress
+1. **Re-import after large legacy changes:** repeat `README_MIGRATION.md` (export → tarball → import with `DATABASE_URL` from deployment).
 
-2. **Validate Results:**
-   - Check record counts match
-   - Test API endpoints
-   - Verify sample records
-   - Complete validation report
+2. **Ongoing checks:** spot-check `curl` to content API after deploy; compare counts if something looks off.
 
-3. **Document Results:**
-   - Fill in migration log template
-   - Complete validation report
-   - Document any discrepancies
+3. **Docs:** `docs/refactoring/CONTENT_DATA_MIGRATION_LOG.md` and `CONTENT_DATA_VALIDATION.md` hold the 2026-04-10 production run record.
 
 ## Related Files
 

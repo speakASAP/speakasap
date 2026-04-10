@@ -1,132 +1,88 @@
 # Content Data Migration Log
 
-## Latest maintenance (AGENT14 tooling)
+## Production run — 2026-04-10
 
-**Date:** 2026-04-09  
-**Executor:** Cursor / AGENT14  
-**Dry Run:** Not executed on this host (Django 1.11 requires portal Python 3.4–3.6 venv; local `python3` is 3.12).  
-**Status:** Script and docs updated; **production migration still operator-run** with portal venv + `NEW_DATABASE_URL` or `DATABASE_URL`.
+**Executor:** Cursor agent (SSH: `speakasap` → export, `alfares` → import)  
+**Strategy:** File-based export/import per `content-service/scripts/README_MIGRATION.md`  
+**Dry run:** Export path exercised on legacy; full import used `--truncate-first` on target after tarball transfer.
 
-Changes: `migrate-content-data.py` — Django path bootstrap (`SPEAKASAP_PORTAL_ROOT`), savepoints for duplicate `Word` / `WordThemeRelation`, fixed validation table names (`STAT_KEY_TO_PRISMA_TABLE`), fixed logging format bugs, removed unused `--legacy-db-url`. Added `scripts/rollback-content-migration.sh`.
+**Status:** Completed successfully.
+
+### Environment (no secrets)
+
+- **Legacy host:** `speakasap` — `/home/portal_db/speakasap-portal`, Python 3.4.3 (`/usr/bin/python3`)
+- **Export directory:** `/home/portal_db/speakasap-content-export`
+- **Archive:** `/tmp/speakasap-content-export.tgz` (transferred speakasap → operator → alfares)
+- **Target:** `speakasap_content_db` on shared Postgres (`127.0.0.1:5432` from alfares host). `DATABASE_URL` must match the running content-service container / `content-service` deployment env (see `.env` on alfares — not committed).
+
+### Script sync
+
+- Canonical: `speakasap/content-service/scripts/migrate-content-data.py` (local repo → `scp` to `speakasap:/home/portal_db/speakasap-portal/migrate-content-data.py`)
+
+### Execution summary
+
+| Step | Result |
+|------|--------|
+| Export (`--export-dir`) | OK |
+| Import (`--import-dir`, `--truncate-first`) | OK, single transaction commit |
+| Post-import `validate_migration()` | All entity keys OK (legacy = new) |
+
+### Record counts (legacy export = new DB after import)
+
+| Entity | Count |
+|--------|------:|
+| Language | 19 |
+| GrammarCourse | 19 |
+| GrammarLesson | 522 |
+| PhoneticsCourse | 2 |
+| PhoneticsLesson | 20 |
+| SongsCourse | 8 |
+| SongsLesson | 137 |
+| Word | 20878 |
+| WordTheme | 1138 |
+| WordThemeRelation | 32716 |
+
+**Words skipped on import:** 0  
+**WordThemeRelation skipped:** 0
+
+### Errors
+
+None.
+
+### Next steps (ongoing)
+
+- [ ] Re-run after major legacy content changes (same procedure)
+- [ ] Spot-check UI / portal against content API
 
 ---
 
-## Migration Execution Summary
+## Earlier maintenance note (AGENT14 tooling, 2026-04-09)
+
+Script hardening: Django bootstrap (`SPEAKASAP_PORTAL_ROOT`), savepoints for duplicate `Word` / `WordThemeRelation`, validation table map, logging, `rollback-content-migration.sh`. Prior note that dry-run was not executed on Python 3.12 dev hosts is superseded by the production run above.
+
+---
+
+## Template — future runs
 
 **Date:** [Date of migration]  
 **Executor:** [Name/Agent]  
 **Dry Run:** [Yes/No]  
 **Status:** [In Progress/Completed/Failed]
 
-## Environment
+### Environment
 
-- **Legacy Database:** [Database name/URL]
-- **New Database:** [Database name/URL]
-- **Migration script (canonical):** `speakasap/content-service/scripts/migrate-content-data.py` in the **speakasap** repo (alfares: `git pull` in `speakasap`). Legacy export runs from a **copy** in `speakasap-portal` on **speakasap** (separate repo: `git pull` there).
+- **Legacy Database:** [redacted — portal Postgres]
+- **New Database:** `speakasap_content_db` (URL from deployment only)
+- **Migration script:** `speakasap/content-service/scripts/migrate-content-data.py`
 
-## Execution Steps
-
-### 1. Preparation
+### Preparation checklist
 
 - [ ] Legacy database accessible
-- [ ] New database created and migrated (Prisma migrations applied)
-- [ ] Data mapping document reviewed
-- [ ] Migration script tested with dry-run
+- [ ] New database created and Prisma migrations applied
+- [ ] Data mapping reviewed (`CONTENT_DATA_MAPPING.md`)
+- [ ] Script synced to portal host for export
+- [ ] Optional dry-run on portal
 
-### 2. Execution
+### Rollback
 
-**Start Time:** [Timestamp]
-
-#### Languages
-
-- Legacy Count: [Number]
-- New Count: [Number]
-- Status: [Success/Failed]
-- Notes: [Any issues encountered]
-
-#### Grammar Courses
-
-- Legacy Count: [Number]
-- New Count: [Number]
-- Status: [Success/Failed]
-
-- Notes: [Any issues encountered]
-
-#### Grammar Lessons
-
-- Legacy Count: [Number]
-- New Count: [Number]
-
-- Status: [Success/Failed]
-- Notes: [Any issues encountered]
-
-#### Phonetics Courses
-
-- Legacy Count: [Number]
-
-- New Count: [Number]
-- Status: [Success/Failed]
-- Notes: [Any issues encountered]
-
-#### Phonetics Lessons
-
-- Legacy Count: [Number]
-- New Count: [Number]
-- Status: [Success/Failed]
-- Notes: [Any issues encountered]
-
-#### Songs Courses
-
-- Legacy Count: [Number]
-- New Count: [Number]
-- Status: [Success/Failed]
-- Notes: [Any issues encountered]
-
-#### Songs Lessons
-
-- Legacy Count: [Number]
-- New Count: [Number]
-- Status: [Success/Failed]
-- Notes: [Any issues encountered]
-
-#### Words
-
-- Legacy Count: [Number]
-- New Count: [Number]
-- Duplicates Skipped: [Number]
-- Status: [Success/Failed]
-
-- Notes: [Any issues encountered]
-
-#### Word Themes
-
-- Legacy Count: [Number]
-- New Count: [Number]
-- Status: [Success/Failed]
-- Notes: [Any issues encountered]
-
-#### Word Theme Relations
-
-- Legacy Count: [Number]
-- New Count: [Number]
-- Duplicates Skipped: [Number]
-- Status: [Success/Failed]
-- Notes: [Any issues encountered]
-
-**End Time:** [Timestamp]
-**Duration:** [Duration]
-
-## Errors Encountered
-
-[List any errors encountered during migration]
-
-## Rollback Actions
-
-[If rollback was needed, document steps taken]
-
-## Next Steps
-
-- [ ] Validate data integrity
-- [ ] Test API endpoints
-- [ ] Verify relationships
-- [ ] Document any discrepancies
+- Target DB only: `content-service/scripts/rollback-content-migration.sh` (requires `DATABASE_URL`, confirms before `DROP SCHEMA`)
