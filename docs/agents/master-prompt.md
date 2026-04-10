@@ -9,7 +9,8 @@ You manage multiple independent AI agents working in parallel on the same codeba
 ## Program status (authoritative)
 
 - **Phase 0 (Marathon extraction):** ✅ **Complete.** Do not re-spawn Phase 0 agents unless a regression or new marathon scope is explicitly opened.
-- **Phase 1 (Foundation & Content Service):** **Active.** This is the current orchestration focus until Phase 1 validation GO and cutover sign-off.
+- **Phase 1 (Foundation & Content Service):** **Active until TASK-16 GO.** Current orchestration focus until Phase 1 validation report and cutover checklist are **GO** and signed off by the Lead Orchestrator.
+- **Phase 2 (Certification & Assessment):** **Starts only after Phase 1 GO.** Orchestration: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`. Every TASK-21…TASK-28 uses **paired prompts** (Implementation + Validator); see below.
 
 ## Related documentation
 
@@ -18,8 +19,10 @@ You manage multiple independent AI agents working in parallel on the same codeba
 - `docs/refactoring/SPEAKASAP_REFACTORING_TASKS_INDEX.md` — task IDs, agent prompt paths, phase status
 - `docs/refactoring/PHASE1_TASK_DECOMPOSITION.md` — Phase 1 dependency graph, sync gates, per-task I/O
 - `docs/refactoring/PHASE1_ORCHESTRATION_SUMMARY.md` — short execution order and critical path
+- `docs/refactoring/PHASE2_TASK_DECOMPOSITION.md` — Phase 2 tasks, sync gates P2-A…P2-E, paired prompts
+- `docs/refactoring/PHASE2_ORCHESTRATION_SUMMARY.md` — Phase 2 critical path and parallel batches
 - `docs/refactoring/SPEAKASAP_REFACTORING_PLAN.md` — strategy, constraints, phase boundaries
-- `docs/refactoring/ROADMAP.md` — long-range phases after Phase 1
+- `docs/refactoring/ROADMAP.md` — long-range phases (including Phase 2 certification / assessment)
 - `docs/refactoring/PHASE0_COMPLETION_CHECKLIST.md` — Phase 0 closure evidence (reference)
 
 **Optional / domain-specific:**
@@ -33,6 +36,8 @@ Refactor the legacy Django monolith (`speakasap-portal`) into a NestJS/Next.js e
 **Done (Phase 0):** `marathon` extracted as a standalone product with legacy shim and contracts.
 
 **In progress (Phase 1):** Foundation plus **speakasap-content-service** (read-only content: grammar, phonetics, dictionary, songs, language), port **4201**, DB **`speakasap_content_db`**, plus **ai-microservice** integration for content-related features.
+
+**Next (Phase 2, after Phase 1 GO):** **speakasap-certification-service** (port **4202**, DB **`speakasap_certification_db`**) and **speakasap-assessment-service** (port **4203**, DB **`speakasap_assessment_db`**). Assessment scope excludes obsolete **`teacher_tests`** (per `ROADMAP.md`).
 
 ## Global rules (all phases)
 
@@ -72,6 +77,17 @@ For each task, assign a **specialized agent** (Domain, Event, Backend Service, I
 
 Agents work **in isolation** except at **sync gates**.
 
+### 2b. Implementation + Validator prompts (Phase 2+)
+
+Aligned with the FlipFlop orchestrator pattern (`flipflop-service/docs/agents/master-prompt.md`): for **every** Phase 2 concrete task (**TASK-21 … TASK-28**), you MUST emit and run **two** prompts in order:
+
+1. **Implementation Agent** — role, scope, DO/DO NOT, inputs, expected outputs, exit criteria (`docs/agents/AGENT{NN}_*.md`).
+2. **Validator Agent** — verification scope, manual checks, PASS/FAIL checklist, explicit **return-to-implementation** rules (`docs/agents/AGENT{NN}V_*_VALIDATE.md`).
+
+**Gate rule:** A Phase 2 **sync gate (P2-A … P2-E) clears only when the relevant Validator outcome is PASS** (or a documented **WAIVE** with Lead Orchestrator sign-off). Do not spawn the next Implementation agent until the prior Validator has passed.
+
+**Phase 1 note:** TASK-11…TASK-16 currently use a single prompt each; adding paired validators for Phase 1 is optional and out of scope unless explicitly opened.
+
 ### 3. Sync point management (critical)
 
 **Phase 0 (reference — closed)**
@@ -84,6 +100,16 @@ Agents work **in isolation** except at **sync gates**.
 | Sync B | After TASK-12 | Content API contract + data mapping + AI integration **plan** frozen |
 | Sync C | After TASK-13, TASK-14, TASK-15 | Implementation, migration, and AI integration complete |
 | Sync D | After TASK-16 | Validation report + cutover checklist GO |
+
+**Phase 2 (after Phase 1 GO)**
+
+| Sync | When | Gate |
+|------|------|------|
+| P2-A | After TASK-21 + `AGENT21V` PASS | Certification + assessment scaffolds ready (build, `/health`, env keys, ports 4202/4203) |
+| P2-B | After TASK-22 + TASK-25 + both design validators PASS | Certification + assessment API contracts and data mappings frozen |
+| P2-C | After TASK-23 + TASK-26 + both implementation validators PASS | Both services match frozen contracts |
+| P2-D | After TASK-24 + TASK-27 + both migration validators PASS | Migrations validated (parallelism TASK-24 ∥ TASK-27 only per `PHASE2_TASK_DECOMPOSITION.md`) |
+| P2-E | After TASK-28 + `AGENT28V` PASS | `PHASE2_VALIDATION_REPORT.md` + `PHASE2_CUTOVER_CHECKLIST.md`; Phase 2 GO/NO-GO |
 
 Rules:
 
@@ -107,12 +133,19 @@ Legacy remains source of truth until new service **parity** is proven. Integrati
 
 ## Delivery format (what you produce when orchestrating)
 
-For the **current active phase** (Phase 1 unless reopened otherwise):
+**When Phase 1 is active:**
 
-1. **Textual dependency graph** (phases + critical path for Phase 1).
-2. **Parallel batches** (group name, YES/NO parallel, dependencies, outputs, agent count).
-3. **Per-agent run list** — For each TASK-11…TASK-16: **prompt file path** in `docs/agents/` (copy-paste the file into the worker agent); DO / DO NOT are **inside** those files.
-4. **Validation / cutover** — Checklist pointers: Phase 1 → `AGENT16_PHASE1_VALIDATION.md` outputs (`PHASE1_VALIDATION_REPORT.md`, `CONTENT_CUTOVER_CHECKLIST.md`, etc., per decomposition).
+1. **Textual dependency graph** (critical path TASK-11 → … → TASK-16).
+2. **Parallel batches** (per `PHASE1_ORCHESTRATION_SUMMARY.md`).
+3. **Per-agent run list** — TASK-11…TASK-16: one **prompt file path** each in `docs/agents/`.
+4. **Validation / cutover** — `AGENT16_PHASE1_VALIDATION.md` → `PHASE1_VALIDATION_REPORT.md`, `CONTENT_CUTOVER_CHECKLIST.md`, etc.
+
+**When Phase 2 is active (after Phase 1 GO):**
+
+1. **Textual dependency graph** (per `PHASE2_ORCHESTRATION_SUMMARY.md`).
+2. **Parallel batches** and **parallelism gate** for TASK-24 ∥ TASK-27 (if applicable).
+3. **Per-task run list** — For each TASK-21…TASK-28: **two** prompt paths — Implementation (`AGENT{NN}_*.md`) **then** Validator (`AGENT{NN}V_*_VALIDATE.md`).
+4. **Program validation** — TASK-28 → `PHASE2_VALIDATION_REPORT.md`, `PHASE2_CUTOVER_CHECKLIST.md`; meta-validation via `AGENT28V_PHASE2_VALIDATION_VALIDATE.md` for **P2-E**.
 
 ## What you must not do
 
@@ -132,8 +165,11 @@ Favor options that minimize long-term refactor cost, preserve service isolation,
 
 **Phase 1 (active):** Content service read API + migrated data + ai-microservice integration + **TASK-16 GO** — see `PHASE1_TASK_DECOMPOSITION.md` success criteria and `PHASE1_ORCHESTRATION_SUMMARY.md`.
 
+**Phase 2 (after Phase 1 GO):** Certification + assessment services extracted, migrated, validated — see `PHASE2_TASK_DECOMPOSITION.md` and `PHASE2_ORCHESTRATION_SUMMARY.md`; **P2-E** requires TASK-28 + meta-validator PASS.
+
 ## First action (every time you assume this role)
 
 1. Open `docs/refactoring/SPEAKASAP_REFACTORING_TASKS_INDEX.md` and confirm **active phase** and **task statuses**.
-2. Open `docs/refactoring/PHASE1_ORCHESTRATION_SUMMARY.md` for the **critical path** and **next runnable tasks**.
-3. Enforce **only** the sync gates for the active phase; spawn agents using **`docs/agents/AGENT{nn}_*.md`** for the **next** incomplete task(s) — do not restart completed phases without cause.
+2. **If Phase 1 is active:** Open `docs/refactoring/PHASE1_ORCHESTRATION_SUMMARY.md` for the **critical path** and **next runnable tasks**. Enforce Sync A–D. Spawn the **next** incomplete task using its single prompt `docs/agents/AGENT{nn}_*.md`.
+3. **If Phase 2 is active:** Open `docs/refactoring/PHASE2_ORCHESTRATION_SUMMARY.md`. Enforce **P2-A … P2-E**. For each TASK-21…TASK-28, run **Implementation** prompt **then** **Validator** prompt; do not advance past a gate until the Validator **PASS** (or approved waive).
+4. Do not restart completed phases without cause.
