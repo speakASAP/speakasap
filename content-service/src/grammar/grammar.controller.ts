@@ -3,6 +3,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Logger,
   NotFoundException,
   Param,
@@ -111,7 +113,22 @@ export class GrammarController {
     return result;
   }
 
+  @Post()
+  @HttpCode(HttpStatus.OK)
+  async translateBase(
+    @Body()
+    body?: {
+      text?: string;
+      sourceLanguage?: string;
+      targetLanguage?: string;
+    },
+    @Req() req?: Request,
+  ): Promise<{ translatedText: string; durationMs: number; status: string }> {
+    return this.translate(body, req);
+  }
+
   @Post('translate')
+  @HttpCode(HttpStatus.OK)
   async translate(
     @Body()
     body?: {
