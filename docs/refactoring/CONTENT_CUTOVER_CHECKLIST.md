@@ -5,7 +5,7 @@ Owner: Phase 1 validation/cutover team
 
 ## Pre-Cutover (Must Pass)
 
-- [ ] Resolve known production blocker first: translation endpoints return 404 on alfares runtime (`POST /api/v1/dictionary/translate`, `POST /api/v1/grammar/translate`).
+- [x] Resolve known production blocker first: translation endpoints return 404 on alfares runtime (`POST /api/v1/dictionary/translate`, `POST /api/v1/grammar/translate`). **RESOLVED 2026-04-10** — stale container rebuilt and redeployed; routes confirmed live (400 on invalid payload, 200/504 on valid payload depending on AI service availability).
 - [ ] Confirm `docs/refactoring/PHASE1_VALIDATION_REPORT.md` is updated to GO state.
 - [ ] Verify latest content migration parity (all 10 entities) and archive counts.
 - [ ] Run endpoint smoke matrix against target environment:
