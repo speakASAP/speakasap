@@ -13,6 +13,8 @@ speakasap/
 ├── docker-compose.blue.yml      # Blue environment (all services)
 ├── docker-compose.green.yml     # Green environment (all services)
 ├── .env.example                 # Environment variables template
+├── certification-service/       # Phase 2 certification (port 4202)
+├── assessment-service/          # Phase 2 assessment (port 4203)
 ├── nginx/
 │   └── nginx-api-routes.conf
 ├── scripts/

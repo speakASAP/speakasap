@@ -38,19 +38,17 @@ Phase: Content Service foundation, implementation, migration, and AI integration
 
 ## Ready for Phase 2?
 
-Current recommendation: **GO** (conditional).
-
-Updated: 2026-04-10 after AGENT17 root-cause fix.
+**Yes.** Phase 1 is **closed** (Lead Orchestrator sign-off **2026-04-10**). Prerequisite for Phase 2 (TASK-21+) is met.
 
 Completed blocking items:
 
 1. ~~Fix deployment drift so production exposes TASK-15 translation routes.~~ **DONE** — container rebuilt; routes live; AI translate confirmed end-to-end (English→Czech).
 2. ~~Re-run AI success + timeout/unavailable probes with log evidence.~~ **DONE** — success: HTTP 200 with translatedText; timeout: HTTP 504 GatewayTimeoutException; validation error: HTTP 400; all with ISO 8601 timestamps and duration_ms.
 
-Remaining before full cutover sign-off:
+Optional follow-up (not blocking Phase 2):
 
 1. Capture p95/p99 latency baseline for list endpoints and AI translate.
 2. Add smoke test script for pre-deploy gate.
-3. Run final GO checklist and sign off cutover.
+3. Execute **Part B** of `CONTENT_CUTOVER_CHECKLIST.md` when scheduling full traffic cutover.
 
-Phase 1 is functionally complete. Phase 2 may proceed with the above items tracked as pre-cutover tasks.
+**Next:** `PHASE2_ORCHESTRATION_SUMMARY.md` — TASK-21 then AGENT21V (P2-A).

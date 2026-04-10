@@ -3,12 +3,13 @@
 Date: 2026-04-10  
 Scope: TASK-11 through TASK-15 validation for Content Service cutover readiness.
 
-## Revalidation Snapshot (this execution)
+## Final validation snapshot (2026-04-10)
 
 - `npm run build` in `content-service` -> PASS
 - `curl https://content.alfares.cz/health` -> 200
-- `curl -X POST https://content.alfares.cz/api/v1/dictionary/translate` -> 404 (`Cannot POST /api/v1/dictionary/translate`)
-- `curl -X POST https://content.alfares.cz/api/v1/grammar/translate` -> 404 (`Cannot POST /api/v1/grammar/translate`)
+- `POST /api/v1/dictionary/translate` and `POST /api/v1/grammar/translate` -> **live** after AGENT17 redeploy (see §4 for 200/400/504 evidence)
+
+**Phase 1 closure:** Lead Orchestrator accepted remaining recommendations (p95/p99 export, optional smoke script) as **non-blocking follow-up** on **2026-04-10**.
 
 ## Evidence Used
 
@@ -156,8 +157,8 @@ Status: PARTIAL PASS
 
 Gap:
 
-- No p95/p99 export collected.
-- No AI latency baseline possible until translate routes are available.
+- No formal p95/p99 export collected (sample latencies below; **accepted as follow-up** at Phase 1 closure).
+- Informal AI latency evidence in §4 (dictionary vs grammar); percentile export still optional follow-up.
 
 ## 6) Infrastructure Validation
 
@@ -181,20 +182,20 @@ Gap:
 1. Missing `npm test` script in `content-service` (unchanged — no automated test suite).
 2. ~~Production translation endpoints return 404.~~ **RESOLVED 2026-04-10** (AGENT17).
 3. ~~AI failure-path validation blocked until translation routes are active.~~ **RESOLVED** — failure path confirmed: 400 on bad payload, 504 on AI timeout.
-4. Performance evidence is sample-level only (no p95/p99) — still pending.
+4. Performance evidence is sample-level only (no p95/p99 export) — **tracked as follow-up**; not blocking Phase 1 closure.
 
 ## Recommendations
 
-1. Add a minimal smoke test command (or scripted curl-based validator) before cutover.
+1. Add a minimal smoke test command (or scripted curl-based validator) before go-live cutover (optional hardening).
 2. Current production endpoint matrix is up to date as release evidence.
-3. Consider increasing `AI_SERVICE_TIMEOUT` or `RETRY_MAX_ATTEMPTS` to reduce 504 rate if AI service remains slow.
-4. Add percentile latency baseline (p95/p99) for cutover evidence (remaining gap).
+3. Consider tuning `AI_SERVICE_TIMEOUT` or `RETRY_MAX_ATTEMPTS` only after root-cause analysis of AI latency (do not mask hangs).
+4. Add percentile latency baseline (p95/p99) when operations requires it (optional follow-up).
 
 ## GO/NO-GO Decision
 
-Decision: **GO** (conditional — p95/p99 latency baseline still outstanding)
+Decision: **GO** — **Phase 1 closed 2026-04-10** (Lead Orchestrator sign-off). Prior conditional items (p95/p99 export, deploy dry-run, `npm test` smoke) are **accepted follow-up**, not gates on program phase closure.
 
-Updated: 2026-04-10 after AGENT17 root-cause fix and re-validation.
+Updated: 2026-04-10 after AGENT17 root-cause fix, re-validation, and documentation sign-off.
 
 Evidence:
 
@@ -204,7 +205,8 @@ Evidence:
 - Logging: PASS — startup route log, ISO 8601 timestamps, `duration_ms`, categorized failure reasons
 - Infrastructure: PASS — `speakasap-content-green` healthy, real SSL cert issued for `speakasap.alfares.cz`
 
-Remaining before full cutover:
+Optional follow-up (operations / hardening):
 
-- Capture p95/p99 latency baseline for list endpoints.
+- Capture p95/p99 latency baseline for list endpoints and AI translate.
 - Add smoke test script for pre-deploy validation gate.
+- Run deployment dry-run when convenient.

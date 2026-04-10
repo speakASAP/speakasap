@@ -43,19 +43,21 @@ Original objectives (achieved for the marathon slice):
 4. Validation and cutover path for marathon traffic.
 5. Legacy marathon code deprecation only after stable cutover (per runbook).
 
-## Phase 1: Foundation & Content Service — **Current focus until TASK-16 GO**
+## Phase 1: Foundation & Content Service — ✅ **Complete** (2026-04-10)
 
-**Goal:** Infrastructure foundation in `speakasap` plus **speakasap-content-service** (read-only), port **4201**, database **`speakasap_content_db`**, integrations: **logging**, **ai-microservice** (and notifications wiring per infra task).
+**Goal:** Infrastructure foundation in `speakasap` plus **speakasap-content-service** (read-only), port **4201**, database **`speakasap_content_db`**, integrations: **logging**, **ai-microservice** (and notifications wiring per infra task). **Achieved.**
 
-**Orchestration:** `docs/refactoring/PHASE1_TASK_DECOMPOSITION.md`, `docs/refactoring/PHASE1_ORCHESTRATION_SUMMARY.md`, `docs/refactoring/SPEAKASAP_REFACTORING_TASKS_INDEX.md`.
+**Closure evidence:** `docs/refactoring/PHASE1_VALIDATION_REPORT.md`, `docs/refactoring/PHASE1_COMPLETION_SUMMARY.md`, `docs/refactoring/CONTENT_CUTOVER_CHECKLIST.md`.
 
-**Agent prompts:** `docs/agents/AGENT11_INFRA_SETUP.md` … `docs/agents/AGENT16_PHASE1_VALIDATION.md`.
+**Orchestration (reference):** `docs/refactoring/PHASE1_TASK_DECOMPOSITION.md`, `docs/refactoring/PHASE1_ORCHESTRATION_SUMMARY.md`, `docs/refactoring/SPEAKASAP_REFACTORING_TASKS_INDEX.md`.
+
+**Agent prompts (reference):** `docs/agents/AGENT11_INFRA_SETUP.md` … `docs/agents/AGENT16_PHASE1_VALIDATION.md`.
 
 **Lead orchestrator prompt:** `docs/agents/master-prompt.md`.
 
-**Exit:** Phase 1 is complete when TASK-16 produces validation **GO** and cutover sign-off (per Lead Orchestrator).
+## Phase 2: Certification & Assessment — **Current program focus**
 
-## Phase 2: Certification & Assessment — **Next after Phase 1 GO**
+**Prerequisite:** Phase 1 GO — **met 2026-04-10**.
 
 **Goal:** Extract **speakasap-certification-service** (port **4202**, DB **`speakasap_certification_db`**) and **speakasap-assessment-service** (port **4203**, DB **`speakasap_assessment_db`**) per `docs/refactoring/ROADMAP.md` Phase 2.
 

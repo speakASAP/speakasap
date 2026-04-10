@@ -1035,6 +1035,8 @@ The new speakasap platform will leverage the following existing shared microserv
 
 ### Phase 1: Foundation & Infrastructure
 
+**Program status:** ✅ **Closed** for SpeakASAP orchestration (**2026-04-10**) — TASK-11..TASK-16; see `docs/refactoring/PHASE1_COMPLETION_SUMMARY.md`. The checklist below is retained for traceability; update boxes when auditing delivery against this roadmap.
+
 **Goal**: Set up infrastructure and extract low-risk services
 
 #### 1.1 Project Setup

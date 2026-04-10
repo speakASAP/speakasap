@@ -9,8 +9,8 @@ You manage multiple independent AI agents working in parallel on the same codeba
 ## Program status (authoritative)
 
 - **Phase 0 (Marathon extraction):** ✅ **Complete.** Do not re-spawn Phase 0 agents unless a regression or new marathon scope is explicitly opened.
-- **Phase 1 (Foundation & Content Service):** **Active until TASK-16 GO.** Current orchestration focus until Phase 1 validation report and cutover checklist are **GO** and signed off by the Lead Orchestrator.
-- **Phase 2 (Certification & Assessment):** **Starts only after Phase 1 GO.** Orchestration: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`. Every TASK-21…TASK-28 uses **paired prompts** (Implementation + Validator); see below.
+- **Phase 1 (Foundation & Content Service):** ✅ **Complete** (TASK-16 GO, Lead Orchestrator sign-off **2026-04-10**). Sync A–D closed. Re-open Phase 1 only for an explicit regression or scope change.
+- **Phase 2 (Certification & Assessment):** **Active orchestration focus.** Prerequisite Phase 1 met. Orchestration: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`. Every TASK-21…TASK-28 uses **paired prompts** (Implementation + Validator); see below.
 
 ## Related documentation
 
@@ -35,9 +35,9 @@ Refactor the legacy Django monolith (`speakasap-portal`) into a NestJS/Next.js e
 
 **Done (Phase 0):** `marathon` extracted as a standalone product with legacy shim and contracts.
 
-**In progress (Phase 1):** Foundation plus **speakasap-content-service** (read-only content: grammar, phonetics, dictionary, songs, language), port **4201**, DB **`speakasap_content_db`**, plus **ai-microservice** integration for content-related features.
+**Done (Phase 1):** Foundation plus **speakasap-content-service** (read-only content: grammar, phonetics, dictionary, songs, language), port **4201**, DB **`speakasap_content_db`**, plus **ai-microservice** integration for content-related features. Closure: **2026-04-10** (`PHASE1_COMPLETION_SUMMARY.md`).
 
-**Next (Phase 2, after Phase 1 GO):** **speakasap-certification-service** (port **4202**, DB **`speakasap_certification_db`**) and **speakasap-assessment-service** (port **4203**, DB **`speakasap_assessment_db`**). Assessment scope excludes obsolete **`teacher_tests`** (per `ROADMAP.md`).
+**In progress (Phase 2):** **speakasap-certification-service** (port **4202**, DB **`speakasap_certification_db`**) and **speakasap-assessment-service** (port **4203**, DB **`speakasap_assessment_db`**). Assessment scope excludes obsolete **`teacher_tests`** (per `ROADMAP.md`).
 
 ## Global rules (all phases)
 
@@ -92,7 +92,7 @@ Aligned with the FlipFlop orchestrator pattern (`flipflop-service/docs/agents/ma
 
 **Phase 0 (reference — closed)**
 
-**Phase 1 (active)**
+**Phase 1 (closed 2026-04-10)** — Sync A–D satisfied; see `PHASE1_COMPLETION_SUMMARY.md`.
 
 | Sync | When | Gate |
 |------|------|------|
@@ -101,7 +101,7 @@ Aligned with the FlipFlop orchestrator pattern (`flipflop-service/docs/agents/ma
 | Sync C | After TASK-13, TASK-14, TASK-15 | Implementation, migration, and AI integration complete |
 | Sync D | After TASK-16 | Validation report + cutover checklist GO |
 
-**Phase 2 (after Phase 1 GO)**
+**Phase 2 (active orchestration)**
 
 | Sync | When | Gate |
 |------|------|------|
@@ -133,14 +133,9 @@ Legacy remains source of truth until new service **parity** is proven. Integrati
 
 ## Delivery format (what you produce when orchestrating)
 
-**When Phase 1 is active:**
+**Phase 1 (closed 2026-04-10):** Artifacts frozen — `PHASE1_VALIDATION_REPORT.md`, `CONTENT_CUTOVER_CHECKLIST.md`, `PHASE1_COMPLETION_SUMMARY.md`, `PHASE1_ORCHESTRATION_SUMMARY.md`. Use for reference or remediation only.
 
-1. **Textual dependency graph** (critical path TASK-11 → … → TASK-16).
-2. **Parallel batches** (per `PHASE1_ORCHESTRATION_SUMMARY.md`).
-3. **Per-agent run list** — TASK-11…TASK-16: one **prompt file path** each in `docs/agents/`.
-4. **Validation / cutover** — `AGENT16_PHASE1_VALIDATION.md` → `PHASE1_VALIDATION_REPORT.md`, `CONTENT_CUTOVER_CHECKLIST.md`, etc.
-
-**When Phase 2 is active (after Phase 1 GO):**
+**When Phase 2 is active:**
 
 1. **Textual dependency graph** (per `PHASE2_ORCHESTRATION_SUMMARY.md`).
 2. **Parallel batches** and **parallelism gate** for TASK-24 ∥ TASK-27 (if applicable).
@@ -163,13 +158,13 @@ Favor options that minimize long-term refactor cost, preserve service isolation,
 
 **Phase 0 (closed):** Marathon contract + schema + infra plan + shim + validation GO — see `PHASE0_COMPLETION_CHECKLIST.md`.
 
-**Phase 1 (active):** Content service read API + migrated data + ai-microservice integration + **TASK-16 GO** — see `PHASE1_TASK_DECOMPOSITION.md` success criteria and `PHASE1_ORCHESTRATION_SUMMARY.md`.
+**Phase 1 (closed):** Content service read API + migrated data + ai-microservice integration + **TASK-16 GO** — see `PHASE1_COMPLETION_SUMMARY.md` and `PHASE1_VALIDATION_REPORT.md`.
 
-**Phase 2 (after Phase 1 GO):** Certification + assessment services extracted, migrated, validated — see `PHASE2_TASK_DECOMPOSITION.md` and `PHASE2_ORCHESTRATION_SUMMARY.md`; **P2-E** requires TASK-28 + meta-validator PASS.
+**Phase 2 (active):** Certification + assessment services extracted, migrated, validated — see `PHASE2_TASK_DECOMPOSITION.md` and `PHASE2_ORCHESTRATION_SUMMARY.md`; **P2-E** requires TASK-28 + meta-validator PASS.
 
 ## First action (every time you assume this role)
 
 1. Open `docs/refactoring/SPEAKASAP_REFACTORING_TASKS_INDEX.md` and confirm **active phase** and **task statuses**.
-2. **If Phase 1 is active:** Open `docs/refactoring/PHASE1_ORCHESTRATION_SUMMARY.md` for the **critical path** and **next runnable tasks**. Enforce Sync A–D. Spawn the **next** incomplete task using its single prompt `docs/agents/AGENT{nn}_*.md`.
-3. **If Phase 2 is active:** Open `docs/refactoring/PHASE2_ORCHESTRATION_SUMMARY.md`. Enforce **P2-A … P2-E**. For each TASK-21…TASK-28, run **Implementation** prompt **then** **Validator** prompt; do not advance past a gate until the Validator **PASS** (or approved waive).
+2. **Default (Phase 2):** Open `docs/refactoring/PHASE2_ORCHESTRATION_SUMMARY.md`. Enforce **P2-A … P2-E**. For each TASK-21…TASK-28, run **Implementation** prompt **then** **Validator** prompt; do not advance past a gate until the Validator **PASS** (or approved waive).
+3. **Phase 1 remediation only** if explicitly reopened: use `PHASE1_ORCHESTRATION_SUMMARY.md` and `docs/agents/AGENT{nn}_*.md` for TASK-11…TASK-16.
 4. Do not restart completed phases without cause.

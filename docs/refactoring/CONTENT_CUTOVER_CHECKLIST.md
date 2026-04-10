@@ -1,60 +1,57 @@
 # Content Service Cutover Checklist
 
-Date: 2026-04-10  
-Owner: Phase 1 validation/cutover team
+**Updated:** 2026-04-10  
+**Owner:** Phase 1 validation / cutover team
 
-## Pre-Cutover (Must Pass)
+## Lead Orchestrator sign-off
 
-- [x] Resolve known production blocker first: translation endpoints return 404 on alfares runtime (`POST /api/v1/dictionary/translate`, `POST /api/v1/grammar/translate`). **RESOLVED 2026-04-10** — stale container rebuilt and redeployed; routes confirmed live (400 on invalid payload, 200/504 on valid payload depending on AI service availability).
-- [ ] Confirm `docs/refactoring/PHASE1_VALIDATION_REPORT.md` is updated to GO state.
-- [ ] Verify latest content migration parity (all 10 entities) and archive counts.
-- [ ] Run endpoint smoke matrix against target environment:
-  - [ ] `GET /health`
-  - [ ] `GET /api/v1/languages`
-  - [ ] `GET /api/v1/languages/:code`
-  - [ ] `GET /api/v1/grammar`, `/grammar/courses`, `/grammar/:id`
-  - [ ] `GET /api/v1/phonetics`, `/phonetics/courses`, `/phonetics/:id`
-  - [ ] `GET /api/v1/songs`, `/songs/courses`, `/songs/:id`
-  - [ ] `GET /api/v1/dictionary`, `/dictionary/themes`, `/dictionary/themes/:id`, `/dictionary/:id`
-- [ ] Run negative-path checks:
-  - [ ] invalid IDs -> 400
-  - [ ] missing entities -> 404
-  - [ ] verify standard error body shape
-- [ ] Run AI probes:
-  - [ ] translation success (`dictionary/translate`, `grammar/translate`)
-  - [ ] timeout/unavailable behavior and returned status codes
-  - [ ] verify error logging with timestamp and `duration_ms`
-- [ ] Validate configuration:
-  - [ ] `MAX_PAGE_SIZE <= 30`
-  - [ ] required env keys present
-  - [ ] no hardcoded service hosts in code
-- [ ] Capture baseline metrics:
-  - [ ] API p95 latency for key list endpoints
-  - [ ] DB query timing from logs
-  - [ ] AI call latency distribution
-- [ ] Confirm rollback tooling and access are ready.
+- **Phase 1 (TASK-11..TASK-16):** ✅ **Complete** — Sync D closed **2026-04-10**.
+- **Validation report:** `PHASE1_VALIDATION_REPORT.md` — **GO** (full program closure; optional follow-ups listed there).
+- **Accepted follow-up (non-blocking):** formal p95/p99 export, optional automated smoke script, deployment dry-run.
 
-## Cutover Execution
+---
+
+## Part A — Validation gate (satisfied)
+
+Evidence recorded in `PHASE1_VALIDATION_REPORT.md` and migration docs.
+
+- [x] Translation routes live on target runtime (AGENT17 — stale container rebuild).
+- [x] `PHASE1_VALIDATION_REPORT.md` at **GO** for Phase 1 closure.
+- [x] Content migration parity (10 entities) per `CONTENT_DATA_MIGRATION_LOG.md` / `CONTENT_DATA_VALIDATION.md`.
+- [x] GET endpoint smoke matrix — §1 of validation report (production matrix).
+- [x] Negative-path checks — invalid IDs 400, missing entities 404, error body shape (validation report §3).
+- [x] AI probes — translate success, 400 validation, 504 on timeout; logging with timestamps and `duration_ms` (validation report §4).
+- [x] `MAX_PAGE_SIZE <= 30` and env-driven integration config (validation report §1, §6).
+- [x] Rollback procedure documented — **Part D** below (execute if needed at go-live).
+- [ ] Formal **p95/p99** baseline export — **deferred** (sample latencies in validation report §5).
+
+---
+
+## Part B — Production cutover execution (when scheduling traffic switch)
+
+Run these when you intentionally cut consumer traffic or freeze legacy writes.
 
 - [ ] Freeze legacy content writes (or explicitly accept delta sync policy).
 - [ ] Execute final migration sync (if needed) and validate counts.
 - [ ] Deploy content-service release using existing service deploy script.
 - [ ] Switch traffic to new content-service route.
-- [ ] Run immediate post-switch smoke checks:
-  - [ ] health
-  - [ ] languages list
-  - [ ] one endpoint from each content domain
-- [ ] Verify centralized logging receives request + error streams.
+- [ ] Post-switch smoke: health, languages list, one endpoint per domain.
+- [ ] Verify centralized logging receives request and error streams.
+- [ ] Confirm rollback tooling and access immediately before switch.
 
-## Post-Cutover Monitoring (First 60 Minutes)
+---
+
+## Part C — Post-cutover monitoring (first 60 minutes)
 
 - [ ] Monitor error rate and 5xx spikes.
 - [ ] Monitor response latency for list endpoints.
 - [ ] Monitor AI translation error/timeout rate.
-- [ ] Spot-check data correctness in API responses (languages, grammar, dictionary).
+- [ ] Spot-check data correctness (languages, grammar, dictionary).
 - [ ] Confirm no regression in dependent consumers.
 
-## Rollback Procedure
+---
+
+## Part D — Rollback procedure
 
 - [ ] Trigger rollback if any critical condition is hit:
   - sustained 5xx above threshold
@@ -65,7 +62,9 @@ Owner: Phase 1 validation/cutover team
 - [ ] If rollback is data-related, restore target DB state using documented rollback process.
 - [ ] Publish incident note with root cause and recovery plan.
 
-## Success Criteria
+---
+
+## Success criteria (go-live)
 
 - [ ] All core endpoints return expected contract shape.
 - [ ] Error handling conforms to standardized error format.
@@ -73,16 +72,20 @@ Owner: Phase 1 validation/cutover team
 - [ ] AI translation endpoints work with correct failure behavior.
 - [ ] No critical alerts during first 60 minutes post-cutover.
 
-## Verification Artifacts to Attach
+---
+
+## Verification artifacts to attach (go-live)
 
 - [ ] Curl/output log for endpoint matrix.
 - [ ] Migration count comparison snapshot.
 - [ ] AI success/failure probe outputs.
 - [ ] Logging/latency excerpts with timestamps.
-- [ ] Final GO approval record.
+- [ ] Final operational GO for traffic switch.
 
-## Runtime Bootstrapping (if blocked)
+---
 
-- [ ] Verify currently deployed route config and app version expose translate endpoints before any timeout/config tuning.
+## Runtime bootstrapping (if blocked)
+
+- [ ] Verify deployed route config and app version expose translate endpoints before timeout/config tuning.
 - [ ] Confirm runtime health and container state (`docker ps`, `/health`).
-- [ ] Re-run this checklist from "endpoint smoke matrix".
+- [ ] Re-run Part A smoke matrix from `PHASE1_VALIDATION_REPORT.md` template.
