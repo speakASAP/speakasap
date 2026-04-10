@@ -15,25 +15,73 @@ This guide explains how to migrate content data from the legacy Django database 
    - Prisma migrations applied (`npx prisma migrate deploy`)
    - Database connection string available in `DATABASE_URL` environment variable
 
-3. **Python Dependencies:**
+3. **Python environment (legacy portal):**
+   - Django 1.11 + Python 3.4–3.6 (as used by `speakasap-portal`). Python 3.12+ typically fails Django 1.11 import.
+   - Dependencies: `psycopg2-binary`, portal’s `requirements` / venv.
+
+4. **Optional:** `SPEAKASAP_PORTAL_ROOT` if `speakasap-portal` is not the default sibling of the GitHub root (see script bootstrap).
+
+5. **Target DB URL:** Prefer `NEW_DATABASE_URL` for the Prisma DB when `DATABASE_URL` is already set for Django in the same shell.
+
+## File-based migration (no DB link between legacy and new)
+
+Use when the legacy host cannot reach the Prisma Postgres (e.g. speakasap → alfares).
+
+1. **On `speakasap` (legacy, Django):** deploy `migrate-content-data.py` into `speakasap-portal` (or run from repo path), then:
+
    ```bash
-   pip install psycopg2-binary django
+   cd /home/portal_db/speakasap-portal
+   /usr/bin/python3 migrate-content-data.py --export-dir /home/portal_db/speakasap-content-export
    ```
+
+2. **Archive and copy via your laptop:**
+
+   ```bash
+   # On speakasap
+   tar czf /tmp/speakasap-content-export.tgz -C /home/portal_db speakasap-content-export
+
+   # Laptop
+   scp speakasap:/tmp/speakasap-content-export.tgz .
+   scp speakasap-content-export.tgz alfares:/tmp/
+   ```
+
+3. **On `alfares`:** extract, install `psycopg2` for system Python if needed (`pip3 install --user psycopg2-binary`), set `DATABASE_URL` to the **host** URL for `speakasap_content_db` (see `docker-compose` / `.env`: host `127.0.0.1`, port `5432`, user `dbadmin`, database `speakasap_content_db`). Then:
+
+   ```bash
+   cd /tmp
+   tar xzf speakasap-content-export.tgz
+   export DATABASE_URL='postgresql://dbadmin:PASSWORD@127.0.0.1:5432/speakasap_content_db'
+   python3 /home/ssf/Documents/Github/speakasap/content-service/scripts/migrate-content-data.py \
+     --import-dir /tmp/speakasap-content-export \
+     --truncate-first
+   ```
+
+   `--truncate-first` clears existing content tables before load (recommended for a clean run).
+
+4. **Verify:** `curl` the content API (e.g. host port mapped to content service) and compare counts in Postgres.
+
+`manifest.json` + `*.json` must stay together; `format_version` in the manifest must match the script.
+
+---
 
 ## Migration Process
 
 ### Step 1: Prepare Environment
 
 1. **Set up Django environment:**
+
    ```bash
    cd /path/to/speakasap-portal
    export DJANGO_SETTINGS_MODULE=portal.settings
    # Or activate your virtual environment if using one
    ```
 
-2. **Set new database URL:**
+2. **Set target (Prisma) database URL:**
+
    ```bash
    export DATABASE_URL="postgresql://user:password@host:5432/speakasap_content_db"
+   # Or, if DATABASE_URL is used by Django in the same shell:
+   # export NEW_DATABASE_URL="postgresql://..."
    ```
 
 ### Step 2: Dry Run (Recommended)
@@ -46,6 +94,7 @@ python /path/to/speakasap/content-service/scripts/migrate-content-data.py --dry-
 ```
 
 This will:
+
 - Connect to legacy database
 - Read all data
 - Show what would be migrated
@@ -61,6 +110,7 @@ python /path/to/speakasap/content-service/scripts/migrate-content-data.py
 ```
 
 The script will:
+
 1. Migrate Languages (must be first)
 2. Migrate Courses (Grammar, Phonetics, Songs)
 3. Migrate Lessons (Grammar, Phonetics, Songs)
@@ -72,6 +122,7 @@ The script will:
 After migration completes:
 
 1. **Check migration log:**
+
    ```bash
    cat migration.log
    ```
@@ -80,6 +131,7 @@ After migration completes:
    The script outputs a summary showing legacy vs new counts for each table.
 
 3. **Test API endpoints:**
+
    ```bash
    curl http://localhost:4201/api/v1/languages
    curl http://localhost:4201/api/v1/grammar
@@ -136,7 +188,10 @@ If migration fails or issues are found:
 
 1. **Stop the script** (Ctrl+C if still running)
 
-2. **Drop and recreate database:**
+2. **Automated reset (target DB only):** `scripts/rollback-content-migration.sh` (requires `DATABASE_URL`, confirms before `DROP SCHEMA`).
+
+3. **Manual drop and recreate database:**
+
    ```bash
    # Connect to database
    psql -U user -d speakasap_content_db
@@ -150,13 +205,14 @@ If migration fails or issues are found:
    npx prisma migrate deploy
    ```
 
-3. **Re-run migration** after fixing issues
+4. **Re-run migration** after fixing issues
 
 ## Troubleshooting
 
 ### Django Setup Issues
 
 If you get Django setup errors:
+
 ```bash
 # Make sure you're in speakasap-portal directory
 cd /path/to/speakasap-portal
@@ -171,6 +227,7 @@ python manage.py shell < /path/to/migrate-content-data.py
 ### Database Connection Issues
 
 If connection fails:
+
 - Verify `DATABASE_URL` is set correctly
 - Check database credentials
 - Ensure database exists and migrations are applied
@@ -178,6 +235,7 @@ If connection fails:
 ### Foreign Key Violations
 
 If you see foreign key violations:
+
 - Check that Languages were migrated first
 - Verify ID mappings are correct
 - Check for orphaned records in legacy database
@@ -185,6 +243,7 @@ If you see foreign key violations:
 ### Unique Constraint Violations
 
 For Words and WordThemeRelations:
+
 - Duplicates are automatically skipped
 - Check migration log for skipped count
 - This is expected if data already exists
@@ -192,6 +251,7 @@ For Words and WordThemeRelations:
 ## Migration Log
 
 The script creates a detailed log file (`migration.log`) with:
+
 - All operations performed
 - Record counts for each table
 - Errors encountered

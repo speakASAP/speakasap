@@ -1,8 +1,8 @@
 # AGENT14 Content Migration - Implementation Complete
 
-## Status: ✅ Complete
+## Status: ✅ Tooling complete (live run = operator)
 
-All required components for content data migration have been implemented.
+All migration **code and docs** are in place. Running against real DBs requires the portal’s supported Python/Django venv (see `scripts/README_MIGRATION.md`). 2026-04-09: script hardening (savepoints, validation table map, logging, bootstrap, rollback shell).
 
 ## Implementation Summary
 
@@ -11,6 +11,7 @@ All required components for content data migration have been implemented.
 **File:** `speakasap/content-service/scripts/migrate-content-data.py`
 
 **Features:**
+
 - Uses Django ORM to read from legacy database
 - Uses psycopg2 to write to new Prisma database
 - Handles all content models:
@@ -26,6 +27,7 @@ All required components for content data migration have been implemented.
 - Validates migration by comparing record counts
 
 **Data Transformations:**
+
 - Field name mapping (snake_case → camelCase)
 - ImageField → String path conversion
 - Foreign key ID mapping
@@ -35,6 +37,7 @@ All required components for content data migration have been implemented.
 ### 2. Migration Documentation ✅
 
 **Files Created:**
+
 - `speakasap/content-service/scripts/README_MIGRATION.md` - Complete migration guide
 - `docs/refactoring/CONTENT_DATA_MIGRATION_LOG.md` - Migration log template
 - `docs/refactoring/CONTENT_DATA_VALIDATION.md` - Validation report template
@@ -42,6 +45,7 @@ All required components for content data migration have been implemented.
 ### 3. Prisma Migrations ✅
 
 **Status:** Already created in TASK-13
+
 - Initial migration: `prisma/migrations/20260127161203_init/`
 - All tables created with proper constraints
 
@@ -86,6 +90,7 @@ All required components for content data migration have been implemented.
 ## Usage
 
 ### Dry Run (Recommended First)
+
 ```bash
 cd /path/to/speakasap-portal
 export DATABASE_URL="postgresql://user:pass@host:5432/speakasap_content_db"
@@ -93,6 +98,7 @@ python /path/to/speakasap/content-service/scripts/migrate-content-data.py --dry-
 ```
 
 ### Actual Migration
+
 ```bash
 cd /path/to/speakasap-portal
 export DATABASE_URL="postgresql://user:pass@host:5432/speakasap_content_db"

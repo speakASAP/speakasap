@@ -20,8 +20,8 @@ RUN npm run build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
-# Install OpenSSL for Prisma query engine
-RUN apk add --no-cache openssl1.1-compat || apk add --no-cache openssl
+# Install OpenSSL for Prisma query engine; wget for Docker healthchecks
+RUN apk add --no-cache openssl1.1-compat wget || apk add --no-cache openssl wget
 ENV NODE_ENV=production
 ENV npm_config_update_notifier=false
 ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x
