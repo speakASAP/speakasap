@@ -43,31 +43,43 @@ Original objectives (achieved for the marathon slice):
 4. Validation and cutover path for marathon traffic.
 5. Legacy marathon code deprecation only after stable cutover (per runbook).
 
-## Phase 1: Foundation & Content Service — **Current focus**
+## Phase 1: Foundation & Content Service — **Current focus until TASK-16 GO**
 
 **Goal:** Infrastructure foundation in `speakasap` plus **speakasap-content-service** (read-only), port **4201**, database **`speakasap_content_db`**, integrations: **logging**, **ai-microservice** (and notifications wiring per infra task).
 
 **Orchestration:** `docs/refactoring/PHASE1_TASK_DECOMPOSITION.md`, `docs/refactoring/PHASE1_ORCHESTRATION_SUMMARY.md`, `docs/refactoring/SPEAKASAP_REFACTORING_TASKS_INDEX.md`.
 
-**Agent prompts:** `docs/agents/AGENT11_INFRA_SETUP.md` … `AGENT16_PHASE1_VALIDATION.md`.
+**Agent prompts:** `docs/agents/AGENT11_INFRA_SETUP.md` … `docs/agents/AGENT16_PHASE1_VALIDATION.md`.
 
 **Lead orchestrator prompt:** `docs/agents/master-prompt.md`.
 
+**Exit:** Phase 1 is complete when TASK-16 produces validation **GO** and cutover sign-off (per Lead Orchestrator).
+
+## Phase 2: Certification & Assessment — **Next after Phase 1 GO**
+
+**Goal:** Extract **speakasap-certification-service** (port **4202**, DB **`speakasap_certification_db`**) and **speakasap-assessment-service** (port **4203**, DB **`speakasap_assessment_db`**) per `docs/refactoring/ROADMAP.md` Phase 2.
+
+**Orchestration:** `docs/refactoring/PHASE2_TASK_DECOMPOSITION.md`, `docs/refactoring/PHASE2_ORCHESTRATION_SUMMARY.md`, `docs/refactoring/SPEAKASAP_REFACTORING_TASKS_INDEX.md`.
+
+**Agent prompts:** TASK-21…TASK-28 — each task has **two** prompts under `docs/agents/`: Implementation (`AGENT{NN}_*.md`) and Validator (`AGENT{NN}V_*_VALIDATE.md`). Validators must **PASS** before sync gates P2-A…P2-E advance.
+
+**Assessment note:** `teacher_tests` is obsolete and **out of scope** (see ROADMAP Phase 2.2).
+
 ## Phase 0 Sync Points (Hard Gates)
 
-Sync A: API contract + data mapping frozen  
+Sync A: API contract + data mapping frozen
 
 - Requires: `MARATHON_API_CONTRACT.md`, `MARATHON_DATA_MAPPING.md` approved
 
-Sync B: Infra + env config validated  
+Sync B: Infra + env config validated
 
 - Requires: `MARATHON_INFRA_PLAN.md` validated, env keys documented
 
-Sync C: Legacy integration shim verified  
+Sync C: Legacy integration shim verified
 
 - Requires: shim design and rollback path documented
 
-Sync D: Cutover checklist approved  
+Sync D: Cutover checklist approved
 
 - Requires: `MARATHON_PHASE0_VALIDATION.md` GO decision
 
