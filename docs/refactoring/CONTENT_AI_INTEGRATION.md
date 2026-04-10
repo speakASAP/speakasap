@@ -4,9 +4,7 @@
 
 ## 1. Configuration
 
-| Env key | Purpose |
-|---------|---------|
-| `AI_SERVICE_URL` | Base URL for ai-microservice (e.g. `http://ai-microservice:3380`) |
+- `AI_SERVICE_URL`: Base URL for ai-microservice (e.g. `http://ai-microservice:3380`).
 
 Align with `docs/infrastructure/SHARED_SERVICES.md`. No hardcoded hosts in code (TASK-13/15).
 
@@ -14,9 +12,13 @@ Optional timeouts/retries should reuse existing patterns in content-service `.en
 
 ## 2. Current ecosystem reality
 
-The ai-microservice repository today centers on **orchestrated NLP / analysis** (e.g. orchestrator → nlp-service, free-ai-service). There is **no stable, documented “translate text” HTTP contract** in tree comparable to logging/notifications.
+The ai-microservice repository now exposes a stable translation contract in ai-orchestrator:
 
-Therefore this document defines **integration points and contracts to implement or adopt** in TASK-15, without inventing product names that do not exist in code.
+- `POST /api/v1/translate`
+- request: `{ "text": "...", "sourceLang": "ru", "targetLang": "en" }`
+- response: `{ "translatedText": "...", "sourceLang": "ru|auto", "targetLang": "en", "modelUsed": "...", "durationMs": 123 }`
+
+This path is now the default integration route for SpeakASAP content-service (`AI_SERVICE_TRANSLATE_PATH=/api/v1/translate`).
 
 ## 3. Use cases (SpeakASAP content)
 
@@ -39,11 +41,9 @@ Therefore this document defines **integration points and contracts to implement 
 
 ## 4. Error handling
 
-| Scenario | Behavior |
-|----------|----------|
-| AI timeout | Log `duration_ms`, ERROR; return content without AI enrichment |
-| 4xx/5xx from AI | Log status + truncated body; same fallback |
-| Invalid API key / auth | Log ERROR; do not leak secrets to client |
+- AI timeout: Log `duration_ms`, ERROR; return content without AI enrichment.
+- 4xx/5xx from AI: Log status and truncated body; same fallback.
+- Invalid API key/auth: Log ERROR; do not leak secrets to client.
 
 Use **logging-microservice** with ISO timestamps per platform standard.
 
@@ -64,10 +64,10 @@ Content read endpoints **must not** send notifications by default.
 ## 7. Deliverables for TASK-15
 
 - Thin **AI client** in content-service (existing path suggestion: `src/shared/ai-client.service.ts`).
-- Concrete routes once ai-microservice exposes a stable translate (or LLM) endpoint — update this doc with **exact path + DTO**.
+- Stable route documented and implemented: `POST /api/v1/translate` (ai-orchestrator).
 
 ## 8. Verification
 
-- [ ] All AI calls use `AI_SERVICE_URL` from env
-- [ ] Failures logged with timestamp and `duration_ms`
-- [ ] User-facing responses degrade gracefully without 500 when AI is optional
+- [x] All AI calls use `AI_SERVICE_URL` from env
+- [x] Failures logged with timestamp and `duration_ms`
+- [x] User-facing responses degrade gracefully without 500 when AI is optional
