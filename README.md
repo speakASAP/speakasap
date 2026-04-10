@@ -28,6 +28,10 @@ speakasap/
     └── refactoring/             # Refactoring plans and tasks
 ```
 
+## Legacy portal (separate repo and server)
+
+The production Django site **`speakasap-portal`** is **not** in this repository. It runs on the **speakasap** host (`ssh speakasap`, `cd speakasap-portal`, `git pull`). This **`speakasap`** monorepo deploys on **alfares** (`ssh alfares`, `cd speakasap` or `~/Documents/Github/speakasap`, `git pull`). Content data migration touches both: see `content-service/scripts/README_MIGRATION.md` and `AGENTS.md`.
+
 ## Quick Start
 
 ### 1. Create a New Service

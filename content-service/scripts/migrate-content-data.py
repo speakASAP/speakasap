@@ -5,6 +5,14 @@ Content Service Data Migration Script
 Migrates content data from legacy Django database to new Prisma database.
 Uses Django ORM to read legacy data and psycopg2 to write to new database.
 
+Deployment (two repos, two servers):
+  - Canonical script path: speakasap repo, content-service/scripts/migrate-content-data.py
+    Production: ssh alfares → cd speakasap (GitHub/speakasap) → git pull
+  - Legacy Django app: speakasap-portal repo on speakasap server only
+    ssh speakasap → cd speakasap-portal → git pull
+  The portal repo does not contain this file; copy the script from speakasap after pull when
+  exporting on the legacy host (see scripts/README_MIGRATION.md).
+
 Modes:
   (default) Live: Django reads legacy DB, psycopg2 writes target (same host needs both DBs).
   --export-dir DIR   Django only: write JSON snapshot to DIR (copy DIR elsewhere).
@@ -1431,6 +1439,14 @@ def main():
         except Exception as e:
             logger.error("Import failed: {}".format(e), exc_info=True)
             return 1
+
+    target_url = args.new_db_url or os.getenv('DATABASE_URL') or os.getenv('NEW_DATABASE_URL')
+    if not args.dry_run and not target_url:
+        logger.error(
+            "Missing target DB URL. Export JSON only: --export-dir DIR. "
+            "Or set DATABASE_URL / NEW_DATABASE_URL, or use --dry-run. See --help."
+        )
+        return 1
 
     try:
         with ContentDataMigrator(

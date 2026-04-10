@@ -1,5 +1,14 @@
 # Agents: speakasap
 
+## Repositories and production hosts
+
+| Repo | Role | Typical host | Deploy |
+|------|------|--------------|--------|
+| **speakasap** (this monorepo) | NestJS content-service, nginx templates, course-materials, Docker compose | **alfares** | `ssh alfares` → `cd speakasap` or `~/Documents/Github/speakasap` → `git pull` (then your deploy) |
+| **speakasap-portal** | Legacy Django 1.11, legacy Postgres | **speakasap** (speakasap.com) | `ssh speakasap` → `cd speakasap-portal` → `git pull` |
+
+Content migration script `content-service/scripts/migrate-content-data.py` lives **only** in **speakasap**. Copy it to `speakasap-portal` on the legacy server when running `--export-dir` there (`README_MIGRATION.md`).
+
 ## Coordinator Config
 
 ```yaml

@@ -24,6 +24,10 @@ Read-only Content Service (NestJS + TypeScript) for legacy content apps:
 - Prisma schema in `prisma/schema.prisma`
 - Generate client: `npm run prisma:generate`
 
+## Data migration (legacy → Prisma)
+
+Script: `scripts/migrate-content-data.py` (canonical copy in this repo on **alfares** after `git pull`). Legacy Django **`speakasap-portal`** lives on **speakasap** — copy the script there for `--export-dir`. Full steps: `scripts/README_MIGRATION.md`.
+
 ## Notes
 
 - Production-only workflow

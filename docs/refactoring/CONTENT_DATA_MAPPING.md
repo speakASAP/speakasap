@@ -1,6 +1,6 @@
 # Content Service — Legacy Django → Prisma Data Mapping
 
-**Legacy:** `/Users/sergiystashok/Documents/GitHub/speakasap-portal`. **Target schema:** `speakasap/content-service/prisma/schema.prisma`
+**Legacy:** `speakasap-portal` repository (local e.g. `/Users/.../speakasap-portal`; production on **speakasap** server). **Target schema:** `speakasap/content-service/prisma/schema.prisma` (this monorepo on **alfares**). Migration script: `content-service/scripts/migrate-content-data.py` — copy to legacy host for export (`README_MIGRATION.md`).
 
 ## 1. Legacy model inventory
 

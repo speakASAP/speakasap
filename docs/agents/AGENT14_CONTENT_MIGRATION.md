@@ -12,11 +12,13 @@ Migrate all content data (grammar, phonetics, dictionary, songs, language) from 
 
 ## Inputs
 
-- Legacy database (speakasap-portal PostgreSQL)
+- Legacy database (PostgreSQL on **speakasap** server, Django app **`speakasap-portal`** — separate git repo; `ssh speakasap` → `cd speakasap-portal` → `git pull`)
 - Legacy Django models: `grammar`, `phonetics`, `dictionary`, `songs`, `language` apps
 - `docs/refactoring/CONTENT_DATA_MAPPING.md` - Data mapping document (from TASK-12)
 - `speakasap/content-service/prisma/schema.prisma` - Target Prisma schema (from TASK-12)
-- Content service implementation: `speakasap/content-service/` (from TASK-13)
+- Content service implementation: `speakasap/content-service/` (from TASK-13) — **`speakasap` monorepo on alfares:** `ssh alfares` → `cd speakasap` (repo root) → `git pull`
+
+**Script location:** `speakasap/content-service/scripts/migrate-content-data.py` exists only in the **speakasap** repo. For export on the legacy host, copy this file into `speakasap-portal` after each relevant `git pull` on alfares (see `content-service/scripts/README_MIGRATION.md`).
 
 ## Scope
 
@@ -104,12 +106,9 @@ Migrate all content data (grammar, phonetics, dictionary, songs, language) from 
    - Any additional migrations needed
 
 2. **`speakasap/content-service/scripts/migrate-content-data.py`**
-   - Python script using Django ORM
-   - Extracts data from legacy database
-   - Transforms data according to mapping
-   - Loads data into new database
-   - Includes error handling
-   - Includes progress logging
+   - Lives in the **speakasap** monorepo (alfares); **not** in `speakasap-portal`. For legacy export, operators copy this file onto the speakasap server beside `manage.py`.
+   - Python: Django ORM for read (`--export-dir` / live), psycopg2 for target DB (`--import-dir` / live)
+   - Extracts / transforms per `CONTENT_DATA_MAPPING.md`; includes logging and `--dry-run`
 
 3. **`docs/refactoring/CONTENT_DATA_MIGRATION_LOG.md`**
    - Migration execution log
