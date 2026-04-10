@@ -3,6 +3,13 @@
 Date: 2026-04-10  
 Scope: TASK-11 through TASK-15 validation for Content Service cutover readiness.
 
+## Revalidation Snapshot (this execution)
+
+- `npm run build` in `content-service` -> PASS
+- `curl https://content.alfares.cz/health` -> 200
+- `curl -X POST https://content.alfares.cz/api/v1/dictionary/translate` -> 404 (`Cannot POST /api/v1/dictionary/translate`)
+- `curl -X POST https://content.alfares.cz/api/v1/grammar/translate` -> 404 (`Cannot POST /api/v1/grammar/translate`)
+
 ## Evidence Used
 
 - Contract and mapping docs:
