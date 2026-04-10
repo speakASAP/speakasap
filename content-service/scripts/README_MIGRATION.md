@@ -4,6 +4,23 @@
 
 This guide explains how to migrate content data from the legacy Django database (`speakasap-portal`) to the new Content Service Prisma database.
 
+## Two repositories, two servers
+
+| Piece | Host | Repository / path | Update with `git pull` |
+|--------|------|-------------------|-------------------------|
+| **New stack** (content-service, Prisma, Docker deploy) | **alfares** | `speakasap` monorepo (e.g. `~/Documents/Github/speakasap` or `cd speakasap` from your layout) | `ssh alfares` → `cd <speakasap-repo>` → `git pull` |
+| **Legacy portal** (Django 1.11, legacy Postgres) | **speakasap** | `speakasap-portal` (e.g. `/home/portal_db/speakasap-portal`) | `ssh speakasap` → `cd speakasap-portal` → `git pull` |
+
+**Migration script source of truth:** `speakasap/content-service/scripts/migrate-content-data.py` lives only in the **speakasap** repo. It is **not** part of `speakasap-portal`. After pulling `speakasap` on alfares, sync the script to the legacy server for `--export-dir` / `--dry-run`:
+
+```bash
+# Example: from your laptop (paths match your alfares layout)
+scp alfares:~/Documents/Github/speakasap/content-service/scripts/migrate-content-data.py \
+  speakasap:/home/portal_db/speakasap-portal/migrate-content-data.py
+```
+
+On **alfares**, `--import-dir` and live migration use the copy inside the cloned `speakasap` repo (same path after `git pull`). No copy into `speakasap-portal` is needed there.
+
 ## Prerequisites
 
 1. **Legacy Database Access:**
@@ -27,9 +44,12 @@ This guide explains how to migrate content data from the legacy Django database 
 
 Use when the legacy host cannot reach the Prisma Postgres (e.g. speakasap → alfares).
 
-1. **On `speakasap` (legacy, Django):** deploy `migrate-content-data.py` into `speakasap-portal` (or run from repo path), then:
+0. **Sync the script** from the `speakasap` repo (alfares or local clone) to `speakasap-portal` on speakasap — see [Two repositories, two servers](#two-repositories-two-servers).
+
+1. **On speakasap (legacy):** run export **inside** `speakasap-portal` so Django settings resolve:
 
    ```bash
+   ssh speakasap
    cd /home/portal_db/speakasap-portal
    /usr/bin/python3 migrate-content-data.py --export-dir /home/portal_db/speakasap-content-export
    ```
@@ -45,13 +65,16 @@ Use when the legacy host cannot reach the Prisma Postgres (e.g. speakasap → al
    scp speakasap-content-export.tgz alfares:/tmp/
    ```
 
-3. **On `alfares`:** extract, install `psycopg2` for system Python if needed (`pip3 install --user psycopg2-binary`), set `DATABASE_URL` to the **host** URL for `speakasap_content_db` (see `docker-compose` / `.env`: host `127.0.0.1`, port `5432`, user `dbadmin`, database `speakasap_content_db`). Then:
+3. **On alfares:** `git pull` the **speakasap** repo first so the import script matches the export format. Extract the archive, install `psycopg2` for system Python if needed (`pip3 install --user psycopg2-binary`), set `DATABASE_URL` to the **host** URL for `speakasap_content_db` (see `docker-compose` / `.env`: host `127.0.0.1`, port `5432`, user `dbadmin`, database `speakasap_content_db`). Then:
 
    ```bash
+   ssh alfares
+   cd ~/Documents/Github/speakasap   # or: cd speakasap
+   git pull
    cd /tmp
    tar xzf speakasap-content-export.tgz
    export DATABASE_URL='postgresql://dbadmin:PASSWORD@127.0.0.1:5432/speakasap_content_db'
-   python3 /home/ssf/Documents/Github/speakasap/content-service/scripts/migrate-content-data.py \
+   python3 ~/Documents/Github/speakasap/content-service/scripts/migrate-content-data.py \
      --import-dir /tmp/speakasap-content-export \
      --truncate-first
    ```
@@ -68,10 +91,11 @@ Use when the legacy host cannot reach the Prisma Postgres (e.g. speakasap → al
 
 ### Step 1: Prepare Environment
 
-1. **Set up Django environment:**
+1. **Set up Django environment** on **speakasap** in `speakasap-portal`:
 
    ```bash
-   cd /path/to/speakasap-portal
+   ssh speakasap
+   cd ~/speakasap-portal
    export DJANGO_SETTINGS_MODULE=portal.settings
    # Or activate your virtual environment if using one
    ```
@@ -89,8 +113,10 @@ Use when the legacy host cannot reach the Prisma Postgres (e.g. speakasap → al
 Always perform a dry run first to verify the migration script works correctly:
 
 ```bash
-cd /path/to/speakasap-portal
-python /path/to/speakasap/content-service/scripts/migrate-content-data.py --dry-run
+ssh speakasap
+cd ~/speakasap-portal
+# Script must be the copy from speakasap repo (see "Two repositories" above)
+python3 migrate-content-data.py --dry-run
 ```
 
 This will:
@@ -105,8 +131,10 @@ This will:
 Once dry run is successful, execute the actual migration:
 
 ```bash
-cd /path/to/speakasap-portal
-python /path/to/speakasap/content-service/scripts/migrate-content-data.py
+ssh speakasap
+cd ~/speakasap-portal
+export DATABASE_URL='postgresql://...speakasap_content_db...'
+python3 migrate-content-data.py
 ```
 
 The script will:
@@ -200,8 +228,9 @@ If migration fails or issues are found:
    DROP SCHEMA public CASCADE;
    CREATE SCHEMA public;
    
-   # Re-run Prisma migrations
-   cd /path/to/speakasap/content-service
+   # Re-run Prisma migrations (alfares, speakasap repo)
+   ssh alfares
+   cd ~/Documents/Github/speakasap/content-service
    npx prisma migrate deploy
    ```
 
@@ -214,14 +243,14 @@ If migration fails or issues are found:
 If you get Django setup errors:
 
 ```bash
-# Make sure you're in speakasap-portal directory
-cd /path/to/speakasap-portal
+# On speakasap, legacy repo
+ssh speakasap
+cd ~/speakasap-portal
 
-# Set Django settings module
 export DJANGO_SETTINGS_MODULE=portal.settings
 
-# Or use manage.py shell
-python manage.py shell < /path/to/migrate-content-data.py
+# Prefer running the script directly (not via shell redirect)
+python3 migrate-content-data.py --dry-run
 ```
 
 ### Database Connection Issues

@@ -22,7 +22,7 @@ Changes: `migrate-content-data.py` — Django path bootstrap (`SPEAKASAP_PORTAL_
 
 - **Legacy Database:** [Database name/URL]
 - **New Database:** [Database name/URL]
-- **Migration Script:** `speakasap/content-service/scripts/migrate-content-data.py`
+- **Migration script (canonical):** `speakasap/content-service/scripts/migrate-content-data.py` in the **speakasap** repo (alfares: `git pull` in `speakasap`). Legacy export runs from a **copy** in `speakasap-portal` on **speakasap** (separate repo: `git pull` there).
 
 ## Execution Steps
 

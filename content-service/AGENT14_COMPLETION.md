@@ -89,21 +89,19 @@ All migration **code and docs** are in place. Running against real DBs requires 
 
 ## Usage
 
-### Dry Run (Recommended First)
+Repos: **speakasap** (alfares, `git pull`) vs **speakasap-portal** (speakasap server, `git pull`). Copy `migrate-content-data.py` from the speakasap repo to the portal tree for legacy export — see `scripts/README_MIGRATION.md`.
+
+### Dry run (legacy host)
 
 ```bash
-cd /path/to/speakasap-portal
-export DATABASE_URL="postgresql://user:pass@host:5432/speakasap_content_db"
-python /path/to/speakasap/content-service/scripts/migrate-content-data.py --dry-run
+ssh speakasap
+cd ~/speakasap-portal
+python3 migrate-content-data.py --dry-run
 ```
 
-### Actual Migration
+### File export / import
 
-```bash
-cd /path/to/speakasap-portal
-export DATABASE_URL="postgresql://user:pass@host:5432/speakasap_content_db"
-python /path/to/speakasap/content-service/scripts/migrate-content-data.py
-```
+See `scripts/README_MIGRATION.md`. Import runs on alfares using `content-service/scripts/migrate-content-data.py` inside the cloned speakasap repo.
 
 ## Next Steps
 

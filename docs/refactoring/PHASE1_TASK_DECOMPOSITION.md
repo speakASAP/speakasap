@@ -323,9 +323,10 @@ Migrate content data from legacy Django models to new Prisma schema.
 
 #### Inputs
 
-- Legacy database (speakasap-portal)
+- Legacy database: **speakasap-portal** on **speakasap** server (separate git repo from this monorepo)
 - `docs/refactoring/CONTENT_DATA_MAPPING.md` - Data mapping
-- `speakasap/content-service/prisma/schema.prisma` - Target schema
+- `speakasap/content-service/prisma/schema.prisma` - Target schema (this repo on **alfares**)
+- Migration script path: `content-service/scripts/migrate-content-data.py` — sync copy to legacy host for export (`README_MIGRATION.md`)
 
 #### Do
 
