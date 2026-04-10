@@ -113,23 +113,36 @@ Negative-path evidence (production):
 
 ## 4) AI Integration Validation
 
-Status: FAIL (production runtime)
+Status: PASS (2026-04-10 re-validation after AGENT17 fix)
+
+Root cause of prior 404: `speakasap-content-green` container was built before TASK-15 translate routes were added to source. Rebuilt and redeployed on 2026-04-10.
 
 - AI client exists (`src/shared/ai-client.service.ts`) and is wired in controllers.
-- Translation endpoints implemented:
+- Translation endpoints now confirmed live in production runtime:
   - `POST /api/v1/dictionary/translate`
   - `POST /api/v1/grammar/translate`
-- Env-driven AI configuration present (`AI_SERVICE_URL`, `AI_SERVICE_TIMEOUT`, `AI_SERVICE_TRANSLATE_PATH`, optional API key).
-- Error handling strategy is documented and implementation file claims mapped status behavior.
+- Env-driven AI configuration present (`AI_SERVICE_URL`, `AI_SERVICE_TIMEOUT=5000`, `RETRY_MAX_ATTEMPTS=3`).
+- `AI_SERVICE_API_KEY`, `AI_SERVICE_TIMEOUT`, `AI_SERVICE_TRANSLATE_PATH` added to explicit `environment:` blocks in all 4 docker-compose files.
 
-Runtime evidence (production):
+Runtime evidence (2026-04-10, internal container probes):
 
-- `POST /api/v1/dictionary/translate` -> 404 (`Cannot POST ...`)
-- `POST /api/v1/grammar/translate` -> 404 (`Cannot POST ...`)
+- `POST /api/v1/dictionary/translate` (valid payload) → `{"translatedText":"Ahoj","durationMs":16863,"status":"success"}` HTTP 200
+- `POST /api/v1/grammar/translate` (valid payload) → `{"translatedText":"Jsem tady","durationMs":3879,"status":"success"}` HTTP 200
+- `POST /api/v1/dictionary/translate` (missing `text`) → HTTP 400 `{"error":{"code":"BAD_REQUEST","message":"text is required",...}}`
+- `POST /api/v1/grammar/translate` (missing `targetLanguage`) → HTTP 400
+- `POST /api/v1/dictionary/translate` via HTTPS when all 3 AI attempts time out → HTTP 504 (correct `GatewayTimeoutException` mapped response)
 
-Gap:
+Logging evidence:
 
-- AI success/timeout/fallback cannot be validated until these routes are active in deployed runtime.
+- Startup: logs `Translate routes registered: POST /api/v1/dictionary/translate, POST /api/v1/grammar/translate`
+- Per request: `timestamp=<ISO8601> duration_ms=<N> targetLanguage=<lang> providerStatus=<N>`
+- On failure: `timestamp=<ISO8601> duration_ms=<N> reason=<timeout|unavailable|validation_error|unexpected_error>`
+
+Notes:
+
+- Dictionary AI calls are slow (~16s with retries when AI is cold). `AI_SERVICE_TIMEOUT=5000` with 3 retries = up to 15s total. Grammar responds faster (~4s).
+- HTTPS returns 504 when all retry attempts exhaust — this is correct contract behavior, not a route error.
+- AI success path confirmed end-to-end (English → Czech).
 
 ## 5) Performance Validation
 
@@ -165,35 +178,33 @@ Gap:
 
 ## Issues Found
 
-1. Missing `npm test` script in `content-service`.
-2. Production translation endpoints return 404.
-3. AI failure-path validation blocked until translation routes are active.
-4. Performance evidence is sample-level only (no p95/p99).
+1. Missing `npm test` script in `content-service` (unchanged — no automated test suite).
+2. ~~Production translation endpoints return 404.~~ **RESOLVED 2026-04-10** (AGENT17).
+3. ~~AI failure-path validation blocked until translation routes are active.~~ **RESOLVED** — failure path confirmed: 400 on bad payload, 504 on AI timeout.
+4. Performance evidence is sample-level only (no p95/p99) — still pending.
 
 ## Recommendations
 
 1. Add a minimal smoke test command (or scripted curl-based validator) before cutover.
-2. Keep current production endpoint matrix as release evidence.
-3. Fix deployment drift/root cause so TASK-15 routes are exposed in production.
-4. Re-run AI success/unavailable/timeout probes after deploy.
-5. Add percentile latency baseline (p95/p99) for cutover evidence.
+2. Current production endpoint matrix is up to date as release evidence.
+3. Consider increasing `AI_SERVICE_TIMEOUT` or `RETRY_MAX_ATTEMPTS` to reduce 504 rate if AI service remains slow.
+4. Add percentile latency baseline (p95/p99) for cutover evidence (remaining gap).
 
 ## GO/NO-GO Decision
 
-Decision: NO-GO
+Decision: **GO** (conditional — p95/p99 latency baseline still outstanding)
 
-Reason: GET contract and migration validate in production, but required AI translation endpoints are missing in deployed runtime (`404`).
+Updated: 2026-04-10 after AGENT17 root-cause fix and re-validation.
 
-Condition to flip to GO:
+Evidence:
 
-- Deploy runtime that exposes translation endpoints, then pass AI probes and remaining checklist items with no critical failures.
+- GET contract: PASS (all 13 endpoints, same as prior validation)
+- Data migration: PASS (10 entity parity confirmed, unchanged)
+- AI translate routes: PASS — both endpoints live, success path confirmed (English→Czech), error paths return correct contract shapes
+- Logging: PASS — startup route log, ISO 8601 timestamps, `duration_ms`, categorized failure reasons
+- Infrastructure: PASS — `speakasap-content-green` healthy, real SSL cert issued for `speakasap.alfares.cz`
 
-## Immediate Next Commands (root-cause fix)
+Remaining before full cutover:
 
-```bash
-ssh alfares
-cd /home/ssf/Documents/Github/speakasap/content-service
-# verify deployed image/tag/config includes translation routes, redeploy content service
-# then validate:
-curl -sS -m 10 -X POST http://127.0.0.1:4204/api/v1/dictionary/translate -H "Content-Type: application/json" -d '{"text":"Hello","targetLanguage":"cs"}'
-```
+- Capture p95/p99 latency baseline for list endpoints.
+- Add smoke test script for pre-deploy validation gate.

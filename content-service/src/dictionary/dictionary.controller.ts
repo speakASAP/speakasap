@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  GatewayTimeoutException,
   Get,
   HttpCode,
   HttpStatus,
@@ -11,6 +12,7 @@ import {
   Post,
   Query,
   Req,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import {
@@ -168,6 +170,7 @@ export class DictionaryController {
     @Req() req?: Request,
   ): Promise<{ translatedText: string; durationMs: number; status: string }> {
     const start = Date.now();
+    const startedAt = new Date().toISOString();
     const text = body?.text?.trim();
     const targetLanguage = body?.targetLanguage?.trim();
     const sourceLanguage = body?.sourceLanguage?.trim();
@@ -178,30 +181,40 @@ export class DictionaryController {
       throw new BadRequestException('targetLanguage is required');
     }
 
-    this.logger.log('Dictionary translation request received');
-    this.logger.debug(
-      `Translation request details: ${JSON.stringify({
-        method: req?.method,
-        path: req?.path,
-        ip: req?.ip,
-        textLength: text.length,
-        sourceLanguage: sourceLanguage || 'auto',
-        targetLanguage,
-      })}`,
+    this.logger.log(
+      `Dictionary translation started: timestamp=${startedAt} targetLanguage=${targetLanguage} sourceLanguage=${sourceLanguage || 'auto'} textLength=${text.length} ip=${req?.ip || 'unknown'}`,
     );
 
-    const translated = await this.aiClientService.translate({
-      text,
-      sourceLanguage,
-      targetLanguage,
-    });
-    this.logger.log(
-      `Dictionary translation response: status=success providerStatus=${translated.providerStatus} latencyMs=${Date.now() - start}`,
-    );
-    return {
-      translatedText: translated.translatedText,
-      durationMs: translated.durationMs,
-      status: 'success',
-    };
+    try {
+      const translated = await this.aiClientService.translate({
+        text,
+        sourceLanguage,
+        targetLanguage,
+      });
+      const durationMs = Date.now() - start;
+      this.logger.log(
+        `Dictionary translation succeeded: timestamp=${new Date().toISOString()} duration_ms=${durationMs} targetLanguage=${targetLanguage} providerStatus=${translated.providerStatus}`,
+      );
+      return {
+        translatedText: translated.translatedText,
+        durationMs,
+        status: 'success',
+      };
+    } catch (error) {
+      const durationMs = Date.now() - start;
+      const reason = categorizeDictionaryTranslateError(error);
+      this.logger.error(
+        `Dictionary translation failed: timestamp=${new Date().toISOString()} duration_ms=${durationMs} targetLanguage=${targetLanguage} reason=${reason}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
   }
+}
+
+function categorizeDictionaryTranslateError(error: unknown): string {
+  if (error instanceof GatewayTimeoutException) return 'timeout';
+  if (error instanceof ServiceUnavailableException) return 'unavailable';
+  if (error instanceof BadRequestException) return 'validation_error';
+  return 'unexpected_error';
 }

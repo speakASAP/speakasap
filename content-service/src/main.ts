@@ -51,8 +51,13 @@ async function bootstrap(): Promise<void> {
     const port = Number(process.env.PORT);
     console.log(`Starting server on port ${port}...`);
     await app.listen(port);
-    Logger.log(`Content Service started on port ${port}`, 'Bootstrap');
-    console.log(`Content Service started successfully on port ${port}`);
+    const version = process.env.npm_package_version || 'unknown';
+    Logger.log(`Content Service v${version} started on port ${port}`, 'Bootstrap');
+    Logger.log(
+      'Translate routes registered: POST /api/v1/dictionary/translate, POST /api/v1/grammar/translate',
+      'Bootstrap',
+    );
+    console.log(`Content Service v${version} started successfully on port ${port}`);
   } catch (error) {
     console.error('Bootstrap error:', error);
     console.error('Error message:', (error as Error)?.message);
