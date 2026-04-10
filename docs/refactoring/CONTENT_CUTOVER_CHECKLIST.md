@@ -5,8 +5,7 @@ Owner: Phase 1 validation/cutover team
 
 ## Pre-Cutover (Must Pass)
 
-- [ ] Ensure runtime is available first (current blocker: no reachable local service + Docker daemon unavailable during last check).
-- [ ] Resolve known production blocker: translation endpoints currently return 404 on alfares runtime.
+- [ ] Resolve known production blocker first: translation endpoints return 404 on alfares runtime (`POST /api/v1/dictionary/translate`, `POST /api/v1/grammar/translate`).
 - [ ] Confirm `docs/refactoring/PHASE1_VALIDATION_REPORT.md` is updated to GO state.
 - [ ] Verify latest content migration parity (all 10 entities) and archive counts.
 - [ ] Run endpoint smoke matrix against target environment:
@@ -84,7 +83,6 @@ Owner: Phase 1 validation/cutover team
 
 ## Runtime Bootstrapping (if blocked)
 
-- [ ] Start Docker Desktop/daemon.
-- [ ] Re-check container runtime: `docker ps`.
-- [ ] Start/verify content-service runtime (expected health on `:4201` unless environment says otherwise).
+- [ ] Verify currently deployed route config and app version expose translate endpoints before any timeout/config tuning.
+- [ ] Confirm runtime health and container state (`docker ps`, `/health`).
 - [ ] Re-run this checklist from "endpoint smoke matrix".
