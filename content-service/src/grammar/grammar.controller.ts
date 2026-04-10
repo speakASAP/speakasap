@@ -1,13 +1,28 @@
-import { BadRequestException, Controller, Get, Logger, NotFoundException, Param, Query, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Logger,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { GrammarService, GrammarLessonResponse, GrammarCourseResponse } from './grammar.service';
 import { PaginatedResponse } from '../shared/pagination';
+import { AiClientService } from '../shared/ai-client.service';
 
 @Controller('grammar')
 export class GrammarController {
   private readonly logger = new Logger(GrammarController.name);
 
-  constructor(private readonly grammarService: GrammarService) {}
+  constructor(
+    private readonly grammarService: GrammarService,
+    private readonly aiClientService: AiClientService,
+  ) {}
 
   @Get()
   async list(
@@ -94,5 +109,53 @@ export class GrammarController {
     }
     this.logger.log(`Grammar lesson detail response: found=true latencyMs=${Date.now() - start}`);
     return result;
+  }
+
+  @Post('translate')
+  async translate(
+    @Body()
+    body?: {
+      text?: string;
+      sourceLanguage?: string;
+      targetLanguage?: string;
+    },
+    @Req() req?: Request,
+  ): Promise<{ translatedText: string; durationMs: number; status: string }> {
+    const start = Date.now();
+    const text = body?.text?.trim();
+    const targetLanguage = body?.targetLanguage?.trim();
+    const sourceLanguage = body?.sourceLanguage?.trim();
+    if (!text) {
+      throw new BadRequestException('text is required');
+    }
+    if (!targetLanguage) {
+      throw new BadRequestException('targetLanguage is required');
+    }
+
+    this.logger.log('Grammar translation request received');
+    this.logger.debug(
+      `Translation request details: ${JSON.stringify({
+        method: req?.method,
+        path: req?.path,
+        ip: req?.ip,
+        textLength: text.length,
+        sourceLanguage: sourceLanguage || 'auto',
+        targetLanguage,
+      })}`,
+    );
+
+    const translated = await this.aiClientService.translate({
+      text,
+      sourceLanguage,
+      targetLanguage,
+    });
+    this.logger.log(
+      `Grammar translation response: status=success providerStatus=${translated.providerStatus} latencyMs=${Date.now() - start}`,
+    );
+    return {
+      translatedText: translated.translatedText,
+      durationMs: translated.durationMs,
+      status: 'success',
+    };
   }
 }

@@ -11,6 +11,8 @@ const REQUIRED_ENV = [
   'NOTIFICATION_SERVICE_TIMEOUT',
   'NOTIFICATION_RETRY_MAX_ATTEMPTS',
   'NOTIFICATION_RETRY_DELAY_MS',
+  'AI_SERVICE_URL',
+  'AI_SERVICE_TIMEOUT',
 ];
 
 export function validateEnv(): void {
@@ -27,6 +29,7 @@ export function validateEnv(): void {
     'NOTIFICATION_SERVICE_TIMEOUT',
     'NOTIFICATION_RETRY_MAX_ATTEMPTS',
     'NOTIFICATION_RETRY_DELAY_MS',
+    'AI_SERVICE_TIMEOUT',
   ];
   const invalid = numericKeys.filter((key) => Number.isNaN(Number(process.env[key])));
   if (invalid.length > 0) {
