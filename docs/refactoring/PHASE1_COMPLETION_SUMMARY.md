@@ -49,8 +49,8 @@ Completed blocking items:
 
 Remaining before full cutover sign-off:
 
-3. Capture p95/p99 latency baseline for list endpoints and AI translate.
-4. Add smoke test script for pre-deploy gate.
-5. Run final GO checklist and sign off cutover.
+1. Capture p95/p99 latency baseline for list endpoints and AI translate.
+2. Add smoke test script for pre-deploy gate.
+3. Run final GO checklist and sign off cutover.
 
 Phase 1 is functionally complete. Phase 2 may proceed with the above items tracked as pre-cutover tasks.
