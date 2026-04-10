@@ -2,7 +2,7 @@
 
 This index lists the agent tasks for the SpeakASAP refactoring program. Each task has a dedicated agent prompt in `docs/agents/`.
 
-**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 1 until TASK-16 GO; Phase 0 closed; Phase 2 ready after Phase 1 GO).
+**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–1 closed; **Phase 2 active** orchestration as of **2026-04-10**).
 
 ## Task Structure
 
@@ -33,23 +33,23 @@ Sync points are documented in:
 - `docs/refactoring/SPEAKASAP_REFACTORING_PLAN.md`
 - `docs/refactoring/MARATHON_PHASE0_VALIDATION.md`
 
-## Orchestration (Phase 1) — Active
+## Orchestration (Phase 1) — ✅ Complete (2026-04-10)
 
-Global dependency graph:
+Global dependency graph (historical):
 
 ```text
-Phase 0 (complete) → Phase 1 (Foundation + Content Service)
+Phase 0 (complete) → Phase 1 (Foundation + Content Service) ✅
 TASK-11 → TASK-12 → TASK-13 → (TASK-14 ∥ TASK-15) → TASK-16
 ```
 
-Parallel batches:
+Parallel batches (executed):
 
 - **After TASK-11:** TASK-12 only (contract freeze = Sync B prerequisite).
 - **After TASK-12:** TASK-13 (implementation).
 - **After TASK-13:** TASK-14 and TASK-15 **in parallel** (migration vs AI integration).
-- **After TASK-11…TASK-15:** TASK-16 (validation / cutover GO).
+- **After TASK-11…TASK-15:** TASK-16 (validation / cutover GO). **Sync D closed 2026-04-10.**
 
-Docs: `PHASE1_TASK_DECOMPOSITION.md`, `PHASE1_ORCHESTRATION_SUMMARY.md`.
+Docs: `PHASE1_TASK_DECOMPOSITION.md`, `PHASE1_ORCHESTRATION_SUMMARY.md`, `PHASE1_COMPLETION_SUMMARY.md`.
 
 ## Phase 0: Marathon Extraction (complete)
 
@@ -68,13 +68,13 @@ Phase 0 outputs:
 
 **Completion Checklist:** `docs/refactoring/PHASE0_COMPLETION_CHECKLIST.md`
 
-**Remaining Items:** None (Phase 0 closed; continue with Phase 1 execution).
+**Remaining Items:** None (Phase 0 closed; Phase 1 complete — proceed with Phase 2 per `master-prompt.md`).
 
 ---
 
 ## Phase 1: Foundation & Infrastructure - Content Service
 
-**Status:** 🔄 **In execution** — next runnable task: see `PHASE1_ORCHESTRATION_SUMMARY.md` and `PHASE1_COMPLETION_SUMMARY.md`
+**Status:** ✅ **Complete** (Lead Orchestrator sign-off **2026-04-10**). Evidence: `PHASE1_VALIDATION_REPORT.md` (GO), `PHASE1_COMPLETION_SUMMARY.md`, `CONTENT_CUTOVER_CHECKLIST.md` (validation gate).
 
 **Task Decomposition:** `docs/refactoring/PHASE1_TASK_DECOMPOSITION.md`
 
@@ -94,50 +94,50 @@ Phase 0 outputs:
 ### TASK-11: Project Setup and Infrastructure Foundation
 
 - **Prompt**: `docs/agents/AGENT11_INFRA_SETUP.md`
-- **Status**: Phase 1 - Foundation
+- **Status**: ✅ Complete
 - **Dependencies**: Phase 0 completion
 - **Agent Type**: Infra/Docker Agent
 
 ### TASK-12: Content Service Design and API Contract
 
 - **Prompt**: `docs/agents/AGENT12_CONTENT_DESIGN.md`
-- **Status**: Phase 1 - Design — **Lead Orchestrator GO 2026-04-09** (see sign-off in prompt)
+- **Status**: ✅ Complete — **Lead Orchestrator GO 2026-04-09** (see sign-off in prompt)
 - **Dependencies**: TASK-11
 - **Agent Type**: Backend Service Agent (Design)
 
 ### TASK-13: Content Service Implementation
 
 - **Prompt**: `docs/agents/AGENT13_CONTENT_IMPLEMENTATION.md`
-- **Status**: Phase 1 - Implementation
+- **Status**: ✅ Complete
 - **Dependencies**: TASK-11, TASK-12
 - **Agent Type**: Backend Service Agent (Implementation)
 
 ### TASK-14: Content Data Migration
 
 - **Prompt**: `docs/agents/AGENT14_CONTENT_MIGRATION.md`
-- **Status**: Phase 1 - Data Migration
+- **Status**: ✅ Complete
 - **Dependencies**: TASK-12, TASK-13
 - **Agent Type**: Data Migration Agent
 
 ### TASK-15: AI Microservice Integration
 
 - **Prompt**: `docs/agents/AGENT15_AI_INTEGRATION.md`
-- **Status**: Phase 1 - Integration
+- **Status**: ✅ Complete
 - **Dependencies**: TASK-12, TASK-13
 - **Agent Type**: Integration Adapter Agent
 
 ### TASK-16: Phase 1 Validation and Cutover Checklist
 
 - **Prompt**: `docs/agents/AGENT16_PHASE1_VALIDATION.md`
-- **Status**: Phase 1 - Validation
+- **Status**: ✅ Complete (Phase 1 GO **2026-04-10**)
 - **Dependencies**: TASK-11 through TASK-15
 - **Agent Type**: QA/Contract Validator Agent
 
 ---
 
-## Orchestration (Phase 2) — After Phase 1 GO (TASK-16)
+## Orchestration (Phase 2) — Active
 
-**Prerequisite:** Phase 1 validation **GO** and cutover sign-off per Lead Orchestrator.
+**Prerequisite:** ✅ Phase 1 complete — TASK-16 **GO** and Lead Orchestrator sign-off **2026-04-10** (`PHASE1_VALIDATION_REPORT.md`, `PHASE1_COMPLETION_SUMMARY.md`).
 
 **Dual prompts:** Each task has an **Implementation** prompt and a **Validator** prompt (`AGENT{NN}V_*_VALIDATE.md`). Run Validator after Implementation; sync gates require Validator **PASS**.
 
@@ -164,7 +164,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 ## Phase 2: Certification & Assessment Services
 
-**Status:** Planned — start after **Phase 1 GO** (`AGENT16_PHASE1_VALIDATION.md`).
+**Status:** **Active** — **P2-A cleared 2026-04-10** (TASK-21 + `AGENT21V` PASS). Next runnable: TASK-22 ∥ TASK-25 (Implementation → Validators per paired prompts).
 
 **Task Decomposition:** `docs/refactoring/PHASE2_TASK_DECOMPOSITION.md`
 
@@ -178,6 +178,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 - **Implementation:** `docs/agents/AGENT21_PHASE2_INFRA.md`
 - **Validator:** `docs/agents/AGENT21V_PHASE2_INFRA_VALIDATE.md`
+- **Status:** ✅ Complete — **AGENT21V PASS 2026-04-10** (Sync **P2-A**)
 - **Dependencies:** Phase 1 GO
 - **Agent Type:** Infra/Docker Agent
 

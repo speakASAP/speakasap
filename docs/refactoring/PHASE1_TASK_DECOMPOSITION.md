@@ -1,10 +1,10 @@
 # Phase 1 Task Decomposition
 
 **Date:** 2026-01-26  
-**Last updated:** 2026-04-09  
-**Status:** 🔄 **In execution** (orchestration: `docs/agents/master-prompt.md`, summary: `PHASE1_ORCHESTRATION_SUMMARY.md`)  
-**Phase:** Foundation & Infrastructure - Content Service  
-**Lead Orchestrator:** Task decomposition approved; follow sync gates A–D
+**Last updated:** 2026-04-10  
+**Status:** ✅ **Complete** — Sync A–D closed; Lead Orchestrator sign-off **2026-04-10** (`PHASE1_COMPLETION_SUMMARY.md`)  
+**Phase:** Foundation & Infrastructure - Content Service (closed)  
+**Lead Orchestrator:** Phase 2 is the current program focus (`PHASE2_ORCHESTRATION_SUMMARY.md`)
 
 ---
 
@@ -531,13 +531,15 @@ Agent prompts (canonical — copy into worker agents):
 
 ---
 
-## Next Steps
+## Next Steps (program)
 
-1. **Run TASK-15** — `docs/agents/AGENT15_AI_INTEGRATION.md` (AI integration into `content-service`).
-2. **Run TASK-16** — `docs/agents/AGENT16_PHASE1_VALIDATION.md` (validation report, cutover checklist, GO/NO-GO).
-3. **Keep** `SPEAKASAP_REFACTORING_TASKS_INDEX.md` and `PHASE1_ORCHESTRATION_SUMMARY.md` aligned with actual task completion.
+Phase 1 is **closed** (**2026-04-10**). For the active program:
+
+1. **Run Phase 2** — `PHASE2_ORCHESTRATION_SUMMARY.md` (TASK-21 + `AGENT21V` first).
+
+Remediation only: re-use agent prompts `AGENT11`…`AGENT16` if Phase 1 scope is explicitly reopened.
 
 ---
 
-**Last Updated:** 2026-04-09  
-**Status:** 🔄 In execution
+**Last Updated:** 2026-04-10  
+**Status:** ✅ Complete
