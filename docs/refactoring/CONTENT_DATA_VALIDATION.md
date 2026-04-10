@@ -1,9 +1,17 @@
 # Content Data Migration Validation Report
 
+## AGENT14 note (2026-04-09)
+
+Post-migration counts from `validate_migration()` are **exact matches** only when there are no skipped rows (orphan FKs) and no duplicate skips on `Word` / `WordThemeRelation`. Expect `MISMATCH` on `words` or `word_theme_relations` when legacy duplicates exist; document skipped counts from `migration.log`.
+
+Live validation (record counts, samples, `curl` API) remains **to be filled** after you run the script against real legacy + content DBs.
+
+---
+
 ## Validation Summary
 
-**Date:** [Date of validation]
-**Validator:** [Name/Agent]
+**Date:** [Date of validation]  
+**Validator:** [Name/Agent]  
 **Status:** [Passed/Failed/Partial]
 
 ## Record Count Comparison
@@ -26,6 +34,7 @@
 ### Language Sample
 
 **Legacy Record (ID: [ID]):**
+
 ```json
 {
   "code": "[code]",
@@ -38,6 +47,7 @@
 ```
 
 **New Record (ID: [ID]):**
+
 ```json
 {
   "code": "[code]",
@@ -65,46 +75,60 @@
 ## Relationship Validation
 
 ### Language → GrammarCourse
+
 - Expected: One-to-one relationship
 - Validated: [Yes/No]
+
 - Issues: [Any issues found]
 
 ### GrammarCourse → GrammarLesson
+
 - Expected: One-to-many relationship
+
 - Validated: [Yes/No]
 - Issues: [Any issues found]
 
 ### Language → PhoneticsCourse
+
 - Expected: One-to-one relationship
 - Validated: [Yes/No]
 - Issues: [Any issues found]
 
 ### PhoneticsCourse → PhoneticsLesson
+
 - Expected: One-to-many relationship
 - Validated: [Yes/No]
+
 - Issues: [Any issues found]
 
 ### Language → SongsCourse
+
 - Expected: One-to-one relationship
 - Validated: [Yes/No]
 - Issues: [Any issues found]
 
 ### SongsCourse → SongsLesson
+
 - Expected: One-to-many relationship
 - Validated: [Yes/No]
+
 - Issues: [Any issues found]
 
 ### Language → Word
+
 - Expected: One-to-many relationship
+
 - Validated: [Yes/No]
 - Issues: [Any issues found]
 
 ### Word → WordThemeRelation
+
 - Expected: One-to-many relationship
 - Validated: [Yes/No]
 - Issues: [Any issues found]
 
 ### WordTheme → WordThemeRelation
+
 - Expected: One-to-many relationship
 - Validated: [Yes/No]
 - Issues: [Any issues found]
@@ -130,17 +154,21 @@
 ## API Endpoint Testing
 
 ### Languages Endpoint
+
 ```bash
 curl http://localhost:4201/api/v1/languages
 ```
+
 **Status:** [200 OK/Error]
 **Response Count:** [Number]
 **Validation:** [Passed/Failed]
 
 ### Grammar Endpoint
+
 ```bash
 curl http://localhost:4201/api/v1/grammar
 ```
+
 **Status:** [200 OK/Error]
 **Response Count:** [Number]
 **Validation:** [Passed/Failed]
