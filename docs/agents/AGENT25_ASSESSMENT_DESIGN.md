@@ -45,4 +45,4 @@ Freeze `ASSESSMENT_API_CONTRACT.md` and `ASSESSMENT_DATA_MAPPING.md` for legacy 
 ## Exit Criteria
 
 - Assessment side ready for freeze (part of **P2-B**).
-- **Next:** `docs/agents/AGENT25V_ASSESSMENT_DESIGN_VALIDATE.md` → **PASS**.
+- **Next:** `docs/agents/AGENT25V_ASSESSMENT_DESIGN_VALIDATE.md` → **PASS** ✅ **2026-04-11** (P2-B assessment side).

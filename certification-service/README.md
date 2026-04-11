@@ -1,32 +1,82 @@
-# speakasap-certification-service (Phase 2 scaffold)
+# speakasap-certification-service
 
-NestJS scaffold for certification extraction from `speakasap-portal`. Domain APIs are **not** implemented here yet (see TASK-23).
+NestJS service for certification, quests, and user questionnaires extracted from `speakasap-portal`, implemented against the frozen contract in `speakasap/docs/refactoring/CERTIFICATION_API_CONTRACT.md`.
 
 ## Port and database
 
 | Item | Value |
 | ---- | ----- |
 | Default port | **4202** |
-| PostgreSQL database name | **`speakasap_certification_db`** |
+| PostgreSQL database | **`speakasap_certification_db`** (via `DATABASE_URL`) |
 
-See `docs/infrastructure/PORT_ALLOCATION.md` in the `speakasap` repo.
+See `speakasap/docs/infrastructure/PORT_ALLOCATION.md`.
 
 ## Health
 
-- **GET** `/health` — returns `{ "status": "ok" }` (no global API prefix).
-- Versioned routes (when added) live under **`/api/v1`** (same pattern as `content-service`).
+- **GET** `/health` — `{ "status": "ok" }` (no `/api/v1` prefix).
+
+## API (`/api/v1`)
+
+All routes below are under the global prefix **`/api/v1`** except `/health`. Authenticated routes expect **`Authorization: Bearer <access_token>`** from **auth-microservice** (shared **`JWT_SECRET`** for HS256 verification).
+
+Pagination matches **content-service**: `page`, `limit`; `limit` is clamped to **`MAX_PAGE_SIZE` (≤ 30)**.
+
+### Course certificates (`certificates` legacy app)
+
+| Method | Path | Auth |
+| ------ | ---- | ---- |
+| GET | `/course-certificates` | JWT (owner list) |
+| GET | `/course-certificates/:id` | JWT (owner) |
+| GET | `/course-certificates/public/:viewToken` | Public |
+| POST | `/internal/course-certificates/generate` | `X-Internal-Api-Key` |
+
+### Group education certificates
+
+| Method | Path | Auth |
+| ------ | ---- | ---- |
+| GET | `/education-certificates` | JWT |
+| GET | `/education-certificates/:id` | JWT (owner or teacher/manager “staff”) |
+| GET | `/education-certificates/public/:viewToken` | Public |
+| POST | `/internal/education-certificates/generate` | `X-Internal-Api-Key` |
+
+### Quests
+
+| Method | Path | Auth |
+| ------ | ---- | ---- |
+| GET | `/quests/:questId` | JWT (owner; teacher/manager read) |
+| PATCH | `/quests/:questId` | JWT (owner only; 403 if already completed) |
+| GET | `/teacher/courses/:studentCourseUuid/quests/students/:studentId/:postfix` | JWT, **portal teacher** role only (`teacher_strict`, legacy `TeacherRequired` parity) |
+
+### Questionnaires / user questionnaires
+
+| Method | Path | Auth |
+| ------ | ---- | ---- |
+| GET | `/questionnaires` | JWT |
+| GET | `/questionnaires/:id` | JWT |
+| GET | `/user-questionnaires?status=incomplete\|completed` | JWT (optional `userId=` for managers on completed-style policy) |
+| GET | `/user-questionnaires/:id` | JWT (incomplete, owner only) |
+| POST | `/user-questionnaires/:id/submit` | JWT |
+| GET | `/manager/user-questionnaires/completed` | JWT, manager |
+| GET | `/manager/user-questionnaires/completed/:id` | JWT, manager |
 
 ## Configuration
 
-Copy `.env.example` to `.env` and set all required variables. Do not commit `.env`.
+Copy `.env.example` to `.env`. Required keys:
 
-Required at runtime: `PORT`, `SERVICE_NAME`, `DATABASE_URL`, `LOGGING_SERVICE_URL`, `LOGGING_SERVICE_API_PATH`, `LOGGING_SERVICE_TIMEOUT`.
+`PORT`, `SERVICE_NAME`, `DATABASE_URL`, `LOGGING_SERVICE_URL`, `LOGGING_SERVICE_API_PATH`, `LOGGING_SERVICE_TIMEOUT`, `DEFAULT_PAGE_SIZE`, `MAX_PAGE_SIZE` (≤ 30), `JWT_SECRET`, `CERT_VIEW_TOKEN_SECRET`, `MATERIALS_PUBLIC_BASE_URL`, `INTERNAL_API_KEY`.
 
-Centralized logging uses `LOGGING_SERVICE_URL` (e.g. `http://logging-microservice:3367` on Docker network).
+- **`MATERIALS_PUBLIC_BASE_URL`**: base URL used with stored relative `imagePath` to build `imageUrl` in API responses.
+- **`INTERNAL_API_KEY`**: required for `POST /internal/.../generate` routes (`X-Internal-Api-Key` header).
+
+## Database
+
+```bash
+npx prisma migrate deploy
+```
+
+(Or `npm run prisma:migrate` during development.)
 
 ## Local run
-
-From this directory, with a filled `.env`:
 
 ```bash
 npm install
@@ -34,17 +84,22 @@ npm run build
 npm start
 ```
 
-Or Docker:
+Docker (this directory):
 
 ```bash
 docker compose up --build
 ```
 
-## Docker / blue-green
+## Error shape
 
-Repo root `docker-compose.blue.yml` / `docker-compose.green.yml` include this service for production-style deploys.
+HTTP errors follow **content-service** style: `{ "error": { "code", "message", "details" } }`.
 
-## Next steps (refactoring program)
+## References
 
-- **TASK-22** — API contract and data mapping (certification).
-- **TASK-23** — Implementation against the frozen contract.
+- `speakasap/docs/refactoring/CERTIFICATION_API_CONTRACT.md`
+- `speakasap/docs/refactoring/CERTIFICATION_DATA_MAPPING.md`
+- `speakasap/docs/infrastructure/SHARED_SERVICES.md`
+
+## Next
+
+Validator checklist: `speakasap/docs/agents/AGENT23V_CERTIFICATION_IMPLEMENTATION_VALIDATE.md`.

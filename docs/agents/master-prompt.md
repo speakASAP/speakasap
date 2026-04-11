@@ -105,15 +105,13 @@ Aligned with the FlipFlop orchestrator pattern (`flipflop-service/docs/agents/ma
 
 **Phase 2 (active orchestration)**
 
-
-| Sync | When                                                          | Gate                                                                                         |
-| ---- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| P2-A | After TASK-21 + `AGENT21V` PASS                               | Certification + assessment scaffolds ready (build, `/health`, env keys, ports 4202/4203)     |
-| P2-B | After TASK-22 + TASK-25 + both design validators PASS         | Certification + assessment API contracts and data mappings frozen                            |
-| P2-C | After TASK-23 + TASK-26 + both implementation validators PASS | Both services match frozen contracts                                                         |
-| P2-D | After TASK-24 + TASK-27 + both migration validators PASS      | Migrations validated (parallelism TASK-24 ∥ TASK-27 only per `PHASE2_TASK_DECOMPOSITION.md`) |
-| P2-E | After TASK-28 + `AGENT28V` PASS                               | `PHASE2_VALIDATION_REPORT.md` + `PHASE2_CUTOVER_CHECKLIST.md`; Phase 2 GO/NO-GO              |
-
+| Sync | When | Gate |
+|------|------|------|
+| P2-A | After TASK-21 + `AGENT21V` PASS | Certification + assessment scaffolds ready (build, `/health`, env keys, ports 4202/4203) |
+| P2-B | After TASK-22 + TASK-25 + both design validators PASS | Certification + assessment API contracts and data mappings frozen ✅ **2026-04-11** |
+| P2-C | After TASK-23 + TASK-26 + both implementation validators PASS | Both services match frozen contracts |
+| P2-D | After TASK-24 + TASK-27 + both migration validators PASS | Migrations validated (parallelism TASK-24 ∥ TASK-27 only per `PHASE2_TASK_DECOMPOSITION.md`) |
+| P2-E | After TASK-28 + `AGENT28V` PASS | `PHASE2_VALIDATION_REPORT.md` + `PHASE2_CUTOVER_CHECKLIST.md`; Phase 2 GO/NO-GO |
 
 Rules:
 

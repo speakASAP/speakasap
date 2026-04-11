@@ -18,4 +18,11 @@ export class RequestContext {
   static get(): RequestContextData | undefined {
     return RequestContext.storage.getStore();
   }
+
+  static setUserId(userId: string): void {
+    const store = RequestContext.storage.getStore();
+    if (store) {
+      store.userId = userId;
+    }
+  }
 }

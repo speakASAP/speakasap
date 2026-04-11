@@ -5,6 +5,12 @@ const REQUIRED_ENV = [
   'LOGGING_SERVICE_URL',
   'LOGGING_SERVICE_API_PATH',
   'LOGGING_SERVICE_TIMEOUT',
+  'DEFAULT_PAGE_SIZE',
+  'MAX_PAGE_SIZE',
+  'JWT_SECRET',
+  'CERT_VIEW_TOKEN_SECRET',
+  'MATERIALS_PUBLIC_BASE_URL',
+  'INTERNAL_API_KEY',
 ];
 
 export function validateEnv(): void {
@@ -13,9 +19,14 @@ export function validateEnv(): void {
     throw new Error(`Missing required env vars: ${missing.join(', ')}`);
   }
 
-  const numericKeys = ['PORT', 'LOGGING_SERVICE_TIMEOUT'];
+  const numericKeys = ['PORT', 'LOGGING_SERVICE_TIMEOUT', 'DEFAULT_PAGE_SIZE', 'MAX_PAGE_SIZE'];
   const invalid = numericKeys.filter((key) => Number.isNaN(Number(process.env[key])));
   if (invalid.length > 0) {
     throw new Error(`Invalid numeric env vars: ${invalid.join(', ')}`);
+  }
+
+  const maxPageSize = Number(process.env.MAX_PAGE_SIZE);
+  if (maxPageSize > 30) {
+    throw new Error('MAX_PAGE_SIZE must be 30 or less');
   }
 }
