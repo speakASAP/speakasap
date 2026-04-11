@@ -33,6 +33,13 @@ Copy `.env.example` to `.env`. Required keys include:
 - **`ASSESSMENT_SERVICE_PUBLIC_BASE_URL`:** public base of this API (used for signed `resultUrl`).
 - **`ASSESSMENT_VIEW_TOKEN_SECRET`:** HMAC secret for result view tokens.
 
+## Data migration (legacy portal → this DB)
+
+Script: `scripts/migrate-assessment-from-legacy.py`  
+Env: `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`.  
+Docs: `speakasap/docs/refactoring/ASSESSMENT_DATA_MIGRATION_LOG.md`, `ASSESSMENT_DATA_VALIDATION.md`.  
+Does not touch `teacher_tests`.
+
 ## Prisma
 
 Schema: `prisma/schema.prisma`. After schema changes:

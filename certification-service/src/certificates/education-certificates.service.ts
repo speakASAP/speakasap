@@ -9,7 +9,7 @@ import { ViewTokenService } from './view-token.service';
 
 export type EducationCertificateSummary = {
   id: number;
-  studentCourseId: number;
+  studentCourseId: string;
   studentId: number;
   imageUrl: string;
   signedViewToken: string;
@@ -66,7 +66,7 @@ export class EducationCertificatesService {
   }
 
   async internalGenerate(params: {
-    studentCourseId: number;
+    studentCourseId: string;
     studentIds?: number[];
     allFinished?: boolean;
     forceBase: boolean;
@@ -101,7 +101,7 @@ export class EducationCertificatesService {
   }
 
   private async upsertOne(params: {
-    studentCourseId: number;
+    studentCourseId: string;
     studentId: number;
     forceBase: boolean;
     ownerUserId?: string;

@@ -77,9 +77,9 @@
 
 | Legacy | Target | Transform |
 |--------|--------|-----------|
-| `Certificate.course_id` | `CourseCertificate.studentCourseId` | Same integer FK to education DB during strangler; long-term UUID if education moves |
+| `Certificate.course_id` | `CourseCertificate.studentCourseId` | Same PK as legacy `education_studentcourse.uuid`, stored as **string** (VARCHAR(36)) in certification DB |
 | `Certificate.image` | `CourseCertificate.imagePath` | Store relative path; URL built with env base |
-| `EducationCertificate.student_course_id` | `EducationCertificate.studentCourseId` | |
+| `EducationCertificate.student_course_id` | `EducationCertificate.studentCourseId` | UUID string (same as course certificates) |
 | `EducationCertificate.student_id` | `EducationCertificate.studentId` | |
 | `Quest.uuid` | `QuestInstance.id` | UUID string |
 | `Quest.questions` / `answers` | JSON columns | Direct JSON |

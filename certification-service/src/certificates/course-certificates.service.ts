@@ -7,7 +7,7 @@ import { ViewTokenService } from './view-token.service';
 
 export type CourseCertificateSummary = {
   id: number;
-  studentCourseId: number;
+  studentCourseId: string;
   imageUrl: string;
   signedViewToken: string;
   certText: string;
@@ -57,7 +57,7 @@ export class CourseCertificatesService {
   }
 
   async internalGenerate(params: {
-    studentCourseId: number;
+    studentCourseId: string;
     forceBase: boolean;
     ownerUserId?: string;
     certText?: string;
