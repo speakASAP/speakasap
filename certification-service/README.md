@@ -100,6 +100,12 @@ HTTP errors follow **content-service** style: `{ "error": { "code", "message", "
 - `speakasap/docs/refactoring/CERTIFICATION_DATA_MAPPING.md`
 - `speakasap/docs/infrastructure/SHARED_SERVICES.md`
 
+## Data migration (legacy portal → this DB)
+
+Script: `scripts/migrate-certification-from-legacy.py`  
+Env: `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL` (same shell as `DATABASE_URL` for target).  
+Docs: `speakasap/docs/refactoring/CERTIFICATION_DATA_MIGRATION_LOG.md`, `CERTIFICATION_DATA_VALIDATION.md`.
+
 ## Next
 
-Validator checklist: `speakasap/docs/agents/AGENT23V_CERTIFICATION_IMPLEMENTATION_VALIDATE.md`.
+Phase 2 migration validator: `speakasap/docs/agents/AGENT24V_CERTIFICATION_MIGRATION_VALIDATE.md`.

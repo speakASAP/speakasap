@@ -14,7 +14,7 @@ export class InternalCertificatesController {
   @UseGuards(InternalApiKeyGuard)
   async generateCourse(
     @Body()
-    body: { studentCourseId: number; forceBase: boolean; ownerUserId?: string; certText?: string },
+    body: { studentCourseId: string; forceBase: boolean; ownerUserId?: string; certText?: string },
   ) {
     return this.courseCertificates.internalGenerate({
       studentCourseId: body.studentCourseId,
@@ -29,7 +29,7 @@ export class InternalCertificatesController {
   async generateEducation(
     @Body()
     body: {
-      studentCourseId: number;
+      studentCourseId: string;
       studentIds?: number[];
       allFinished?: boolean;
       forceBase: boolean;

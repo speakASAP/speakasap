@@ -9,7 +9,7 @@ datasource db {
 
 model CourseCertificate {
   id              Int      @id @default(autoincrement())
-  studentCourseId Int
+  studentCourseId String @db.VarChar(36)
   ownerUserId     String?  @db.VarChar(64)
   imagePath       String   @db.VarChar(512)
   certText        String?  @db.Text
@@ -21,7 +21,7 @@ model CourseCertificate {
 
 model EducationCertificate {
   id              Int      @id @default(autoincrement())
-  studentCourseId Int
+  studentCourseId String @db.VarChar(36)
   studentId       Int
   ownerUserId     String?  @db.VarChar(64)
   imagePath       String   @db.VarChar(512)

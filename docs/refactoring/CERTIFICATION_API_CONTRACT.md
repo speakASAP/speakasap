@@ -4,7 +4,7 @@
 
 **Legacy sources:** Django apps `certificates`, `education_certificates`, `quests`, `user_quest` in `speakasap-portal`.
 
-**Auth:** JWT from **auth-microservice** on all `/api/v1/**` routes unless noted. User identity is the subject of the token; cross-domain IDs (`studentCourseId`, `studentId`, etc.) reference **speakasap-education-service** (or legacy numeric IDs during migration — see data mapping).
+**Auth:** JWT from **auth-microservice** on all `/api/v1/**` routes unless noted. User identity is the subject of the token; cross-domain IDs (`studentCourseId`, `studentId`, etc.) reference **speakasap-education-service**. **`studentCourseId` is the legacy `StudentCourse` primary key as a string** (UUID in current `speakasap-portal`); `studentId` remains integer where applicable.
 
 ---
 
@@ -73,7 +73,7 @@ Legacy model `certificates.Certificate`: one row per finished **individual** `St
 | Field | Type | Notes |
 |-------|------|--------|
 | `id` | number | Primary key (legacy `Certificate.id`) |
-| `studentCourseId` | number | Legacy `StudentCourse` PK |
+| `studentCourseId` | string | Legacy `StudentCourse` PK (UUID string in portal DB) |
 | `imageUrl` | string | Resolved URL for stored PNG (from `MATERIALS_BASE_URL` / gateway rules in `.env`) |
 | `signedViewToken` | string | Opaque token for public viewer (replaces Django `Signer.sign(pk)`; implementation may wrap `id`) |
 | `certText` | string | Human-readable line from legacy `cert_text` property |
@@ -95,7 +95,7 @@ Legacy model `certificates.Certificate`: one row per finished **individual** `St
 
 Legacy generation runs on `course_finished` signal; **does not** expose a student REST “generate” endpoint. For parity and operations:
 
-- **`POST /api/v1/internal/course-certificates/generate`** (service-to-service or admin role only): body `{ "studentCourseId": number, "forceBase": boolean }`. Behavior matches `Certificate.generate_certificate`: no-op if course not finished and `forceBase` false; if row exists for course, return existing unless `forceBase` forces regeneration (legacy semantics). **Idempotency-Key** header recommended for retries.
+- **`POST /api/v1/internal/course-certificates/generate`** (service-to-service or admin role only): body `{ "studentCourseId": string, "forceBase": boolean }`. Behavior matches `Certificate.generate_certificate`: no-op if course not finished and `forceBase` false; if row exists for course, return existing unless `forceBase` forces regeneration (legacy semantics). **Idempotency-Key** header recommended for retries.
 
 - Raster pipeline is **synchronous CPU + file write** in legacy; new service may queue a job but **contract** requires eventual row + `imageUrl` or explicit **202** with `jobId` — pick one in implementation and document in OpenAPI when added.
 
@@ -114,7 +114,7 @@ Same pagination; items for current user (any group membership path preserved in 
 | Field | Type | Notes |
 |-------|------|--------|
 | `id` | number | PK |
-| `studentCourseId` | number | Group `StudentCourse` PK |
+| `studentCourseId` | string | Group `StudentCourse` PK (UUID string) |
 | `studentId` | number | Legacy `students.Student` PK |
 | `imageUrl` | string | |
 | `signedViewToken` | string | Public resolver |
@@ -130,7 +130,7 @@ Same pattern as course certificates.
 
 ### Internal generation
 
-**`POST /api/v1/internal/education-certificates/generate`**: body `{ "studentCourseId": number, "studentIds": number[] | "allFinished": true, "forceBase": boolean, "sendNotification": boolean }` — mirrors `Certificate.generate_certificate` batch per student. **Idempotency-Key** per logical batch.
+**`POST /api/v1/internal/education-certificates/generate`**: body `{ "studentCourseId": string, "studentIds": number[] | "allFinished": true, "forceBase": boolean, "sendNotification": boolean }` — mirrors `Certificate.generate_certificate` batch per student. **Idempotency-Key** per logical batch.
 
 ---
 

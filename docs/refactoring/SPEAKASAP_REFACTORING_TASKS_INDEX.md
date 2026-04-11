@@ -164,7 +164,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 ## Phase 2: Certification & Assessment Services
 
-**Status:** **Active** — **P2-A cleared 2026-04-10**; **P2-B cleared 2026-04-11**; **P2-C cleared 2026-04-11** (TASK-23 + TASK-26 + `AGENT23V` + `AGENT26V` PASS — build + contract parity review). **Next:** TASK-24 ∥ TASK-27 per parallelism gate → `AGENT24V` / `AGENT27V` for **P2-D**.
+**Status:** **Active** — through **P2-D cleared 2026-04-11** (TASK-24 + TASK-27 implementation: migration scripts + log/validation docs; `AGENT24V` / `AGENT27V` PASS on artifact review — run validation SQL on target DB after your live import). **Next:** **TASK-28** → `AGENT28V` for **P2-E**.
 
 **Task Decomposition:** `docs/refactoring/PHASE2_TASK_DECOMPOSITION.md`
 
@@ -202,6 +202,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 - **Implementation:** `docs/agents/AGENT24_CERTIFICATION_MIGRATION.md`
 - **Validator:** `docs/agents/AGENT24V_CERTIFICATION_MIGRATION_VALIDATE.md`
+- **Status:** ✅ Complete — `certification-service/scripts/migrate-certification-from-legacy.py` + `CERTIFICATION_DATA_MIGRATION_LOG.md` / `CERTIFICATION_DATA_VALIDATION.md`. Prisma: `studentCourseId` → UUID string. **`AGENT24V` PASS 2026-04-11** (documentation + script review; execute validation queries post-import).
 - **Dependencies:** TASK-23 + TASK-23V PASS
 - **Agent Type:** Data Migration Agent
 
@@ -225,6 +226,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 - **Implementation:** `docs/agents/AGENT27_ASSESSMENT_MIGRATION.md`
 - **Validator:** `docs/agents/AGENT27V_ASSESSMENT_MIGRATION_VALIDATE.md`
+- **Status:** ✅ Complete — `assessment-service/scripts/migrate-assessment-from-legacy.py` + `ASSESSMENT_DATA_MIGRATION_LOG.md` / `ASSESSMENT_DATA_VALIDATION.md`. No `teacher_tests`. **`AGENT27V` PASS 2026-04-11** (documentation + script review; confirm M2M table name on legacy if needed).
 - **Dependencies:** TASK-26 + TASK-26V PASS
 - **Agent Type:** Data Migration Agent
 
