@@ -35,9 +35,9 @@ Refactor the legacy Django monolith (`speakasap-portal`) into a NestJS/Next.js e
 
 **Done (Phase 0):** `marathon` extracted as a standalone product with legacy shim and contracts.
 
-**Done (Phase 1):** Foundation plus **speakasap-content-service** (read-only content: grammar, phonetics, dictionary, songs, language), port **4201**, DB **`speakasap_content_db`**, plus **ai-microservice** integration for content-related features. Closure: **2026-04-10** (`PHASE1_COMPLETION_SUMMARY.md`).
+**Done (Phase 1):** Foundation plus **speakasap-content-service** (read-only content: grammar, phonetics, dictionary, songs, language), port **4201**, DB `**speakasap_content_db`**, plus **ai-microservice** integration for content-related features. Closure: **2026-04-10** (`PHASE1_COMPLETION_SUMMARY.md`).
 
-**In progress (Phase 2):** **speakasap-certification-service** (port **4202**, DB **`speakasap_certification_db`**) and **speakasap-assessment-service** (port **4203**, DB **`speakasap_assessment_db`**). Assessment scope excludes obsolete **`teacher_tests`** (per `ROADMAP.md`).
+**In progress (Phase 2):** **speakasap-certification-service** (port **4202**, DB `**speakasap_certification_db`**) and **speakasap-assessment-service** (port **4203**, DB `**speakasap_assessment_db`**). Assessment scope excludes obsolete `**teacher_tests**` (per `ROADMAP.md`).
 
 ## Global rules (all phases)
 
@@ -94,22 +94,26 @@ Aligned with the FlipFlop orchestrator pattern (`flipflop-service/docs/agents/ma
 
 **Phase 1 (closed 2026-04-10)** — Sync A–D satisfied; see `PHASE1_COMPLETION_SUMMARY.md`.
 
-| Sync | When | Gate |
-|------|------|------|
-| Sync A | After TASK-11 | Infra foundation ready (structure, Docker templates, env/logging patterns) |
-| Sync B | After TASK-12 | Content API contract + data mapping + AI integration **plan** frozen |
-| Sync C | After TASK-13, TASK-14, TASK-15 | Implementation, migration, and AI integration complete |
-| Sync D | After TASK-16 | Validation report + cutover checklist GO |
+
+| Sync   | When                            | Gate                                                                       |
+| ------ | ------------------------------- | -------------------------------------------------------------------------- |
+| Sync A | After TASK-11                   | Infra foundation ready (structure, Docker templates, env/logging patterns) |
+| Sync B | After TASK-12                   | Content API contract + data mapping + AI integration **plan** frozen       |
+| Sync C | After TASK-13, TASK-14, TASK-15 | Implementation, migration, and AI integration complete                     |
+| Sync D | After TASK-16                   | Validation report + cutover checklist GO                                   |
+
 
 **Phase 2 (active orchestration)**
 
-| Sync | When | Gate |
-|------|------|------|
-| P2-A | After TASK-21 + `AGENT21V` PASS | Certification + assessment scaffolds ready (build, `/health`, env keys, ports 4202/4203) |
-| P2-B | After TASK-22 + TASK-25 + both design validators PASS | Certification + assessment API contracts and data mappings frozen |
-| P2-C | After TASK-23 + TASK-26 + both implementation validators PASS | Both services match frozen contracts |
-| P2-D | After TASK-24 + TASK-27 + both migration validators PASS | Migrations validated (parallelism TASK-24 ∥ TASK-27 only per `PHASE2_TASK_DECOMPOSITION.md`) |
-| P2-E | After TASK-28 + `AGENT28V` PASS | `PHASE2_VALIDATION_REPORT.md` + `PHASE2_CUTOVER_CHECKLIST.md`; Phase 2 GO/NO-GO |
+
+| Sync | When                                                          | Gate                                                                                         |
+| ---- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| P2-A | After TASK-21 + `AGENT21V` PASS                               | Certification + assessment scaffolds ready (build, `/health`, env keys, ports 4202/4203)     |
+| P2-B | After TASK-22 + TASK-25 + both design validators PASS         | Certification + assessment API contracts and data mappings frozen                            |
+| P2-C | After TASK-23 + TASK-26 + both implementation validators PASS | Both services match frozen contracts                                                         |
+| P2-D | After TASK-24 + TASK-27 + both migration validators PASS      | Migrations validated (parallelism TASK-24 ∥ TASK-27 only per `PHASE2_TASK_DECOMPOSITION.md`) |
+| P2-E | After TASK-28 + `AGENT28V` PASS                               | `PHASE2_VALIDATION_REPORT.md` + `PHASE2_CUTOVER_CHECKLIST.md`; Phase 2 GO/NO-GO              |
+
 
 Rules:
 
