@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model CourseCertificate {
+  id              Int      @id @default(autoincrement())
+  studentCourseId Int
+  ownerUserId     String?  @db.VarChar(64)
+  imagePath       String   @db.VarChar(512)
+  certText        String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  @@unique([studentCourseId])
+  @@index([ownerUserId])
+}
+
+model EducationCertificate {
+  id              Int      @id @default(autoincrement())
+  studentCourseId Int
+  studentId       Int
+  ownerUserId     String?  @db.VarChar(64)
+  imagePath       String   @db.VarChar(512)
+  certText        String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  @@unique([studentCourseId, studentId])
+  @@index([ownerUserId])
+}
+
+model QuestInstance {
+  id               String    @id @db.Uuid
+  userId           String    @db.VarChar(64)
+  code             String    @db.VarChar(255)
+  identifier       Json      @db.JsonB
+  questions        Json      @default("{}") @db.JsonB
+  answers          Json      @default("{}") @db.JsonB
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  studentCourseRef String? @db.VarChar(64)
+  studentPk        Int?
+
+  @@index([userId, code])
+  @@index([studentCourseRef, studentPk])
+}
+
+model Questionnaire {
+  id        Int                     @id @default(autoincrement())
+  title     String                  @db.VarChar(255)
+  questions QuestionnaireQuestion[]
+  attempts  UserQuestionnaire[]
+}
+
+model QuestionnaireQuestion {
+  id                Int                       @id @default(autoincrement())
+  questionnaireId Int
+  text              String                    @db.Text
+  header            String?                   @db.VarChar(255)
+  sortOrder         Int                       @default(0)
+  questionnaire     Questionnaire           @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  answerRows        UserQuestionnaireAnswer[]
+
+  @@index([questionnaireId, sortOrder])
+}
+
+model UserQuestionnaire {
+  id                   Int                       @id @default(autoincrement())
+  questionnaireId    Int
+  userId               String                    @db.VarChar(64)
+  createdAt            DateTime                  @default(now())
+  finishedAt           DateTime?
+  notificationTemplate String                  @default("quest_created") @db.VarChar(255)
+  questionnaire        Questionnaire             @relation(fields: [questionnaireId], references: [id], onDelete: Restrict)
+  answers              UserQuestionnaireAnswer[]
+
+  @@index([userId, finishedAt])
+}
+
+model UserQuestionnaireAnswer {
+  userQuestionnaireId Int
+  questionId          Int
+  text                String                  @db.Text
+  userQuestionnaire   UserQuestionnaire       @relation(fields: [userQuestionnaireId], references: [id], onDelete: Cascade)
+  question            QuestionnaireQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([userQuestionnaireId, questionId])
+}

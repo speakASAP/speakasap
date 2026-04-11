@@ -1,32 +1,49 @@
-# speakasap-assessment-service (Phase 2 scaffold)
+# speakasap-assessment-service
 
-NestJS scaffold for assessment extraction from `speakasap-portal`. Domain APIs are **not** implemented here yet (see TASK-26). Legacy **`teacher_tests`** remain out of scope per `docs/refactoring/ROADMAP.md`.
+NestJS service for **adaptive language tests** (`language_tests`) and **asset-based quizzes** (`user_tests`) per `docs/refactoring/ASSESSMENT_API_CONTRACT.md`. Legacy **`teacher_tests`** are out of scope.
 
 ## Port and database
 
-| Item | Value |
-| ---- | ----- |
-| Default port | **4203** |
-| PostgreSQL database name | **`speakasap_assessment_db`** |
+| Item | Typical value |
+| ---- | ------------- |
+| Listen port | **4203** (`PORT`) |
+| PostgreSQL DB | **`speakasap_assessment_db`** (`DATABASE_URL`) |
 
-See `docs/infrastructure/PORT_ALLOCATION.md` in the `speakasap` repo.
+## API
 
-## Health
+- **Health:** `GET /health` (no `/api/v1` prefix).
+- **Versioned API:** `GET/POST/PATCH/...` under **`/api/v1`** (see contract doc).
 
-- **GET** `/health` — returns `{ "status": "ok" }` (no global API prefix).
-- Versioned routes (when added) live under **`/api/v1`** (same pattern as `content-service`).
+### Highlights
+
+- **Auth:** `Authorization: Bearer <JWT>` on protected routes; tokens validated via **`AUTH_SERVICE_URL`** → `POST /auth/validate`.
+- **Staff (admin language tests):** users must have a role listed in **`ASSESSMENT_STAFF_ROLE_NAMES`** (default `admin,super_admin,staff` if unset).
+- **Managers (asset list `?userId=`):** roles from **`ASSESSMENT_MANAGER_ROLE_NAMES`** (default `manager,admin,super_admin`).
+- **Pagination:** `page`, `limit` (max **30**).
+- **Errors:** JSON `{ error: { code, message, details } }` (same shape as content-service contract).
+- **Asset JSON:** load from **`USER_TEST_ASSETS_DIR`** (e.g. `./assets`); sample `webinar1.json` / `webinar2.json` are copied into `./assets` for local use.
 
 ## Configuration
 
-Copy `.env.example` to `.env` and set all required variables. Do not commit `.env`.
+Copy `.env.example` to `.env`. Required keys include:
 
-Required at runtime: `PORT`, `SERVICE_NAME`, `DATABASE_URL`, `LOGGING_SERVICE_URL`, `LOGGING_SERVICE_API_PATH`, `LOGGING_SERVICE_TIMEOUT`.
+`PORT`, `SERVICE_NAME`, `DATABASE_URL`, logging trio, `AUTH_SERVICE_URL`, `AUTH_SERVICE_TIMEOUT`, `LANGUAGE_TEST_LANDING_BASE_URL`, `ASSESSMENT_SERVICE_PUBLIC_BASE_URL`, `ASSESSMENT_VIEW_TOKEN_SECRET`, `USER_TEST_ASSETS_DIR`.
 
-Centralized logging uses `LOGGING_SERVICE_URL` (e.g. `http://logging-microservice:3367` on Docker network).
+- **`LANGUAGE_TEST_LANDING_BASE_URL`:** public site base for HTML language test entry (used for `testUrl` catalog links).
+- **`ASSESSMENT_SERVICE_PUBLIC_BASE_URL`:** public base of this API (used for signed `resultUrl`).
+- **`ASSESSMENT_VIEW_TOKEN_SECRET`:** HMAC secret for result view tokens.
 
-## Local run
+## Prisma
 
-From this directory, with a filled `.env`:
+Schema: `prisma/schema.prisma`. After schema changes:
+
+```bash
+npx prisma migrate dev
+```
+
+(Or apply SQL migrations in your environment.)
+
+## Run
 
 ```bash
 npm install
@@ -34,17 +51,13 @@ npm run build
 npm start
 ```
 
-Or Docker:
+## Verify
 
 ```bash
-docker compose up --build
+npm run build
+curl -s http://localhost:${PORT:-4203}/health
 ```
 
-## Docker / blue-green
+## Next step
 
-Repo root `docker-compose.blue.yml` / `docker-compose.green.yml` include this service for production-style deploys.
-
-## Next steps (refactoring program)
-
-- **TASK-25** — API contract and data mapping (assessment).
-- **TASK-26** — Implementation against the frozen contract.
+Run `docs/agents/AGENT26V_ASSESSMENT_IMPLEMENTATION_VALIDATE.md` for contract validation (PASS/FAIL).

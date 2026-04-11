@@ -1,0 +1,124 @@
+// speakasap_assessment_db — teacher_tests explicitly excluded.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model LanguageTest {
+  id            Int               @id @default(autoincrement())
+  name          String            @db.VarChar(255)
+  tag           String            @db.VarChar(255)
+  languageId    Int
+  languageCode  String            @db.VarChar(32)
+  languageName  String            @db.VarChar(255)
+  questions     LanguageQuestion[]
+  userTests     LanguageUserTest[]
+
+  @@unique([tag, languageId])
+  @@unique([tag, languageCode])
+}
+
+model Level {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(255)
+  difficult   Int
+  questions   LanguageQuestion[]
+  results     LanguageUserTestResult[]
+  recommendations LevelRecommendation[]
+}
+
+model LevelRecommendation {
+  id          Int    @id @default(autoincrement())
+  levelId     Int
+  languageId  Int
+  title       String @db.VarChar(255)
+  description String @db.Text
+  link        String @db.VarChar(512)
+  level       Level  @relation(fields: [levelId], references: [id])
+
+  @@index([levelId, languageId])
+}
+
+model LanguageQuestion {
+  id        Int              @id @default(autoincrement())
+  testId    Int
+  levelId   Int
+  text      String           @db.Text
+  isTrashed Boolean          @default(false)
+  test      LanguageTest     @relation(fields: [testId], references: [id])
+  level     Level            @relation(fields: [levelId], references: [id])
+  answers   LanguageAnswer[]
+  attempts  LanguageUserTestQuestion[]
+
+  @@index([testId, levelId])
+}
+
+model LanguageAnswer {
+  id         Int              @id @default(autoincrement())
+  questionId Int
+  text       String           @db.Text
+  isCorrect  Boolean          @default(false)
+  isTrashed  Boolean          @default(false)
+  question   LanguageQuestion @relation(fields: [questionId], references: [id])
+  selections LanguageUserTestQuestionAnswer[]
+}
+
+model LanguageUserTest {
+  id        Int       @id @default(autoincrement())
+  testId    Int
+  userId    String    @db.VarChar(64)
+  createdAt DateTime  @default(now())
+  endedAt   DateTime?
+  test      LanguageTest @relation(fields: [testId], references: [id])
+  questions LanguageUserTestQuestion[]
+  result    LanguageUserTestResult?
+
+  @@index([userId, createdAt])
+}
+
+model LanguageUserTestQuestion {
+  id         Int       @id @default(autoincrement())
+  userTestId Int
+  questionId Int
+  isComplete Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  userTest   LanguageUserTest @relation(fields: [userTestId], references: [id])
+  question   LanguageQuestion @relation(fields: [questionId], references: [id])
+  selections LanguageUserTestQuestionAnswer[]
+}
+
+model LanguageUserTestQuestionAnswer {
+  userTestQuestionId Int
+  answerId           Int
+  userTestQuestion   LanguageUserTestQuestion @relation(fields: [userTestQuestionId], references: [id])
+  answer             LanguageAnswer           @relation(fields: [answerId], references: [id])
+
+  @@id([userTestQuestionId, answerId])
+}
+
+model LanguageUserTestResult {
+  userTestId Int              @id
+  score      Int
+  levelId    Int
+  userTest   LanguageUserTest @relation(fields: [userTestId], references: [id])
+  level      Level            @relation(fields: [levelId], references: [id])
+}
+
+model AssetUserTest {
+  id          String    @id @db.Uuid
+  userId      String    @db.VarChar(64)
+  asset       String    @db.VarChar(255)
+  questions   Json      @default("{}") @db.JsonB
+  answers     Json      @default("{}") @db.JsonB
+  errors      String[]  @default([])
+  dueDate     DateTime? @db.Date
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, asset, createdAt])
+}
