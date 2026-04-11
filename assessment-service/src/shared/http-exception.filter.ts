@@ -17,7 +17,7 @@ export class HttpErrorFilter implements ExceptionFilter {
       ? exception.message
       : 'Internal server error';
     const code = mapStatusToCode(status);
-    const details = exception instanceof HttpException ? exception.getResponse() : {};
+    const details = buildErrorDetails(exception);
 
     this.logger.error(
       `Request failed: ${request.method} ${request.originalUrl} status=${status} code=${code} message=${message}`,
@@ -32,6 +32,26 @@ export class HttpErrorFilter implements ExceptionFilter {
       },
     });
   }
+}
+
+function buildErrorDetails(exception: unknown): Record<string, unknown> {
+  if (!(exception instanceof HttpException)) {
+    return {};
+  }
+  const body = exception.getResponse();
+  if (typeof body === 'string') {
+    return { message: body };
+  }
+  if (body && typeof body === 'object') {
+    const b = body as Record<string, unknown>;
+    if (Array.isArray(b.message)) {
+      return { validation: b.message };
+    }
+    if (typeof b.message === 'string') {
+      return { message: b.message };
+    }
+  }
+  return {};
 }
 
 function mapStatusToCode(status: number): string {

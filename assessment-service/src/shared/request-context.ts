@@ -18,4 +18,11 @@ export class RequestContext {
   static get(): RequestContextData | undefined {
     return RequestContext.storage.getStore();
   }
+
+  static patch(patch: Partial<RequestContextData>): void {
+    const current = RequestContext.storage.getStore();
+    if (current) {
+      Object.assign(current, patch);
+    }
+  }
 }

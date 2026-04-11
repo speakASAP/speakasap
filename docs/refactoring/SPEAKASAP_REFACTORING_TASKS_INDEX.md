@@ -164,7 +164,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 ## Phase 2: Certification & Assessment Services
 
-**Status:** **Active** — **P2-A cleared 2026-04-10** (TASK-21 + `AGENT21V` PASS). Next runnable: TASK-22 ∥ TASK-25 (Implementation → Validators per paired prompts).
+**Status:** **Active** — **P2-A cleared 2026-04-10**; **P2-B cleared 2026-04-11** (TASK-22 + TASK-25 + `AGENT22V` + `AGENT25V` PASS). **Next:** TASK-23 ∥ TASK-26 → `AGENT23V` / `AGENT26V` for **P2-C**.
 
 **Task Decomposition:** `docs/refactoring/PHASE2_TASK_DECOMPOSITION.md`
 
@@ -186,6 +186,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 - **Implementation:** `docs/agents/AGENT22_CERTIFICATION_DESIGN.md`
 - **Validator:** `docs/agents/AGENT22V_CERTIFICATION_DESIGN_VALIDATE.md`
+- **Status:** ✅ Complete — outputs: `docs/refactoring/CERTIFICATION_API_CONTRACT.md`, `docs/refactoring/CERTIFICATION_DATA_MAPPING.md`, optional `certification-service/prisma/schema.prisma`. **`AGENT22V` PASS 2026-04-11** (Sync **P2-B** — certification side).
 - **Dependencies:** TASK-21 + TASK-21V PASS
 - **Agent Type:** Backend Service Agent (Design)
 
@@ -207,6 +208,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 - **Implementation:** `docs/agents/AGENT25_ASSESSMENT_DESIGN.md`
 - **Validator:** `docs/agents/AGENT25V_ASSESSMENT_DESIGN_VALIDATE.md`
+- **Status:** ✅ Complete — outputs: `docs/refactoring/ASSESSMENT_API_CONTRACT.md`, `docs/refactoring/ASSESSMENT_DATA_MAPPING.md`, optional `assessment-service/prisma/schema.prisma`. **`teacher_tests` excluded.** **`AGENT25V` PASS 2026-04-11** (Sync **P2-B** — assessment side).
 - **Dependencies:** TASK-21 + TASK-21V PASS
 - **Agent Type:** Backend Service Agent (Design)
 
