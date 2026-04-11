@@ -526,6 +526,7 @@ Prove parity vs legacy for certification and assessment flows, document GO/NO-GO
 
 **When:** After TASK-22 and TASK-25 + validators PASS
 **Gate:** TASK-23 and TASK-26 may start
+**Status:** ✅ Cleared **2026-04-11** (`AGENT22V`, `AGENT25V` PASS).
 
 ### Sync P2-C: Implementation matches contracts
 
@@ -574,4 +575,4 @@ Per task: run **Implementation** then **Validator**.
 
 ---
 
-**Last Updated:** 2026-04-10
+**Last Updated:** 2026-04-11
