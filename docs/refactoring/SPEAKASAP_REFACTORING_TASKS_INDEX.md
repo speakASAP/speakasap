@@ -164,7 +164,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 ## Phase 2: Certification & Assessment Services
 
-**Status:** **Active** — **P2-A cleared 2026-04-10**; **P2-B cleared 2026-04-11** (TASK-22 + TASK-25 + `AGENT22V` + `AGENT25V` PASS). **Next:** TASK-23 ∥ TASK-26 → `AGENT23V` / `AGENT26V` for **P2-C**.
+**Status:** **Active** — **P2-A cleared 2026-04-10**; **P2-B cleared 2026-04-11**; **P2-C cleared 2026-04-11** (TASK-23 + TASK-26 + `AGENT23V` + `AGENT26V` PASS — build + contract parity review). **Next:** TASK-24 ∥ TASK-27 per parallelism gate → `AGENT24V` / `AGENT27V` for **P2-D**.
 
 **Task Decomposition:** `docs/refactoring/PHASE2_TASK_DECOMPOSITION.md`
 
@@ -194,6 +194,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 - **Implementation:** `docs/agents/AGENT23_CERTIFICATION_IMPLEMENTATION.md`
 - **Validator:** `docs/agents/AGENT23V_CERTIFICATION_IMPLEMENTATION_VALIDATE.md`
+- **Status:** ✅ Complete — **`AGENT23V` PASS 2026-04-11** (Sync **P2-C** — certification implementation).
 - **Dependencies:** TASK-22 + TASK-22V PASS
 - **Agent Type:** Backend Service Agent (Implementation)
 
@@ -216,6 +217,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 - **Implementation:** `docs/agents/AGENT26_ASSESSMENT_IMPLEMENTATION.md`
 - **Validator:** `docs/agents/AGENT26V_ASSESSMENT_IMPLEMENTATION_VALIDATE.md`
+- **Status:** ✅ Complete — **`AGENT26V` PASS 2026-04-11** (Sync **P2-C** — assessment implementation). No `teacher_tests` in source (README/schema comments only).
 - **Dependencies:** TASK-25 + TASK-25V PASS
 - **Agent Type:** Backend Service Agent (Implementation)
 
