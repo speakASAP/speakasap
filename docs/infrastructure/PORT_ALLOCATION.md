@@ -17,4 +17,4 @@ Reserved port range for SpeakASAP services is **42xx**.
 | speakasap-salary-service | 4212 | Phase 4 |
 | speakasap-financial-service | 4213 | Phase 4 |
 
-Reserved for future: **4200, 4204, 4214-4219**
+Reserved for future speakasap services: **4200, 4204, 4216-4219**. (**4214–4215** are used by the standalone **marathon** app in `marathon/.env`, not `speakasap/.env`.)
