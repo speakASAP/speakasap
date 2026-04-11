@@ -37,10 +37,14 @@ Restore DB snapshot taken before `--truncate-first`, or truncate all assessment 
 
 ## Execution record
 
+**Environment:** alfares (`ssh alfares`), same `127.0.0.1` substitution for host-side CLI vs `db-server-postgres`.
+
 | Field | Value |
 |-------|--------|
-| When (UTC) | |
-| Operator | |
-| Dry-run counts | |
-| Script completion | |
-| M2M table name verified? | |
+| When (UTC) | 2026-04-11T21:16Z (approx.; server UTC) |
+| Operator | Lead orchestrator (SSH alfares) |
+| `npx prisma migrate deploy` | **Applied** `20260411120000_init` — database `speakasap_assessment_db` was created and migration applied (first-time setup). |
+| `. ./.env` warning | `./.env: line 30: HH:mm:ss: command not found` — unquoted `LOG_TIMESTAMP_FORMAT` (or similar) with a space; Prisma still loaded `.env` and succeeded. **Fix:** quote the value in `assessment-service/.env` (e.g. `LOG_TIMESTAMP_FORMAT='...'`). |
+| Dry-run counts | **Not run** — `SOURCE_DATABASE_URL` / `TARGET_DATABASE_URL` not configured in `assessment-service/.env`. |
+| Script completion | **Not run** (blocked: no legacy `SOURCE_DATABASE_URL` on alfares; same as certification log). |
+| M2M table name verified? | **Pending** (requires live legacy DB). |

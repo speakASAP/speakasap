@@ -61,9 +61,9 @@ SELECT COUNT(*) FROM "LanguageUserTestQuestion" q
 
 | Check | Result |
 |-------|--------|
-| teacher_tests absent | |
-| Counts / documented variance | |
-| No certification tables | |
-| Orphan queries | |
+| teacher_tests absent | **PASS** — `pg_tables` … `ILIKE '%teacher%'` returned **0** rows on `speakasap_assessment_db` (alfares `2026-04-11`). |
+| Counts / documented variance | **Pending import** — all listed Prisma tables **0** rows (fresh schema). Legacy count SQL not run (no legacy DB URL on alfares). |
+| No certification tables | **PASS with note** — pattern `'%certificate%' OR '%quest%'` matches assessment names containing `question` / `Question` (e.g. `LanguageQuestion`). Rows returned: `LanguageQuestion`, `LanguageUserTestQuestion`, `LanguageUserTestQuestionAnswer` (expected assessment tables, not certification domain). |
+| Orphan queries | **PASS** (both counts **0**). |
 
-**PASS** when satisfied.
+**PASS** when satisfied (full program parity still requires live ETL + count parity vs legacy).

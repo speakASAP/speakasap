@@ -65,9 +65,9 @@ Pick one `CourseCertificate.id` from target and compare `imagePath` + `studentCo
 
 | Check | Result |
 |-------|--------|
-| Count parity / explained gaps | |
-| Orphan queries | |
-| Assessment tables absent | |
-| Rollback path understood | |
+| Count parity / explained gaps | **Pending import** — alfares `2026-04-11`: target counts all **0** (no ETL yet). Legacy count SQL not run (no legacy DB on shared `db-server-postgres` instance for portal monolith). |
+| Orphan queries | **PASS** (all three counts **0** on target after migration). |
+| Assessment tables absent | **PASS** (`ILIKE '%language%'` on `pg_tables` returned **0** rows). |
+| Rollback path understood | Documented in `CERTIFICATION_DATA_MIGRATION_LOG.md` (operator). |
 
-**Validator outcome:** PASS when checks above are satisfied on the environment that executed migration.
+**Validator outcome:** **Conditional** — structural checks **PASS** on empty target; full **PASS** after live import + count parity vs legacy on the same environment that ran ETL.
