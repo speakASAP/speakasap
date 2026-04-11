@@ -94,14 +94,12 @@ Aligned with the FlipFlop orchestrator pattern (`flipflop-service/docs/agents/ma
 
 **Phase 1 (closed 2026-04-10)** — Sync A–D satisfied; see `PHASE1_COMPLETION_SUMMARY.md`.
 
-
 | Sync   | When                            | Gate                                                                       |
 | ------ | ------------------------------- | -------------------------------------------------------------------------- |
 | Sync A | After TASK-11                   | Infra foundation ready (structure, Docker templates, env/logging patterns) |
 | Sync B | After TASK-12                   | Content API contract + data mapping + AI integration **plan** frozen       |
 | Sync C | After TASK-13, TASK-14, TASK-15 | Implementation, migration, and AI integration complete                     |
 | Sync D | After TASK-16                   | Validation report + cutover checklist GO                                   |
-
 
 **Phase 2 (active orchestration)**
 
