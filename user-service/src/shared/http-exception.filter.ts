@@ -64,6 +64,8 @@ function mapStatusToCode(status: number): string {
       return 'FORBIDDEN';
     case HttpStatus.NOT_FOUND:
       return 'NOT_FOUND';
+    case HttpStatus.CONFLICT:
+      return 'CONFLICT';
     default:
       return 'INTERNAL_ERROR';
   }

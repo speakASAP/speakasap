@@ -4,7 +4,7 @@
 
 **Legacy sources (this wave):** Django apps **`students`** (`Student`), **`employees`** (`Teacher`, `Manager`, `EmployeeProfile`). See `USER_DATA_MAPPING.md` for table and field lineage.
 
-**Auth:** **JWT from auth-microservice** on every `/api/v1/**` route unless noted. Header: `Authorization: Bearer <access_token>`. **Consumer-only:** this service validates the token (JWKS or introspection URL — implementation detail; configure via `AUTH_SERVICE_URL` and related env keys). **Identity key:** `authUserId` = stable integer **legacy `portal.User` / `auth_user.id`** carried as JWT `sub` (string or numeric per issuer; normalize to integer server-side). This service **does not** issue sessions, passwords, or OAuth callbacks.
+**Auth:** **JWT from auth-microservice** on every `/api/v1/**` route unless noted. Header: `Authorization: Bearer <access_token>`. **Consumer-only:** this service validates the token by calling **`POST {AUTH_SERVICE_URL}/auth/validate`** with `{ "token": "<access_token>" }` (see auth-microservice). **Identity key:** `authUserId` = **string UUID** equal to auth-microservice **`users.id`** (JWT `sub`). Optional **`legacyPortalUserId`** (integer) = legacy **`auth_user.id`** for Portal ETL correlation (TASK-32); exposed on internal upsert payloads, omitted on public responses unless needed later. This service **does not** issue sessions, passwords, or OAuth callbacks.
 
 **Logging:** All handlers log via shared `LOGGING_SERVICE_URL` pattern (ISO timestamps, `duration_ms` on outbound calls) — align with `user-service` scaffold.
 
@@ -33,6 +33,8 @@ Used for **every list** endpoint.
 ```
 
 Invalid `page` / `limit` → apply defaults; **`limit` clamped to max 30**.
+
+**Single-resource `PATCH`:** one logical entity per request (implicit batch size **1**; field count is not paginated).
 
 ## Error format
 
@@ -81,7 +83,7 @@ No Django `Group` replication in user-service DB.
 | Field | Type | Notes |
 |-------|------|--------|
 | `id` | number | Legacy `Student.id` |
-| `authUserId` | number | Legacy `User.id` |
+| `authUserId` | string (UUID) | Auth `users.id` / JWT `sub` |
 | `firstName` | string | From identity read model / mirror |
 | `lastName` | string | |
 | `email` | string | |
@@ -101,7 +103,7 @@ No Django `Group` replication in user-service DB.
 | `salesInfo` | string | Staff-editable; **403** on write if not staff |
 | `country` | string | Student profile country code |
 | `invoiceAddress` | string | |
-| `managerId` | number \| null | FK `employees.Manager.id` when set |
+| `managerId` | number \| null | Legacy `employees.Manager.id` (target `managers.id`) when set |
 | `readHelp` | boolean | Legacy field; may be deprecated |
 
 ### `PATCH /api/v1/students/me`
@@ -135,7 +137,7 @@ No Django `Group` replication in user-service DB.
 | Field | Type | Notes |
 |-------|------|--------|
 | `id` | number | Legacy `Teacher.id` |
-| `authUserId` | number | |
+| `authUserId` | string (UUID) | |
 | `firstName` | string | |
 | `lastName` | string | |
 | `email` | string | |
@@ -196,23 +198,31 @@ No Django `Group` replication in user-service DB.
 
 **Auth:** required. **404** if no row.
 
-**Response:** `additionalInfo`, `description`, `position`, plus `authUserId` and ids for linkage.
+**Response (`EmployeeProfileSummary`):**
+
+| Field | Type | Notes |
+|-------|------|--------|
+| `id` | number | Legacy `EmployeeProfile.id` |
+| `authUserId` | string (UUID) | |
+| `additionalInfo` | string \| null | `additional_info` |
+| `description` | string \| null | |
+| `position` | string \| null | |
 
 ### `PATCH /api/v1/employee-profiles/me`
 
-**Auth:** required. Body: partial update of the three text fields where legacy allows.
+**Auth:** required. Body: partial `EmployeeProfileUpdate` — `additionalInfo`, `description`, `position` only (same semantics as legacy self-edit).
 
 ---
 
 ## 5. Internal / migration support (service-to-service)
 
-All under `/api/v1/internal/…`; **separate auth** (service token header name TBD in `.env`, e.g. `X-Internal-Token` = `INTERNAL_API_TOKEN`) — **not** user JWT.
+All under `/api/v1/internal/…`; **separate auth:** header **`X-Internal-Token`** must equal `INTERNAL_API_TOKEN` from `.env` — **not** user JWT.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `POST` | `/api/v1/internal/students/upsert-by-auth-user` | Idempotent upsert for **TASK-32** batch load: body keyed by `authUserId` + student fields. **Max 30** records per request body batch. |
-| `POST` | `/api/v1/internal/teachers/upsert-by-auth-user` | Same for teachers; max **30** rows per request. |
-| `POST` | `/api/v1/internal/managers/upsert-by-auth-user` | Same; max **30**. |
+| `POST` | `/api/v1/internal/students/upsert-by-auth-user` | Idempotent upsert for **TASK-32** batch load: JSON `{ "items": [ … ] }` (each item: `authUserId` UUID string, optional `legacyPortalUserId`, student columns). **Max 30** `items`. |
+| `POST` | `/api/v1/internal/teachers/upsert-by-auth-user` | Same shape for teachers; max **30** `items`. |
+| `POST` | `/api/v1/internal/managers/upsert-by-auth-user` | Same; max **30** `items`. |
 
 **429** not required; reject >30 with **400** `BAD_REQUEST`.
 
@@ -239,7 +249,7 @@ All under `/api/v1/internal/…`; **separate auth** (service token header name T
 | `LOGGING_SERVICE_URL`, `LOGGING_SERVICE_API_PATH`, `LOGGING_SERVICE_TIMEOUT` | Central logging |
 | `AUTH_SERVICE_URL`, `AUTH_SERVICE_TIMEOUT` | JWT validation / JWKS |
 | `DEFAULT_PAGE_SIZE`, `MAX_PAGE_SIZE` | Pagination (cap **30**) |
-| `INTERNAL_API_TOKEN` | Internal route auth |
+| `INTERNAL_API_TOKEN` | Internal routes; sent as **`X-Internal-Token`** header |
 | `MATERIALS_BASE_URL` or gateway avatar URL rule | Resolve `avatarUrl` if stored as relative path |
 
 No hardcoded URLs in code — values from `.env` only.

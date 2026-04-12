@@ -2,7 +2,7 @@
 
 **Legacy:** `speakasap-portal` — apps **`students`**, **`employees`** (teachers + managers + employee profile). **Shared identity:** `portal.User` (`AUTH_USER_MODEL`, DB table **`auth_user`** per `portal.models.User.Meta`). **Target:** `speakasap-user-service` PostgreSQL database **`speakasap_user_db`**. Optional draft Prisma: `user-service/prisma/schema.prisma` (physical `@@map` names are **new** PostgreSQL tables — not legacy Django table names; TASK-31 migrations materialize them).
 
-**Auth-microservice:** **System of record for credentials and OAuth/social login** (`ROADMAP.md` §3.3). During strangler migration, **`authUserId`** in user-service tables **equals** legacy **`auth_user.id`** so certification/assessment/education FKs that pointed at integer user id stay alignable. JWT `sub` must resolve to that same id.
+**Auth-microservice:** **System of record for credentials and OAuth/social login** (`ROADMAP.md` §3.3). **`authUserId`** in user-service tables is the **UUID** primary key of **`auth-microservice.users`** (JWT `sub`). **`legacyPortalUserId`** (optional int) stores legacy **`auth_user.id`** for TASK-32 joins and reconciliation with integer-based historical FKs (e.g. portal-only references).
 
 ---
 
@@ -12,7 +12,7 @@
 
 | Django field | Type | Notes |
 |--------------|------|--------|
-| `id` | int PK | **Canonical `authUserId`** |
+| `id` | int PK | **Maps to `legacyPortalUserId`** in user-service (not the auth UUID) |
 | `password`, `last_login`, `is_superuser`, `is_staff`, `is_active`, `username`, `first_name`, `last_name`, `email`, `date_joined` | AbstractUser | **Auth domain**; user-service may **mirror** display fields for read/API until auth exposes them on every token. |
 | `image` | ImageField | Avatar storage path; URL via env + relative path |
 | `language` | CharField | UI / notifications language |
@@ -93,7 +93,8 @@ Django **`Employee` is `abstract=True`** — fields live on the concrete child t
 
 | Legacy | Target column | Transform |
 |--------|---------------|-----------|
-| `auth_user.id` | `authUserId` everywhere | Integer; JWT `sub` parsed to int |
+| Auth `users.id` (UUID) | `authUserId` on all target rows | JWT `sub`; validated via `/auth/validate` |
+| `auth_user.id` (int) | `legacyPortalUserId` | Optional; set during ETL when known |
 | `students_student.id` | `Student.id` | Preserve int PK for URL `/students/:id` |
 | `employees_teacher.id` | `Teacher.id` | Preserve |
 | `employees_manager.id` | `Manager.id` | Preserve |
@@ -109,16 +110,17 @@ Django **`Employee` is `abstract=True`** — fields live on the concrete child t
 
 | Legacy | Target | Transform |
 |--------|--------|------------|
-| `user_id` | `authUserId` | Direct |
+| `user_id` | `legacyPortalUserId` | Legacy portal user PK; `authUserId` (UUID) filled when portal↔auth mapping is known (TASK-32) |
 | All other `Student` columns | camelCase JSON / snake DB | 1:1 types |
 
 ### 3.4 `Teacher`
 
 | Legacy | Target | Transform |
 |--------|--------|------------|
-| `user_id` | `authUserId` | |
+| `user_id` | `legacyPortalUserId` | Same as student; `authUserId` from mapping |
 | `language.code` | `languageCode` | Join `language_language` at ETL |
 | M2M | `TeacherAdditionalLanguage` | One row per language code |
+| *(computed for API)* | `interfaceLanguage` | Legacy rule: `'ru'` if `russian` else `'en'` (see `Teacher.interface_language`) |
 
 ### 3.5 Excluded legacy (documented)
 
@@ -138,7 +140,7 @@ Django **`Employee` is `abstract=True`** — fields live on the concrete child t
 | This service stores | Points to | Notes |
 |---------------------|------------|--------|
 | `Student.managerId` | `employees.Manager.id` | Legacy FK; same value in target `Manager.id` after migration |
-| `authUserId` | auth-microservice user | No FK constraint across DBs |
+| `authUserId` (UUID) | auth-microservice `users.id` | No FK constraint across DBs |
 
 **No direct SQL** from user-service to portal DB in production target state; **TASK-32** ETL reads legacy once.
 
