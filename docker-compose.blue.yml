@@ -195,6 +195,53 @@ services:
       timeout: 10s
       retries: 2
 
+  course-service:
+    build:
+      context: ./course-service
+      dockerfile: Dockerfile
+    container_name: speakasap-course-blue
+    ports:
+      - "${COURSE_SERVICE_PORT}:${COURSE_SERVICE_PORT}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${COURSE_SERVICE_NAME}
+      - PORT=${COURSE_SERVICE_PORT}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${COURSE_DB_NAME}
+      - DATABASE_URL=${COURSE_DATABASE_URL}
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=${REDIS_PORT:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=${REDIS_DB:-}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_TIMESTAMP_FORMAT=${LOG_TIMESTAMP_FORMAT}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT}
+      - DEFAULT_PAGE_SIZE=${DEFAULT_PAGE_SIZE}
+      - MAX_PAGE_SIZE=${MAX_PAGE_SIZE}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${COURSE_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
 networks:
   nginx-network:
     external: true

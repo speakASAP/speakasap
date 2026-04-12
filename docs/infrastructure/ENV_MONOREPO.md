@@ -9,7 +9,7 @@
 
 - **Root blue/green:** `docker-compose.blue.yml` / `docker-compose.green.yml` already use `env_file: .env` relative to the repo root.
 - **Per-service local compose** (`content-service/docker-compose.yml`, etc.): `env_file: ../.env`.
-- **Services with their own DB URL:** local compose sets `DATABASE_URL` from `CERTIFICATION_DATABASE_URL`, `ASSESSMENT_DATABASE_URL`, or `USER_DATABASE_URL` so the process still sees `DATABASE_URL` while `speakasap/.env` keeps one row per database.
+- **Services with their own DB URL:** local compose sets `DATABASE_URL` from `CERTIFICATION_DATABASE_URL`, `ASSESSMENT_DATABASE_URL`, `USER_DATABASE_URL`, or `COURSE_DATABASE_URL` so the process still sees `DATABASE_URL` while `speakasap/.env` keeps one row per database.
 
 ## Prisma CLI
 
@@ -19,6 +19,7 @@ From a service directory, use npm scripts (they load `../.env` and pick the corr
 - `certification-service`: `npm run prisma:validate` (uses `CERTIFICATION_DATABASE_URL`)
 - `assessment-service`: `npm run prisma:validate` (uses `ASSESSMENT_DATABASE_URL`)
 - `user-service`: `npm run prisma:validate` (uses `USER_DATABASE_URL`)
+- `course-service`: `npm run prisma:validate` (uses `COURSE_DATABASE_URL`)
 
 ## course-materials-service
 

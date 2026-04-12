@@ -44,9 +44,21 @@ if [ -d ".git" ]; then
             git stash push -u -m "deploy.sh: stash before pull"
             STASHED=1
         fi
-        git pull origin "$BRANCH"
+        if ! git pull origin "$BRANCH"; then
+            echo -e "${RED}❌ git pull failed.${NC}"
+            if [ "$STASHED" = "1" ]; then
+                echo -e "${YELLOW}Re-applying stashed local changes...${NC}"
+                if ! git stash pop; then
+                    echo -e "${RED}❌ stash pop failed after pull error. Inspect: git status; git stash list${NC}"
+                fi
+            fi
+            exit 1
+        fi
         if [ "$STASHED" = "1" ]; then
-            git stash pop
+            if ! git stash pop; then
+                echo -e "${RED}❌ stash pop after pull produced conflicts. Resolve files, then remove stash if empty: git stash list${NC}"
+                exit 1
+            fi
         fi
         echo -e "${GREEN}✓ Repository updated from origin/$BRANCH (local changes preserved)${NC}"
         echo ""

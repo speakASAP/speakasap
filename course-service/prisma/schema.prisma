@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id                 Int       @id @default(autoincrement())
+  title              String    @db.VarChar(64)
+  productForOffers   Boolean   @default(false) @map("product_for_offers")
+  products           Product[]
+
+  @@map("products_category")
+}
+
+model PartPaymentCollection {
+  id          Int                   @id @default(autoincrement())
+  title       String                @db.VarChar(64)
+  comment     String?               @db.VarChar(64)
+  options     PartPaymentOption[]
+  productLinks ProductPartPayment[]
+
+  @@map("products_partpaymentcollection")
+}
+
+model PartPaymentOption {
+  id        Int                   @id @default(autoincrement())
+  partId    Int                   @map("part_id")
+  price     Int
+  day       Int                   @default(0)
+  openSteps String?               @map("open_steps") @db.VarChar(255)
+  part      PartPaymentCollection @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@index([partId])
+  @@map("products_partpaymentoption")
+}
+
+model Product {
+  id                 Int                   @id @default(autoincrement())
+  title              String                @db.VarChar(255)
+  enTitle            String                @default("") @map("en_title") @db.VarChar(255)
+  price              Int
+  tags               String?               @db.VarChar(255)
+  languageId         Int?                  @map("language_id")
+  categoryId         Int                   @map("category_id")
+  label              String?               @db.VarChar(255)
+  androidId          String?               @map("android_id") @db.VarChar(255)
+  materialLanguage   String                @default("ru") @map("material_language") @db.VarChar(2)
+  trashed            Boolean               @default(false)
+  category           Category              @relation(fields: [categoryId], references: [id])
+  partPaymentLinks   ProductPartPayment[]
+  extraLessonsOffers ExtraLessonsOffer[]
+  offers             Offer[]
+
+  @@index([categoryId])
+  @@map("products_product")
+}
+
+model ProductPartPayment {
+  productId                 Int                   @map("product_id")
+  partPaymentCollectionId  Int                   @map("partpaymentcollection_id")
+  product                   Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  collection                PartPaymentCollection @relation(fields: [partPaymentCollectionId], references: [id], onDelete: Cascade)
+
+  @@id([productId, partPaymentCollectionId])
+  @@map("products_product_part_payments")
+}
+
+model ExtraLessonsOffer {
+  id              Int      @id @default(autoincrement())
+  productId       Int      @map("product_id")
+  teacherId       Int?     @map("teacher_id")
+  lessons         Int      @default(0)
+  teacherNativeId Int?     @map("teacher_native_id")
+  lessonsNative   Int      @default(0) @map("lessons_native")
+  comment         String?  @db.Text
+  product         Product  @relation(fields: [productId], references: [id])
+  offer           Offer?
+
+  @@index([productId])
+  @@map("offers_extralessonsoffer")
+}
+
+model Offer {
+  uuid            String   @id @db.Uuid @map("uuid")
+  studentId       Int      @map("student_id")
+  teacherId       Int?     @map("teacher_id")
+  offererId       Int?     @map("offerer_id")
+  courseProductId Int?     @map("course_product_id")
+  extraLessonsId  Int?     @unique @map("extra_lessons_id")
+  orderId         Int?     @map("order_id")
+  created         DateTime @default(now()) @map("created")
+  opened          DateTime? @map("opened")
+  courseProduct   Product? @relation(fields: [courseProductId], references: [id])
+  extraLessons    ExtraLessonsOffer? @relation(fields: [extraLessonsId], references: [id])
+
+  @@index([studentId])
+  @@map("offers_offer")
+}
