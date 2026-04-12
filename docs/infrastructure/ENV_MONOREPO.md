@@ -42,6 +42,24 @@ Both migration scripts read from **`speakasap/.env`** at repo root. Use **prefix
 - **Assessment** (`assessment-service/scripts/migrate-assessment-from-legacy.py`): `ASSESSMENT_SOURCE_DATABASE_URL`, `ASSESSMENT_TARGET_DATABASE_URL` (same fallback).
 - **Education** (`education-service/scripts/migrate-education-from-legacy.py`): `EDUCATION_SOURCE_DATABASE_URL`, `EDUCATION_TARGET_DATABASE_URL` (same fallback).
 
+## Legacy portal DB tunnel (speakasap.com → this host)
+
+When ETL runs on **alfares** (or any host that is not `speakasap.com`), `*_SOURCE_*` URLs typically use **`127.0.0.1:15432`**. PostgreSQL for the Django portal listens on **`127.0.0.1:5432`** on `speakasap.com` only.
+
+**Start tunnel** (from the ETL host; requires SSH access to `speakasap`):
+
+```bash
+ssh -fN -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L 127.0.0.1:15432:127.0.0.1:5432 speakasap
+```
+
+**Stop tunnel:** `pkill -f '127.0.0.1:15432:127.0.0.1:5432'` (or kill the matching `ssh` PID).
+
+**Course ETL** (`course-service/scripts/migrate-course-from-legacy.py`): `COURSE_SOURCE_DATABASE_URL` / `COURSE_TARGET_DATABASE_URL` (fallback: `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`).
+
+**Prisma migrate from the same host** (not from inside Docker): `course-service` npm scripts prefer `COURSE_TARGET_DATABASE_URL`, then `COURSE_DATABASE_URL`, so `db-server-postgres` is not required on the shell host.
+
+**JWT smoke** for `GET /api/v1/*` on course-service: use **`AUTH_TEST_EMAIL`** and **`AUTH_TEST_PASSWORD`** in `speakasap/.env` (same as `auth-microservice/.env` `TEST_*`) and `POST /auth/login` with JSON body `{ "email", "password" }` — from a container on `nginx-network` use `{AUTH_SERVICE_URL}/auth/login`, from the host use `http://127.0.0.1:3370/auth/login` when auth publishes **3370**. See comment block above course keys in `speakasap/.env`.
+
 ## Migrating from old per-service `.env`
 
 If you had `certification-service/.env` or `assessment-service/.env`, backups may exist as `.env.bak.ssot-*` in those folders. **Merge** any keys that are not yet in `speakasap/.env`, then rely on the root file only.
