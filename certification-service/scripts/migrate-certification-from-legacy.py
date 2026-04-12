@@ -78,17 +78,16 @@ def truncate_target(tgt) -> None:
 
 
 def migrate_course_certificates(src, tgt) -> int:
+    # Legacy DB: course_id -> courses_studentcourse (PK basestudentcourse_ptr_id), not education_studentcourse.
+    # Stable course-instance id for target.studentCourseId: courses_basestudentcourse.uuid (education UUIDs diverged).
     sql = """
-    SELECT c.id, c.course_id::text AS sc_uuid, COALESCE(c.image::text, '') AS img,
-           (SELECT u.id::text
-              FROM education_studentcourse sc2
-              JOIN education_group_students gs ON gs.group_id = sc2.group_id
-              JOIN students_student st ON st.id = gs.student_id
-              JOIN auth_user u ON u.id = st.user_id
-             WHERE sc2.uuid = c.course_id
-             ORDER BY gs.student_id
-             LIMIT 1) AS owner_user_id
+    SELECT c.id, bsc.uuid::text AS sc_uuid, COALESCE(c.image::text, '') AS img,
+           u.id::text AS owner_user_id
       FROM certificates_certificate c
+      JOIN courses_studentcourse sc ON sc.basestudentcourse_ptr_id = c.course_id
+      JOIN courses_basestudentcourse bsc ON bsc.id = sc.basestudentcourse_ptr_id
+      JOIN students_student st ON st.id = bsc.student_id
+      JOIN auth_user u ON u.id = st.user_id
     """
     ins = """
     INSERT INTO "CourseCertificate" ("id", "studentCourseId", "ownerUserId", "imagePath", "certText", "createdAt")
@@ -212,7 +211,7 @@ def migrate_questionnaires(src, tgt) -> None:
 
     s.execute(
         """
-        SELECT q.id, q.questionnaire_id, q.text, COALESCE(q.header, ''), q._order
+        SELECT q.id, q.questionnaire_id, q.text, COALESCE(q.header, '') AS header, q._order
           FROM user_quest_question q
          ORDER BY q.questionnaire_id, q._order, q.id
         """

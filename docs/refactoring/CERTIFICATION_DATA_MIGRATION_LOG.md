@@ -61,3 +61,10 @@ Legacy `StudentCourse` PK is UUID; certification persistence was updated to `VAR
 | Dry-run counts captured? | **No** — `SOURCE_DATABASE_URL` / `TARGET_DATABASE_URL` not in `certification-service/.env`. Smoke dry-run with `SOURCE_DATABASE_URL=$TARGET_DATABASE_URL` (invalid) failed: `relation "certificates_certificate" does not exist` (expected: legacy tables not on certification target). |
 | Rows upserted (script summary lines) | **Not run** — blocked until read-only legacy portal Postgres URL is available on this host (legacy monolith DB not present in `db-server-postgres` database list; likely on **speakasap** server per ecosystem docs). |
 | Errors / warnings | Host-side Prisma without `127.0.0.1` substitution: **P1001** to `db-server-postgres:5432`. Use localhost port-forward or substitution when running CLI from alfares shell. |
+
+### 2026-04-12 — full ETL (Mac operator host)
+
+- **Connectivity:** `ssh -N -L 15432:127.0.0.1:5432 speakasap` and `ssh -N -L 25432:127.0.0.1:5432 alfares` (Postgres on alfares published at `127.0.0.1:5432`). `TARGET_DATABASE_URL` overridden at runtime: `db-server-postgres:5432` → `127.0.0.1:25432` (same credentials as `DATABASE_URL`).
+- **Dry-run:** legacy row counts matched expectations (e.g. `certificates_certificate=1695`).
+- **Import:** script completed; `CourseCertificate` 1695, `EducationCertificate` 2985, `QuestInstance` 704, questionnaire graph migrated.
+- **Script fixes (root cause):** `CourseCertificate` source SQL — legacy `certificates_certificate.course_id` FK targets `courses_studentcourse` / `courses_basestudentcourse` (not `education_studentcourse`); `studentCourseId` uses `courses_basestudentcourse.uuid`. `user_quest_question` SELECT aliases `COALESCE(q.header,'') AS header` for `RealDictCursor`.
