@@ -32,6 +32,8 @@ Ordered steps for certification + assessment extraction when **cutover GO** is i
 - [ ] Deploy certification-service (4202) and assessment-service (4203) per standard `deploy.sh` + nginx regeneration from service repos.
 - [ ] `/health` on both; sample authenticated calls vs `CERTIFICATION_API_CONTRACT.md` / `ASSESSMENT_API_CONTRACT.md`.
 
+**F2 validator probe 2026-04-12 (not a tick — prerequisite check):** Public `https://speakasap-certification.statex.cz/health` and `…-assessment…/health` still return **auth-microservice** JSON; `GET …/api/v1/course-certificates?…` on cert hostname → **404** (wrong app). Localhost **4202** shows real certification-service (`/health` **200**, list without JWT → **401**). **`speakasap-assessment-green`** was **Restarting** at probe time. Keep boxes **open** until HTTPS upstreams match Nest services, assessment is **Up**, and JWT matrix is executed per `docs/superpowers/cursor-tasks/task-01-f2-http-jwt-smoke.md`.
+
 ## Rollback
 
 - [ ] Restore Postgres snapshots taken before `--truncate-first` / bulk import, **or** truncate domain tables and re-import from legacy snapshot.

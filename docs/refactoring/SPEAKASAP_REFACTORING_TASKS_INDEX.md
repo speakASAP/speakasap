@@ -244,7 +244,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 | ID | Item | When | Docs |
 | -- | ---- | ---- | ---- |
-| **F2-HTTP-JWT** | Dedicated certification + assessment HTTP/JWT matrix (`PHASE2_VALIDATION_REPORT.md` §3: C2–C8, A2–A8) | After both services are deployed and **routed** via standard service `deploy.sh` / blue-green (no hand-edited nginx) | Complete §3 rows; tick `PHASE2_CUTOVER_CHECKLIST.md` § Deploy/smoke |
+| **F2-HTTP-JWT** | Dedicated certification + assessment HTTP/JWT matrix (`PHASE2_VALIDATION_REPORT.md` §3: C2–C8, A2–A8) | After both services are deployed and **routed** via standard service `deploy.sh` / blue-green (no hand-edited nginx) | Complete §3 rows; tick `PHASE2_CUTOVER_CHECKLIST.md` § Deploy/smoke — **handoff:** `docs/superpowers/cursor-tasks/task-01-f2-http-jwt-smoke.md`; **probe 2026-04-12:** §3.1 in report (HTTPS misrouted; assessment restarting) — matrix stays **DEF** until fixed |
 
 ---
 
