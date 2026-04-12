@@ -272,7 +272,7 @@ Phase2_closed → TASK-29 → TASK-30 → TASK-31 → TASK-32 → TASK-33
 
 - **Implementation:** `docs/agents/AGENT30_USER_SERVICE_DESIGN.md`
 - **Validator:** `docs/agents/AGENT30V_USER_SERVICE_DESIGN_VALIDATE.md`
-- **Status:** ⏳ **AGENT30V pending** — artifacts: `USER_API_CONTRACT.md`, `USER_DATA_MAPPING.md`, optional `user-service/prisma/schema.prisma` (**2026-04-12**)
+- **Status:** ✅ Complete — **`AGENT30V` PASS** (**2026-04-12**); sync **P3-UB** **PASS** (contract includes UUID `authUserId` + `legacyPortalUserId` ETL note)
 - **Dependencies:** TASK-29 + `AGENT29V` PASS
 - **Agent Type:** Backend Service Agent (Design)
 
@@ -280,7 +280,7 @@ Phase2_closed → TASK-29 → TASK-30 → TASK-31 → TASK-32 → TASK-33
 
 - **Implementation:** `docs/agents/AGENT31_USER_SERVICE_IMPLEMENTATION.md`
 - **Validator:** `docs/agents/AGENT31V_USER_SERVICE_IMPLEMENTATION_VALIDATE.md`
-- **Status:** ⏳ Blocked on P3-UB
+- **Status:** ✅ Complete — **`AGENT31V` PASS** (**2026-04-12**); sync **P3-UC** **PASS** (build + route audit + logging; live `/health`/curl when DB up)
 - **Dependencies:** TASK-30 + `AGENT30V` PASS
 - **Agent Type:** Backend Service Agent (Implementation)
 
@@ -288,7 +288,7 @@ Phase2_closed → TASK-29 → TASK-30 → TASK-31 → TASK-32 → TASK-33
 
 - **Implementation:** `docs/agents/AGENT32_USER_SERVICE_MIGRATION.md`
 - **Validator:** `docs/agents/AGENT32V_USER_SERVICE_MIGRATION_VALIDATE.md`
-- **Status:** ⏳ Blocked on P3-UC
+- **Status:** ⏳ **`AGENT32V` pending** — script `user-service/scripts/migrate-user-from-legacy.py` + `USER_DATA_MIGRATION_LOG.md` + `USER_DATA_VALIDATION.md` (**2026-04-12**)
 - **Dependencies:** TASK-31 + `AGENT31V` PASS
 - **Agent Type:** Data Migration Agent
 
@@ -296,7 +296,7 @@ Phase2_closed → TASK-29 → TASK-30 → TASK-31 → TASK-32 → TASK-33
 
 - **Implementation:** `docs/agents/AGENT33_USER_PHASE3_VALIDATION.md`
 - **Validator:** `docs/agents/AGENT33V_USER_PHASE3_VALIDATION_VALIDATE.md`
-- **Status:** ⏳ Blocked on P3-UD
+- **Status:** ⏳ Blocked on **P3-UD** (`AGENT32V` PASS)
 - **Dependencies:** TASK-32 + `AGENT32V` PASS
 - **Agent Type:** QA/Contract Validator Agent
 - **Outputs (expected):** `PHASE3_USER_VALIDATION_REPORT.md`, `PHASE3_USER_CUTOVER_CHECKLIST.md`

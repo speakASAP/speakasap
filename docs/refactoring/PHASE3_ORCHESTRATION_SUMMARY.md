@@ -52,5 +52,7 @@ TASK-29 (scaffold) → TASK-30 (design) → TASK-31 (impl) → TASK-32 (migratio
 ## Next actions (orchestrator)
 
 1. **P3-UA** ✅ — `AGENT29V` **PASS** (**2026-04-12**); TASK-29 scaffold validated.
-2. **TASK-30** implementation ✅ — run **`AGENT30V`** for **P3-UB** (contracts + mapping + Prisma draft).
-3. Proceed strictly serial through TASK-33; open **Wave 2 (course)** decomposition only after Lead sign-off on Wave 1 scope/timing.
+2. **P3-UB** ✅ — `AGENT30V` **PASS** (**2026-04-12**); contracts + mapping frozen (UUID `authUserId` aligned with auth-microservice).
+3. **P3-UC** ✅ — `AGENT31V` **PASS** (**2026-04-12**).
+4. **TASK-32** implementation ✅ — run **`AGENT32V`** for **P3-UD** (ETL + validation docs).
+5. Proceed strictly serial through TASK-33; open **Wave 2 (course)** decomposition only after Lead sign-off on Wave 1 scope/timing.
