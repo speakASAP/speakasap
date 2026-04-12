@@ -98,7 +98,7 @@ No parallel tasks in Wave 1 (single service, serial critical path).
 
 ---
 
-## Future Phase 3 waves (not yet decomposed)
+## Future Phase 3 waves
 
-- **Course service** (4205): products, offers, pricing — separate TASK series when opened.
-- **Education service** (4206): catalog, lessons, homework, AI-teacher — separate TASK series; depends on course + user per `ROADMAP.md`.
+- **Course service** (4205): **decomposed** — `PHASE3_WAVE2_COURSE_TASK_DECOMPOSITION.md`, **TASK-34…TASK-38**, sync **P3-CA…P3-CE**.
+- **Education service** (4206): catalog, lessons, homework, AI-teacher — **TASK-39…TASK-43** after **P3-CE**; see **`PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md`**; depends on course + user per `ROADMAP.md`.

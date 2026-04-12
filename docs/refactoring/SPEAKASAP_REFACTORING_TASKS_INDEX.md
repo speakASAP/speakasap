@@ -2,7 +2,7 @@
 
 This index lists the agent tasks for the SpeakASAP refactoring program. Each task has a dedicated agent prompt in `docs/agents/`.
 
-**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3 Wave 1 (user-service)** program gates **P3-UA…P3-UE** closed **2026-04-12**; **F3** follow-ups **closed / waived** in `PHASE3_USER_VALIDATION_REPORT.md` **rev. c** + cutover **GO**).
+**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3 Wave 1** **P3-UA…P3-UE** closed **2026-04-12**; **Phase 3 Wave 2** **P3-CA…P3-CE** closed **2026-04-12**; **Phase 3 Wave 3 (education)** **P3-EA…P3-EE** — **pending execution**, prompts in `docs/agents/AGENT39*`…`AGENT43V*`).
 
 ## Task Structure
 
@@ -303,7 +303,122 @@ Phase2_closed → TASK-29 → TASK-30 → TASK-31 → TASK-32 → TASK-33
 
 ---
 
+## Orchestration (Phase 3) — Wave 2 (Course service)
+
+**Prerequisite:** Phase 3 Wave 1 closed (**TASK-33** + **`AGENT33V` PASS**, **2026-04-12**).
+
+**Dual prompts:** TASK-34…TASK-38 — Implementation then Validator; sync **P3-CA…P3-CE** per [`PHASE3_WAVE2_COURSE_TASK_DECOMPOSITION.md`](PHASE3_WAVE2_COURSE_TASK_DECOMPOSITION.md).
+
+**Docs:** `PHASE3_WAVE2_COURSE_TASK_DECOMPOSITION.md`, `PHASE3_ORCHESTRATION_SUMMARY.md`.
+
+**Scope (ROADMAP §3.1):** `speakasap-course-service` — port **4205**, DB **`speakasap_course_db`**; legacy Django models **`products`**, **`offers`**, **`pricing`** only. **Out of scope this wave:** education-service (4206), `course_materials`, catalog/lessons/homework, AI-teacher (ROADMAP §3.2 / future wave).
+
+```text
+Wave1_closed → TASK-34 → TASK-35 → TASK-36 → TASK-37 → TASK-38
+```
+
+### TASK-34: Course Service Scaffold
+
+- **Implementation:** `docs/agents/AGENT34_COURSE_SERVICE_SCAFFOLD.md`
+- **Validator:** `docs/agents/AGENT34V_COURSE_SERVICE_SCAFFOLD_VALIDATE.md`
+- **Status:** ✅ Complete — **`AGENT34V` PASS** (**2026-04-12**); sync **P3-CA** **PASS**
+- **Dependencies:** Phase 3 Wave 1 complete
+- **Agent Type:** Infra/Docker Agent
+
+### TASK-35: Course Service — Design and API Contract
+
+- **Implementation:** `docs/agents/AGENT35_COURSE_SERVICE_DESIGN.md`
+- **Validator:** `docs/agents/AGENT35V_COURSE_SERVICE_DESIGN_VALIDATE.md`
+- **Status:** ✅ Complete — **`AGENT35V` PASS** (**2026-04-12**); sync **P3-CB** **PASS** (`COURSE_API_CONTRACT.md`, `COURSE_DATA_MAPPING.md`)
+- **Dependencies:** TASK-34 + `AGENT34V` PASS
+- **Agent Type:** Backend Service Agent (Design)
+
+### TASK-36: Course Service — Implementation
+
+- **Implementation:** `docs/agents/AGENT36_COURSE_SERVICE_IMPLEMENTATION.md`
+- **Validator:** `docs/agents/AGENT36V_COURSE_SERVICE_IMPLEMENTATION_VALIDATE.md`
+- **Status:** ✅ Complete — **`AGENT36V` PASS** (**2026-04-12**); sync **P3-CC** **PASS** (Prisma migration + NestJS routes)
+- **Dependencies:** TASK-35 + `AGENT35V` PASS
+- **Agent Type:** Backend Service Agent (Implementation)
+
+### TASK-37: Course Service — Data Migration
+
+- **Implementation:** `docs/agents/AGENT37_COURSE_SERVICE_MIGRATION.md`
+- **Validator:** `docs/agents/AGENT37V_COURSE_SERVICE_MIGRATION_VALIDATE.md`
+- **Status:** ✅ Complete — **`AGENT37V` PASS** (**2026-04-12**); sync **P3-CD** **PASS** (`migrate-course-from-legacy.py` + `COURSE_DATA_MIGRATION_LOG.md` / `COURSE_DATA_VALIDATION.md`; **live ETL** pending operator)
+- **Dependencies:** TASK-36 + `AGENT36V` PASS
+- **Agent Type:** Data Migration Agent
+
+### TASK-38: Course Wave — Program Validation & Cutover
+
+- **Implementation:** `docs/agents/AGENT38_COURSE_PHASE3_VALIDATION.md`
+- **Validator:** `docs/agents/AGENT38V_COURSE_PHASE3_VALIDATION_VALIDATE.md`
+- **Status:** ✅ Complete — **`AGENT38V` PASS** (**2026-04-12**); `PHASE3_COURSE_VALIDATION_REPORT.md` + `PHASE3_COURSE_CUTOVER_CHECKLIST.md`; sync **P3-CE** **PASS** (deploy/HTTP **DEFERRED**)
+- **Dependencies:** TASK-37 + `AGENT37V` PASS
+- **Agent Type:** QA/Contract Validator Agent
+- **Outputs (expected):** `PHASE3_COURSE_VALIDATION_REPORT.md`, `PHASE3_COURSE_CUTOVER_CHECKLIST.md`
+
+---
+
+## Orchestration (Phase 3) — Wave 3 (Education service)
+
+**Prerequisite:** Phase 3 Wave 2 closed (**TASK-38** + **`AGENT38V` PASS**, **P3-CE**).
+
+**Dual prompts:** TASK-39…TASK-43 — Implementation then Validator; sync **P3-EA…P3-EE** per [`PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md`](PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md).
+
+**Docs:** `PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md`, `PHASE3_ORCHESTRATION_SUMMARY.md`.
+
+**Scope (ROADMAP §3.2):** `speakasap-education-service` — port **4206**, DB **`speakasap_education_db`**; legacy Django **`education`** (catalog, lessons, homework, groups, student courses, `course_materials`, seven, mini, native). **Out of scope:** `marathon`, payment/order execution (Phase 4).
+
+```text
+Wave2_closed → TASK-39 → TASK-40 → TASK-41 → TASK-42 → TASK-43
+```
+
+### TASK-39: Education Service Scaffold
+
+- **Implementation:** `docs/agents/AGENT39_EDUCATION_SERVICE_SCAFFOLD.md`
+- **Validator:** `docs/agents/AGENT39V_EDUCATION_SERVICE_SCAFFOLD_VALIDATE.md`
+- **Status:** Pending — sync **P3-EA** open until **`AGENT39V` PASS**
+- **Dependencies:** Phase 3 Wave 2 complete
+- **Agent Type:** Infra/Docker Agent
+
+### TASK-40: Education Service — Design and API Contract
+
+- **Implementation:** `docs/agents/AGENT40_EDUCATION_SERVICE_DESIGN.md`
+- **Validator:** `docs/agents/AGENT40V_EDUCATION_SERVICE_DESIGN_VALIDATE.md`
+- **Status:** Pending — sync **P3-EB** open until **`AGENT40V` PASS**
+- **Dependencies:** TASK-39 + `AGENT39V` PASS
+- **Agent Type:** Backend Service Agent (Design)
+
+### TASK-41: Education Service — Implementation
+
+- **Implementation:** `docs/agents/AGENT41_EDUCATION_SERVICE_IMPLEMENTATION.md`
+- **Validator:** `docs/agents/AGENT41V_EDUCATION_SERVICE_IMPLEMENTATION_VALIDATE.md`
+- **Status:** Pending — sync **P3-EC** open until **`AGENT41V` PASS**
+- **Dependencies:** TASK-40 + `AGENT40V` PASS
+- **Agent Type:** Backend Service Agent (Implementation)
+
+### TASK-42: Education Service — Data Migration
+
+- **Implementation:** `docs/agents/AGENT42_EDUCATION_SERVICE_MIGRATION.md`
+- **Validator:** `docs/agents/AGENT42V_EDUCATION_SERVICE_MIGRATION_VALIDATE.md`
+- **Status:** Pending — sync **P3-ED** open until **`AGENT42V` PASS**
+- **Dependencies:** TASK-41 + `AGENT41V` PASS
+- **Agent Type:** Data Migration Agent
+
+### TASK-43: Education Wave — Program Validation & Cutover
+
+- **Implementation:** `docs/agents/AGENT43_EDUCATION_PHASE3_VALIDATION.md`
+- **Validator:** `docs/agents/AGENT43V_EDUCATION_PHASE3_VALIDATION_VALIDATE.md`
+- **Status:** Pending — sync **P3-EE** open until **`AGENT43V` PASS**
+- **Dependencies:** TASK-42 + `AGENT42V` PASS
+- **Agent Type:** QA/Contract Validator Agent
+- **Outputs (expected):** `PHASE3_EDUCATION_VALIDATION_REPORT.md`, `PHASE3_EDUCATION_CUTOVER_CHECKLIST.md`
+
+---
+
 ## Phase 3+ (Aligned to ROADMAP)
 
 - **Wave 1 (this repo):** User service — TASK-29…TASK-33 above.
-- **Future waves:** Course (4205) and Education (4206) per `docs/refactoring/ROADMAP.md` §3.1–3.2 — decompose as **TASK-34+** (or separate index subsection) when Lead opens scope.
+- **Wave 2 (this repo):** Course service — TASK-34…TASK-38 above.
+- **Wave 3 (this repo):** Education service — TASK-39…TASK-43 above (execution pending).
