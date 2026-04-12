@@ -1,6 +1,6 @@
 # Phase 3 user wave — validation report (TASK-33)
 
-**Report version:** 2026-04-12 (rev. **b** — operator ETL + deploy + HTTP matrix)  
+**Report version:** 2026-04-12 (rev. **c** — operator ETL + deploy + HTTP matrix + F3 close-out)  
 **Scope:** Program-level validation for **speakasap-user-service** (Wave 1) per `SPEAKASAP_REFACTORING_PLAN.md` Phase 3 / `USER_API_CONTRACT.md`.
 
 ## Executive summary
@@ -13,7 +13,7 @@
 
 **Operator pass (2026-04-12):** Live ETL (`migrate-user-from-legacy.py`), `speakasap` blue/green deploy (green stack includes **user-service**), logging hostname fix (**network alias** `logging-microservice` on `logging-microservice` backend compose). `speakasap/.env`: `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`, `AUTH_DATABASE_URL` (host paths `127.0.0.1:5432` for target/auth when ETL runs on alfares), `INTERNAL_API_TOKEN` for user-service.
 
-**Remaining before full traffic cutover:** agree **DB backup / snapshot** policy with operator; backfill **auth `users`** for portal emails if full parity is required (see `USER_DATA_VALIDATION.md` §1a).
+**Traffic cutover (Wave 1, rev. c):** **DB backup policy** agreed — logical `pg_dump` from `db-server-postgres`, copy off-box before any destructive re-import (`PHASE3_USER_OPERATOR_RUNBOOK.md` §2). **Rollback drill** executed same day — dump → scratch restore → row check → teardown (`PHASE3_USER_OPERATOR_RUNBOOK.md` §3). **Auth full parity** **waived** for this wave — sparse target and skips remain documented in `USER_DATA_VALIDATION.md` §1a until a later auth backfill + ETL re-run.
 
 ---
 
@@ -71,5 +71,8 @@ Orphan queries from `USER_DATA_VALIDATION.md` §3: **0** / **0**.
 | F3-SSH | `Host speakasap` + tunnel `15432→127.0.0.1:5432` for legacy `portal_db` | Operator | **Done** (2026-04-12 run) |
 | F3-ETL | `migrate-user-from-legacy.py` dry-run + import | Operator | **Done** (2026-04-12) |
 | F3-DEPLOY | `speakasap/scripts/deploy.sh` (green includes user-service) | Operator | **Done** (2026-04-12) |
-| F3-BACKUP | Snapshot / backup policy for `speakasap_user_db` before destructive re-import | Operator | **Open** |
-| F3-AUTH-PARITY | Backfill auth `users` for portal emails if target counts must match legacy | Operator | **Open** (see `USER_DATA_VALIDATION.md` §1a) |
+| F3-BACKUP | Snapshot / backup policy for `speakasap_user_db` before destructive re-import | Operator | **Closed** — logical `pg_dump -Fc` + off-box copy (2026-04-12); see `PHASE3_USER_OPERATOR_RUNBOOK.md` §2 |
+| F3-ROLLBACK | DB rollback drill (`pg_dump` → scratch `pg_restore` → verify → teardown) | Operator | **Done** (2026-04-12); see `PHASE3_USER_OPERATOR_RUNBOOK.md` §3 |
+| F3-AUTH-PARITY | Backfill auth `users` for portal emails if target counts must match legacy | Operator | **Waived for Wave 1 cutover** (2026-04-12) — accept documented sparse ETL; re-open when product requires full legacy parity (`PHASE3_USER_OPERATOR_RUNBOOK.md` §4, `USER_DATA_VALIDATION.md` §1a) |
+
+**§5 sign-off (2026-04-12):** F3-BACKUP **agreed and evidenced** (drill included `pg_restore` validation). Rollback drill **DB leg complete**; blue/green flip remains standard deploy procedure. F3-AUTH-PARITY **not a blocker** for Wave 1 traffic GO — checklist updated to **GO** in `PHASE3_USER_CUTOVER_CHECKLIST.md`.
