@@ -1,14 +1,14 @@
 # Phase 2 validation report (TASK-28)
 
-**Report version:** 2026-04-12  
+**Report version:** 2026-04-12 (§3.1 F2 probe **2026-04-12**)  
 **Scope:** Program-level validation for **speakasap-certification-service** and **speakasap-assessment-service** per `SPEAKASAP_REFACTORING_PLAN.md` Phase 2.
 
 ## Executive summary
 
 | Track | Data in target DBs | Referential integrity | Public HTTP (contract routes) |
 |-------|-------------------|-------------------------|-------------------------------|
-| Certification | **PASS** (non-zero volumes; see §4) | **PASS** (orphan queries = 0) | **Deferred** — dedicated service not exposed on `nginx-network` under this run; edge `/health` only |
-| Assessment | **PASS** | **PASS** | **Deferred** (same) |
+| Certification | **PASS** (non-zero volumes; see §4) | **PASS** (orphan queries = 0) | **Deferred** — see §3.1: public HTTPS vhost not cert app; host **4202** responds as cert service |
+| Assessment | **PASS** | **PASS** | **Deferred** — see §3.1: HTTPS vhost + container stability |
 
 **Program decision:** **GO** for **Phase 2 data migration and integrity** on production Postgres (`db-server-postgres`). **Follow-up (non-blocking):** deploy certification/assessment containers and complete the HTTP E2E rows in §3 once routes exist.
 
@@ -35,14 +35,29 @@
 | # | Legacy area | New surface | Check performed | Evidence (UTC **2026-04-12** where noted) | Result |
 |---|-------------|-------------|-----------------|---------------------------------------------|--------|
 | C1 | Site liveness | `speakasap.statex.cz` | `GET /health` | HTTP **200**, body `{"status":"ok"}` (curl from **alfares**) | PASS |
-| C2–C8 | Certificates, quests, questionnaires | certification `/api/v1/...` | Not publicly routed in this check | Requires cert container + nginx route | DEF |
+| C2–C8 | Certificates, quests, questionnaires | certification `/api/v1/...` | JWT matrix not run on public HTTPS (wrong upstream); localhost cert OK for unauth gate | §3.1 **2026-04-12** | DEF |
 | A1 | Site liveness | same host `/health` | Covered by C1 | Same as C1 | PASS |
-| A2–A8 | Language + asset tests | assessment `/api/v1/...` | Not publicly routed | Requires assessment container + nginx route | DEF |
+| A2–A8 | Language + asset tests | assessment `/api/v1/...` | No stable service endpoint for JWT matrix this run | §3.1 **2026-04-12** | DEF |
 | D1 | Certification data | `speakasap_certification_db` | Row counts | See §4 | PASS |
 | D2 | Certification FKs | same | Orphan SQL from `CERTIFICATION_DATA_VALIDATION.md` | all **0** | PASS |
 | D3 | Assessment data | `speakasap_assessment_db` | Row counts | See §4 | PASS |
 | D4 | Assessment FKs | same | Orphan SQL from `ASSESSMENT_DATA_VALIDATION.md` | all **0** | PASS |
 | D5 | `teacher_tests` exclusion | assessment DB | `pg_tables` filter `%teacher%` | **no rows** | PASS |
+
+### §3.1 F2-HTTP-JWT smoke / routing probe (alfares, UTC **2026-04-12**)
+
+Delegated re-run when routing is fixed: `docs/superpowers/cursor-tasks/task-01-f2-http-jwt-smoke.md` (AGENT28-style evidence; JWT redacted).
+
+| Check | Command / observation | Result |
+|-------|------------------------|--------|
+| Cert HTTPS `/health` | `curl -sS -L https://speakasap-certification.statex.cz/health` | Body identifies **`auth-microservice`**, not certification-service — **wrong upstream** |
+| Assess HTTPS `/health` | `curl -sS -L https://speakasap-assessment.statex.cz/health` | Same (**auth-microservice**) |
+| Cert HTTPS API | `GET https://speakasap-certification.statex.cz/api/v1/course-certificates?page=1&limit=1` | **404** `Cannot GET ...` (not certification `UNAUTHORIZED` JSON) |
+| Cert service local | `GET http://127.0.0.1:4202/health` (published **speakasap-certification-green**) | **200** `{"status":"ok"}` |
+| Cert service local API | `GET http://127.0.0.1:4202/api/v1/course-certificates?page=1&limit=1` (no `Authorization`) | **401** `UNAUTHORIZED` / missing bearer — **expected** Nest guard |
+| Assessment container | `docker ps`: **`speakasap-assessment-green`** | **`Restarting`** — no in-container `/health` for matrix until stable |
+
+**Conclusion:** **C2–C8** and **A2–A8** remain **DEF** (prerequisite: correct HTTPS upstream + stable assessment + JWT calls not satisfied this probe). No false PASS.
 
 ---
 
@@ -105,7 +120,7 @@ Latest applied migrations include `20260411203000_student_course_uuid_string` (U
 
 **Work:** Execute and evidence **§3** rows **C2–C8** and **A2–A8** (JWT-backed); change **DEF** → **PASS** in this report; complete **Deploy / smoke** in `PHASE2_CUTOVER_CHECKLIST.md`.
 
-**Orchestration note:** Tracked in `PHASE2_ORCHESTRATION_SUMMARY.md` § Follow-up queue.
+**Orchestration note:** Tracked in `PHASE2_ORCHESTRATION_SUMMARY.md` § Follow-up queue. **Validator-style probe** §3.1 + Cursor handoff: `docs/superpowers/cursor-tasks/task-01-f2-http-jwt-smoke.md`.
 
 ---
 
