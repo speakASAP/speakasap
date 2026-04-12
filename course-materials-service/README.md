@@ -220,6 +220,7 @@ This microservice integrates with `messenger` service for real-time communicatio
 - **AI Communication**: Direct communication channels between students and AI assistants
 
 **Use Cases:**
+
 - Student-teacher communication during lessons
 - AI assistant chat for course material questions
 - Voice/video lessons and tutoring sessions
