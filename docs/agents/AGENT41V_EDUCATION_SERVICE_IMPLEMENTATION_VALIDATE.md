@@ -24,21 +24,21 @@ Clear **P3-EC** before migration work (TASK-42).
 
 ## Manual Checks (record date + outcome)
 
-- [ ] `npm run build` in `education-service/`
-- [ ] `/health` route present
-- [ ] Route inventory vs contract (representative sample)
+- [x] `npm run build` in `education-service/` — PASS (**2026-04-12**)
+- [x] `/health` route present — PASS
+- [x] Route inventory vs contract — PASS (`/groups`, `/student-courses`, `/lessons`, `/homeworks`)
 
 ## Verification results (evidence)
 
-_Record findings when run._
+**2026-04-12:** Prisma migration `20260412120000_init_education_core`; modules implement contract staff list/detail; `RemoteLogger` + env validation pattern matches prior services.
 
 ## Sync gate (before TASK-42)
 
-- **P3-EC:** **PASS** or **FAIL**
+- **P3-EC:** **PASS**
 
 ## Verdict
 
-**PENDING**
+**PASS**
 
 ### If FAIL
 

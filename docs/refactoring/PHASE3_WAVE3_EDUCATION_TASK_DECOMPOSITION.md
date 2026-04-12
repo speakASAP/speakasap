@@ -52,7 +52,7 @@ No parallel tasks in Wave 3 (single service, serial critical path).
 | P3-ED | TASK-42 + `AGENT42V` PASS | ETL script + `EDUCATION_DATA_MIGRATION_LOG.md` / `EDUCATION_DATA_VALIDATION.md` |
 | P3-EE | TASK-43 + `AGENT43V` PASS | `PHASE3_EDUCATION_VALIDATION_REPORT.md` + `PHASE3_EDUCATION_CUTOVER_CHECKLIST.md`; GO/NO-GO |
 
-**Gate status:** **Pending execution** — clear each gate only after the corresponding Validator **PASS**.
+**Gate status (2026-04-12):** **P3-EA…P3-EE** **PASS** — implementation + artifacts landed; operator deploy/HTTP smoke **DEFERRED** (see `PHASE3_EDUCATION_VALIDATION_REPORT.md`).
 
 ---
 

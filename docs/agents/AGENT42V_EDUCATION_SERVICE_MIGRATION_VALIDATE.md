@@ -22,20 +22,20 @@ Clear **P3-ED** before program validation (TASK-43).
 
 ## Manual Checks (record date + outcome)
 
-- [ ] Code review of migration script vs mapping
-- [ ] Validation SQL targets final Prisma table names
+- [x] Code review of migration script vs mapping — PASS (**2026-04-12**)
+- [x] Validation SQL targets final Prisma table names — PASS
 
 ## Verification results (evidence)
 
-_Record findings when run. Live ETL evidence may be **DEFERRED** to operator like prior waves — document explicitly._
+**2026-04-12:** `migrate-education-from-legacy.py` + `EDUCATION_DATA_MIGRATION_LOG.md` + `EDUCATION_DATA_VALIDATION.md`; env `EDUCATION_SOURCE_*` / `EDUCATION_TARGET_*`; live ETL **DEFERRED** operator.
 
 ## Sync gate (before TASK-43)
 
-- **P3-ED:** **PASS** or **FAIL**
+- **P3-ED:** **PASS**
 
 ## Verdict
 
-**PENDING**
+**PASS**
 
 ### If FAIL
 

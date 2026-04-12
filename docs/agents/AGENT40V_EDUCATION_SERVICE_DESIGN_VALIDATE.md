@@ -23,20 +23,20 @@ Freeze contracts for **P3-EB** before implementation (TASK-41).
 
 ## Manual Checks (record date + outcome)
 
-- [ ] Cross-read mapping vs contract: every public field has a source or explicit computed rule
-- [ ] Out-of-scope legacy areas explicitly listed
+- [x] Cross-read mapping vs contract: every public field has a source or explicit computed rule — PASS (**2026-04-12**)
+- [x] Out-of-scope legacy areas explicitly listed — PASS
 
 ## Verification results (evidence)
 
-_Record findings when run._
+**2026-04-12:** `EDUCATION_API_CONTRACT.md` + `EDUCATION_DATA_MAPPING.md` present; staff gate; pagination ≤30; marathon/payments out of scope; legacy table names aligned with `speakasap-portal/education`.
 
 ## Sync gate (before TASK-41)
 
-- **P3-EB:** **PASS** or **FAIL**
+- **P3-EB:** **PASS**
 
 ## Verdict
 
-**PENDING**
+**PASS**
 
 ### If FAIL
 

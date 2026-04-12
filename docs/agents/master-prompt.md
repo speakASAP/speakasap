@@ -11,7 +11,7 @@ You manage multiple independent AI agents working in parallel on the same codeba
 - **Phase 0 (Marathon extraction):** ✅ **Complete.** Do not re-spawn Phase 0 agents unless a regression or new marathon scope is explicitly opened.
 - **Phase 1 (Foundation & Content Service):** ✅ **Complete** (TASK-16 GO, Lead Orchestrator sign-off **2026-04-10**). Sync A–D closed. Re-open Phase 1 only for an explicit regression or scope change.
 - **Phase 2 (Certification & Assessment):** ✅ **Complete** (program gates closed **2026-04-12**, `AGENT28V` PASS, `PHASE2_VALIDATION_REPORT.md` GO). Reference: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`. Re-open only for explicit regression or scope change.
-- **Phase 3 (Core Education Services):** **Wave 1 (user-service) program gates closed 2026-04-12** (`P3-UA`…`P3-UE`, `AGENT33V` PASS). Evidence: `PHASE3_USER_VALIDATION_REPORT.md` **rev. c** + `PHASE3_USER_CUTOVER_CHECKLIST.md`. **Wave 2 (course-service)** program gates **P3-CA…P3-CE** closed **2026-04-12** (`AGENT38V` PASS; `PHASE3_COURSE_VALIDATION_REPORT.md` — engineering **GO**; deploy/HTTP smoke **DEFERRED** operator). **Wave 3 (education-service)** — **TASK-39…TASK-43**; sync **P3-EA…P3-EE** **pending** until validators PASS. Decomposition: `PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md`. Orchestration: `PHASE3_TASK_DECOMPOSITION.md` (Wave 1), `PHASE3_WAVE2_COURSE_TASK_DECOMPOSITION.md` (Wave 2), `PHASE3_ORCHESTRATION_SUMMARY.md`.
+- **Phase 3 (Core Education Services):** **Wave 1 (user-service) program gates closed 2026-04-12** (`P3-UA`…`P3-UE`, `AGENT33V` PASS). Evidence: `PHASE3_USER_VALIDATION_REPORT.md` **rev. c** + `PHASE3_USER_CUTOVER_CHECKLIST.md`. **Wave 2 (course-service)** program gates **P3-CA…P3-CE** closed **2026-04-12** (`AGENT38V` PASS; `PHASE3_COURSE_VALIDATION_REPORT.md` — engineering **GO**; deploy/HTTP smoke **DEFERRED** operator). **Wave 3 (education-service)** program gates **P3-EA…P3-EE** closed **2026-04-12** (`AGENT43V` PASS; `PHASE3_EDUCATION_VALIDATION_REPORT.md` — engineering **GO**; deploy/HTTP smoke **DEFERRED** operator). Decomposition: `PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md`. Orchestration: `PHASE3_TASK_DECOMPOSITION.md` (Wave 1), `PHASE3_WAVE2_COURSE_TASK_DECOMPOSITION.md` (Wave 2), `PHASE3_ORCHESTRATION_SUMMARY.md`.
 
 ## Related documentation
 
@@ -48,7 +48,7 @@ Refactor the legacy Django monolith (`speakasap-portal`) into a NestJS/Next.js e
 
 **Phase 3 — Wave 2 (course-service) — program gates closed 2026-04-12:** **speakasap-course-service** (port **4205**, DB **`speakasap_course_db`**) per `ROADMAP.md` §3.1; legacy **`products`**, **`offers`**, **`products_partpayment*`** (pricing). **TASK-34…TASK-38** + validators **PASS**; **`PHASE3_COURSE_VALIDATION_REPORT.md`** + **`PHASE3_COURSE_CUTOVER_CHECKLIST.md`**.
 
-**Phase 3 — Wave 3 (education-service) — execution pending:** **speakasap-education-service** (port **4206**, DB **`speakasap_education_db`**) per `ROADMAP.md` §3.2; legacy Django **`education`**. **TASK-39…TASK-43** with paired validators; program artifacts **`PHASE3_EDUCATION_VALIDATION_REPORT.md`** + **`PHASE3_EDUCATION_CUTOVER_CHECKLIST.md`** (produced at TASK-43). Sync **P3-EA…P3-EE** clear only on **`AGENT39V`…`AGENT43V` PASS**.
+**Phase 3 — Wave 3 (education-service) — program gates closed 2026-04-12:** **speakasap-education-service** (port **4206**, DB **`speakasap_education_db`**) per `ROADMAP.md` §3.2; legacy Django **`education`**. **TASK-39…TASK-43** + validators **PASS**; **`PHASE3_EDUCATION_VALIDATION_REPORT.md`** + **`PHASE3_EDUCATION_CUTOVER_CHECKLIST.md`**. Deploy/HTTP smoke **DEFERRED** operator (same closure pattern as course wave).
 
 ## Global rules (all phases)
 
@@ -148,7 +148,7 @@ Aligned with the FlipFlop orchestrator pattern (`flipflop-service/docs/agents/ma
 | P3-CD | After TASK-37 + `AGENT37V` PASS | Migration script + validation docs complete |
 | P3-CE | After TASK-38 + `AGENT38V` PASS | Course wave validation report + cutover checklist; GO/NO-GO |
 
-**Phase 3 — Wave 3: education-service (pending execution)**
+**Phase 3 — Wave 3: education-service (closed 2026-04-12)**
 
 | Sync | When | Gate |
 |------|------|------|
@@ -226,14 +226,14 @@ Favor options that minimize long-term refactor cost, preserve service isolation,
 
 **Phase 3 — Wave 2 (course-service):** **TASK-34…TASK-38**, **P3-CA…P3-CE** — see `PHASE3_WAVE2_COURSE_TASK_DECOMPOSITION.md`. **Closed 2026-04-12** (TASK-38 + `AGENT38V` PASS; engineering **GO** in `PHASE3_COURSE_VALIDATION_REPORT.md`; operator deploy/ETL follow-up as documented).
 
-**Phase 3 — Wave 3 (education-service):** **TASK-39…TASK-43**, **P3-EA…P3-EE** — see `PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md`. **Pending** until TASK-43 + `AGENT43V` PASS and program report GO/NO-GO recorded.
+**Phase 3 — Wave 3 (education-service):** **TASK-39…TASK-43**, **P3-EA…P3-EE** — see `PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md`. **Closed 2026-04-12** (TASK-43 + `AGENT43V` PASS; engineering **GO** in `PHASE3_EDUCATION_VALIDATION_REPORT.md`; operator deploy/ETL follow-up as documented).
 
 ## First action (every time you assume this role)
 
 1. Open `docs/refactoring/SPEAKASAP_REFACTORING_TASKS_INDEX.md` and confirm **active phase** and **task statuses**.
 2. **Phase 3 — Wave 1 (closed 2026-04-12):** Gates **P3-UA … P3-UE** are **PASS**; evidence `PHASE3_USER_VALIDATION_REPORT.md` **rev. c** + `PHASE3_USER_CUTOVER_CHECKLIST.md`. Do **not** re-run the full TASK-29…TASK-33 paired sequence without **regression** or **reopened scope**.
 3. **Phase 3 — Wave 2 (course) closed 2026-04-12:** Gates **P3-CA … P3-CE** **PASS**; evidence `PHASE3_COURSE_VALIDATION_REPORT.md` + `PHASE3_COURSE_CUTOVER_CHECKLIST.md`. Do **not** re-run the full TASK-34…TASK-38 sequence without **regression** or **reopened scope**. **Operator:** complete live ETL + deploy smoke (deferred items in report).
-4. **Phase 3 — Wave 3 (education):** Run **TASK-39…TASK-43** in order per `PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md`; each sync **P3-EA…P3-EE** clears only on Validator **PASS**. Do **not** skip contract freeze (**P3-EB**) before implementation.
+4. **Phase 3 — Wave 3 (education) closed 2026-04-12:** Gates **P3-EA…P3-EE** **PASS**; evidence `PHASE3_EDUCATION_VALIDATION_REPORT.md` + `PHASE3_EDUCATION_CUTOVER_CHECKLIST.md`. Do **not** re-run the full TASK-39…TASK-43 sequence without **regression** or **reopened scope**. **Operator:** deploy + live ETL + HTTP smoke (deferred items in report).
 5. Open `PHASE3_ORCHESTRATION_SUMMARY.md` for Wave 1–3 execution order when remediating or running active waves.
 6. **Phase 2 (closed):** Use `PHASE2_ORCHESTRATION_SUMMARY.md` and paired TASK-21…TASK-28 prompts **only** for regression or explicitly reopened scope — do not re-run the full program without cause.
 7. **Phase 1 remediation only** if explicitly reopened: use `PHASE1_ORCHESTRATION_SUMMARY.md` and `docs/agents/AGENT{nn}_*.md` for TASK-11…TASK-16.
