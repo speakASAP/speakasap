@@ -26,7 +26,7 @@ Create the project structure, Docker configuration templates, shared microservic
 - Configure nginx-microservice integration patterns
 - Create shared service connection utilities
 - Document port allocation (42xx range)
-- Create `.env.example` templates
+- Maintain **`speakasap/.env.example`** as the single template for this monorepo (`ENV_MONOREPO.md`)
 - Set up centralized logging integration
 - Create deployment scripts following marathon pattern
 
@@ -38,7 +38,7 @@ Create the project structure, Docker configuration templates, shared microservic
   speakasap/
   ├── README.md
   ├── docker-compose.yml
-  ├── .env.example
+  ├── .env.example   # repo root only (speakasap/.env.example)
   ├── scripts/
   │   └── deploy.sh
   └── docs/
@@ -74,14 +74,14 @@ Create the project structure, Docker configuration templates, shared microservic
   - Port 4211: Frontend
   - Port 4212: Salary Service
   - Port 4213: Financial Service
-- Create `.env.example` template with:
+- Extend **`speakasap/.env.example`** with:
   - Service name
   - Port configuration
   - Database connection (from database-server)
   - Logging service URL
   - Auth service URL (if needed)
   - Other shared service URLs
-- Define `.env` + `.env.example` sync steps for local + prod
+- Define **`speakasap/.env`** + **`speakasap/.env.example`** sync steps for local + prod (no per-service copies)
 - Create deployment script template:
   - Follow marathon deployment pattern
   - Integrate with nginx-microservice
@@ -153,7 +153,7 @@ Create the project structure, Docker configuration templates, shared microservic
 - ✅ Shared service connections documented
 - ✅ Port allocation documented
 - ✅ Deployment scripts ready
-- ✅ `.env.example` template complete
+- ✅ **`speakasap/.env.example`** template complete (monorepo SSOT)
 - ✅ `.env` sync guidance documented (local + prod)
 - ✅ All templates follow marathon service patterns
 - ✅ Documentation complete

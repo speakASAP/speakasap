@@ -58,7 +58,7 @@ Legacy `StudentCourse` PK is UUID; certification persistence was updated to `VAR
 | Operator | Lead orchestrator (SSH alfares) |
 | `git pull` (speakasap) | **Yes** — repo was **behind 2** on `origin/main`; pulled to obtain ETL scripts + Prisma migration `20260411203000_student_course_uuid_string`. |
 | `npx prisma migrate deploy` | **Applied** pending migration `20260411203000_student_course_uuid_string` on `speakasap_certification_db` (after pull). Earlier state: no pending migrations. |
-| Dry-run counts captured? | **No** — `SOURCE_DATABASE_URL` / `TARGET_DATABASE_URL` not in `certification-service/.env`. Smoke dry-run with `SOURCE_DATABASE_URL=$TARGET_DATABASE_URL` (invalid) failed: `relation "certificates_certificate" does not exist` (expected: legacy tables not on certification target). |
+| Dry-run counts captured? | **No** (historical) — ETL URLs not set in monorepo root **`speakasap/.env`**. Use **`CERTIFICATION_SOURCE_DATABASE_URL`** / **`CERTIFICATION_TARGET_DATABASE_URL`** (or legacy `SOURCE_*` / `TARGET_*`). Smoke dry-run with wrong source/target failed: `relation "certificates_certificate" does not exist` (expected: legacy tables not on certification target). |
 | Rows upserted (script summary lines) | **Not run** — blocked until read-only legacy portal Postgres URL is available on this host (legacy monolith DB not present in `db-server-postgres` database list; likely on **speakasap** server per ecosystem docs). |
 | Errors / warnings | Host-side Prisma without `127.0.0.1` substitution: **P1001** to `db-server-postgres:5432`. Use localhost port-forward or substitution when running CLI from alfares shell. |
 

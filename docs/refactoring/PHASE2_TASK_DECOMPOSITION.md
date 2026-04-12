@@ -121,7 +121,7 @@ Add **speakasap-certification-service** and **speakasap-assessment-service** as 
 - Create service directories under `speakasap/` (e.g. `certification-service/`, `assessment-service/`).
 - Wire into root `docker-compose.yml` / deploy story per existing Phase 1 patterns.
 - Reserve ports **4202** and **4203** per `docs/infrastructure/PORT_ALLOCATION.md`.
-- `.env.example` keys only (no secrets); document DB names `speakasap_certification_db`, `speakasap_assessment_db`.
+- **`speakasap/.env.example`** keys only (no secrets); document DB names `speakasap_certification_db`, `speakasap_assessment_db` (`ENV_MONOREPO.md`).
 - Centralized logging via `LOGGING_SERVICE_URL`.
 - `/health` endpoint on each scaffold.
 
@@ -136,7 +136,7 @@ Add **speakasap-certification-service** and **speakasap-assessment-service** as 
 #### Do
 
 - Scaffold NestJS apps that **build** (`npm run build`) with minimal modules (app module + health).
-- Use env-driven config; extend root `.env.example` with Phase 2 keys.
+- Use env-driven config; extend **`speakasap/.env.example`** with Phase 2 keys.
 - Document service README stubs pointing to upcoming contracts.
 
 #### Do Not
@@ -148,8 +148,8 @@ Add **speakasap-certification-service** and **speakasap-assessment-service** as 
 
 #### Outputs
 
-- `speakasap/certification-service/` — scaffold + `README.md` + `.env.example`
-- `speakasap/assessment-service/` — scaffold + `README.md` + `.env.example`
+- `speakasap/certification-service/` — scaffold + `README.md` (env: monorepo root only)
+- `speakasap/assessment-service/` — scaffold + `README.md` (env: monorepo root only)
 - Root compose / deploy documentation updates as needed
 - Optional: `docs/refactoring/PHASE2_INFRA_NOTES.md` if cross-service notes are required
 
@@ -551,7 +551,7 @@ Phase 2 is **COMPLETE** when:
 
 1. Both services run with `/health` and implemented APIs per frozen contracts.
 2. Data migrated with documented validation; `teacher_tests` absent from assessment scope.
-3. No hardcoded secrets/URLs; `.env.example` keys aligned.
+3. No hardcoded secrets/URLs; **`speakasap/.env.example`** keys aligned.
 4. Centralized logging used for critical operations.
 5. `PHASE2_VALIDATION_REPORT.md` states **GO** (or NO-GO with explicit fix tasks).
 6. `PHASE2_CUTOVER_CHECKLIST.md` approved by Lead Orchestrator.

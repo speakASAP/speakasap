@@ -230,13 +230,13 @@ GET /api/v1/languages?order=asc&limit=30
 GET /api/v1/languages/de
 ```
 
-## Shared services env (contract / `.env.example`)
+## Shared services env (contract / `speakasap/.env.example`)
 
-See `docs/infrastructure/SHARED_SERVICES.md`. Content service `.env.example` should keep keys for:
+See `docs/infrastructure/SHARED_SERVICES.md`. **`speakasap/.env.example`** should keep keys for:
 
 - `LOGGING_SERVICE_URL`, `LOGGING_SERVICE_API_PATH`
 - `NOTIFICATIONS_MICROSERVICE_URL`, `NOTIFICATIONS_MICROSERVICE_PORT`
-- `NOTIFICATION_*` template keys already listed in `.env.example` (order/stock/sync placeholders)
+- `NOTIFICATION_*` template keys already listed in **`speakasap/.env.example`** (order/stock/sync placeholders)
 - `AI_SERVICE_URL` (integration design in `CONTENT_AI_INTEGRATION.md`)
 
 No secrets in docs; values only in `.env`.

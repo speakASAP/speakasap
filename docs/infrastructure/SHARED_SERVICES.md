@@ -51,7 +51,7 @@ standard environment variables for integration.
 
 ## Standard Env Keys
 
-Include these in each service `.env.example` (keys only):
+Include these in `speakasap/.env.example` (keys only; monorepo single template):
 
 ```text
 AUTH_SERVICE_URL=
@@ -88,13 +88,15 @@ Call `NOTIFICATIONS_MICROSERVICE_URL` for outbound email/Telegram/WhatsApp; use 
 
 ## .env sync (local and production)
 
-1. Add new keys to `.env.example` first (keys only, no secrets).
-2. Copy into local `.env` and production `.env` on the server.
+See **`docs/infrastructure/ENV_MONOREPO.md`** for the single-file rule (`speakasap/.env` + `speakasap/.env.example` only).
+
+1. Add new keys to `speakasap/.env.example` first (keys only, no secrets).
+2. Copy into `speakasap/.env` locally and on the server (one file for all services in this repo).
 3. Use `shared/scripts/compare-env.sh speakasap` or `shared/scripts/env-diff-summary.sh` from the GitHub workspace when aligning with other hosts.
-4. After changing keys, run `docker compose -f docker-compose.blue.yml config --quiet` (and green) before deploy.
+4. After changing keys, run `docker compose -f docker-compose.blue.yml config --quiet` (and green) from the `speakasap/` root before deploy.
 
 ## Notes
 
 - Use env-driven configuration only.
 - Do not hardcode service URLs or ports.
-- Keep `.env` synchronized with `.env.example` (local + prod).
+- Keep **`speakasap/.env`** synchronized with **`speakasap/.env.example`** (local + prod).

@@ -16,7 +16,7 @@ Each service needs:
 
 1. **`docker-compose.blue.yml`** - Blue environment configuration
 2. **`docker-compose.green.yml`** - Green environment configuration
-3. **`.env`** - Environment variables (keep synchronized with `.env.example`)
+3. **`speakasap/.env`** - Environment variables for all SpeakASAP services here (keep synchronized with `speakasap/.env.example`; see `docs/infrastructure/ENV_MONOREPO.md`)
 4. **`scripts/deploy.sh`** - Service-specific deployment script (optional, can use base template)
 
 ## Container Naming Convention
@@ -50,7 +50,7 @@ All services use ports in the **42xx** range:
 
 ### Required Variables
 
-Each service `.env` file must include:
+The monorepo root `speakasap/.env` must include:
 
 ```bash
 # Service Configuration
@@ -92,18 +92,12 @@ FRONTEND_URL=https://speakasap.com
 
 ### .env Sync Process
 
-**Local Development:**
+**Local and production (monorepo):**
 
-1. Copy `.env.example` to `.env`
-2. Fill in all required values
-3. Never commit `.env` to git
-
-**Production:**
-
-1. SSH to production server
-2. Navigate to service directory
-3. Update `.env` with production values
-4. Ensure `.env.example` is updated with new variable names (keys only, no values)
+1. Copy `speakasap/.env.example` to `speakasap/.env` once at the repo root.
+2. Fill in all required values (see `ENV_MONOREPO.md`).
+3. Never commit `.env` to git.
+4. When adding a variable, add the key to `speakasap/.env.example` and the value to `speakasap/.env` only.
 
 ## Deployment Process
 
@@ -222,7 +216,7 @@ Ensure ports are unique across all services. Check `docs/infrastructure/PORT_ALL
 ## Best Practices
 
 1. **Always validate docker-compose files** before deployment
-2. **Keep `.env` synchronized** with `.env.example` (keys only in example)
+2. **Keep `speakasap/.env` synchronized** with `speakasap/.env.example` (keys only in example)
 3. **Test health endpoint** before deploying
 4. **Monitor logs** during deployment
 5. **Use blue/green naming** consistently

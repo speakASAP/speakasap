@@ -25,7 +25,7 @@ Confirm `certification-service` matches `CERTIFICATION_API_CONTRACT.md` and engi
 
 3. **Config**
    - No hardcoded secrets or environment-specific URLs in source.
-   - Required keys documented in `.env.example`.
+   - Required keys documented in **`speakasap/.env.example`** (runtime: **`speakasap/.env`**).
 
 4. **Logging**
    - Critical paths log to logging microservice pattern (match `content-service`); timestamps present.

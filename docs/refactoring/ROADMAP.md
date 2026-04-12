@@ -1045,7 +1045,7 @@ The new speakasap platform will leverage the following existing shared microserv
 - [ ] Set up Docker Compose files (blue/green deployment)
 - [ ] Configure nginx-microservice integration
 - [ ] Set up shared microservice connections (auth, database, logging)
-- [ ] Create .env.example files
+- [x] **`speakasap/.env.example`** maintained as monorepo template (`ENV_MONOREPO.md`); per-service copies removed
 - [ ] Set up CI/CD pipeline
 - [ ] Configure port allocation (42xx range)
 
@@ -1756,11 +1756,11 @@ quest.completed: { questId, userId, completedAt, rewards }
 
 **Configuration Management - No Hardcoded Values**:
 
-- **MANDATORY**: All configuration values MUST come from environment variables (`.env` files)
+- **MANDATORY**: All configuration values MUST come from environment variables (`speakasap/.env` for this monorepo)
 - **NO HARDCODED VALUES**: No hardcoded URLs, ports, API keys, credentials, or any configuration values in code
-- **Single Source of Truth**: `.env` files are the single source of truth for all configuration
+- **Single Source of Truth**: **`speakasap/.env`** is the single populated env file for SpeakASAP services in this repository (see `docs/infrastructure/ENV_MONOREPO.md`)
 - **Environment Variables**: Use `process.env.VARIABLE_NAME` (Node.js/NestJS) or equivalent for all configuration
-- **`.env.example` Files**: All services must have `.env.example` files with all variable names (without secret values)
+- **`.env.example`**: **`speakasap/.env.example`** lists all variable names (without secret values); do not maintain per-service `.env.example` copies here
 - **Secret Management**: Never commit `.env` files with secrets to version control
 - **Configuration Validation**: Validate all required environment variables on service startup
 - **Default Values**: Provide sensible defaults in code, but allow override via environment variables

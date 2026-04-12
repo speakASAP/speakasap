@@ -49,7 +49,7 @@ Refactor the legacy Django monolith (`speakasap-portal`) into a NestJS/Next.js e
 1. **Module extraction first** — Replace legacy slices with new services while keeping legacy operational.
 2. **Contracts before code** — API contracts and data mappings frozen before implementation that depends on them.
 3. **Shared microservices are external dependencies** — Do not modify `database-server`, `auth-microservice`, `nginx-microservice`, `logging-microservice`.
-4. **Config discipline** — No hardcoded values; `.env` is the single source of truth; `.env.example` lists keys only (no secrets).
+4. **Config discipline** — No hardcoded values; **`speakasap/.env`** is the single source of truth; **`speakasap/.env.example`** lists keys only (no secrets). See `docs/infrastructure/ENV_MONOREPO.md`.
 5. **Centralized logging** — Use `LOGGING_SERVICE_URL=http://logging-microservice:3367` (and existing logging patterns in each service).
 6. **Request size limits** — Max **30** items per request. Do **not** increase timeouts to mask hangs; use logs (with timestamps) to find the blocking call.
 7. **Testing is manual** — No automated tests unless explicitly requested.

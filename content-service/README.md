@@ -5,7 +5,7 @@ Read-only Content Service (NestJS + TypeScript) for legacy content apps:
 
 ## Setup
 
-- Copy `.env` from `.env.example` and set `PORT`, `DATABASE_URL`, logging/notification URLs, pagination sizes.
+- Use **`speakasap/.env`** only (see `docs/infrastructure/ENV_MONOREPO.md`): `DATABASE_URL` for content DB, `PORT` / `CONTENT_SERVICE_PORT`, logging, notifications, AI keys, etc.
 - **Run from this folder:** `docker compose build && docker compose up -d` then `curl http://localhost:${PORT:-4201}/health`.
 - **Blue/green (production):** compose files also live at `speakasap/docker-compose.blue.yml` and `docker-compose.green.yml` (repo root). Run `./scripts/deploy.sh` from `speakasap` after `docker network create nginx-network` (if missing).
 

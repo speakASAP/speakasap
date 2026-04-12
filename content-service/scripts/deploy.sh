@@ -26,12 +26,6 @@ if [ -f "$SPEAKASAP_ROOT/.env" ]; then
     source "$SPEAKASAP_ROOT/.env" 2>/dev/null || true
     set +a
     NODE_ENV="${NODE_ENV:-}"
-elif [ -f "$CONTENT_SERVICE_ROOT/.env" ]; then
-    set -a
-    # shellcheck source=/dev/null
-    source "$CONTENT_SERVICE_ROOT/.env" 2>/dev/null || true
-    set +a
-    NODE_ENV="${NODE_ENV:-}"
 fi
 
 # Pull from remote in production; preserve local changes (stash uncommitted if any, then reapply).

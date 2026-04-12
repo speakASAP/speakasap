@@ -109,7 +109,7 @@ Legacy uses `django.core.signing.Signer` on certificate PK. Target: **short-live
 
 ## 6. Files / storage
 
-Legacy writes under `materials/certificates/` and `ImageField` relative paths. Target: same relative prefix acceptable if shared volume; otherwise object storage key in `imagePath` + `ASSETS_BASE_URL` / `MATERIALS_PUBLIC_BASE_URL` in `.env` (keys only in `.env.example`).
+Legacy writes under `materials/certificates/` and `ImageField` relative paths. Target: same relative prefix acceptable if shared volume; otherwise object storage key in `imagePath` + `ASSETS_BASE_URL` / `MATERIALS_PUBLIC_BASE_URL` in **`speakasap/.env`** (keys only in **`speakasap/.env.example`**).
 
 ---
 

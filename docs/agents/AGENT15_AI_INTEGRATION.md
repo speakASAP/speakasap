@@ -68,7 +68,7 @@ Integrate Content Service with ai-microservice to provide translation capabiliti
   - Follow marathon service logging patterns
 
 - **Configuration:**
-  - Add `AI_SERVICE_URL` to `.env.example`
+  - Add `AI_SERVICE_URL` to **`speakasap/.env.example`**
   - Add `AI_SERVICE_TIMEOUT` (if needed)
   - Add `AI_SERVICE_API_KEY` (if needed)
   - Use env-driven configuration only
@@ -105,7 +105,7 @@ Integrate Content Service with ai-microservice to provide translation capabiliti
    - Error handling
    - Logging
 
-3. **Updated `.env.example`:**
+3. **Updated `speakasap/.env.example`:**
    - `AI_SERVICE_URL` added
    - `AI_SERVICE_TIMEOUT` added (if needed)
    - `AI_SERVICE_API_KEY` added (if needed)

@@ -21,7 +21,7 @@ Minimal NestJS app for **port 4207**, DB **`speakasap_user_db`**, with env-drive
 
 - Add `user-service/` at repo root (alongside `content-service/`).
 - Root `docker-compose.yml` / deploy scripts: extend per existing patterns; do not edit `nginx-microservice` source.
-- `.env.example` for the service (keys only).
+- No per-service env template; use **`speakasap/.env.example`** / **`speakasap/.env`** only (`ENV_MONOREPO.md`).
 
 ## Do
 
@@ -39,7 +39,7 @@ Minimal NestJS app for **port 4207**, DB **`speakasap_user_db`**, with env-drive
 
 ## Outputs
 
-- `user-service/` — scaffold, `README.md`, `.env.example`, `Dockerfile` if required by pattern
+- `user-service/` — scaffold, `README.md`, `Dockerfile` if required by pattern (env at monorepo root only)
 - Root compose / script updates if needed
 
 ## Exit Criteria

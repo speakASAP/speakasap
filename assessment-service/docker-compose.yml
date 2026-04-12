@@ -7,11 +7,12 @@ services:
       dockerfile: Dockerfile
     container_name: speakasap-assessment-local
     ports:
-      - "${PORT:-4203}:${PORT:-4203}"
+      - "${ASSESSMENT_SERVICE_PORT:-4203}:${ASSESSMENT_SERVICE_PORT:-4203}"
     env_file:
-      - .env
+      - ../.env
     environment:
-      PORT: ${PORT:-4203}
+      PORT: ${ASSESSMENT_SERVICE_PORT:-4203}
+      DATABASE_URL: ${ASSESSMENT_DATABASE_URL}
     healthcheck:
       test:
         [

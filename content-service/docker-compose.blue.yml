@@ -9,7 +9,7 @@ services:
     ports:
       - "${CONTENT_SERVICE_PORT:-4201}:${CONTENT_SERVICE_PORT:-4201}"
     env_file:
-      - .env
+      - ../.env
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - DOMAIN=${DOMAIN}

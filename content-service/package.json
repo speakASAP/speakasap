@@ -7,9 +7,10 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio",
+    "prisma:migrate": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; exec npx prisma migrate dev'",
+    "prisma:migrate:deploy": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; exec npx prisma migrate deploy'",
+    "prisma:studio": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; exec npx prisma studio'",
+    "prisma:validate": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; exec npx prisma validate'",
     "postinstall": "npm run prisma:generate"
   },
   "dependencies": {

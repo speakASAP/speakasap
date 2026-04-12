@@ -44,8 +44,8 @@ Restore DB snapshot taken before `--truncate-first`, or truncate all assessment 
 | When (UTC) | 2026-04-11T21:16Z (approx.; server UTC) |
 | Operator | Lead orchestrator (SSH alfares) |
 | `npx prisma migrate deploy` | **Applied** `20260411120000_init` — database `speakasap_assessment_db` was created and migration applied (first-time setup). |
-| `. ./.env` warning | `./.env: line 30: HH:mm:ss: command not found` — unquoted `LOG_TIMESTAMP_FORMAT` (or similar) with a space; Prisma still loaded `.env` and succeeded. **Fix:** quote the value in `assessment-service/.env` (e.g. `LOG_TIMESTAMP_FORMAT='...'`). |
-| Dry-run counts | **Not run** — `SOURCE_DATABASE_URL` / `TARGET_DATABASE_URL` not configured in `assessment-service/.env`. |
+| `. ./.env` warning | Unquoted `LOG_TIMESTAMP_FORMAT` with a space when sourcing env. **Fix:** quote the value in **`speakasap/.env`** (e.g. `LOG_TIMESTAMP_FORMAT='...'`). |
+| Dry-run counts | **Not run** (historical) — configure **`ASSESSMENT_SOURCE_DATABASE_URL`** / **`ASSESSMENT_TARGET_DATABASE_URL`** in **`speakasap/.env`** (or legacy `SOURCE_*` / `TARGET_*`). |
 | Script completion | **Not run** (blocked: no legacy `SOURCE_DATABASE_URL` on alfares; same as certification log). |
 | M2M table name verified? | **Pending** (requires live legacy DB). |
 

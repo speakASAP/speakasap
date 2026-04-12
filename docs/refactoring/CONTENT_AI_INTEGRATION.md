@@ -8,7 +8,7 @@
 
 Align with `docs/infrastructure/SHARED_SERVICES.md`. No hardcoded hosts in code (TASK-13/15).
 
-Optional timeouts/retries should reuse existing patterns in content-service `.env.example` (`HTTP_TIMEOUT`, `RETRY_*`) — do not increase timeouts to mask hangs; log latency and upstream errors.
+Optional timeouts/retries should reuse existing patterns in **`speakasap/.env.example`** (`HTTP_TIMEOUT`, `RETRY_*`) — do not increase timeouts to mask hangs; log latency and upstream errors.
 
 ## 2. Current ecosystem reality
 
@@ -49,10 +49,10 @@ Use **logging-microservice** with ISO timestamps per platform standard.
 
 ## 5. Notifications (shared keys)
 
-If AI pipeline sends user-facing alerts (e.g. generation failed), use **notifications-microservice** with keys from `.env.example`:
+If AI pipeline sends user-facing alerts (e.g. generation failed), use **notifications-microservice** with keys from **`speakasap/.env.example`**:
 
 - `NOTIFICATIONS_MICROSERVICE_URL`, `NOTIFICATIONS_MICROSERVICE_PORT`
-- Template IDs: `NOTIFICATION_ORDER_CREATED`, etc. (add **content-specific** keys when implementing, e.g. `NOTIFICATION_CONTENT_AI_FAILED`, in `.env.example` keys-only)
+- Template IDs: `NOTIFICATION_ORDER_CREATED`, etc. (add **content-specific** keys when implementing, e.g. `NOTIFICATION_CONTENT_AI_FAILED`, in **`speakasap/.env.example`** keys-only)
 
 Content read endpoints **must not** send notifications by default.
 

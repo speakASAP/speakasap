@@ -31,7 +31,7 @@ Centralized service for generating and managing course materials. Integrates wit
 | **Material Generator** | `${MATERIAL_GENERATOR_PORT:-3390}` | `${MATERIAL_GENERATOR_PORT:-3390}` | `MATERIAL_GENERATOR_PORT` | AI-powered material generation |
 | **Material Manager** | `${MATERIAL_MANAGER_PORT:-3391}` | `${MATERIAL_MANAGER_PORT:-3391}` | `MATERIAL_MANAGER_PORT` | Material management and serving |
 
-**Note**: All ports are configured in `course-materials-microservice/.env`. The values shown are defaults.
+**Note**: Ports and credentials are configured in **`speakasap/.env`** (see `docs/infrastructure/ENV_MONOREPO.md`). The table shows defaults.
 
 ## Access Methods
 
@@ -65,41 +65,50 @@ cd /home/statex/course-materials-microservice
 
 ## Environment Configuration
 
-Copy `.env.example` to `.env` and configure:
+Set the **course-materials** section keys in **`speakasap/.env`** (template: **`speakasap/.env.example`**). Typical entries:
 
 ```bash
 # Service Domain - Used by nginx-microservice for auto-registry (required for correct domain detection)
-DOMAIN=course-materials.statex.cz
+DOMAIN=
 
 # Service Name - Used for logging and service identification
-SERVICE_NAME=course-materials-microservice
+SERVICE_NAME=
 
 # Port Configuration
-MATERIAL_GENERATOR_PORT=3390
-MATERIAL_MANAGER_PORT=3391
+MATERIAL_GENERATOR_PORT=
+MATERIAL_MANAGER_PORT=
 
 # Database (Shared)
-DB_HOST=db-server-postgres
-DB_PORT=5432
-DB_USER=dbadmin
-DB_PASSWORD=<password>
-DB_NAME=statex_course_materials
+DB_HOST=
+DB_PORT=
+DB_USER=
+DB_PASSWORD=
+DB_NAME=
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+POSTGRES_DB=
+POSTGRES_PORT=
+REDIS_URL=
 
 # Redis (Shared)
-REDIS_HOST=db-server-redis
-REDIS_SERVER_PORT=6379
+REDIS_HOST=
+REDIS_SERVER_PORT=
 
 # Logging Service (Shared)
-LOGGING_SERVICE_URL=https://logging.statex.cz
+LOGGING_SERVICE_URL=
+LOGGING_SERVICE_API_PATH=
 
 # AI Microservice Integration
-AI_ORCHESTRATOR_URL=http://ai-microservice:3380
-NLP_SERVICE_URL=http://ai-microservice-nlp-service:3381
+AI_ORCHESTRATOR_URL=
+NLP_SERVICE_URL=
 
 # Messenger Service Integration
-MESSENGER_SERVICE_URL=https://messenger.statex.cz
-MESSENGER_MATRIX_SERVER=https://messenger.statex.cz
-MESSENGER_LIVEKIT_URL=https://messenger.statex.cz
+MESSENGER_SERVICE_URL=
+MESSENGER_MATRIX_SERVER=
+MESSENGER_LIVEKIT_URL=
+
+DOCKER_VOLUME_BASE_PATH=
+CONTENT_SERVICE_URL=
 ```
 
 ## Quick Start
@@ -107,7 +116,7 @@ MESSENGER_LIVEKIT_URL=https://messenger.statex.cz
 ### Start Services
 
 ```bash
-cd course-materials-microservice
+cd speakasap/course-materials-service
 ./scripts/start.sh
 ```
 

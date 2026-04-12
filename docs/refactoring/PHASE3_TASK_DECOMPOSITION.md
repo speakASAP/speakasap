@@ -55,7 +55,7 @@ No parallel tasks in Wave 1 (single service, serial critical path).
 **Agent:** Infra/Docker
 **Implementation:** `docs/agents/AGENT29_USER_SERVICE_SCAFFOLD.md`
 **Validator:** `docs/agents/AGENT29V_USER_SERVICE_SCAFFOLD_VALIDATE.md`
-**Outputs:** `user-service/` (or `speakasap-user-service/` per repo naming convention — align with `content-service`), README, `.env.example`, compose/deploy hooks as required by repo patterns.
+**Outputs:** `user-service/` (or `speakasap-user-service/` per repo naming convention — align with `content-service`), README, compose/deploy hooks as required by repo patterns. **Env:** `speakasap/.env` + `speakasap/.env.example` only (`ENV_MONOREPO.md`).
 
 ---
 

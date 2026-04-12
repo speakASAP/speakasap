@@ -34,6 +34,7 @@ Migrate `language_tests` and `user_tests` data per `ASSESSMENT_DATA_MAPPING.md`.
 
 ## Outputs
 
+- ETL env: **`ASSESSMENT_SOURCE_DATABASE_URL`** / **`ASSESSMENT_TARGET_DATABASE_URL`** in **`speakasap/.env`** (`ENV_MONOREPO.md`; script falls back to `SOURCE_*` / `TARGET_*`).
 - `docs/refactoring/ASSESSMENT_DATA_MIGRATION_LOG.md`
 - `docs/refactoring/ASSESSMENT_DATA_VALIDATION.md`
 - Migration scripts in `speakasap` repo per existing conventions

@@ -37,6 +37,7 @@ Migrate legacy certification domain data per `CERTIFICATION_DATA_MAPPING.md` int
 
 ## Outputs
 
+- ETL env: **`CERTIFICATION_SOURCE_DATABASE_URL`** / **`CERTIFICATION_TARGET_DATABASE_URL`** in **`speakasap/.env`** (see `ENV_MONOREPO.md`; script falls back to `SOURCE_*` / `TARGET_*`).
 - `docs/refactoring/CERTIFICATION_DATA_MIGRATION_LOG.md`
 - `docs/refactoring/CERTIFICATION_DATA_VALIDATION.md`
 - Migration code or scripts **only inside** `speakasap` repo (no new repos unless orchestrator approves)

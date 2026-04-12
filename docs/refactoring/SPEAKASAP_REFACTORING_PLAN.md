@@ -26,7 +26,7 @@ Refactor the legacy Django monolith (`speakasap-portal`) into a modern, modular 
 ## Constraints
 
 - Do not modify production-ready services: database-server, auth-microservice, nginx-microservice, logging-microservice.
-- No hardcoded configuration values. Use `.env` as single source of truth; update `.env.example` with keys only.
+- No hardcoded configuration values. Use **`speakasap/.env`** as single source of truth; update **`speakasap/.env.example`** with keys only (`docs/infrastructure/ENV_MONOREPO.md`).
 - Use centralized logging via `LOGGING_SERVICE_URL=http://logging-microservice:3367`.
 - Respect request limit: max 30 items per request.
 - No separate dev environment. Build and run directly on the future production server.
