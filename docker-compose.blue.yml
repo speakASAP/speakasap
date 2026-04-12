@@ -71,7 +71,7 @@ services:
       - .env
     environment:
       - NODE_ENV=${NODE_ENV:-production}
-      - DOMAIN=${DOMAIN}
+      - DOMAIN=${CERTIFICATION_SERVICE_DOMAIN:-speakasap-certification.statex.cz}
       - SERVICE_NAME=${CERTIFICATION_SERVICE_NAME:-certification-service}
       - PORT=${CERTIFICATION_SERVICE_PORT:-4202}
       - DB_HOST=${DB_HOST}
@@ -116,7 +116,7 @@ services:
       - .env
     environment:
       - NODE_ENV=${NODE_ENV:-production}
-      - DOMAIN=${DOMAIN}
+      - DOMAIN=${ASSESSMENT_SERVICE_DOMAIN:-speakasap-assessment.statex.cz}
       - SERVICE_NAME=${ASSESSMENT_SERVICE_NAME:-assessment-service}
       - PORT=${ASSESSMENT_SERVICE_PORT:-4203}
       - DB_HOST=${DB_HOST}
