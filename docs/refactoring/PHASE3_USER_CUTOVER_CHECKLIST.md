@@ -2,6 +2,8 @@
 
 **Aligned with:** `PHASE3_USER_VALIDATION_REPORT.md` (rev. **b**, **2026-04-12** — U3/U4 **PASS**; F3-BACKUP / F3-AUTH-PARITY still open).
 
+**Open items (operator):** `PHASE3_USER_OPERATOR_RUNBOOK.md` — backup policy, rollback drill, auth parity + quick verify commands.
+
 ## Pre-cutover
 
 - [x] Legacy ETL executed; `USER_DATA_MIGRATION_LOG.md` execution table filled.
