@@ -1,31 +1,31 @@
 # Phase 2 cutover checklist (TASK-28)
 
-Ordered steps for certification + assessment extraction when **GO** is issued.  
-**Status 2026-04-11:** Pre-checks incomplete — see `PHASE2_VALIDATION_REPORT.md` (**NO-GO**).
+Ordered steps for certification + assessment extraction when **cutover GO** is issued in `PHASE2_VALIDATION_REPORT.md`.  
+**Status 2026-04-12:** **NO-GO** for full cutover — data path **done**; **HTTP E2E** still open (`PHASE2_VALIDATION_REPORT.md` **B3**).
 
 ## Pre-checks
 
-- [ ] `SOURCE_DATABASE_URL` = read-only legacy Django Postgres (reachable from import runner).
-- [ ] `TARGET_DATABASE_URL` = same logical DB as each service’s `DATABASE_URL` (certification vs assessment targets **separate**).
-- [ ] Host-side CLI: either rewrite `db-server-postgres` → `127.0.0.1` in URL for alfares shell, **or** run `npx` / `python3` in a container on `nginx-network`.
-- [ ] Quote any `.env` values that contain spaces (e.g. `LOG_TIMESTAMP_FORMAT`) so `set -a && . ./.env` does not break.
-- [ ] `pip` / `python3` with `psycopg2-binary` available on import host (alfares: OK).
+- [x] `SOURCE_DATABASE_URL` = read-only legacy Django Postgres (reachable from import runner). **2026-04-12:** operator workstation + SSH tunnel `speakasap` → local `15432` (see migration logs).
+- [x] `TARGET_DATABASE_URL` = same logical DB as each service’s `DATABASE_URL` (certification vs assessment targets **separate**).
+- [x] Host-side CLI: either rewrite `db-server-postgres` → `127.0.0.1` in URL for alfares shell, **or** run `npx` / `python3` in a container on `nginx-network`. **2026-04-12:** `127.0.0.1:25432` tunnel to alfares Postgres from Mac for Python ETL.
+- [x] Quote any `.env` values that contain spaces (e.g. `LOG_TIMESTAMP_FORMAT`) so `set -a && . ./.env` does not break. (assessment-service quoted; certification empty value safe.)
+- [x] `pip` / `python3` with `psycopg2-binary` available on import host (alfares: OK).
 
 ## Schema
 
-- [ ] `cd certification-service && npx prisma migrate deploy` on certification target.
-- [ ] `cd assessment-service && npx prisma migrate deploy` on assessment target.
+- [x] `cd certification-service && npx prisma migrate deploy` on certification target.
+- [x] `cd assessment-service && npx prisma migrate deploy` on assessment target.
 
 ## Data import (destructive options: review snapshot policy first)
 
-- [ ] Certification: `python3 scripts/migrate-certification-from-legacy.py --dry-run` then full run per `CERTIFICATION_DATA_MIGRATION_LOG.md`.
-- [ ] Assessment: same per `ASSESSMENT_DATA_MIGRATION_LOG.md`.
-- [ ] Update both migration **execution record** tables with timestamps and row summaries.
+- [x] Certification: `python3 scripts/migrate-certification-from-legacy.py --dry-run` then full run per `CERTIFICATION_DATA_MIGRATION_LOG.md`.
+- [x] Assessment: same per `ASSESSMENT_DATA_MIGRATION_LOG.md`.
+- [x] Update both migration **execution record** tables with timestamps and row summaries.
 
 ## Validation SQL
 
-- [ ] Run legacy + target count queries in `CERTIFICATION_DATA_VALIDATION.md`; resolve or document variance.
-- [ ] Run queries in `ASSESSMENT_DATA_VALIDATION.md`; confirm M2M table name on legacy if counts diverge.
+- [x] Run legacy + target count queries in `CERTIFICATION_DATA_VALIDATION.md`; resolve or document variance.
+- [x] Run queries in `ASSESSMENT_DATA_VALIDATION.md`; confirm M2M table name on legacy if counts diverge.
 
 ## Deploy / smoke (when services are wired)
 
@@ -35,7 +35,7 @@ Ordered steps for certification + assessment extraction when **GO** is issued.
 ## Rollback
 
 - [ ] Restore Postgres snapshots taken before `--truncate-first` / bulk import, **or** truncate domain tables and re-import from legacy snapshot.
-- [ ] Nginx / blue-green: revert active slot per `nginx-microservice` procedures.
+- [ ] Routing: redeploy previous service slot via each service’s `./scripts/deploy.sh` (and central blue/green flow); do not hand-edit nginx product rules.
 
 ## Sign-off
 
