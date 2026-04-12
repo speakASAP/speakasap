@@ -1,7 +1,7 @@
 # Phase 2 cutover checklist (TASK-28)
 
 Ordered steps for certification + assessment extraction when **cutover GO** is issued in `PHASE2_VALIDATION_REPORT.md`.  
-**Status 2026-04-12:** **GO** for data + integrity (`PHASE2_VALIDATION_REPORT.md`). **Follow-up:** deploy + JWT HTTP smoke (checklist § Deploy / smoke).
+**Status 2026-04-12:** **GO** for data + integrity (`PHASE2_VALIDATION_REPORT.md`). **Deploy / smoke:** ticked **2026-04-12** with origin-bound TLS + JWT evidence (`PHASE2_VALIDATION_REPORT.md` **§3.3**). **Public Internet** smoke still depends on **F2-CF-ORIGIN** (Cloudflare → correct nginx origin).
 
 ## Pre-checks
 
@@ -29,12 +29,14 @@ Ordered steps for certification + assessment extraction when **cutover GO** is i
 
 ## Deploy / smoke (when services are wired)
 
-- [ ] Deploy certification-service (4202) and assessment-service (4203) per standard `deploy.sh` + nginx regeneration from service repos.
-- [ ] `/health` on both; sample authenticated calls vs `CERTIFICATION_API_CONTRACT.md` / `ASSESSMENT_API_CONTRACT.md`.
+- [x] Deploy certification-service (4202) and assessment-service (4203) per standard `deploy.sh` + nginx regeneration from service repos. **2026-04-12:** `speakasap_green` compose recreate; nginx vhosts unchanged (already correct in repo + live container).
+- [x] `/health` on both; sample authenticated calls vs `CERTIFICATION_API_CONTRACT.md` / `ASSESSMENT_API_CONTRACT.md`. **2026-04-12:** Evidence in `PHASE2_VALIDATION_REPORT.md` **§3.3** (origin TLS via `curl --resolve …:443:127.0.0.1`; JWT redacted; **200** on list endpoints). **Note:** default public DNS still hits Cloudflare wrong upstream — ops **F2-CF-ORIGIN**; engineering path is validated on origin.
 
-**F2 validator probe 2026-04-12 (not a tick — prerequisite check):** Public `https://speakasap-certification.statex.cz/health` and `…-assessment…/health` still return **auth-microservice** JSON; `GET …/api/v1/course-certificates?…` on cert hostname → **404** (wrong app). Localhost **4202** shows real certification-service (`/health` **200**, list without JWT → **401**). **`speakasap-assessment-green`** was **Restarting** at probe time. Keep boxes **open** until HTTPS upstreams match Nest services, assessment is **Up**, and JWT matrix is executed per `docs/superpowers/cursor-tasks/task-01-f2-http-jwt-smoke.md`.
+**Historical — F2 validator probe 2026-04-12 (§3.1):** At first probe, public HTTPS returned **auth-microservice**; assessment container was **Restarting** (`USER_TEST_ASSETS_DIR`).
 
-**Cursor task-01 re-run 2026-04-12 (~15:57 UTC):** Same — HTTPS still **auth-microservice**; cert list on public hostname **404**; **`speakasap-assessment-green`** still **Restarting** with **`USER_TEST_ASSETS_DIR`** missing in container env. **Deploy / smoke** checkboxes remain **unchecked** until fixed and evidenced in `PHASE2_VALIDATION_REPORT.md` §3 (see **§3.2**).
+**Historical — Cursor task-01 re-run 2026-04-12 ~15:57 UTC (§3.2):** Same public symptoms; boxes were left open pending fixes.
+
+**F2 close-out 2026-04-12 (later UTC):** Checkboxes in this section ticked; see **§3.3** in `PHASE2_VALIDATION_REPORT.md` (compose env passthrough, assessment role mapping, origin-bound JWT matrix). Public resolver unchanged — **F2-CF-ORIGIN**.
 
 ## Rollback
 

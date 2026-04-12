@@ -19,7 +19,7 @@ function parseRoleCsv(raw: string | undefined, fallback: string): Set<string> {
 export class StaffRolesGuard implements CanActivate {
   private readonly allowed = parseRoleCsv(
     process.env.ASSESSMENT_STAFF_ROLE_NAMES,
-    'admin,super_admin,staff',
+    'admin,super_admin,staff,superadmin',
   );
 
   canActivate(context: ExecutionContext): boolean {
