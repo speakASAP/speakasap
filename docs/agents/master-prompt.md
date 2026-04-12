@@ -11,7 +11,7 @@ You manage multiple independent AI agents working in parallel on the same codeba
 - **Phase 0 (Marathon extraction):** ✅ **Complete.** Do not re-spawn Phase 0 agents unless a regression or new marathon scope is explicitly opened.
 - **Phase 1 (Foundation & Content Service):** ✅ **Complete** (TASK-16 GO, Lead Orchestrator sign-off **2026-04-10**). Sync A–D closed. Re-open Phase 1 only for an explicit regression or scope change.
 - **Phase 2 (Certification & Assessment):** ✅ **Complete** (program gates closed **2026-04-12**, `AGENT28V` PASS, `PHASE2_VALIDATION_REPORT.md` GO). Reference: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`. Re-open only for explicit regression or scope change.
-- **Phase 3 (Core Education Services):** **Planning / Wave 1 active (User service).** First opened slice: **TASK-29…TASK-33** (user-service scaffold → contract → implementation → migration → validation). Orchestration: `PHASE3_TASK_DECOMPOSITION.md`, `PHASE3_ORCHESTRATION_SUMMARY.md`. Full `ROADMAP.md` Phase 3 also includes course + education services — decompose those as separate waves when Lead opens scope.
+- **Phase 3 (Core Education Services):** **Wave 1 (user-service) program gates closed 2026-04-12** (`P3-UA`…`P3-UE`, `AGENT33V` PASS). Operator follow-ups: legacy ETL (`ssh speakasap` + `migrate-user-from-legacy.py`), **user-service** deploy, cutover checklist — see `PHASE3_USER_VALIDATION_REPORT.md`. **Wave 2 (course)** opens on Lead scope only. Orchestration: `PHASE3_TASK_DECOMPOSITION.md`, `PHASE3_ORCHESTRATION_SUMMARY.md`.
 
 ## Related documentation
 
@@ -42,7 +42,7 @@ Refactor the legacy Django monolith (`speakasap-portal`) into a NestJS/Next.js e
 
 **Done (Phase 2):** **speakasap-certification-service** (port **4202**, DB `**speakasap_certification_db`**) and **speakasap-assessment-service** (port **4203**, DB `**speakasap_assessment_db`**). Assessment excludes obsolete `**teacher_tests**`. Closure: **2026-04-12** (`PHASE2_VALIDATION_REPORT.md`, `PHASE2_CUTOVER_CHECKLIST.md`).
 
-**In progress (Phase 3 — Wave 1):** **speakasap-user-service** (port **4207**, DB `**speakasap_user_db`**) per `ROADMAP.md` §3.3; legacy apps `students`, `employees` (teachers); integrate with **auth-microservice** (no local auth). Course and education services remain **future waves** until decomposed.
+**Phase 3 — Wave 1 (user-service) — program gates closed 2026-04-12:** **speakasap-user-service** (port **4207**, DB **`speakasap_user_db`**) per `ROADMAP.md` §3.3; legacy apps `students`, `employees` (teachers); **auth-microservice** integration. **Operator:** run legacy ETL + deploy + cutover checklist (`PHASE3_USER_VALIDATION_REPORT.md` §5). **Next waves:** course + education services — decompose when Lead opens scope.
 
 ## Global rules (all phases)
 

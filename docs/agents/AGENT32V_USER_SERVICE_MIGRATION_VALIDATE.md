@@ -21,8 +21,8 @@ Clear **P3-UD** before program validation (TASK-33).
 
 ## Manual Checks
 
-- [ ] Code review of migration script
-- [ ] Validation doc SQL is executable and matches schema
+- [x] Code review of migration script (2026-04-12 alfares: M2M cursor, manager FK on students, skip log summary)
+- [x] Validation doc SQL is executable and matches schema (`USER_DATA_VALIDATION.md` §1a-§3)
 
 ## Verdict
 

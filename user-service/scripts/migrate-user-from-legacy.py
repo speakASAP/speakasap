@@ -310,8 +310,10 @@ def migrate_teachers(src, tgt, email_map: dict[str, str]) -> tuple[int, int, int
     """
     t.execute('DELETE FROM teacher_additional_languages')
     tgt.commit()
-    s.execute(m2m_sql)
-    for rel in s.fetchall():
+    # Use a tuple cursor here: teacher query above uses RealDictCursor.
+    s_m2m = src.cursor()
+    s_m2m.execute(m2m_sql)
+    for rel in s_m2m.fetchall():
         tid, code = rel[0], rel[1]
         if not code:
             continue
@@ -331,6 +333,7 @@ def migrate_teachers(src, tgt, email_map: dict[str, str]) -> tuple[int, int, int
         except Exception as e:
             log(f"warn M2M teacher_id={tid} code={code}: {e}")
     tgt.commit()
+    s_m2m.close()
     s.close()
     t.close()
     return n, skipped, lang_rows
@@ -386,8 +389,12 @@ def migrate_students(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
         uid = email_map.get(r["lemail"] or "")
         if not uid:
             skipped += 1
-            log(f"skip student legacy id={r['id']} user_id={r['user_id']} (no auth UUID for email)")
             continue
+        mid = r["manager_id"]
+        if mid is not None:
+            t.execute("SELECT 1 FROM managers WHERE id = %s", (mid,))
+            if t.fetchone() is None:
+                mid = None
         t.execute(
             ins,
             (
@@ -398,7 +405,7 @@ def migrate_students(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
                 r["spam_bot"],
                 r["do_not_contact"],
                 r["email_additional"],
-                r["manager_id"],
+                mid,
                 r["telegram"],
                 r["whatsapp"],
                 r["phone_additional"],
@@ -414,6 +421,8 @@ def migrate_students(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
     tgt.commit()
     s.close()
     t.close()
+    if skipped:
+        log(f"students skipped_no_auth total={skipped} (per-row logs omitted; see dry-run counts)")
     return n, skipped
 
 

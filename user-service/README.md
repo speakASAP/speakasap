@@ -49,4 +49,5 @@ curl -s "http://localhost:${PORT:-4207}/health"
 - Contract: `docs/refactoring/USER_API_CONTRACT.md`
 - Mapping: `docs/refactoring/USER_DATA_MAPPING.md`
 - **AGENT31V (2026-04-12):** `npm run build` OK; route inventory matches contract (students/teachers/managers/employee-profiles + internal batch); list cap enforced via `MAX_PAGE_SIZE` / `getPaginationParams`; no hardcoded URLs in `src/`; request logging with ISO timestamps + `duration_ms` in `RequestContextMiddleware`. Run `/health` and curl smoke against a live DB + auth when available.
-- Next validation gate: `docs/agents/AGENT32V_USER_SERVICE_MIGRATION_VALIDATE.md` (**P3-UD**) after TASK-32 ETL.
+- **AGENT32V (2026-04-12):** PASS (script + docs + target schema/orphan SQL). Run live `migrate-user-from-legacy.py` when `ssh speakasap` works (add `IdentityFile` under `Host speakasap` in `~/.ssh/config`).
+- **AGENT33V (2026-04-12):** PASS — see `docs/refactoring/PHASE3_USER_VALIDATION_REPORT.md` (**P3-UE**).

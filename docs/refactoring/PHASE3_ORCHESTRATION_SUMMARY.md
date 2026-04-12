@@ -54,5 +54,7 @@ TASK-29 (scaffold) → TASK-30 (design) → TASK-31 (impl) → TASK-32 (migratio
 1. **P3-UA** ✅ — `AGENT29V` **PASS** (**2026-04-12**); TASK-29 scaffold validated.
 2. **P3-UB** ✅ — `AGENT30V` **PASS** (**2026-04-12**); contracts + mapping frozen (UUID `authUserId` aligned with auth-microservice).
 3. **P3-UC** ✅ — `AGENT31V` **PASS** (**2026-04-12**).
-4. **TASK-32** implementation ✅ — run **`AGENT32V`** for **P3-UD** (ETL + validation docs).
-5. Proceed strictly serial through TASK-33; open **Wave 2 (course)** decomposition only after Lead sign-off on Wave 1 scope/timing.
+4. **P3-UD** ✅ — `AGENT32V` **PASS** (**2026-04-12**, script/doc + empty-target SQL; live ETL pending `ssh speakasap` key).
+5. **P3-UE** ✅ — `AGENT33V` **PASS** (**2026-04-12**); `PHASE3_USER_VALIDATION_REPORT.md` + `PHASE3_USER_CUTOVER_CHECKLIST.md`.
+6. **Wave 1 user-service:** engineering gates closed — operator ETL (`ssh speakasap`), deploy, and cutover checklist remain before customer traffic.
+7. Proceed to **Wave 2 (course)** only after Lead sign-off on Wave 1 scope/timing.

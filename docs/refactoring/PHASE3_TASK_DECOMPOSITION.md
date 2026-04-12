@@ -46,7 +46,7 @@ No parallel tasks in Wave 1 (single service, serial critical path).
 | P3-UD | TASK-32 + `AGENT32V` PASS | ETL script + `USER_DATA_MIGRATION_LOG.md` / `USER_DATA_VALIDATION.md` |
 | P3-UE | TASK-33 + `AGENT33V` PASS | `PHASE3_USER_VALIDATION_REPORT.md` + `PHASE3_USER_CUTOVER_CHECKLIST.md`; GO/NO-GO |
 
-**Gate status (2026-04-12):** **P3-UA** PASS (`AGENT29V`). **P3-UB** PASS (`AGENT30V`). **P3-UC** PASS (`AGENT31V`). **P3-UD:** TASK-32 artifacts delivered; **`AGENT32V` pending**. **P3-UE:** open.
+**Gate status (2026-04-12):** **P3-UA** PASS (`AGENT29V`). **P3-UB** PASS (`AGENT30V`). **P3-UC** PASS (`AGENT31V`). **P3-UD** PASS (`AGENT32V`). **P3-UE** PASS (`AGENT33V` — Wave 1 user-service program gate; operator ETL/deploy follow-ups documented as non-blocking).
 
 ---
 
