@@ -57,13 +57,13 @@ If legacy `employees_teacher_additional_languages` uses a non-standard FK column
 
 | Field | Value |
 |-------|--------|
-| When (UTC) | **2026-04-12** - live ETL + validation |
+| When (UTC) | **2026-04-12** — validation + repeat live import (~22s); second pass after `INTERNAL_API_TOKEN` + ETL keys in `speakasap/.env`, logging **alias** `logging-microservice` on logging backend compose |
 | Operator | Agent on host **alfares** (`hostname` = alfares) |
 | Target DB | **`speakasap_user_db`** on `db-server-postgres` (host `127.0.0.1:5432` from alfares). |
 | Prisma | Migration **`20260412190000_init_user_tables`** already applied before this run. |
 | SSH / tunnel | `Host speakasap` -> `136.243.102.222`, user **`portal_db`**, key `~/.ssh/speakasap_ed25519`. Tunnel: `ssh -f -N -L 15432:127.0.0.1:5432 speakasap`. |
 | Env (no secrets in git) | `SOURCE_*` -> `portal_db` @ `127.0.0.1:15432/portal_db`; `TARGET_*` -> `speakasap_user_db` @ `127.0.0.1:5432`; `AUTH_*` -> `auth` @ `127.0.0.1:5432`. `dbadmin` password from `database-server/.env` (`DB_SERVER_ADMIN_PASSWORD`), URL-encoded in the URL if needed. |
-| Log artifact | `/tmp/user-migrate-final-20260412T100359Z.log` |
+| Log artifact | `/tmp/user-migrate-final-20260412T100359Z.log`; additional stdout logs under `/tmp/user-migrate-20260412T*.log` |
 | Auth index | **`auth.users` = 2 rows** at import time; almost all legacy rows skipped (no email UUID). |
 | Upsert summary | `user_identity_mirror` **2** / skipped_no_auth **214099**; `managers` **1** / skipped **2**; `teachers` **1** / skipped **379**; `teacher_additional_languages` **2**; `students` **2** / skipped **214057**; `employee_profiles` **1** / skipped **7**. |
 | Script fixes | M2M step uses a dedicated tuple cursor; `students.manager_id` nulled when target manager missing; student skip log summarized. |
