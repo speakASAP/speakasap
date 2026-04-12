@@ -28,7 +28,7 @@ Confirm certification and assessment **scaffolds** meet Sync **P2-A** so contrac
 
 4. **Configuration**
    - No hardcoded production URLs, ports, or secrets in new code.
-   - `.env.example` lists required keys (DB URL, port, `LOGGING_SERVICE_URL`, service name) — values empty or placeholders only.
+   - **`speakasap/.env.example`** lists required keys (DB URLs, ports, `LOGGING_SERVICE_URL`, service names) — values only in **`speakasap/.env`** (`ENV_MONOREPO.md`).
 
 5. **Port allocation**
    - `docs/infrastructure/PORT_ALLOCATION.md` still consistent; services use **4202** / **4203** as documented.

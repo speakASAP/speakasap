@@ -46,10 +46,10 @@ The production Django site **`speakasap-portal`** is **not** in this repository.
 
 ### 2. Configure Environment
 
-1. Copy `.env.example` to `.env` in your service directory
-2. Fill in all required values (see `docs/infrastructure/SHARED_SERVICES.md`)
-3. Never commit `.env` to git
-4. Keep `.env.example` updated with variable names (keys only, no values)
+1. Copy `speakasap/.env.example` to `speakasap/.env` (repo root only).
+2. Fill in all required values (see `docs/infrastructure/SHARED_SERVICES.md` and `docs/infrastructure/ENV_MONOREPO.md`).
+3. Never commit `.env` to git.
+4. Add new variable **names** only to `speakasap/.env.example` (keys only, no values); keep `speakasap/.env` as the single populated file.
 
 ### 3. Deploy Service
 
@@ -140,14 +140,14 @@ See `docs/infrastructure/DEPLOYMENT_GUIDE.md` for complete deployment instructio
 - `AI_SERVICE_URL` - If service uses AI features
 - Timeout and retry configurations
 
-See `.env.example` for complete list.
+See `speakasap/.env.example` for the complete key list.
 
 ## Best Practices
 
 1. **Use environment variables** - Never hardcode URLs or ports
 2. **Follow naming conventions** - Blue/green container suffixes
 3. **Implement health checks** - `/health` endpoint required
-4. **Keep .env synced** - Update `.env.example` with new variables (keys only)
+4. **Keep .env synced** - Update root `speakasap/.env.example` with new variable names (keys only)
 5. **Validate before deploy** - Test docker-compose files
 6. **Follow marathon patterns** - Consistency across services
 7. **Use shared utilities** - Leverage `shared/` directory

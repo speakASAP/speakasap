@@ -81,7 +81,7 @@ Design the Content Service API contract and Prisma schema based on legacy conten
   - Error handling for AI calls
 
 - **Shared Service Keys Guidance:**
-  - Include NOTIFICATIONS_* keys in contract docs or .env.example guidance
+  - Include NOTIFICATIONS_* keys in contract docs or **`speakasap/.env.example`** guidance
 
 - **Create Data Mapping Document:**
   - Map legacy Django models to Prisma models

@@ -23,7 +23,7 @@ Scope: TASK-11 through TASK-15 validation for Content Service cutover readiness.
   - `docs/refactoring/CONTENT_DATA_VALIDATION.md`
 - Implementation inspected:
   - `content-service/src/**/*.ts` controllers/services/shared
-  - `content-service/.env.example`
+  - `speakasap/.env.example` (monorepo SSOT; includes content keys)
   - infra/deploy files from TASK-11 and TASK-13 outputs
 - Verification commands:
   - `npm run build` in `content-service` -> PASS
@@ -170,7 +170,7 @@ Status: PASS (runtime availability)
   - `docs/infrastructure/SHARED_SERVICES.md`
   - `docs/infrastructure/PORT_ALLOCATION.md`
   - content nginx routes file
-- `.env.example` includes required integration keys and shared-service config placeholders.
+- **`speakasap/.env.example`** includes required integration keys and shared-service config placeholders.
 - Production Docker runtime reachable; `speakasap-content-green` is healthy and mapped `4204->4201`.
 
 Gap:

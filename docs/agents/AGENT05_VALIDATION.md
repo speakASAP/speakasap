@@ -17,7 +17,7 @@ Validate that contracts, integration, and infra are consistent and safe to deplo
 ## Scope
 
 - Review API contracts and data mappings.
-- Verify env config completeness and `.env.example` consistency.
+- Verify env config completeness and **`speakasap/.env.example`** / **`speakasap/.env`** consistency (`ENV_MONOREPO.md`).
 - Validate logging integration and request size limits.
 
 ## Do

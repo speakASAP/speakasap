@@ -1,6 +1,6 @@
 # SpeakASAP Port and Database Allocation (42xx Range)
 
-Reserved port range for SpeakASAP services is **42xx**. **Authoritative** mapping of each listed service to its default **HTTP port** and **PostgreSQL database name** on the shared `database-server` (`DATABASE_URL` / `DB_NAME`). Service `.env.example` files and `docker-compose.template.yml` defaults should match this table unless a task explicitly documents a temporary exception.
+Reserved port range for SpeakASAP services is **42xx**. **Authoritative** mapping of each listed service to its default **HTTP port** and **PostgreSQL database name** on the shared `database-server` (`DATABASE_URL` / `DB_NAME`). `speakasap/.env.example` and `docker-compose.template.yml` defaults should match this table unless a task explicitly documents a temporary exception.
 
 | Service | Port | PostgreSQL database | Notes |
 | ------ | ---- | -------------------- | ---- |

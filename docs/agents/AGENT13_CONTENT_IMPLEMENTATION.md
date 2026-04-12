@@ -61,7 +61,7 @@ Implement the Content Service as a complete NestJS application with all API endp
   ├── Dockerfile
   ├── docker-compose.blue.yml
   ├── docker-compose.green.yml
-  ├── .env.example
+  ├── (env template at speakasap/.env.example only)
   └── scripts/
       └── deploy.sh
   ```
@@ -118,7 +118,7 @@ Implement the Content Service as a complete NestJS application with all API endp
   - Rollback on failure
 
 - **Environment Configuration:**
-  - Create `.env.example` with all required keys
+  - Ensure **`speakasap/.env.example`** lists all required keys (no per-service copy)
   - Port: 4201
   - Database: `speakasap_content_db`
   - Logging service URL
@@ -170,7 +170,7 @@ Implement the Content Service as a complete NestJS application with all API endp
    - Green deployment configuration
    - Same as blue but different container names
 
-5. **`speakasap/content-service/.env.example`**
+5. **`speakasap/.env.example`** (content keys section; monorepo SSOT)
    - All required environment variables
    - Port: 4201
    - Database configuration

@@ -24,7 +24,7 @@ Backend Service Agent (Implementation): implement NestJS modules per frozen cont
 ## Do
 
 - Respect list limits ≤ **30**.
-- `.env` only via validated config; update `.env.example` keys if new variables appear.
+- **`speakasap/.env`** only via validated config; add new **key names** to **`speakasap/.env.example`** if new variables appear (`docs/infrastructure/ENV_MONOREPO.md`).
 
 ## Do Not
 

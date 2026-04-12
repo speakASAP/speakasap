@@ -7,11 +7,12 @@ services:
       dockerfile: Dockerfile
     container_name: speakasap-user-local
     ports:
-      - "${PORT:-4207}:${PORT:-4207}"
+      - "${USER_SERVICE_PORT:-4207}:${USER_SERVICE_PORT:-4207}"
     env_file:
-      - .env
+      - ../.env
     environment:
-      PORT: ${PORT:-4207}
+      PORT: ${USER_SERVICE_PORT:-4207}
+      DATABASE_URL: ${USER_DATABASE_URL}
     healthcheck:
       test:
         [

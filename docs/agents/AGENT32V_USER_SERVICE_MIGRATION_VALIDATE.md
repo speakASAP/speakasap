@@ -17,7 +17,7 @@ Clear **P3-UD** before program validation (TASK-33).
 1. Script matches `USER_DATA_MAPPING.md` (sources, transforms, FK rules).
 2. Dry-run / full-run CLI documented; destructive flags explicit.
 3. `USER_DATA_VALIDATION.md` includes count queries and orphan detection for all imported relations.
-4. No credentials committed; connection strings via env only.
+4. No credentials committed; connection strings via **`speakasap/.env`** only (`ENV_MONOREPO.md`).
 
 ## Manual Checks
 

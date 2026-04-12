@@ -6,6 +6,8 @@
   "scripts": {
     "build": "prisma generate && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
+    "prisma:migrate:deploy": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; export DATABASE_URL=\"${ASSESSMENT_DATABASE_URL:-$DATABASE_URL}\"; exec npx prisma migrate deploy'",
+    "prisma:validate": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; export DATABASE_URL=\"${ASSESSMENT_DATABASE_URL:-$DATABASE_URL}\"; exec npx prisma validate'",
     "postinstall": "prisma generate"
   },
   "dependencies": {

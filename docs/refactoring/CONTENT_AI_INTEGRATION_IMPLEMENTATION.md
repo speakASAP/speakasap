@@ -11,7 +11,7 @@ TASK-15 implementation adds a thin integration adapter from `content-service` to
 - `content-service/src/dictionary/dictionary.controller.ts`
 - `content-service/src/grammar/grammar.controller.ts`
 - `content-service/src/shared/validate-env.ts`
-- `content-service/.env.example`
+- `speakasap/.env.example` (content-related keys)
 
 ## Endpoints
 
@@ -61,7 +61,7 @@ All failures are logged with context and duration; secret values are never logge
 
 ## Environment Keys
 
-Added to `content-service/.env.example`:
+Added to **`speakasap/.env.example`**:
 
 - `AI_SERVICE_TIMEOUT`
 - `AI_SERVICE_API_KEY`

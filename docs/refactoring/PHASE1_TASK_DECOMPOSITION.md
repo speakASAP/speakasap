@@ -105,7 +105,7 @@ Set up the `speakasap` project structure, Docker configuration, and shared micro
 - Set up Docker Compose files (blue/green deployment)
 - Configure nginx-microservice integration
 - Set up shared microservice connections (auth, database, logging)
-- Create `.env.example` files
+- Maintain **`speakasap/.env.example`** (monorepo single template)
 - Configure port allocation (42xx range)
 - Set up logging integration
 
@@ -125,8 +125,8 @@ Set up the `speakasap` project structure, Docker configuration, and shared micro
 - Document shared service connection patterns (no shared code package)
 - Add notifications-microservice integration patterns and env keys
 - Document port allocation (42xx range)
-- Create `.env.example` templates
-- Define `.env` + `.env.example` sync steps for local + prod
+- Extend **`speakasap/.env.example`** templates (keys only)
+- Define **`speakasap/.env`** + **`speakasap/.env.example`** sync steps for local + prod
 - Set up centralized logging integration
 - Create deployment scripts following marathon pattern
 
@@ -270,7 +270,7 @@ Implement the Content Service as a NestJS application with all API endpoints, bu
 - `speakasap/content-service/Dockerfile` - Docker configuration
 - `speakasap/content-service/docker-compose.blue.yml` - Blue deployment config
 - `speakasap/content-service/docker-compose.green.yml` - Green deployment config
-- `speakasap/content-service/.env.example` - Environment variables template
+- `speakasap/.env.example` — environment variable template for all services in this repo (includes content keys)
 - `speakasap/content-service/scripts/deploy.sh` - Deployment script
 - `speakasap/content-service/README.md` - Service documentation
 
@@ -284,11 +284,11 @@ Implement the Content Service as a NestJS application with all API endpoints, bu
 - ✅ Controllers/services for read-only endpoints
 - ✅ Prisma integration and logging
 - ✅ Docker configs and deploy script (moved to root level)
-- ✅ `.env.example` and README created
+- ✅ **`speakasap/.env.example`** (content keys) and README created
 - ✅ Build/run verification complete
 - ✅ Prisma migrations created and applied
 - ✅ Service deployed and running
-- ✅ `.env.example` includes NOTIFICATIONS_MICROSERVICE_URL
+- ✅ **`speakasap/.env.example`** includes NOTIFICATIONS_MICROSERVICE_URL
 
 #### Exit Criteria
 

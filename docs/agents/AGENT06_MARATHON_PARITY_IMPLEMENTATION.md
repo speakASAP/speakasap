@@ -66,7 +66,7 @@ Close the gaps listed in `MARATHON_PARITY_CHECKLIST.md` by implementing missing 
 
 - Updated marathon controllers/services with missing endpoints.
 - Updated DTOs/response shapes to match legacy parity.
-- Updated `.env.example` if new keys are required (keys only).
+- Updated **`speakasap/.env.example`** (SpeakASAP monorepo) if new keys are required (keys only); marathon/portal repos keep their own templates.
 
 ## Exit Criteria
 

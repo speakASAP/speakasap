@@ -23,7 +23,7 @@ Create minimal NestJS applications for Phase 2 (ports **4202** and **4203**), wi
 
 - Add `certification-service/` and `assessment-service/` under `speakasap/`.
 - Integrate with root `docker-compose.yml` and deployment story **as already established** for Phase 1 (extend; do not redesign nginx-microservice code).
-- `.env.example` for each service + root keys as needed (keys only, no secrets).
+- **`speakasap/.env.example`** at repo root only (keys only, no secrets); **`speakasap/.env`** holds values for all SpeakASAP services here (`ENV_MONOREPO.md`).
 
 ## Do
 
@@ -33,7 +33,7 @@ Create minimal NestJS applications for Phase 2 (ports **4202** and **4203**), wi
   - Logging client wiring toward `LOGGING_SERVICE_URL` (same pattern as `content-service`)
 - Document in each service `README.md`: port, DB name, next steps (TASK-22 / TASK-25).
 - Ensure `npm install` and `npm run build` succeed in each new service directory.
-- Use database names: `speakasap_certification_db`, `speakasap_assessment_db` (document in README and `.env.example`).
+- Use database names: `speakasap_certification_db`, `speakasap_assessment_db` (document in README and **`speakasap/.env.example`**).
 
 ## Do Not
 
@@ -45,7 +45,7 @@ Create minimal NestJS applications for Phase 2 (ports **4202** and **4203**), wi
 
 ## Outputs
 
-- `speakasap/certification-service/` — scaffold, `README.md`, `.env.example`, `Dockerfile` if pattern requires
+- `speakasap/certification-service/` — scaffold, `README.md`, `Dockerfile` if pattern requires (env: monorepo root only)
 - `speakasap/assessment-service/` — same
 - Updates to root compose / scripts / `README.md` if required for Phase 2 services
 

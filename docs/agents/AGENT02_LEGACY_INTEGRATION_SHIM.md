@@ -44,4 +44,4 @@ Create a minimal integration layer in `speakasap-portal` that forwards marathon 
 
 - Legacy marathon traffic can be routed to new service with minimal changes.
 - Fallback/rollback path documented.
-- All new config values added to `.env.example` (keys only).
+- All new SpeakASAP monorepo config keys added to **`speakasap/.env.example`** (keys only); values in **`speakasap/.env`**.

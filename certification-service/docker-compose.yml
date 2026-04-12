@@ -7,11 +7,12 @@ services:
       dockerfile: Dockerfile
     container_name: speakasap-certification-local
     ports:
-      - "${PORT:-4202}:${PORT:-4202}"
+      - "${CERTIFICATION_SERVICE_PORT:-4202}:${CERTIFICATION_SERVICE_PORT:-4202}"
     env_file:
-      - .env
+      - ../.env
     environment:
-      PORT: ${PORT:-4202}
+      PORT: ${CERTIFICATION_SERVICE_PORT:-4202}
+      DATABASE_URL: ${CERTIFICATION_DATABASE_URL}
     healthcheck:
       test:
         [

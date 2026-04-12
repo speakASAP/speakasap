@@ -61,9 +61,11 @@ Pagination matches **content-service**: `page`, `limit`; `limit` is clamped to *
 
 ## Configuration
 
-Copy `.env.example` to `.env`. Required keys:
+Use **`speakasap/.env`** (see `docs/infrastructure/ENV_MONOREPO.md`). Required keys for this service include:
 
-`PORT`, `SERVICE_NAME`, `DATABASE_URL`, `LOGGING_SERVICE_URL`, `LOGGING_SERVICE_API_PATH`, `LOGGING_SERVICE_TIMEOUT`, `DEFAULT_PAGE_SIZE`, `MAX_PAGE_SIZE` (≤ 30), `JWT_SECRET`, `CERT_VIEW_TOKEN_SECRET`, `MATERIALS_PUBLIC_BASE_URL`, `INTERNAL_API_KEY`.
+`CERTIFICATION_SERVICE_PORT`, `CERTIFICATION_SERVICE_NAME`, `CERTIFICATION_DATABASE_URL`, logging trio, `DEFAULT_PAGE_SIZE`, `MAX_PAGE_SIZE` (≤ 30), `JWT_SECRET`, `CERT_VIEW_TOKEN_SECRET`, `MATERIALS_PUBLIC_BASE_URL`, `INTERNAL_API_KEY`.
+
+Containers still receive **`DATABASE_URL`** (wired from `CERTIFICATION_DATABASE_URL` in compose).
 
 - **`MATERIALS_PUBLIC_BASE_URL`**: base URL used with stored relative `imagePath` to build `imageUrl` in API responses.
 - **`INTERNAL_API_KEY`**: required for `POST /internal/.../generate` routes (`X-Internal-Api-Key` header).
@@ -71,7 +73,7 @@ Copy `.env.example` to `.env`. Required keys:
 ## Database
 
 ```bash
-npx prisma migrate deploy
+npm run prisma:migrate:deploy
 ```
 
 (Or `npm run prisma:migrate` during development.)
@@ -103,7 +105,7 @@ HTTP errors follow **content-service** style: `{ "error": { "code", "message", "
 ## Data migration (legacy portal → this DB)
 
 Script: `scripts/migrate-certification-from-legacy.py`  
-Env: `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL` (same shell as `DATABASE_URL` for target).  
+Env (in **`speakasap/.env`**): **`CERTIFICATION_SOURCE_DATABASE_URL`**, **`CERTIFICATION_TARGET_DATABASE_URL`** (or legacy `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`). See `docs/infrastructure/ENV_MONOREPO.md`.  
 Docs: `speakasap/docs/refactoring/CERTIFICATION_DATA_MIGRATION_LOG.md`, `CERTIFICATION_DATA_VALIDATION.md`.
 
 ## Next

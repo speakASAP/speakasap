@@ -17,7 +17,7 @@ Provide Docker and environment configuration for running the new service locally
 ## Scope
 
 - Dockerfile and docker-compose for `marathon`.
-- Env configuration rules and `.env.example` updates.
+- Env configuration rules and **`speakasap/.env.example`** updates (single template at repo root).
 - Logging microservice integration.
 
 ## Do
@@ -35,7 +35,7 @@ Provide Docker and environment configuration for running the new service locally
 ## Outputs
 
 - Docker setup plan or changes for `marathon`.
-- Env variable list and `.env.example` keys.
+- Env variable list and **`speakasap/.env.example`** keys.
 
 ## Acceptance Criteria
 

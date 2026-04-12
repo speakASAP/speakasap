@@ -10,8 +10,8 @@ Phase 3 Wave 1 — user domain (`USER_API_CONTRACT.md`, `USER_DATA_MAPPING.md`).
 
 ## Local run (Node)
 
-1. Copy `.env.example` to `.env` and fill required keys (see `.env.example`).
-2. Apply DB schema: `npx prisma migrate deploy` (against `speakasap_user_db`).
+1. Configure **`speakasap/.env`** at the monorepo root (see `docs/infrastructure/ENV_MONOREPO.md`). Set **`USER_DATABASE_URL`**, **`USER_SERVICE_PORT`**, **`USER_SERVICE_NAME`**, auth/logging/pagination keys, **`INTERNAL_API_TOKEN`**, etc.
+2. Apply DB schema: `npm run prisma:migrate:deploy` (loads `../.env` and uses `USER_DATABASE_URL`).
 3. `npm install`
 4. `npm run build`
 5. `npm start`

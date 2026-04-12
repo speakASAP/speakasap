@@ -2,9 +2,9 @@
 """
 One-off ETL: speakasap-portal Postgres (legacy) -> speakasap_certification_db (Prisma schema).
 
-Env:
-  SOURCE_DATABASE_URL — legacy Django DB (read-only recommended)
-  TARGET_DATABASE_URL — certification-service DATABASE_URL
+Env (monorepo `speakasap/.env`):
+  CERTIFICATION_SOURCE_DATABASE_URL / CERTIFICATION_TARGET_DATABASE_URL — preferred
+  SOURCE_DATABASE_URL / TARGET_DATABASE_URL — legacy fallback
 
 Options:
   --dry-run — count source rows only; no writes
@@ -301,10 +301,10 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--truncate-first", action="store_true")
     args = ap.parse_args()
-    src_url = os.environ.get("SOURCE_DATABASE_URL")
-    tgt_url = os.environ.get("TARGET_DATABASE_URL")
+    src_url = os.environ.get("CERTIFICATION_SOURCE_DATABASE_URL") or os.environ.get("SOURCE_DATABASE_URL")
+    tgt_url = os.environ.get("CERTIFICATION_TARGET_DATABASE_URL") or os.environ.get("TARGET_DATABASE_URL")
     if not src_url or not tgt_url:
-        log("ERROR: set SOURCE_DATABASE_URL and TARGET_DATABASE_URL")
+        log("ERROR: set CERTIFICATION_SOURCE_DATABASE_URL and CERTIFICATION_TARGET_DATABASE_URL (or SOURCE_DATABASE_URL and TARGET_DATABASE_URL)")
         return 2
     log("connecting source…")
     src = connect(src_url)

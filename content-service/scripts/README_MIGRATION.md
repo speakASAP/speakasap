@@ -65,7 +65,7 @@ Use when the legacy host cannot reach the Prisma Postgres (e.g. speakasap → al
    scp speakasap-content-export.tgz alfares:/tmp/
    ```
 
-3. **On alfares:** `git pull` the **speakasap** repo first so the import script matches the export format. Extract the archive, install `psycopg2` for system Python if needed (`pip3 install --user psycopg2-binary`), set `DATABASE_URL` to the **host** URL for `speakasap_content_db` (see `docker-compose` / `.env`: host `127.0.0.1`, port `5432`, user `dbadmin`, database `speakasap_content_db`). Then:
+3. **On alfares:** `git pull` the **speakasap** repo first so the import script matches the export format. Extract the archive, install `psycopg2` for system Python if needed (`pip3 install --user psycopg2-binary`), set `DATABASE_URL` to the **host** URL for `speakasap_content_db` (see `speakasap/.env` at repo root: host `127.0.0.1`, port `5432`, user `dbadmin`, database `speakasap_content_db`). Then:
 
    ```bash
    ssh alfares

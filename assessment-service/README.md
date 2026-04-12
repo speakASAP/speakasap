@@ -25,9 +25,11 @@ NestJS service for **adaptive language tests** (`language_tests`) and **asset-ba
 
 ## Configuration
 
-Copy `.env.example` to `.env`. Required keys include:
+Use **`speakasap/.env`** (see `docs/infrastructure/ENV_MONOREPO.md`). Required keys include:
 
-`PORT`, `SERVICE_NAME`, `DATABASE_URL`, logging trio, `AUTH_SERVICE_URL`, `AUTH_SERVICE_TIMEOUT`, `LANGUAGE_TEST_LANDING_BASE_URL`, `ASSESSMENT_SERVICE_PUBLIC_BASE_URL`, `ASSESSMENT_VIEW_TOKEN_SECRET`, `USER_TEST_ASSETS_DIR`.
+`ASSESSMENT_SERVICE_PORT`, `ASSESSMENT_SERVICE_NAME`, `ASSESSMENT_DATABASE_URL`, logging trio, `AUTH_SERVICE_URL`, `AUTH_SERVICE_TIMEOUT`, `LANGUAGE_TEST_LANDING_BASE_URL`, `ASSESSMENT_SERVICE_PUBLIC_BASE_URL`, `ASSESSMENT_VIEW_TOKEN_SECRET`, `USER_TEST_ASSETS_DIR`.
+
+Runtime still uses **`DATABASE_URL`** inside the container (mapped from `ASSESSMENT_DATABASE_URL` in compose).
 
 - **`LANGUAGE_TEST_LANDING_BASE_URL`:** public site base for HTML language test entry (used for `testUrl` catalog links).
 - **`ASSESSMENT_SERVICE_PUBLIC_BASE_URL`:** public base of this API (used for signed `resultUrl`).
@@ -36,7 +38,7 @@ Copy `.env.example` to `.env`. Required keys include:
 ## Data migration (legacy portal → this DB)
 
 Script: `scripts/migrate-assessment-from-legacy.py`  
-Env: `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`.  
+Env (in **`speakasap/.env`**): **`ASSESSMENT_SOURCE_DATABASE_URL`**, **`ASSESSMENT_TARGET_DATABASE_URL`** (or legacy `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`). See `docs/infrastructure/ENV_MONOREPO.md`.  
 Docs: `speakasap/docs/refactoring/ASSESSMENT_DATA_MIGRATION_LOG.md`, `ASSESSMENT_DATA_VALIDATION.md`.  
 Does not touch `teacher_tests`.
 

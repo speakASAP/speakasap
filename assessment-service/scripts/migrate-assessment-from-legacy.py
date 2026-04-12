@@ -3,7 +3,7 @@
 ETL: speakasap-portal (language_tests, user_tests) -> speakasap_assessment_db.
 Does not touch teacher_tests or certification tables.
 
-Env: SOURCE_DATABASE_URL, TARGET_DATABASE_URL
+Env (monorepo `speakasap/.env`): ASSESSMENT_SOURCE_DATABASE_URL / ASSESSMENT_TARGET_DATABASE_URL (preferred), or SOURCE_DATABASE_URL / TARGET_DATABASE_URL
 Options: --dry-run, --truncate-first
 """
 from __future__ import annotations
@@ -339,10 +339,10 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--truncate-first", action="store_true")
     args = ap.parse_args()
-    src_url = os.environ.get("SOURCE_DATABASE_URL")
-    tgt_url = os.environ.get("TARGET_DATABASE_URL")
+    src_url = os.environ.get("ASSESSMENT_SOURCE_DATABASE_URL") or os.environ.get("SOURCE_DATABASE_URL")
+    tgt_url = os.environ.get("ASSESSMENT_TARGET_DATABASE_URL") or os.environ.get("TARGET_DATABASE_URL")
     if not src_url or not tgt_url:
-        log("ERROR: SOURCE_DATABASE_URL and TARGET_DATABASE_URL required")
+        log("ERROR: set ASSESSMENT_SOURCE_DATABASE_URL and ASSESSMENT_TARGET_DATABASE_URL (or SOURCE_DATABASE_URL and TARGET_DATABASE_URL)")
         return 2
     src = connect(src_url)
     tgt = connect(tgt_url)

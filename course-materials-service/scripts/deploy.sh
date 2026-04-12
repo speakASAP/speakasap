@@ -13,6 +13,7 @@ set -e
 # Get script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SPEAKASAP_ROOT="$(cd "$PROJECT_ROOT/.." && pwd)"
 
 cd "$PROJECT_ROOT"
 
@@ -23,12 +24,12 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Load NODE_ENV from .env file to determine environment
+# Load NODE_ENV from monorepo root .env (single source of truth)
 NODE_ENV=""
-if [ -f "$PROJECT_ROOT/.env" ]; then
+if [ -f "$SPEAKASAP_ROOT/.env" ]; then
     set -a
     # shellcheck source=/dev/null
-    source "$PROJECT_ROOT/.env" 2>/dev/null || true
+    source "$SPEAKASAP_ROOT/.env" 2>/dev/null || true
     set +a
     NODE_ENV="${NODE_ENV:-}"
 fi

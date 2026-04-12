@@ -9,7 +9,7 @@ services:
     ports:
       - "${PORT:-4201}:${PORT:-4201}"
     env_file:
-      - .env
+      - ../.env
     environment:
       PORT: ${PORT:-4201}
     healthcheck:
