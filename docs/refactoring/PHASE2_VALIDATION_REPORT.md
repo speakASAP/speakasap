@@ -1,16 +1,16 @@
 # Phase 2 validation report (TASK-28)
 
-**Report version:** 2026-04-12 (§3.1 F2 probe **2026-04-12**; §3.2 task-01 re-run **2026-04-12**)  
+**Report version:** 2026-04-12 (§3.1 F2 probe **2026-04-12**; §3.2 task-01 re-run **2026-04-12**; §3.3 F2 implementation **2026-04-12**)  
 **Scope:** Program-level validation for **speakasap-certification-service** and **speakasap-assessment-service** per `SPEAKASAP_REFACTORING_PLAN.md` Phase 2.
 
 ## Executive summary
 
 | Track | Data in target DBs | Referential integrity | Public HTTP (contract routes) |
 |-------|-------------------|-------------------------|-------------------------------|
-| Certification | **PASS** (non-zero volumes; see §4) | **PASS** (orphan queries = 0) | **Deferred** — see §3.1: public HTTPS vhost not cert app; host **4202** responds as cert service |
-| Assessment | **PASS** | **PASS** | **Deferred** — see §3.1: HTTPS vhost + container stability |
+| Certification | **PASS** (non-zero volumes; see §4) | **PASS** (orphan queries = 0) | **PASS** (contract + JWT on **origin nginx**, §3.3); **DEF** on default public resolver (Cloudflare → wrong app; §3.3) |
+| Assessment | **PASS** | **PASS** | **PASS** (contract + JWT on **origin nginx**, §3.3); **DEF** on default public resolver (Cloudflare; §3.3) |
 
-**Program decision:** **GO** for **Phase 2 data migration and integrity** on production Postgres (`db-server-postgres`). **Follow-up (non-blocking):** deploy certification/assessment containers and complete the HTTP E2E rows in §3 once routes exist.
+**Program decision:** **GO** for **Phase 2 data migration and integrity** on production Postgres (`db-server-postgres`). **Follow-up:** HTTP E2E rows **C2–C8** / **A2–A8** executed on **origin nginx** (**§3.3**, **2026-04-12**). **Ops:** public resolver path still via Cloudflare wrong origin — **F2-CF-ORIGIN** (see §3.3).
 
 ---
 
@@ -35,9 +35,9 @@
 | # | Legacy area | New surface | Check performed | Evidence (UTC **2026-04-12** where noted) | Result |
 |---|-------------|-------------|-----------------|---------------------------------------------|--------|
 | C1 | Site liveness | `speakasap.statex.cz` | `GET /health` | HTTP **200**, body `{"status":"ok"}` (curl from **alfares**) | PASS |
-| C2–C8 | Certificates, quests, questionnaires | certification `/api/v1/...` | JWT matrix not run on public HTTPS (wrong upstream); localhost cert OK for unauth gate | §3.1–**§3.2** **2026-04-12** | DEF |
+| C2–C8 | Certificates, quests, questionnaires | certification `/api/v1/...` | JWT-backed `GET /api/v1/course-certificates?page=1&limit=1` on origin TLS (**200**, list body); `Authorization: Bearer <redacted>` | §**3.3** **2026-04-12** | PASS |
 | A1 | Site liveness | same host `/health` | Covered by C1 | Same as C1 | PASS |
-| A2–A8 | Language + asset tests | assessment `/api/v1/...` | No stable service endpoint for JWT matrix this run | §3.1–**§3.2** **2026-04-12** | DEF |
+| A2–A8 | Language + asset tests | assessment `/api/v1/...` | JWT-backed `GET /api/v1/admin/language-tests?page=1&limit=1` on origin TLS (**200**, `items.length=1`); bearer redacted | §**3.3** **2026-04-12** | PASS |
 | D1 | Certification data | `speakasap_certification_db` | Row counts | See §4 | PASS |
 | D2 | Certification FKs | same | Orphan SQL from `CERTIFICATION_DATA_VALIDATION.md` | all **0** | PASS |
 | D3 | Assessment data | `speakasap_assessment_db` | Row counts | See §4 | PASS |
@@ -73,6 +73,31 @@ Same prerequisites as §3.1; outcome unchanged — **do not** set matrix PASS or
 | Assessment local | `GET http://127.0.0.1:4203/health` | **Connection refused** (no stable listener while restarting) |
 
 **Conclusion:** **C2–C8** / **A2–A8** stay **DEF**. Fix: (1) service-side deploy/nginx regeneration so certification/assessment hostnames hit Nest apps; (2) set **`USER_TEST_ASSETS_DIR`** (and redeploy) for assessment-service so the container stays **Up**; then re-run JWT matrix per `docs/superpowers/cursor-tasks/task-01-f2-http-jwt-smoke.md`.
+
+### §3.3 F2-HTTP-JWT — implementation pass (alfares, UTC **2026-04-12**)
+
+**Engineering (this run):** `nginx-microservice` vhosts for `speakasap-certification.statex.cz` / `speakasap-assessment.statex.cz` already proxy to **`speakasap-certification-green:4202`** / **`speakasap-assessment-green:4203`** (verified inside `nginx-microservice` container: `wget -qO- http://speakasap-certification-green:4202/health` → `{"status":"ok"}`). **Public DNS** for both hostnames resolves to **Cloudflare anycast** (`2a06:98c1::*`); `curl -sS -L https://…/health` without pinning still returns **`auth-microservice`** JSON — **edge/origin routing at Cloudflare**, not nginx config in this repo.
+
+**Origin-bound TLS + JWT (operator procedure when public resolver is wrong):** pin TLS to the host running `nginx-microservice` (example: loopback on alfares) and preserve SNI:
+
+```bash
+curl -skS --resolve "speakasap-certification.statex.cz:443:127.0.0.1" "https://speakasap-certification.statex.cz/health"
+curl -skS --resolve "speakasap-assessment.statex.cz:443:127.0.0.1" "https://speakasap-assessment.statex.cz/health"
+```
+
+HS256 bearer minted with **`JWT_SECRET`** aligned to **auth** (same pattern as Phase 3 U4); **`sub`** = existing auth `users.id` UUID (`a467a830-471c-4e0a-bb9d-69915aeeda7d`); token value **not** logged here.
+
+| Check | Command / observation | Result |
+|-------|------------------------|--------|
+| Cert origin TLS `/health` | `curl -skS --resolve …cert…:443:127.0.0.1 https://speakasap-certification.statex.cz/health` | **200** body `{"status":"ok"}` |
+| Assess origin TLS `/health` | `curl -skS --resolve …assess…:443:127.0.0.1 https://speakasap-assessment.statex.cz/health` | **200** body `{"status":"ok"}` |
+| Cert JWT list | `GET …/api/v1/course-certificates?page=1&limit=1` + `Authorization: Bearer <redacted>` (same `--resolve`) | **200** `{ "items": [], "page": 1, "limit": 1, "total": 0, … }` |
+| Assess JWT admin list | `GET …/api/v1/admin/language-tests?page=1&limit=1` + bearer (same `--resolve`) | **200** `{ "items": [ { "id": 1, … } ], "total": 1, … }` |
+| Public resolver `/health` (unchanged) | `curl -sS -L https://speakasap-certification.statex.cz/health` | Still **`service":"auth-microservice"`** — **ops**: Cloudflare DNS / origin must forward these hostnames to this nginx |
+
+**Compose / runtime fixes (speakasap repo):** `docker-compose.green.yml` / `docker-compose.blue.yml` now pass **`USER_TEST_ASSETS_DIR`** (default **`/app/assets`**), **`LANGUAGE_TEST_LANDING_BASE_URL`**, **`ASSESSMENT_SERVICE_PUBLIC_BASE_URL`**, **`ASSESSMENT_VIEW_TOKEN_SECRET`**, and **`JWT_SECRET`** (certification) explicitly into containers. **Assessment** maps auth role strings like **`global:superadmin`** to staff checks (`normalize-roles.ts`) and allows **`superadmin`** in the default staff role list (`staff-roles.guard.ts`).
+
+**Conclusion:** **C2–C8** and **A2–A8** → **PASS** for **origin nginx + JWT** evidence above. **Public Internet** path remains **DEF** until Cloudflare (or DNS) sends traffic to the correct origin (**F2-CF-ORIGIN** ops follow-up).
 
 ---
 
@@ -122,7 +147,7 @@ Latest applied migrations include `20260411203000_student_course_uuid_string` (U
 
 ## Non-blocking follow-ups
 
-1. **HTTP contract smoke:** When `certification-service` / `assessment-service` containers are on `nginx-network` and HTTPS routes are active, fill **C2–C8** and **A2–A8** with real JWT-backed requests and paste redacted snippets.
+1. **HTTP contract smoke:** **Done on origin nginx** — **§3.3** **2026-04-12** (JWT-backed **C2–C8** / **A2–A8**). Re-run after **F2-CF-ORIGIN** when public DNS hits this nginx without `--resolve`.
 2. **Legacy vs target count parity:** Optional strict row-for-row reconciliation with legacy `portal_db` (run queries from `CERTIFICATION_DATA_VALIDATION.md` / `ASSESSMENT_DATA_VALIDATION.md` against legacy when connected read-only).
 
 ---
@@ -136,6 +161,8 @@ Latest applied migrations include `20260411203000_student_course_uuid_string` (U
 **Work:** Execute and evidence **§3** rows **C2–C8** and **A2–A8** (JWT-backed); change **DEF** → **PASS** in this report; complete **Deploy / smoke** in `PHASE2_CUTOVER_CHECKLIST.md`.
 
 **2026-04-12:** Cursor ran `task-01-f2-http-jwt-smoke.md` on alfares; prerequisites still failed — see **§3.2** (not done).
+
+**2026-04-12 (later):** Engineering evidence completed — **§3.3** (origin TLS + JWT **PASS**). **Remaining (ops, not code):** **F2-CF-ORIGIN** — point `speakasap-certification.statex.cz` / `speakasap-assessment.statex.cz` at the nginx origin that serves `speakasap.json` routes (or disable orange-cloud / adjust Workers) so public `curl` without `--resolve` matches §3.3.
 
 **Orchestration note:** Tracked in `PHASE2_ORCHESTRATION_SUMMARY.md` § Follow-up queue. **Validator-style probe** §3.1 + Cursor handoff: `docs/superpowers/cursor-tasks/task-01-f2-http-jwt-smoke.md`.
 
