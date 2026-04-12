@@ -27,5 +27,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package*.json ./
 COPY prisma ./prisma
+COPY assets ./assets
 EXPOSE ${PORT}
 CMD ["node", "dist/main.js"]

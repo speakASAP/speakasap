@@ -2,7 +2,7 @@
 
 This index lists the agent tasks for the SpeakASAP refactoring program. Each task has a dedicated agent prompt in `docs/agents/`.
 
-**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3 Wave 1 (user-service)** program gates **P3-UA…P3-UE** closed **2026-04-12** — operator ETL/deploy follow-ups in `PHASE3_USER_VALIDATION_REPORT.md`).
+**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3 Wave 1 (user-service)** program gates **P3-UA…P3-UE** closed **2026-04-12**; **F3** follow-ups **closed / waived** in `PHASE3_USER_VALIDATION_REPORT.md` **rev. c** + cutover **GO**).
 
 ## Task Structure
 
@@ -288,7 +288,7 @@ Phase2_closed → TASK-29 → TASK-30 → TASK-31 → TASK-32 → TASK-33
 
 - **Implementation:** `docs/agents/AGENT32_USER_SERVICE_MIGRATION.md`
 - **Validator:** `docs/agents/AGENT32V_USER_SERVICE_MIGRATION_VALIDATE.md`
-- **Status:** ✅ Complete — **`AGENT32V` PASS** (**2026-04-12**, script/doc + target schema smoke; **live ETL** pending SSH key to `speakasap`). Sync **P3-UD** **PASS**
+- **Status:** ✅ Complete — **`AGENT32V` PASS** (**2026-04-12**, script/doc + target schema smoke; **live ETL** executed **2026-04-12** per report **rev. c**). Sync **P3-UD** **PASS**
 - **Dependencies:** TASK-31 + `AGENT31V` PASS
 - **Agent Type:** Data Migration Agent
 
@@ -296,10 +296,10 @@ Phase2_closed → TASK-29 → TASK-30 → TASK-31 → TASK-32 → TASK-33
 
 - **Implementation:** `docs/agents/AGENT33_USER_PHASE3_VALIDATION.md`
 - **Validator:** `docs/agents/AGENT33V_USER_PHASE3_VALIDATION_VALIDATE.md`
-- **Status:** ✅ Complete — **`AGENT33V` PASS** (**2026-04-12**); `PHASE3_USER_VALIDATION_REPORT.md` + `PHASE3_USER_CUTOVER_CHECKLIST.md`; sync **P3-UE** **PASS** (engineering **GO**; operator follow-ups F3-* in report)
+- **Status:** ✅ Complete — **`AGENT33V` PASS** (**2026-04-12**); `PHASE3_USER_VALIDATION_REPORT.md` (**rev. c**) + `PHASE3_USER_CUTOVER_CHECKLIST.md`; sync **P3-UE** **PASS** (traffic **GO**; F3-BACKUP / rollback **closed**; F3-AUTH-PARITY **waived** Wave 1)
 - **Dependencies:** TASK-32 + `AGENT32V` PASS
 - **Agent Type:** QA/Contract Validator Agent
-- **Outputs (expected):** `PHASE3_USER_VALIDATION_REPORT.md`, `PHASE3_USER_CUTOVER_CHECKLIST.md`
+- **Outputs (expected):** `PHASE3_USER_VALIDATION_REPORT.md` (**rev. c**), `PHASE3_USER_CUTOVER_CHECKLIST.md`
 
 ---
 
