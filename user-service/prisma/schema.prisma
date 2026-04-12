@@ -1,0 +1,106 @@
+// Draft schema — TASK-30 design freeze. Migrations executed in TASK-31+.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Optional denormalized mirror for ETL / reads; omit table if implementation uses JWT-only display fields.
+model UserIdentityMirror {
+  authUserId        Int     @id @map("auth_user_id")
+  firstName         String  @default("") @map("first_name") @db.VarChar(255)
+  lastName          String  @default("") @map("last_name") @db.VarChar(255)
+  email             String  @default("") @db.VarChar(255)
+  phone             String  @default("") @db.VarChar(255)
+  interfaceLanguage String  @default("ru") @map("interface_language") @db.VarChar(10)
+  userCountry       String  @default("ru") @map("user_country") @db.VarChar(10)
+  avatarStorageKey  String? @map("avatar_storage_key") @db.VarChar(512)
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("user_identity_mirror")
+}
+
+model Student {
+  id               Int     @id @default(autoincrement())
+  authUserId       Int     @unique @map("auth_user_id")
+  notLoyal         Boolean @default(false) @map("not_loyal")
+  spamBot          Boolean @default(false) @map("spam_bot")
+  doNotContact     Boolean @default(false) @map("do_not_contact")
+  emailAdditional  String  @default("") @map("email_additional") @db.VarChar(255)
+  managerId        Int?    @map("manager_id")
+  telegram         String  @default("") @db.VarChar(64)
+  whatsapp         String  @default("") @db.VarChar(64)
+  phoneAdditional  String  @default("") @map("phone_additional") @db.VarChar(32)
+  readHelp         Boolean @default(false) @map("read_help")
+  motivation       String  @default("") @db.Text
+  portrait         String  @default("") @db.Text
+  salesInfo        String  @default("") @map("sales_info") @db.Text
+  country          String  @default("ru") @db.VarChar(10)
+  invoiceAddress   String  @default("") @map("invoice_address") @db.Text
+
+  @@index([managerId])
+  @@map("students")
+}
+
+model Teacher {
+  id                   Int      @id @default(autoincrement())
+  authUserId           Int      @unique @map("auth_user_id")
+  description          String?  @db.Text
+  position             String   @default("") @db.VarChar(255)
+  contractName         String   @default("") @map("contract_name") @db.VarChar(255)
+  passportNumber       String   @default("") @map("passport_number") @db.VarChar(255)
+  address              String   @default("") @db.Text
+  postalCode           String   @default("") @map("postal_code") @db.VarChar(32)
+  city                 String   @default("") @db.VarChar(255)
+  addressCz            String   @default("") @map("address_cz") @db.Text
+  cityCz               String   @default("") @map("city_cz") @db.VarChar(255)
+  languageCode         String   @map("language_code") @db.VarChar(32)
+  russian              Boolean  @default(false)
+  native               Boolean  @default(false)
+  languageSupport      Boolean  @default(false) @map("language_support")
+  canGetStudents       Boolean  @default(false) @map("can_get_students")
+  coordinatorInfo      String   @default("") @map("coordinator_info") @db.Text
+  workSince            DateTime? @map("work_since") @db.Date
+  contractEnd          DateTime? @map("contract_end") @db.Date
+  additionalLanguages  TeacherAdditionalLanguage[]
+
+  @@map("teachers")
+}
+
+model TeacherAdditionalLanguage {
+  teacherId     Int    @map("teacher_id")
+  languageCode  String @map("language_code") @db.VarChar(32)
+  teacher       Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@id([teacherId, languageCode])
+  @@map("teacher_additional_languages")
+}
+
+model Manager {
+  id             Int     @id @default(autoincrement())
+  authUserId     Int     @unique @map("auth_user_id")
+  description    String? @db.Text
+  position       String   @default("") @db.VarChar(255)
+  contractName   String   @default("") @map("contract_name") @db.VarChar(255)
+  passportNumber String   @default("") @map("passport_number") @db.VarChar(255)
+  address        String   @default("") @db.Text
+  postalCode     String   @default("") @map("postal_code") @db.VarChar(32)
+  city           String   @default("") @db.VarChar(255)
+  addressCz      String   @default("") @map("address_cz") @db.Text
+  cityCz         String   @default("") @map("city_cz") @db.VarChar(255)
+
+  @@map("managers")
+}
+
+model EmployeeProfile {
+  id              Int    @id @default(autoincrement())
+  authUserId      Int    @unique @map("auth_user_id")
+  additionalInfo  String? @map("additional_info") @db.Text
+  description     String? @db.Text
+  position        String? @db.VarChar(255)
+
+  @@map("employee_profiles")
+}

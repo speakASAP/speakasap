@@ -115,8 +115,8 @@ services:
   # speakasap-user-service
   speakasap-user-service:
     build:
-      context: .
-      dockerfile: ./services/user-service/Dockerfile
+      context: ./user-service
+      dockerfile: Dockerfile
     container_name: speakasap-user-service
     environment:
       NODE_ENV: ${NODE_ENV:-production}
