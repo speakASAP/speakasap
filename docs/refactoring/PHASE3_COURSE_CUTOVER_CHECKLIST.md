@@ -11,8 +11,8 @@
 
 ## ETL
 
-- [ ] `python3 course-service/scripts/migrate-course-from-legacy.py --dry-run` reviewed (**blocked**: legacy `COURSE_SOURCE_DATABASE_URL` not reachable — e.g. tunnel `127.0.0.1:15432`).
-- [ ] Full import with `--truncate-first` (or incremental strategy approved by Lead).
+- [x] `python3 course-service/scripts/migrate-course-from-legacy.py --dry-run` reviewed (**2026-04-13**, tunnel `127.0.0.1:15432 → speakasap:5432`).
+- [x] Full import with `--truncate-first` (or incremental strategy approved by Lead) (**2026-04-13**).
 
 ## Deploy
 
@@ -22,7 +22,7 @@
 ## Post-cutover smoke
 
 - [x] `GET /health` on course container (**2026-04-13**, blue stack).
-- [ ] Authenticated `GET /api/v1/products?page=1&limit=10` returns list envelope (**pending** JWT smoke).
+- [x] Authenticated `GET /api/v1/products?page=1&limit=10` returns list envelope (**2026-04-13**).
 
 ## Rollback
 
