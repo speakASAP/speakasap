@@ -1,33 +1,52 @@
 # speakasap-user-service
 
-Phase 3 Wave 1 — user domain microservice scaffold (**TASK-29**).
+Phase 3 Wave 1 — user domain (`USER_API_CONTRACT.md`, `USER_DATA_MAPPING.md`).
 
 | Item | Value |
 | ---- | ----- |
 | Default port | **4207** (`PORT`) |
-| Target PostgreSQL database | **`speakasap_user_db`** (via `DATABASE_URL` / `DB_NAME`) |
-| HTTP API prefix (reserved) | `/api/v1` (no domain routes in this scaffold) |
-| Health | `GET /health` → `{ "status": "ok" }` (no prefix) |
-
-Auth integration and user APIs are **TASK-30+**; this service only validates env, boots NestJS, and exposes health plus logging hooks.
+| Target PostgreSQL database | **`speakasap_user_db`** (`DATABASE_URL`) |
+| HTTP API prefix | `/api/v1` (health: `GET /health` without prefix) |
 
 ## Local run (Node)
 
-1. Copy `.env.example` to `.env` and fill required keys (`PORT`, `SERVICE_NAME`, `DATABASE_URL`, logging vars).
-2. `npm install`
-3. `npm run build`
-4. `npm start`
-5. Check health: `curl -s http://localhost:${PORT:-4207}/health`
+1. Copy `.env.example` to `.env` and fill required keys (see `.env.example`).
+2. Apply DB schema: `npx prisma migrate deploy` (against `speakasap_user_db`).
+3. `npm install`
+4. `npm run build`
+5. `npm start`
+6. Health: `curl -s http://localhost:${PORT:-4207}/health`
 
-## Local run (Docker)
+## Manual smoke (after DB + env)
 
-From this directory:
+```bash
+# Health (no auth)
+curl -s "http://localhost:${PORT:-4207}/health"
+
+# Student self (requires real JWT from auth-microservice)
+curl -s -H "Authorization: Bearer <ACCESS_TOKEN>" "http://localhost:${PORT:-4207}/api/v1/students/me"
+
+# Internal batch (requires INTERNAL_API_TOKEN)
+curl -s -X POST "http://localhost:${PORT:-4207}/api/v1/internal/students/upsert-by-auth-user" \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Token: ${INTERNAL_API_TOKEN}" \
+  -d '{"items":[{"authUserId":"<UUID>","country":"ru"}]}'
+```
+
+## ETL (TASK-32)
+
+See `docs/refactoring/USER_DATA_MIGRATION_LOG.md` and run `scripts/migrate-user-from-legacy.py` (`--dry-run`, optional `--truncate-first`).
+
+## Docker
 
 ```bash
 docker compose build && docker compose up -d
 curl -s "http://localhost:${PORT:-4207}/health"
 ```
 
-## Next step
+## Docs
 
-**TASK-30** — `docs/agents/AGENT30_USER_SERVICE_DESIGN.md` (API contract and data mapping).
+- Contract: `docs/refactoring/USER_API_CONTRACT.md`
+- Mapping: `docs/refactoring/USER_DATA_MAPPING.md`
+- **AGENT31V (2026-04-12):** `npm run build` OK; route inventory matches contract (students/teachers/managers/employee-profiles + internal batch); list cap enforced via `MAX_PAGE_SIZE` / `getPaginationParams`; no hardcoded URLs in `src/`; request logging with ISO timestamps + `duration_ms` in `RequestContextMiddleware`. Run `/health` and curl smoke against a live DB + auth when available.
+- Next validation gate: `docs/agents/AGENT32V_USER_SERVICE_MIGRATION_VALIDATE.md` (**P3-UD**) after TASK-32 ETL.
