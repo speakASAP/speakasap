@@ -237,12 +237,11 @@ def migrate_utq_answers(src, tgt) -> int:
         t.close()
         raise
     rows = s.fetchall()
-    for utq_id, ans_id in rows:
-        t.execute(
-            'INSERT INTO "LanguageUserTestQuestionAnswer" ("userTestQuestionId", "answerId") '
-            'VALUES (%s, %s) ON CONFLICT ("userTestQuestionId", "answerId") DO NOTHING',
-            (utq_id, ans_id),
-        )
+    ins = (
+        'INSERT INTO "LanguageUserTestQuestionAnswer" ("userTestQuestionId", "answerId") '
+        "VALUES (%s, %s) ON CONFLICT (\"userTestQuestionId\", \"answerId\") DO NOTHING"
+    )
+    psycopg2.extras.execute_batch(t, ins, rows, page_size=2000)
     tgt.commit()
     n = len(rows)
     s.close()

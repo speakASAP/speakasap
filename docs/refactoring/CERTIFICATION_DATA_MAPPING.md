@@ -77,7 +77,7 @@
 
 | Legacy | Target | Transform |
 |--------|--------|-----------|
-| `Certificate.course_id` | `CourseCertificate.studentCourseId` | Same PK as legacy `education_studentcourse.uuid`, stored as **string** (VARCHAR(36)) in certification DB |
+| `Certificate.course_id` | `CourseCertificate.studentCourseId` | Production legacy FK is to `courses_studentcourse` (integer `basestudentcourse_ptr_id`); resolve `courses_basestudentcourse.uuid` and store it as **string** (VARCHAR(36)). Do not assume `education_studentcourse` rows exist for those UUIDs. |
 | `Certificate.image` | `CourseCertificate.imagePath` | Store relative path; URL built with env base |
 | `EducationCertificate.student_course_id` | `EducationCertificate.studentCourseId` | UUID string (same as course certificates) |
 | `EducationCertificate.student_id` | `EducationCertificate.studentId` | |

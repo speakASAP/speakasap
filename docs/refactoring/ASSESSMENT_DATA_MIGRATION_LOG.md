@@ -48,3 +48,10 @@ Restore DB snapshot taken before `--truncate-first`, or truncate all assessment 
 | Dry-run counts | **Not run** — `SOURCE_DATABASE_URL` / `TARGET_DATABASE_URL` not configured in `assessment-service/.env`. |
 | Script completion | **Not run** (blocked: no legacy `SOURCE_DATABASE_URL` on alfares; same as certification log). |
 | M2M table name verified? | **Pending** (requires live legacy DB). |
+
+### 2026-04-12 — full ETL (Mac operator host)
+
+- **Connectivity:** same tunnel pattern as `CERTIFICATION_DATA_MIGRATION_LOG.md` (legacy `15432`, alfares Postgres `25432`); runtime `TARGET_DATABASE_URL` host substitution for host-side Python.
+- **Dry-run:** legacy counts (e.g. `language_tests_usertestquestion=116087`, `language_tests_usertest=9669`) captured.
+- **Import:** completed in one run; `languageUserTestQuestionAnswer=106324` (M2M table `language_tests_usertestquestion_answers` confirmed).
+- **Performance fix:** `migrate_utq_answers` used per-row `execute()` (~106k round-trips over SSH) and stalled; replaced with `psycopg2.extras.execute_batch` (`page_size=2000`).
