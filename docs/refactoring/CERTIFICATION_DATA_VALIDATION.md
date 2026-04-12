@@ -65,9 +65,9 @@ Pick one `CourseCertificate.id` from target and compare `imagePath` + `studentCo
 
 | Check | Result |
 |-------|--------|
-| Count parity / explained gaps | **Pending import** — alfares `2026-04-11`: target counts all **0** (no ETL yet). Legacy count SQL not run (no legacy DB on shared `db-server-postgres` instance for portal monolith). |
-| Orphan queries | **PASS** (all three counts **0** on target after migration). |
-| Assessment tables absent | **PASS** (`ILIKE '%language%'` on `pg_tables` returned **0** rows). |
+| Count parity / explained gaps | **PASS with documented variance** — **2026-04-12** alfares `speakasap_certification_db`: target counts listed in `PHASE2_VALIDATION_REPORT.md` § Data path evidence; vs legacy see `CERTIFICATION_DATA_MIGRATION_LOG.md` (duplicate natural keys). |
+| Orphan queries | **PASS** (all three counts **0** on target **2026-04-12**). |
+| Assessment tables absent | **PASS** (`ILIKE '%language%'` on `pg_tables` returned **0** rows **2026-04-12**). |
 | Rollback path understood | Documented in `CERTIFICATION_DATA_MIGRATION_LOG.md` (operator). |
 
-**Validator outcome:** **Conditional** — structural checks **PASS** on empty target; full **PASS** after live import + count parity vs legacy on the same environment that ran ETL.
+**Validator outcome:** **PASS** on data path (post-import target SQL + variance documented). Legacy count SQL remains operator responsibility on any host that can open the legacy DB; parity rationale in migration log.

@@ -1,6 +1,6 @@
 # Phase 2 Orchestration Summary
 
-**Last updated:** 2026-04-11 (P2-D recorded)
+**Last updated:** 2026-04-12 (data path evidence on alfares)
 **Lead Orchestrator:** `docs/agents/master-prompt.md`
 **Decomposition:** `PHASE2_TASK_DECOMPOSITION.md`
 
@@ -28,6 +28,8 @@
 **Sync status:** **P2-B cleared 2026-04-11** — TASK-22, TASK-25, `AGENT22V`, `AGENT25V` PASS; contracts and mappings frozen. **P2-C cleared 2026-04-11** — TASK-23, TASK-26, `AGENT23V`, `AGENT26V` PASS (`npm run build` on both services; endpoint/config/logging review vs frozen contracts). **Note:** Validator manual HTTP smoke (health + sample 400 envelope) should still be run against a running stack with DB before TASK-24/27 execution if not already done in your environment.
 
 **P2-D cleared 2026-04-11** — TASK-24 ∥ TASK-27 per parallelism gate (`AGENT23V` + `AGENT26V` PASS; separate DBs; no shared runner). Deliverables: Python ETL scripts in `certification-service/scripts/` and `assessment-service/scripts/`, migration + validation markdown under `docs/refactoring/`, Prisma migration aligning `studentCourseId` with legacy UUID strings, contract/mapping doc updates. **`AGENT24V` / `AGENT27V`:** PASS on code + doc review; operators still run count/orphan SQL from validation docs after live import.
+
+**P2-E (TASK-28 / AGENT28V):** **Open 2026-04-12** — ETL + target validation SQL **done** (see `PHASE2_VALIDATION_REPORT.md`, **B1–B2 cleared**). **Meta-verdict** still **FAIL (HTTP gate)** until E2E matrix (**B3**) is filled or **WAIVE** signed.
 
 **Timeline (indicative):** Sequential critical path ~3–4 weeks with parallelism on contracts and possibly migrations; adjust per team velocity.
 
@@ -143,5 +145,5 @@ TASK-21 → max(TASK-22→TASK-23→TASK-24, TASK-25→TASK-26→TASK-27) → TA
 3. Spawn TASK-22 and TASK-25 Implementation → Validators (parallel). ✅ (P2-B **2026-04-11**)
 4. Spawn TASK-23 and TASK-26 Implementation → `AGENT23V` / `AGENT26V` (parallel) for **P2-C**. ✅ **2026-04-11**
 5. TASK-24 ∥ TASK-27 + `AGENT24V` / `AGENT27V` for **P2-D**. ✅ **2026-04-11** (parallelism gate satisfied).
-6. **Current:** TASK-28 → `AGENT28V` for **P2-E**; clear P2-E only on meta-validator PASS.
+6. **Current:** TASK-28 — complete live ETL + parity + E2E matrix in `PHASE2_VALIDATION_REPORT.md`, then flip **AGENT28V** to **PASS** for **P2-E**.
 7. Keep `SPEAKASAP_REFACTORING_TASKS_INDEX.md` statuses aligned with execution.

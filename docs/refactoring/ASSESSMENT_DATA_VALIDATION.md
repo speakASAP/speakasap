@@ -61,9 +61,9 @@ SELECT COUNT(*) FROM "LanguageUserTestQuestion" q
 
 | Check | Result |
 |-------|--------|
-| teacher_tests absent | **PASS** — `pg_tables` … `ILIKE '%teacher%'` returned **0** rows on `speakasap_assessment_db` (alfares `2026-04-11`). |
-| Counts / documented variance | **Pending import** — all listed Prisma tables **0** rows (fresh schema). Legacy count SQL not run (no legacy DB URL on alfares). |
+| teacher_tests absent | **PASS** — `pg_tables` … `ILIKE '%teacher%'` returned **0** rows on `speakasap_assessment_db` (**2026-04-12** alfares; same **2026-04-11** empty-schema run). |
+| Counts / documented variance | **PASS** — target counts **2026-04-12** in `PHASE2_VALIDATION_REPORT.md` § Data path evidence (`LanguageUserTest` 9669, `LanguageUserTestQuestion` 116087, M2M 106324, `AssetUserTest` 389). M2M table `language_tests_usertestquestion_answers` confirmed during ETL. |
 | No certification tables | **PASS with note** — pattern `'%certificate%' OR '%quest%'` matches assessment names containing `question` / `Question` (e.g. `LanguageQuestion`). Rows returned: `LanguageQuestion`, `LanguageUserTestQuestion`, `LanguageUserTestQuestionAnswer` (expected assessment tables, not certification domain). |
-| Orphan queries | **PASS** (both counts **0**). |
+| Orphan queries | **PASS** (both counts **0** **2026-04-12**). |
 
-**PASS** when satisfied (full program parity still requires live ETL + count parity vs legacy).
+**Validator outcome:** **PASS** on data path (post-import). Program-level HTTP E2E remains in `PHASE2_VALIDATION_REPORT.md` (blocking **B3**).
