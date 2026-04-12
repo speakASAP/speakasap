@@ -1,0 +1,89 @@
+// Phase 3 Wave 3 — core education tables (legacy `education` app). Maps to Django defaults.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Group {
+  uuid           String          @id @map("uuid") @db.Uuid
+  title          String          @db.VarChar(255)
+  createdAt      DateTime        @default(now()) @map("created")
+  groupStudents  GroupStudent[]
+  studentCourses StudentCourse[]
+
+  @@map("education_group")
+}
+
+model GroupStudent {
+  id        Int    @id @default(autoincrement())
+  groupUuid String @map("group_id") @db.Uuid
+  studentId Int    @map("student_id")
+  group     Group  @relation(fields: [groupUuid], references: [uuid], onDelete: Cascade)
+
+  @@unique([groupUuid, studentId])
+  @@index([studentId])
+  @@map("education_group_students")
+}
+
+model StudentCourse {
+  uuid               String    @id @map("uuid") @db.Uuid
+  courseClass        String    @map("course_class") @db.VarChar(255)
+  courseDisplayTitle String    @default("") @map("course_display_title") @db.VarChar(255)
+  createdAt          DateTime  @default(now()) @map("created")
+  openStrategyClass  String    @map("open_strategy_class") @db.VarChar(255)
+  groupUuid          String    @map("group_id") @db.Uuid
+  previousUuid       String?   @unique @map("previous_id") @db.Uuid
+  isFinished         Boolean   @default(false) @map("is_finished")
+  endDate            DateTime? @map("end_date")
+  isNew              Boolean   @default(true) @map("is_new")
+  isPaused           Boolean   @default(false) @map("is_paused")
+  autoPause          Boolean   @default(false) @map("auto_pause")
+  pauseDate          DateTime? @map("pause_date")
+  group              Group     @relation(fields: [groupUuid], references: [uuid], onDelete: Restrict)
+  previous           StudentCourse? @relation("StudentCoursePrevNext", fields: [previousUuid], references: [uuid])
+  next               StudentCourse? @relation("StudentCoursePrevNext")
+  lessons            Lesson[]
+
+  @@index([groupUuid])
+  @@map("education_studentcourse")
+}
+
+model Lesson {
+  uuid                         String        @id @map("uuid") @db.Uuid
+  order                        Int
+  teacherId                    Int?          @map("teacher_id")
+  start                        DateTime?
+  lessonChangeStartCount       Int           @default(0) @map("lesson_change_start_count")
+  isFinished                   Boolean       @default(false) @map("is_finished")
+  studentCourseUuid            String        @map("student_course_id") @db.Uuid
+  moduleClass                  String        @map("module_class") @db.VarChar(255)
+  needsTeacher                 Boolean       @default(false) @map("needs_teacher")
+  assignTeacherAutomatically   Boolean       @default(false) @map("assign_teacher_automatically")
+  recommendation               String        @default("") @db.Text
+  toManager                    String        @default("") @map("to_manager") @db.Text
+  studentCourse                StudentCourse @relation(fields: [studentCourseUuid], references: [uuid], onDelete: Cascade)
+  homeworks                    Homework[]
+
+  @@index([studentCourseUuid])
+  @@map("education_lesson")
+}
+
+model Homework {
+  uuid           String  @id @map("uuid") @db.Uuid
+  lessonUuid     String  @map("lesson_id") @db.Uuid
+  studentId      Int     @map("student_id")
+  contentStudent String  @default("") @map("content_student") @db.Text
+  contentTeacher String  @default("") @map("content_teacher") @db.Text
+  ready          Boolean @default(false)
+  comment        String? @db.Text
+  checked        Boolean @default(false)
+  lesson         Lesson  @relation(fields: [lessonUuid], references: [uuid], onDelete: Cascade)
+
+  @@unique([lessonUuid, studentId])
+  @@index([studentId])
+  @@map("education_homework")
+}

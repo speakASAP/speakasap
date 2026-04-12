@@ -1,6 +1,6 @@
 # Phase 3 Orchestration Summary — Waves 1–3
 
-**Last updated:** 2026-04-12 (Wave 3 education decomposition + prompts added; execution **pending**)
+**Last updated:** 2026-04-12 (Wave 3 education — TASK-39…43 executed; **P3-EA…P3-EE** PASS)
 **Lead Orchestrator:** `docs/agents/master-prompt.md`
 **Decomposition (Wave 1):** `PHASE3_TASK_DECOMPOSITION.md`
 **Decomposition (Wave 2 — course):** `PHASE3_WAVE2_COURSE_TASK_DECOMPOSITION.md`
@@ -101,7 +101,7 @@ TASK-34 (scaffold) → TASK-35 (design) → TASK-36 (impl) → TASK-37 (migratio
 4. **P3-CD** ✅ — `AGENT37V` PASS (**2026-04-12**; live ETL pending operator).
 5. **P3-CE** ✅ — `AGENT38V` PASS (**2026-04-12**); `PHASE3_COURSE_VALIDATION_REPORT.md` + `PHASE3_COURSE_CUTOVER_CHECKLIST.md` (deploy/HTTP smoke **DEFERRED**).
 6. **Operator:** `prisma migrate deploy` on target, ETL dry-run/full import, deploy stack, curl smoke with JWT.
-7. **Wave 3 (education):** TASK-39…TASK-43 per `PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md` — **pending** until **P3-EA…P3-EE** each **PASS**.
+7. **Wave 3 (education):** TASK-39…TASK-43 — **P3-EA…P3-EE** **PASS** (**2026-04-12**); operator deploy/HTTP **DEFERRED** per `PHASE3_EDUCATION_VALIDATION_REPORT.md`.
 
 ---
 
@@ -137,8 +137,8 @@ TASK-39 (scaffold) → TASK-40 (design) → TASK-41 (impl) → TASK-42 (migratio
 
 ### Next actions (orchestrator)
 
-1. **P3-EA** — pending (`AGENT39` → `AGENT39V`).
-2. **P3-EB** — pending (`AGENT40` → `AGENT40V`).
-3. **P3-EC** — pending (`AGENT41` → `AGENT41V`).
-4. **P3-ED** — pending (`AGENT42` → `AGENT42V`; live ETL may follow operator schedule).
-5. **P3-EE** — pending (`AGENT43` → `AGENT43V`).
+1. **P3-EA** ✅ — `AGENT39V` PASS (**2026-04-12**).
+2. **P3-EB** ✅ — `AGENT40V` PASS (**2026-04-12**).
+3. **P3-EC** ✅ — `AGENT41V` PASS (**2026-04-12**).
+4. **P3-ED** ✅ — `AGENT42V` PASS (**2026-04-12**; live ETL operator).
+5. **P3-EE** ✅ — `AGENT43V` PASS (**2026-04-12**); deploy/HTTP **DEFERRED**.

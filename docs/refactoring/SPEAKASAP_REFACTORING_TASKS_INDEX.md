@@ -2,7 +2,7 @@
 
 This index lists the agent tasks for the SpeakASAP refactoring program. Each task has a dedicated agent prompt in `docs/agents/`.
 
-**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3 Wave 1** **P3-UA…P3-UE** closed **2026-04-12**; **Phase 3 Wave 2** **P3-CA…P3-CE** closed **2026-04-12**; **Phase 3 Wave 3 (education)** **P3-EA…P3-EE** — **pending execution**, prompts in `docs/agents/AGENT39*`…`AGENT43V*`).
+**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3 Wave 1** **P3-UA…P3-UE** closed **2026-04-12**; **Phase 3 Wave 2** **P3-CA…P3-CE** closed **2026-04-12**; **Phase 3 Wave 3** **P3-EA…P3-EE** closed **2026-04-12** — engineering **GO** per `PHASE3_EDUCATION_VALIDATION_REPORT.md`; deploy/HTTP smoke **DEFERRED** operator).
 
 ## Task Structure
 
@@ -378,7 +378,7 @@ Wave2_closed → TASK-39 → TASK-40 → TASK-41 → TASK-42 → TASK-43
 
 - **Implementation:** `docs/agents/AGENT39_EDUCATION_SERVICE_SCAFFOLD.md`
 - **Validator:** `docs/agents/AGENT39V_EDUCATION_SERVICE_SCAFFOLD_VALIDATE.md`
-- **Status:** Pending — sync **P3-EA** open until **`AGENT39V` PASS**
+- **Status:** ✅ Complete — **`AGENT39V` PASS** (**2026-04-12**); sync **P3-EA** **PASS**
 - **Dependencies:** Phase 3 Wave 2 complete
 - **Agent Type:** Infra/Docker Agent
 
@@ -386,7 +386,7 @@ Wave2_closed → TASK-39 → TASK-40 → TASK-41 → TASK-42 → TASK-43
 
 - **Implementation:** `docs/agents/AGENT40_EDUCATION_SERVICE_DESIGN.md`
 - **Validator:** `docs/agents/AGENT40V_EDUCATION_SERVICE_DESIGN_VALIDATE.md`
-- **Status:** Pending — sync **P3-EB** open until **`AGENT40V` PASS**
+- **Status:** ✅ Complete — **`AGENT40V` PASS** (**2026-04-12**); sync **P3-EB** **PASS**
 - **Dependencies:** TASK-39 + `AGENT39V` PASS
 - **Agent Type:** Backend Service Agent (Design)
 
@@ -394,7 +394,7 @@ Wave2_closed → TASK-39 → TASK-40 → TASK-41 → TASK-42 → TASK-43
 
 - **Implementation:** `docs/agents/AGENT41_EDUCATION_SERVICE_IMPLEMENTATION.md`
 - **Validator:** `docs/agents/AGENT41V_EDUCATION_SERVICE_IMPLEMENTATION_VALIDATE.md`
-- **Status:** Pending — sync **P3-EC** open until **`AGENT41V` PASS**
+- **Status:** ✅ Complete — **`AGENT41V` PASS** (**2026-04-12**); sync **P3-EC** **PASS**
 - **Dependencies:** TASK-40 + `AGENT40V` PASS
 - **Agent Type:** Backend Service Agent (Implementation)
 
@@ -402,7 +402,7 @@ Wave2_closed → TASK-39 → TASK-40 → TASK-41 → TASK-42 → TASK-43
 
 - **Implementation:** `docs/agents/AGENT42_EDUCATION_SERVICE_MIGRATION.md`
 - **Validator:** `docs/agents/AGENT42V_EDUCATION_SERVICE_MIGRATION_VALIDATE.md`
-- **Status:** Pending — sync **P3-ED** open until **`AGENT42V` PASS**
+- **Status:** ✅ Complete — **`AGENT42V` PASS** (**2026-04-12**); sync **P3-ED** **PASS** (script + docs; **live ETL** operator)
 - **Dependencies:** TASK-41 + `AGENT41V` PASS
 - **Agent Type:** Data Migration Agent
 
@@ -410,7 +410,7 @@ Wave2_closed → TASK-39 → TASK-40 → TASK-41 → TASK-42 → TASK-43
 
 - **Implementation:** `docs/agents/AGENT43_EDUCATION_PHASE3_VALIDATION.md`
 - **Validator:** `docs/agents/AGENT43V_EDUCATION_PHASE3_VALIDATION_VALIDATE.md`
-- **Status:** Pending — sync **P3-EE** open until **`AGENT43V` PASS**
+- **Status:** ✅ Complete — **`AGENT43V` PASS** (**2026-04-12**); `PHASE3_EDUCATION_VALIDATION_REPORT.md` + `PHASE3_EDUCATION_CUTOVER_CHECKLIST.md`; sync **P3-EE** **PASS** (HTTP/deploy **DEFERRED**)
 - **Dependencies:** TASK-42 + `AGENT42V` PASS
 - **Agent Type:** QA/Contract Validator Agent
 - **Outputs (expected):** `PHASE3_EDUCATION_VALIDATION_REPORT.md`, `PHASE3_EDUCATION_CUTOVER_CHECKLIST.md`
@@ -421,4 +421,4 @@ Wave2_closed → TASK-39 → TASK-40 → TASK-41 → TASK-42 → TASK-43
 
 - **Wave 1 (this repo):** User service — TASK-29…TASK-33 above.
 - **Wave 2 (this repo):** Course service — TASK-34…TASK-38 above.
-- **Wave 3 (this repo):** Education service — TASK-39…TASK-43 above (execution pending).
+- **Wave 3 (this repo):** Education service — TASK-39…TASK-43 above (**closed 2026-04-12** — engineering **GO**; operator follow-up as in report).

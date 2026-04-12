@@ -20,6 +20,7 @@ From a service directory, use npm scripts (they load `../.env` and pick the corr
 - `assessment-service`: `npm run prisma:validate` (uses `ASSESSMENT_DATABASE_URL`)
 - `user-service`: `npm run prisma:validate` (uses `USER_DATABASE_URL`)
 - `course-service`: `npm run prisma:validate` (uses `COURSE_DATABASE_URL`)
+- `education-service`: `npm run prisma:validate` (uses `EDUCATION_DATABASE_URL`)
 
 ## course-materials-service
 
@@ -39,6 +40,7 @@ Both migration scripts read from **`speakasap/.env`** at repo root. Use **prefix
 
 - **Certification** (`certification-service/scripts/migrate-certification-from-legacy.py`): `CERTIFICATION_SOURCE_DATABASE_URL`, `CERTIFICATION_TARGET_DATABASE_URL` (fallback: `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`).
 - **Assessment** (`assessment-service/scripts/migrate-assessment-from-legacy.py`): `ASSESSMENT_SOURCE_DATABASE_URL`, `ASSESSMENT_TARGET_DATABASE_URL` (same fallback).
+- **Education** (`education-service/scripts/migrate-education-from-legacy.py`): `EDUCATION_SOURCE_DATABASE_URL`, `EDUCATION_TARGET_DATABASE_URL` (same fallback).
 
 ## Migrating from old per-service `.env`
 

@@ -21,20 +21,20 @@ Clear **P3-EE** — Wave 3 education-service program gate.
 
 ## Manual Checks (record date + outcome)
 
-- [ ] Report vs checklist consistency
-- [ ] Gate table P3-EA…P3-ED aligned with validator outcomes
+- [x] Report vs checklist consistency — PASS (**2026-04-12**)
+- [x] Gate table P3-EA…P3-ED aligned with validator outcomes — PASS
 
 ## Verification results (evidence)
 
-_Record findings when run._
+**2026-04-12:** `PHASE3_EDUCATION_VALIDATION_REPORT.md` + `PHASE3_EDUCATION_CUTOVER_CHECKLIST.md`; HTTP/deploy **DEFERRED**; program **GO** for engineering through P3-ED per report.
 
 ## Sync gate
 
-- **P3-EE:** **PASS** or **FAIL**
+- **P3-EE:** **PASS**
 
 ## Verdict
 
-**PENDING**
+**PASS**
 
 ### If FAIL
 

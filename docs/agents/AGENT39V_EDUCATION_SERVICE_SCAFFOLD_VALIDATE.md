@@ -23,21 +23,21 @@ Confirm education-service scaffold meets sync **P3-EA** so TASK-40 (design) may 
 
 ## Manual Checks (record date + outcome)
 
-- [ ] `npm run build` in `education-service/`
-- [ ] README DB name and port
-- [ ] Grep `education-service/src` for suspicious hardcoded URLs
+- [x] `npm run build` in `education-service/` — PASS (**2026-04-12**)
+- [x] README DB name and port — PASS
+- [x] Grep `education-service/src` for suspicious hardcoded URLs — PASS
 
 ## Verification results (evidence)
 
-_Record findings, paths, and command output references when run._
+**2026-04-12:** `education-service/` NestJS scaffold; `npm run build` OK; port **4206** / DB **`speakasap_education_db`** in README; compose blocks in `docker-compose.blue.yml` / `green`; `.env.example` keys `EDUCATION_*`.
 
 ## Sync gate (before TASK-40)
 
-- **P3-EA:** **PASS** or **FAIL** — TASK-40 proceeds only on **PASS**.
+- **P3-EA:** **PASS** — TASK-40 may proceed.
 
 ## Verdict
 
-**PENDING** — set to **PASS** or **FAIL** after checks.
+**PASS**
 
 ### If FAIL
 
