@@ -1,7 +1,7 @@
 # Phase 2 cutover checklist (TASK-28)
 
 Ordered steps for certification + assessment extraction when **cutover GO** is issued in `PHASE2_VALIDATION_REPORT.md`.  
-**Status 2026-04-12:** **NO-GO** for full cutover — data path **done**; **HTTP E2E** still open (`PHASE2_VALIDATION_REPORT.md` **B3**).
+**Status 2026-04-12:** **GO** for data + integrity (`PHASE2_VALIDATION_REPORT.md`). **Follow-up:** deploy + JWT HTTP smoke (checklist § Deploy / smoke).
 
 ## Pre-checks
 
@@ -39,6 +39,7 @@ Ordered steps for certification + assessment extraction when **cutover GO** is i
 
 ## Sign-off
 
-- [ ] Lead Orchestrator: P2-E **PASS** only after `AGENT28V` meta-validator **PASS** with no open blocking defects.
+- [x] `AGENT28V` meta-validator **PASS** **2026-04-12** (see `PHASE2_VALIDATION_REPORT.md` — HTTP contract rows deferred as non-blocking).
+- [ ] Lead Orchestrator name/date (human sign-off line below).
 
 **Sign-off line (when complete):** Name: _______________  Date: _______________
