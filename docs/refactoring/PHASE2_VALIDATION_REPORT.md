@@ -1,6 +1,6 @@
 # Phase 2 validation report (TASK-28)
 
-**Report version:** 2026-04-12 (§3.1 F2 probe **2026-04-12**)  
+**Report version:** 2026-04-12 (§3.1 F2 probe **2026-04-12**; §3.2 task-01 re-run **2026-04-12**)  
 **Scope:** Program-level validation for **speakasap-certification-service** and **speakasap-assessment-service** per `SPEAKASAP_REFACTORING_PLAN.md` Phase 2.
 
 ## Executive summary
@@ -35,9 +35,9 @@
 | # | Legacy area | New surface | Check performed | Evidence (UTC **2026-04-12** where noted) | Result |
 |---|-------------|-------------|-----------------|---------------------------------------------|--------|
 | C1 | Site liveness | `speakasap.statex.cz` | `GET /health` | HTTP **200**, body `{"status":"ok"}` (curl from **alfares**) | PASS |
-| C2–C8 | Certificates, quests, questionnaires | certification `/api/v1/...` | JWT matrix not run on public HTTPS (wrong upstream); localhost cert OK for unauth gate | §3.1 **2026-04-12** | DEF |
+| C2–C8 | Certificates, quests, questionnaires | certification `/api/v1/...` | JWT matrix not run on public HTTPS (wrong upstream); localhost cert OK for unauth gate | §3.1–**§3.2** **2026-04-12** | DEF |
 | A1 | Site liveness | same host `/health` | Covered by C1 | Same as C1 | PASS |
-| A2–A8 | Language + asset tests | assessment `/api/v1/...` | No stable service endpoint for JWT matrix this run | §3.1 **2026-04-12** | DEF |
+| A2–A8 | Language + asset tests | assessment `/api/v1/...` | No stable service endpoint for JWT matrix this run | §3.1–**§3.2** **2026-04-12** | DEF |
 | D1 | Certification data | `speakasap_certification_db` | Row counts | See §4 | PASS |
 | D2 | Certification FKs | same | Orphan SQL from `CERTIFICATION_DATA_VALIDATION.md` | all **0** | PASS |
 | D3 | Assessment data | `speakasap_assessment_db` | Row counts | See §4 | PASS |
@@ -58,6 +58,21 @@ Delegated re-run when routing is fixed: `docs/superpowers/cursor-tasks/task-01-f
 | Assessment container | `docker ps`: **`speakasap-assessment-green`** | **`Restarting`** — no in-container `/health` for matrix until stable |
 
 **Conclusion:** **C2–C8** and **A2–A8** remain **DEF** (prerequisite: correct HTTPS upstream + stable assessment + JWT calls not satisfied this probe). No false PASS.
+
+### §3.2 Cursor `task-01-f2-http-jwt-smoke` re-execution (alfares, UTC **2026-04-12** ~15:57)
+
+Same prerequisites as §3.1; outcome unchanged — **do not** set matrix PASS or tick cutover until routing + stable assessment + JWT evidence exist.
+
+| Check | Command / observation | Result |
+|-------|------------------------|--------|
+| Cert HTTPS `/health` | `curl -sS -L https://speakasap-certification.statex.cz/health` | Still **`service":"auth-microservice"`** (not Nest `{ "status": "ok" }` only) |
+| Assess HTTPS `/health` | `curl -sS -L https://speakasap-assessment.statex.cz/health` | Same (**auth-microservice**) |
+| Cert HTTPS list (no JWT) | `GET …/api/v1/course-certificates?page=1&limit=1` | **404** (wrong upstream; not certification **401** envelope) |
+| Cert local | `GET http://127.0.0.1:4202/health` | **200** `{"status":"ok"}` — **speakasap-certification-green** healthy |
+| Assessment container | `docker ps`: **`speakasap-assessment-green`** | **`Restarting`** — logs: **`Missing required env vars: USER_TEST_ASSETS_DIR`** (bootstrap fails before matrix) |
+| Assessment local | `GET http://127.0.0.1:4203/health` | **Connection refused** (no stable listener while restarting) |
+
+**Conclusion:** **C2–C8** / **A2–A8** stay **DEF**. Fix: (1) service-side deploy/nginx regeneration so certification/assessment hostnames hit Nest apps; (2) set **`USER_TEST_ASSETS_DIR`** (and redeploy) for assessment-service so the container stays **Up**; then re-run JWT matrix per `docs/superpowers/cursor-tasks/task-01-f2-http-jwt-smoke.md`.
 
 ---
 
@@ -119,6 +134,8 @@ Latest applied migrations include `20260411203000_student_course_uuid_string` (U
 **Trigger:** `certification-service` and `assessment-service` are deployed and **routed** so HTTPS reaches their `/api/v1/...` surfaces (routing produced only via standard service deploy / blue-green regeneration — no hand-edited `nginx-microservice` rules).
 
 **Work:** Execute and evidence **§3** rows **C2–C8** and **A2–A8** (JWT-backed); change **DEF** → **PASS** in this report; complete **Deploy / smoke** in `PHASE2_CUTOVER_CHECKLIST.md`.
+
+**2026-04-12:** Cursor ran `task-01-f2-http-jwt-smoke.md` on alfares; prerequisites still failed — see **§3.2** (not done).
 
 **Orchestration note:** Tracked in `PHASE2_ORCHESTRATION_SUMMARY.md` § Follow-up queue. **Validator-style probe** §3.1 + Cursor handoff: `docs/superpowers/cursor-tasks/task-01-f2-http-jwt-smoke.md`.
 

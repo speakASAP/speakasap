@@ -1,6 +1,6 @@
 # Phase 3 Orchestration Summary — Wave 1 (User Service)
 
-**Last updated:** 2026-04-12
+**Last updated:** 2026-04-12 (aligned with `PHASE3_USER_VALIDATION_REPORT.md` **rev. c**)
 **Lead Orchestrator:** `docs/agents/master-prompt.md`
 **Decomposition:** `PHASE3_TASK_DECOMPOSITION.md`
 **Tasks index:** `SPEAKASAP_REFACTORING_TASKS_INDEX.md`
@@ -45,7 +45,7 @@ TASK-29 (scaffold) → TASK-30 (design) → TASK-31 (impl) → TASK-32 (migratio
 - Contract docs frozen before implementation that consumes them.
 - No hardcoded URLs/secrets; `LOGGING_SERVICE_URL` wired like Phase 1/2 services.
 - List endpoints enforce limit ≤ 30.
-- `PHASE3_USER_VALIDATION_REPORT.md` issues **GO** before education/course waves assume user APIs exist.
+- `PHASE3_USER_VALIDATION_REPORT.md` **rev. c** records engineering + traffic **GO** (F3 close-out §5) before education/course waves assume user APIs exist.
 
 ---
 
@@ -54,7 +54,7 @@ TASK-29 (scaffold) → TASK-30 (design) → TASK-31 (impl) → TASK-32 (migratio
 1. **P3-UA** ✅ — `AGENT29V` **PASS** (**2026-04-12**); TASK-29 scaffold validated.
 2. **P3-UB** ✅ — `AGENT30V` **PASS** (**2026-04-12**); contracts + mapping frozen (UUID `authUserId` aligned with auth-microservice).
 3. **P3-UC** ✅ — `AGENT31V` **PASS** (**2026-04-12**).
-4. **P3-UD** ✅ — `AGENT32V` **PASS** (**2026-04-12**, script/doc + empty-target SQL; live ETL pending `ssh speakasap` key).
-5. **P3-UE** ✅ — `AGENT33V` **PASS** (**2026-04-12**); `PHASE3_USER_VALIDATION_REPORT.md` + `PHASE3_USER_CUTOVER_CHECKLIST.md`.
-6. **Wave 1 user-service:** engineering gates closed — operator ETL (`ssh speakasap`), deploy, and cutover checklist remain before customer traffic.
-7. Proceed to **Wave 2 (course)** only after Lead sign-off on Wave 1 scope/timing.
+4. **P3-UD** ✅ — `AGENT32V` **PASS** (**2026-04-12**, script/doc + target schema; **live ETL** done **2026-04-12** per validation report **rev. c**).
+5. **P3-UE** ✅ — `AGENT33V` **PASS** (**2026-04-12**); `PHASE3_USER_VALIDATION_REPORT.md` **rev. c** + `PHASE3_USER_CUTOVER_CHECKLIST.md` (cutover **GO**).
+6. **Wave 1 user-service:** engineering + operator close-out complete — F3-BACKUP / rollback drill **closed**; F3-AUTH-PARITY **waived** Wave 1; traffic **GO** per checklist.
+7. Proceed to **Wave 2 (course)** only after Lead sign-off on Wave 2 scope/timing (Wave 1 cutover **GO** already recorded).
