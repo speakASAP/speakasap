@@ -2,7 +2,7 @@
 
 This index lists the agent tasks for the SpeakASAP refactoring program. Each task has a dedicated agent prompt in `docs/agents/`.
 
-**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–1 closed; **Phase 2 active** orchestration as of **2026-04-10**).
+**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 program gates closed **2026-04-12** for certification + assessment extraction; Phase 3 per `ROADMAP.md` when opened).
 
 ## Task Structure
 
@@ -164,7 +164,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 ## Phase 2: Certification & Assessment Services
 
-**Status:** **Active** — **P2-D cleared 2026-04-11**; **P2-E open** — ETL + target SQL validation **cleared 2026-04-12** (`PHASE2_VALIDATION_REPORT.md` **B1–B2**); **`AGENT28V` = FAIL (HTTP gate)** until **B3** E2E matrix is evidenced or **WAIVE** signed.
+**Status:** **Phase 2 program gates closed 2026-04-12** — **P2-D** (2026-04-11) + **P2-E** (`AGENT28V` **PASS**); HTTP JWT smoke for dedicated cert/assessment routes remains **non-blocking** follow-up in `PHASE2_VALIDATION_REPORT.md`.
 
 **Task Decomposition:** `docs/refactoring/PHASE2_TASK_DECOMPOSITION.md`
 
@@ -234,7 +234,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 - **Implementation:** `docs/agents/AGENT28_PHASE2_VALIDATION.md`
 - **Validator:** `docs/agents/AGENT28V_PHASE2_VALIDATION_VALIDATE.md` (meta-validator)
-- **Status:** **In progress** — outputs: `docs/refactoring/PHASE2_VALIDATION_REPORT.md`, `PHASE2_CUTOVER_CHECKLIST.md`, `PHASE2_PORTAL_SHIM.md`. **Meta (`AGENT28V`): FAIL (HTTP) 2026-04-12** — data path done (ETL + target SQL); unblock **B3**: deploy 4202/4203 if needed, fill E2E matrix in report, then re-run meta for **P2-E PASS** (or document **WAIVE**).
+- **Status:** ✅ Complete — **`AGENT28V` PASS 2026-04-12** (Sync **P2-E**). Evidence: `PHASE2_VALIDATION_REPORT.md` (alfares `db-server-postgres` counts + orphans + edge `/health`). Non-blocking: JWT HTTP matrix when services routed.
 - **Dependencies:** TASK-21…TASK-27 + all prior validators PASS
 - **Agent Type:** QA/Contract Validator Agent
 
@@ -242,4 +242,4 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 ## Phase 3+ (Aligned to ROADMAP)
 
-- Subsequent phases follow `docs/refactoring/ROADMAP.md` and will be decomposed when Phase 2 is complete (P2-E).
+- Subsequent phases follow `docs/refactoring/ROADMAP.md` (P2-E **PASS 2026-04-12** — decompose Phase 3 when Lead Orchestrator opens scope).
