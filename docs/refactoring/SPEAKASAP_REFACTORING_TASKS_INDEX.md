@@ -164,7 +164,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 ## Phase 2: Certification & Assessment Services
 
-**Status:** **Active** — **P2-D cleared 2026-04-11**; **P2-E open** — TASK-28 artifacts delivered (`PHASE2_VALIDATION_REPORT.md`, `PHASE2_CUTOVER_CHECKLIST.md`, `PHASE2_PORTAL_SHIM.md`); **`AGENT28V` = FAIL** until live ETL + parity + E2E evidence clears report blocking B1–B2 (see report).
+**Status:** **Active** — **P2-D cleared 2026-04-11**; **P2-E open** — ETL + target SQL validation **cleared 2026-04-12** (`PHASE2_VALIDATION_REPORT.md` **B1–B2**); **`AGENT28V` = FAIL (HTTP gate)** until **B3** E2E matrix is evidenced or **WAIVE** signed.
 
 **Task Decomposition:** `docs/refactoring/PHASE2_TASK_DECOMPOSITION.md`
 
@@ -234,7 +234,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 - **Implementation:** `docs/agents/AGENT28_PHASE2_VALIDATION.md`
 - **Validator:** `docs/agents/AGENT28V_PHASE2_VALIDATION_VALIDATE.md` (meta-validator)
-- **Status:** **In progress** — outputs: `docs/refactoring/PHASE2_VALIDATION_REPORT.md`, `PHASE2_CUTOVER_CHECKLIST.md`, `PHASE2_PORTAL_SHIM.md`. **Meta (`AGENT28V`): FAIL 2026-04-11** — unblock: legacy `SOURCE_DATABASE_URL`, run ETL + validation SQL + fill E2E matrix in report; then re-run meta section for **P2-E PASS**.
+- **Status:** **In progress** — outputs: `docs/refactoring/PHASE2_VALIDATION_REPORT.md`, `PHASE2_CUTOVER_CHECKLIST.md`, `PHASE2_PORTAL_SHIM.md`. **Meta (`AGENT28V`): FAIL (HTTP) 2026-04-12** — data path done (ETL + target SQL); unblock **B3**: deploy 4202/4203 if needed, fill E2E matrix in report, then re-run meta for **P2-E PASS** (or document **WAIVE**).
 - **Dependencies:** TASK-21…TASK-27 + all prior validators PASS
 - **Agent Type:** QA/Contract Validator Agent
 
