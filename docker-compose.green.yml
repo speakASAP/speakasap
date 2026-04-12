@@ -148,6 +148,48 @@ services:
       timeout: 10s
       retries: 2
 
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: speakasap-user-green
+    ports:
+      - "${USER_SERVICE_PORT_GREEN}:${USER_SERVICE_PORT}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=${USER_SERVICE_NAME}
+      - PORT=${USER_SERVICE_PORT}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${USER_DB_NAME}
+      - DATABASE_URL=${USER_DATABASE_URL}
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=${REDIS_PORT:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=${REDIS_DB:-}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_TIMESTAMP_FORMAT=${LOG_TIMESTAMP_FORMAT}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${USER_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
 networks:
   nginx-network:
     external: true

@@ -2,7 +2,7 @@
 
 This index lists the agent tasks for the SpeakASAP refactoring program. Each task has a dedicated agent prompt in `docs/agents/`.
 
-**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 program gates closed **2026-04-12** for certification + assessment extraction; Phase 3 per `ROADMAP.md` when opened).
+**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3 Wave 1 (user-service)** decomposed **2026-04-12** — `PHASE3_TASK_DECOMPOSITION.md`, TASK-29…TASK-33).
 
 ## Task Structure
 
@@ -135,7 +135,7 @@ Phase 0 outputs:
 
 ---
 
-## Orchestration (Phase 2) — Active
+## Orchestration (Phase 2) — Complete (reference)
 
 **Prerequisite:** ✅ Phase 1 complete — TASK-16 **GO** and Lead Orchestrator sign-off **2026-04-10** (`PHASE1_VALIDATION_REPORT.md`, `PHASE1_COMPLETION_SUMMARY.md`).
 
@@ -164,7 +164,7 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 ## Phase 2: Certification & Assessment Services
 
-**Status:** **Phase 2 program gates closed 2026-04-12** — **P2-D** (2026-04-11) + **P2-E** (`AGENT28V` **PASS**); HTTP JWT smoke for dedicated cert/assessment routes remains **non-blocking** follow-up in `PHASE2_VALIDATION_REPORT.md`.
+**Status:** **Phase 2 program gates closed 2026-04-12** — **P2-D** (2026-04-11) + **P2-E** (`AGENT28V` **PASS**). **F2-HTTP-JWT** follow-up scheduled when routes are live (see `PHASE2_VALIDATION_REPORT.md` § Scheduled follow-up + `PHASE2_ORCHESTRATION_SUMMARY.md`).
 
 **Task Decomposition:** `docs/refactoring/PHASE2_TASK_DECOMPOSITION.md`
 
@@ -240,6 +240,70 @@ Docs: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`.
 
 ---
 
+## Operational follow-up (Phase 2 — non-blocking)
+
+| ID | Item | When | Docs |
+| -- | ---- | ---- | ---- |
+| **F2-HTTP-JWT** | Dedicated certification + assessment HTTP/JWT matrix (`PHASE2_VALIDATION_REPORT.md` §3: C2–C8, A2–A8) | After both services are deployed and **routed** via standard service `deploy.sh` / blue-green (no hand-edited nginx) | Complete §3 rows; tick `PHASE2_CUTOVER_CHECKLIST.md` § Deploy/smoke |
+
+---
+
+## Orchestration (Phase 3) — Wave 1 (User service)
+
+**Prerequisite:** Phase 2 program gates closed (**2026-04-12**).
+
+**Dual prompts:** TASK-29…TASK-33 — Implementation then Validator; sync **P3-UA…P3-UE** per `PHASE3_TASK_DECOMPOSITION.md`.
+
+**Docs:** `PHASE3_TASK_DECOMPOSITION.md`, `PHASE3_ORCHESTRATION_SUMMARY.md`.
+
+```text
+Phase2_closed → TASK-29 → TASK-30 → TASK-31 → TASK-32 → TASK-33
+```
+
+### TASK-29: User Service Scaffold
+
+- **Implementation:** `docs/agents/AGENT29_USER_SERVICE_SCAFFOLD.md`
+- **Validator:** `docs/agents/AGENT29V_USER_SERVICE_SCAFFOLD_VALIDATE.md`
+- **Status:** ✅ Complete — `AGENT29V` **PASS** (**2026-04-12**); sync **P3-UA** **PASS**
+- **Dependencies:** Phase 2 closed
+- **Agent Type:** Infra/Docker Agent
+
+### TASK-30: User Service — Design and API Contract
+
+- **Implementation:** `docs/agents/AGENT30_USER_SERVICE_DESIGN.md`
+- **Validator:** `docs/agents/AGENT30V_USER_SERVICE_DESIGN_VALIDATE.md`
+- **Status:** ⏳ **AGENT30V pending** — artifacts: `USER_API_CONTRACT.md`, `USER_DATA_MAPPING.md`, optional `user-service/prisma/schema.prisma` (**2026-04-12**)
+- **Dependencies:** TASK-29 + `AGENT29V` PASS
+- **Agent Type:** Backend Service Agent (Design)
+
+### TASK-31: User Service — Implementation
+
+- **Implementation:** `docs/agents/AGENT31_USER_SERVICE_IMPLEMENTATION.md`
+- **Validator:** `docs/agents/AGENT31V_USER_SERVICE_IMPLEMENTATION_VALIDATE.md`
+- **Status:** ⏳ Blocked on P3-UB
+- **Dependencies:** TASK-30 + `AGENT30V` PASS
+- **Agent Type:** Backend Service Agent (Implementation)
+
+### TASK-32: User Service — Data Migration
+
+- **Implementation:** `docs/agents/AGENT32_USER_SERVICE_MIGRATION.md`
+- **Validator:** `docs/agents/AGENT32V_USER_SERVICE_MIGRATION_VALIDATE.md`
+- **Status:** ⏳ Blocked on P3-UC
+- **Dependencies:** TASK-31 + `AGENT31V` PASS
+- **Agent Type:** Data Migration Agent
+
+### TASK-33: User Wave — Program Validation & Cutover
+
+- **Implementation:** `docs/agents/AGENT33_USER_PHASE3_VALIDATION.md`
+- **Validator:** `docs/agents/AGENT33V_USER_PHASE3_VALIDATION_VALIDATE.md`
+- **Status:** ⏳ Blocked on P3-UD
+- **Dependencies:** TASK-32 + `AGENT32V` PASS
+- **Agent Type:** QA/Contract Validator Agent
+- **Outputs (expected):** `PHASE3_USER_VALIDATION_REPORT.md`, `PHASE3_USER_CUTOVER_CHECKLIST.md`
+
+---
+
 ## Phase 3+ (Aligned to ROADMAP)
 
-- Subsequent phases follow `docs/refactoring/ROADMAP.md` (P2-E **PASS 2026-04-12** — decompose Phase 3 when Lead Orchestrator opens scope).
+- **Wave 1 (this repo):** User service — TASK-29…TASK-33 above.
+- **Future waves:** Course (4205) and Education (4206) per `docs/refactoring/ROADMAP.md` §3.1–3.2 — decompose as **TASK-34+** (or separate index subsection) when Lead opens scope.

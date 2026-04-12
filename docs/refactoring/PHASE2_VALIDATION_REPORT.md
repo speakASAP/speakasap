@@ -97,6 +97,18 @@ Latest applied migrations include `20260411203000_student_course_uuid_string` (U
 
 ---
 
+## Scheduled follow-up: F2-HTTP-JWT
+
+**Index:** `SPEAKASAP_REFACTORING_TASKS_INDEX.md` — Operational follow-up (Phase 2).
+
+**Trigger:** `certification-service` and `assessment-service` are deployed and **routed** so HTTPS reaches their `/api/v1/...` surfaces (routing produced only via standard service deploy / blue-green regeneration — no hand-edited `nginx-microservice` rules).
+
+**Work:** Execute and evidence **§3** rows **C2–C8** and **A2–A8** (JWT-backed); change **DEF** → **PASS** in this report; complete **Deploy / smoke** in `PHASE2_CUTOVER_CHECKLIST.md`.
+
+**Orchestration note:** Tracked in `PHASE2_ORCHESTRATION_SUMMARY.md` § Follow-up queue.
+
+---
+
 ## Portal shim
 
 `PHASE2_PORTAL_SHIM.md` — no portal code required for standalone services; adapters remain optional on `speakasap2.0`.

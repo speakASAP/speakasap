@@ -15,6 +15,7 @@ speakasap/
 ├── .env.example                 # Environment variables template
 ├── certification-service/       # Phase 2 certification (port 4202)
 ├── assessment-service/          # Phase 2 assessment (port 4203)
+├── user-service/                # Phase 3 user service scaffold (port 4207)
 ├── nginx/
 │   └── nginx-api-routes.conf
 ├── scripts/

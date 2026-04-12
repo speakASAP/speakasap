@@ -10,7 +10,8 @@ You manage multiple independent AI agents working in parallel on the same codeba
 
 - **Phase 0 (Marathon extraction):** ✅ **Complete.** Do not re-spawn Phase 0 agents unless a regression or new marathon scope is explicitly opened.
 - **Phase 1 (Foundation & Content Service):** ✅ **Complete** (TASK-16 GO, Lead Orchestrator sign-off **2026-04-10**). Sync A–D closed. Re-open Phase 1 only for an explicit regression or scope change.
-- **Phase 2 (Certification & Assessment):** **Active orchestration focus.** Prerequisite Phase 1 met. Orchestration: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`. Every TASK-21…TASK-28 uses **paired prompts** (Implementation + Validator); see below.
+- **Phase 2 (Certification & Assessment):** ✅ **Complete** (program gates closed **2026-04-12**, `AGENT28V` PASS, `PHASE2_VALIDATION_REPORT.md` GO). Reference: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`. Re-open only for explicit regression or scope change.
+- **Phase 3 (Core Education Services):** **Planning / Wave 1 active (User service).** First opened slice: **TASK-29…TASK-33** (user-service scaffold → contract → implementation → migration → validation). Orchestration: `PHASE3_TASK_DECOMPOSITION.md`, `PHASE3_ORCHESTRATION_SUMMARY.md`. Full `ROADMAP.md` Phase 3 also includes course + education services — decompose those as separate waves when Lead opens scope.
 
 ## Related documentation
 
@@ -21,6 +22,8 @@ You manage multiple independent AI agents working in parallel on the same codeba
 - `docs/refactoring/PHASE1_ORCHESTRATION_SUMMARY.md` — short execution order and critical path
 - `docs/refactoring/PHASE2_TASK_DECOMPOSITION.md` — Phase 2 tasks, sync gates P2-A…P2-E, paired prompts
 - `docs/refactoring/PHASE2_ORCHESTRATION_SUMMARY.md` — Phase 2 critical path and parallel batches
+- `docs/refactoring/PHASE3_TASK_DECOMPOSITION.md` — Phase 3 task groups (Wave 1: user-service)
+- `docs/refactoring/PHASE3_ORCHESTRATION_SUMMARY.md` — Phase 3 execution order and sync gates
 - `docs/refactoring/SPEAKASAP_REFACTORING_PLAN.md` — strategy, constraints, phase boundaries
 - `docs/refactoring/ROADMAP.md` — long-range phases (including Phase 2 certification / assessment)
 - `docs/refactoring/PHASE0_COMPLETION_CHECKLIST.md` — Phase 0 closure evidence (reference)
@@ -37,7 +40,9 @@ Refactor the legacy Django monolith (`speakasap-portal`) into a NestJS/Next.js e
 
 **Done (Phase 1):** Foundation plus **speakasap-content-service** (read-only content: grammar, phonetics, dictionary, songs, language), port **4201**, DB `**speakasap_content_db`**, plus **ai-microservice** integration for content-related features. Closure: **2026-04-10** (`PHASE1_COMPLETION_SUMMARY.md`).
 
-**In progress (Phase 2):** **speakasap-certification-service** (port **4202**, DB `**speakasap_certification_db`**) and **speakasap-assessment-service** (port **4203**, DB `**speakasap_assessment_db`**). Assessment scope excludes obsolete `**teacher_tests**` (per `ROADMAP.md`).
+**Done (Phase 2):** **speakasap-certification-service** (port **4202**, DB `**speakasap_certification_db`**) and **speakasap-assessment-service** (port **4203**, DB `**speakasap_assessment_db`**). Assessment excludes obsolete `**teacher_tests**`. Closure: **2026-04-12** (`PHASE2_VALIDATION_REPORT.md`, `PHASE2_CUTOVER_CHECKLIST.md`).
+
+**In progress (Phase 3 — Wave 1):** **speakasap-user-service** (port **4207**, DB `**speakasap_user_db`**) per `ROADMAP.md` §3.3; legacy apps `students`, `employees` (teachers); integrate with **auth-microservice** (no local auth). Course and education services remain **future waves** until decomposed.
 
 ## Global rules (all phases)
 
@@ -86,6 +91,8 @@ Aligned with the FlipFlop orchestrator pattern (`flipflop-service/docs/agents/ma
 
 **Gate rule:** A Phase 2 **sync gate (P2-A … P2-E) clears only when the relevant Validator outcome is PASS** (or a documented **WAIVE** with Lead Orchestrator sign-off). Do not spawn the next Implementation agent until the prior Validator has passed.
 
+**Phase 3 — Wave 1 (user-service):** For **TASK-29 … TASK-33**, use the same **Implementation → Validator** pairing (`AGENT29`…`AGENT33` + `AGENT29V`…`AGENT33V`). Sync gates **P3-UA … P3-UE** clear only on Validator **PASS** (see `PHASE3_TASK_DECOMPOSITION.md`).
+
 **Phase 1 note:** TASK-11…TASK-16 currently use a single prompt each; adding paired validators for Phase 1 is optional and out of scope unless explicitly opened.
 
 ### 3. Sync point management (critical)
@@ -101,7 +108,7 @@ Aligned with the FlipFlop orchestrator pattern (`flipflop-service/docs/agents/ma
 | Sync C | After TASK-13, TASK-14, TASK-15 | Implementation, migration, and AI integration complete                     |
 | Sync D | After TASK-16                   | Validation report + cutover checklist GO                                   |
 
-**Phase 2 (active orchestration)**
+**Phase 2 (closed 2026-04-12 — reference)**
 
 | Sync | When | Gate |
 |------|------|------|
@@ -109,7 +116,17 @@ Aligned with the FlipFlop orchestrator pattern (`flipflop-service/docs/agents/ma
 | P2-B | After TASK-22 + TASK-25 + both design validators PASS | Certification + assessment API contracts and data mappings frozen ✅ **2026-04-11** |
 | P2-C | After TASK-23 + TASK-26 + both implementation validators PASS | Both services match frozen contracts |
 | P2-D | After TASK-24 + TASK-27 + both migration validators PASS | Migrations validated (parallelism TASK-24 ∥ TASK-27 only per `PHASE2_TASK_DECOMPOSITION.md`) |
-| P2-E | After TASK-28 + `AGENT28V` PASS | `PHASE2_VALIDATION_REPORT.md` + `PHASE2_CUTOVER_CHECKLIST.md`; Phase 2 GO/NO-GO |
+| P2-E | After TASK-28 + `AGENT28V` PASS | `PHASE2_VALIDATION_REPORT.md` + `PHASE2_CUTOVER_CHECKLIST.md`; Phase 2 GO/NO-GO ✅ **2026-04-12** |
+
+**Phase 3 — Wave 1: user-service (active when TASK-29 starts)**
+
+| Sync | When | Gate |
+|------|------|------|
+| P3-UA | After TASK-29 + `AGENT29V` PASS | User service scaffold (4207, `speakasap_user_db`, build, `/health`, env/logging) |
+| P3-UB | After TASK-30 + `AGENT30V` PASS | `USER_API_CONTRACT.md` + `USER_DATA_MAPPING.md` frozen |
+| P3-UC | After TASK-31 + `AGENT31V` PASS | Implementation matches frozen contract |
+| P3-UD | After TASK-32 + `AGENT32V` PASS | Migration script + validation docs complete |
+| P3-UE | After TASK-33 + `AGENT33V` PASS | User wave validation report + cutover checklist; GO/NO-GO |
 
 Rules:
 
@@ -135,12 +152,13 @@ Legacy remains source of truth until new service **parity** is proven. Integrati
 
 **Phase 1 (closed 2026-04-10):** Artifacts frozen — `PHASE1_VALIDATION_REPORT.md`, `CONTENT_CUTOVER_CHECKLIST.md`, `PHASE1_COMPLETION_SUMMARY.md`, `PHASE1_ORCHESTRATION_SUMMARY.md`. Use for reference or remediation only.
 
-**When Phase 2 is active:**
+**When Phase 2 was active (closed):** Same four bullets as historically executed; artifacts frozen in `PHASE2_*` docs.
 
-1. **Textual dependency graph** (per `PHASE2_ORCHESTRATION_SUMMARY.md`).
-2. **Parallel batches** and **parallelism gate** for TASK-24 ∥ TASK-27 (if applicable).
-3. **Per-task run list** — For each TASK-21…TASK-28: **two** prompt paths — Implementation (`AGENT{NN}_*.md`) **then** Validator (`AGENT{NN}V_*_VALIDATE.md`).
-4. **Program validation** — TASK-28 → `PHASE2_VALIDATION_REPORT.md`, `PHASE2_CUTOVER_CHECKLIST.md`; meta-validation via `AGENT28V_PHASE2_VALIDATION_VALIDATE.md` for **P2-E**.
+**When Phase 3 Wave 1 (user-service) is active:**
+
+1. **Dependency graph** (per `PHASE3_ORCHESTRATION_SUMMARY.md`).
+2. **Per-task run list** — TASK-29…TASK-33: Implementation **then** Validator for each.
+3. **Program validation** — TASK-33 → user-wave validation artifacts named in `PHASE3_TASK_DECOMPOSITION.md`; meta-validator `AGENT33V` for **P3-UE**.
 
 ## What you must not do
 
@@ -160,11 +178,14 @@ Favor options that minimize long-term refactor cost, preserve service isolation,
 
 **Phase 1 (closed):** Content service read API + migrated data + ai-microservice integration + **TASK-16 GO** — see `PHASE1_COMPLETION_SUMMARY.md` and `PHASE1_VALIDATION_REPORT.md`.
 
-**Phase 2 (active):** Certification + assessment services extracted, migrated, validated — see `PHASE2_TASK_DECOMPOSITION.md` and `PHASE2_ORCHESTRATION_SUMMARY.md`; **P2-E** requires TASK-28 + meta-validator PASS.
+**Phase 2 (closed):** Certification + assessment services extracted, migrated, validated — see `PHASE2_TASK_DECOMPOSITION.md` and `PHASE2_ORCHESTRATION_SUMMARY.md`; **P2-E** satisfied **2026-04-12** (TASK-28 + `AGENT28V` PASS).
+
+**Phase 3 — Wave 1 (user-service):** Scaffold, contracts, implementation, migration, program validation — see `PHASE3_TASK_DECOMPOSITION.md` and `PHASE3_ORCHESTRATION_SUMMARY.md`; **P3-UE** requires TASK-33 + `AGENT33V` PASS.
 
 ## First action (every time you assume this role)
 
 1. Open `docs/refactoring/SPEAKASAP_REFACTORING_TASKS_INDEX.md` and confirm **active phase** and **task statuses**.
-2. **Default (Phase 2):** Open `docs/refactoring/PHASE2_ORCHESTRATION_SUMMARY.md`. Enforce **P2-A … P2-E**. For each TASK-21…TASK-28, run **Implementation** prompt **then** **Validator** prompt; do not advance past a gate until the Validator **PASS** (or approved waive).
-3. **Phase 1 remediation only** if explicitly reopened: use `PHASE1_ORCHESTRATION_SUMMARY.md` and `docs/agents/AGENT{nn}_*.md` for TASK-11…TASK-16.
-4. Do not restart completed phases without cause.
+2. **Phase 3 — Wave 1 (default when user track is open):** Open `docs/refactoring/PHASE3_ORCHESTRATION_SUMMARY.md`. Enforce **P3-UA … P3-UE**. For each TASK-29…TASK-33, run **Implementation** prompt **then** **Validator** prompt; do not advance past a gate until the Validator **PASS** (or approved waive).
+3. **Phase 2 (closed):** Use `PHASE2_ORCHESTRATION_SUMMARY.md` and paired TASK-21…TASK-28 prompts **only** for regression or explicitly reopened scope — do not re-run the full program without cause.
+4. **Phase 1 remediation only** if explicitly reopened: use `PHASE1_ORCHESTRATION_SUMMARY.md` and `docs/agents/AGENT{nn}_*.md` for TASK-11…TASK-16.
+5. Do not restart completed phases without cause.

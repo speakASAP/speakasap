@@ -146,4 +146,5 @@ TASK-21 → max(TASK-22→TASK-23→TASK-24, TASK-25→TASK-26→TASK-27) → TA
 4. Spawn TASK-23 and TASK-26 Implementation → `AGENT23V` / `AGENT26V` (parallel) for **P2-C**. ✅ **2026-04-11**
 5. TASK-24 ∥ TASK-27 + `AGENT24V` / `AGENT27V` for **P2-D**. ✅ **2026-04-11** (parallelism gate satisfied).
 6. TASK-28 + `AGENT28V` for **P2-E**. ✅ **2026-04-12**
-7. **Current:** Phase 3 planning per `ROADMAP.md` (Lead Orchestrator opens next decomposition when ready); keep `SPEAKASAP_REFACTORING_TASKS_INDEX.md` aligned with execution.
+7. **Current:** Phase 3 **Wave 1 (user-service)** decomposition added **2026-04-12** — `PHASE3_TASK_DECOMPOSITION.md`, TASK-29…TASK-33. Course/education waves remain **future** until opened.
+8. **Scheduled follow-up (non-blocking):** **F2-HTTP-JWT** — run `PHASE2_VALIDATION_REPORT.md` §3 matrix (C2–C8, A2–A8) when certification + assessment containers are deployed and routed via standard service deploy scripts; update report rows DEF→PASS; complete `PHASE2_CUTOVER_CHECKLIST.md` § Deploy/smoke.
