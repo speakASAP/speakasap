@@ -17,6 +17,7 @@ speakasap/
 ├── assessment-service/          # Phase 2 assessment (port 4203)
 ├── user-service/                # Phase 3 user service (port 4207)
 ├── course-service/              # Phase 3 Wave 2 course service (port 4205)
+├── financial-service/           # Phase 4 financial service (port 4213)
 ├── nginx/
 │   └── nginx-api-routes.conf
 ├── scripts/

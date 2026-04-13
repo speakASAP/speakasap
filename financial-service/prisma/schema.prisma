@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model CategoryAxisSnapshot {
+  id                 String   @id @default(uuid())
+  legacyCategoryId   Int      @unique @map("legacy_category_id")
+  title              String
+  productForOffers   Boolean  @default(false) @map("product_for_offers")
+  syncedAt           DateTime @default(now()) @map("synced_at")
+
+  @@map("category_axis_snapshots")
+}
+
+model MonthlyRevenueByCategory {
+  id                 String   @id @default(uuid())
+  periodMonth        DateTime @map("period_month") @db.Date
+  categoryKey        String   @map("category_key")
+  legacyCategoryId   Int?     @map("legacy_category_id")
+  totalMinor         Int      @map("total_minor")
+  currency           String
+  titleSnapshot      String?  @map("title_snapshot")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([periodMonth, categoryKey])
+  @@index([periodMonth])
+  @@map("monthly_revenue_by_category")
+}
+
+model MonthlyRevenueByMethod {
+  id           String   @id @default(uuid())
+  periodMonth  DateTime @map("period_month") @db.Date
+  methodKeyRaw String   @map("method_key_raw")
+  totalMinor   Int      @map("total_minor")
+  currency     String
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([periodMonth, methodKeyRaw])
+  @@index([periodMonth])
+  @@map("monthly_revenue_by_method")
+}
+
+model LedgerLine {
+  id                   String   @id @default(uuid())
+  legacyTransactionId  Int      @unique @map("legacy_transaction_id")
+  legacyPortalUserId   Int      @map("legacy_portal_user_id")
+  amountMinor          Int      @map("amount_minor")
+  isIncome             Boolean  @map("is_income")
+  legacyOrderId        Int?     @map("legacy_order_id")
+  comment              String   @default("")
+  external             Boolean  @default(false)
+  currency             String
+  createdAt            DateTime @map("created_at")
+  source               String   @default("ledger_transaction")
+
+  @@index([createdAt])
+  @@index([legacyOrderId])
+  @@map("ledger_lines")
+}
+
+model OperatingExpenseLine {
+  id          String   @id @default(uuid())
+  amountMinor Int      @map("amount_minor")
+  currency    String
+  comment     String   @default("")
+  date        DateTime @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([date])
+  @@map("operating_expense_lines")
+}
+
+model SalaryPeriodTotalCache {
+  id              String   @id @default(uuid())
+  month           DateTime @unique @map("month") @db.Date
+  currencyTotals  Json     @map("currency_totals")
+  lineCount       Int      @map("line_count")
+  periodStart     String?  @map("period_start")
+  periodEnd       String?  @map("period_end")
+  fetchedAt       DateTime @default(now()) @map("fetched_at")
+
+  @@map("salary_period_total_cache")
+}
+
+model MonthlyFinancialRollup {
+  periodMonth                 DateTime @id @map("period_month") @db.Date
+  totalPaidOrdersMinor        Int      @map("total_paid_orders_minor")
+  totalTransactionsNetMinor   Int      @map("total_transactions_net_minor")
+  currency                    String
+  operatingExpenseLedgerMinor Int    @default(0) @map("operating_expense_ledger_minor")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  @@map("monthly_financial_rollups")
+}
+
+model FinancialSyncState {
+  id                String    @id
+  lastRefreshAt     DateTime? @map("last_refresh_at")
+  lastRefreshError  String?   @map("last_refresh_error")
+
+  @@map("financial_sync_state")
+}

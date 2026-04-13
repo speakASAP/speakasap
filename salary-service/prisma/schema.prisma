@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SalaryExpenseKind {
+  generic
+  lesson
+  support_bonus
+}
+
+enum CalculationRunStatus {
+  draft
+  finalized
+  failed
+}
+
+enum PayoutRunStatus {
+  draft
+  processing
+  completed
+  failed
+}
+
+enum PayoutLineStatus {
+  draft
+  queued
+  processing
+  paid
+  failed
+}
+
+model SalaryProfile {
+  id                        String   @id @default(uuid())
+  legacyProfileId           Int?     @unique @map("legacy_profile_id")
+  legacyPortalUserId        Int      @map("legacy_portal_user_id")
+  authUserId                String?  @map("auth_user_id")
+  currency                  String
+  preferablePm              String?  @map("preferable_pm")
+  salary                    Decimal  @db.Decimal(12, 2)
+  rate                      Decimal  @db.Decimal(12, 2)
+  showAsTeacher             Boolean  @default(true) @map("show_as_teacher")
+  showAsOther               Boolean  @default(false) @map("show_as_other")
+  bankAccount               String?  @map("bank_account")
+  paypalAccount             String?  @map("paypal_account")
+  workDurationLowerBound    Int?     @map("work_duration_lower_bound")
+  workDurationUpperBound    Int?     @map("work_duration_upper_bound")
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  expenses         SalaryExpense[]
+  calculationLines CalculationLine[]
+  payoutLines      PayoutLine[]
+
+  @@index([legacyPortalUserId])
+  @@map("salary_profiles")
+}
+
+model SalaryExpense {
+  id                   String             @id @default(uuid())
+  legacyExpenseId      Int?             @unique @map("legacy_expense_id")
+  profileId            String           @map("profile_id")
+  legacyPortalUserId   Int              @map("legacy_portal_user_id")
+  date                 DateTime         @db.Date
+  price                Decimal          @db.Decimal(12, 2)
+  qty                  Decimal          @default(1) @db.Decimal(12, 4)
+  comment              String           @default("")
+  currency             String
+  kind                 SalaryExpenseKind
+  lessonUuid           String?          @map("lesson_uuid")
+  legacyStudentId      Int?             @map("legacy_student_id")
+  legacyStudentGroupId Int?             @map("legacy_student_group_id")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  profile     SalaryProfile @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  payoutLines PayoutLine[]
+
+  @@index([profileId, date])
+  @@index([legacyPortalUserId, date])
+  @@map("salary_expenses")
+}
+
+model EmployeeContract {
+  id                 String    @id @default(uuid())
+  legacyContractId   Int?      @unique @map("legacy_contract_id")
+  legacyPortalUserId Int       @map("legacy_portal_user_id")
+  profileId          String?   @map("profile_id")
+  documentStorageKey String?   @map("document_storage_key")
+  verified           Boolean   @default(false)
+  validFrom          DateTime? @map("valid_from") @db.Date
+  validTill          DateTime? @map("valid_till") @db.Date
+  mainContractId     String?   @map("main_contract_id")
+  contractUid        String?   @map("contract_uid")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  main EmployeeContract?  @relation("ContractProlongation", fields: [mainContractId], references: [id], onDelete: SetNull)
+  subs EmployeeContract[] @relation("ContractProlongation")
+
+  @@index([legacyPortalUserId])
+  @@index([profileId])
+  @@map("employee_contracts")
+}
+
+model CalculationRun {
+  id           String                @id @default(uuid())
+  period       String
+  status       CalculationRunStatus   @default(draft)
+  rulesVersion String                @map("rules_version")
+  profileIds   Json?                 @map("profile_ids_filter")
+  createdAt    DateTime              @default(now()) @map("created_at")
+  updatedAt    DateTime              @updatedAt @map("updated_at")
+
+  lines       CalculationLine[]
+  payoutRuns  PayoutRun[]
+
+  @@index([createdAt(sort: Desc)])
+  @@map("calculation_runs")
+}
+
+model CalculationLine {
+  id                 String   @id @default(uuid())
+  runId              String   @map("run_id")
+  profileId          String   @map("profile_id")
+  legacyPortalUserId Int      @map("legacy_portal_user_id")
+  amount             Decimal  @db.Decimal(12, 2)
+  currency           String
+  breakdown          Json     @default("{}")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  run         CalculationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  profile     SalaryProfile  @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  payoutLines PayoutLine[]
+
+  @@index([runId])
+  @@map("calculation_lines")
+}
+
+model PayoutRun {
+  id               String           @id @default(uuid())
+  status           PayoutRunStatus  @default(draft)
+  calculationRunId String?          @map("calculation_run_id")
+  lockExpiresAt    DateTime?        @map("lock_expires_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  calculationRun CalculationRun? @relation(fields: [calculationRunId], references: [id], onDelete: SetNull)
+  lines          PayoutLine[]
+
+  @@index([createdAt(sort: Desc)])
+  @@map("payout_runs")
+}
+
+model PayoutLine {
+  id                 String           @id @default(uuid())
+  payoutRunId        String           @map("payout_run_id")
+  profileId          String           @map("profile_id")
+  legacyPortalUserId Int              @map("legacy_portal_user_id")
+  calculationLineId  String?          @map("calculation_line_id")
+  salaryExpenseId    String?          @map("salary_expense_id")
+  amountMinor        Int              @map("amount_minor")
+  currency           String
+  status             PayoutLineStatus @default(draft)
+  payoutRef          String?          @map("payout_ref")
+  paymentServiceRef  String?          @map("payment_service_ref")
+  period             String?
+  metadata           Json             @default("{}")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  payoutRun       PayoutRun        @relation(fields: [payoutRunId], references: [id], onDelete: Cascade)
+  profile         SalaryProfile    @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  calculationLine CalculationLine? @relation(fields: [calculationLineId], references: [id], onDelete: SetNull)
+  salaryExpense   SalaryExpense?   @relation(fields: [salaryExpenseId], references: [id], onDelete: SetNull)
+
+  @@index([payoutRunId])
+  @@map("payout_lines")
+}
+
+model IdempotencyRecord {
+  idempotencyKey String   @id @map("idempotency_key")
+  route          String
+  requestHash    String   @map("request_hash")
+  statusCode     Int      @map("status_code")
+  responseBody   Json     @map("response_body")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("idempotency_records")
+}
