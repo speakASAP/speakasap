@@ -39,22 +39,29 @@ Confirm **payment-service** scaffold meets sync **P4-OA** so TASK-45 may start.
 
 ## Verification results (evidence)
 
-Leave this section empty until execution.
+- **2026-04-13:** `npm run build` in `speakasap/payment-service/` — **PASS** (exit 0; `prisma generate` + `tsc`).
+- **Layout:** `payment-service/` with `src/`, `shared/*`, Prisma, `Dockerfile`, aligned with Phase 3 Nest patterns (`course-service/` reference).
+- **`/health`:** `src/app.controller.ts` `@Get('health')`; `main.ts` excludes `health` from `api/v1` prefix → **`GET /health`**.
+- **Env:** Root `speakasap/.env.example` includes `PAYMENT_SERVICE_PORT`, `PAYMENT_DB_NAME`, `PAYMENT_DATABASE_URL`, `PAYMENTS_MICROSERVICE_URL`, `LOGGING_*`, `AUTH_MICROSERVICE_URL`.
+- **Secrets / URLs in src:** `rg 'https?://|localhost' payment-service/src` — **no matches**.
+- **Port / DB:** `docs/infrastructure/PORT_ALLOCATION.md` — **4208**, **`speakasap_payment_db`**; README matches.
+- **Compose:** `docker-compose.blue.yml` / `docker-compose.green.yml` — `payment-service` wired; **follow-up:** `docker-compose.template.yml` build path corrected to `./payment-service` + `Dockerfile` (same as blue/green) for manual template runs.
+- **Forbidden repos:** No cross-repo edits required for this gate (scope `speakasap` only).
 
 ## Manual Checks (record evidence)
 
-- [ ] Build in `payment-service/` passes.
-- [ ] README includes port `4208`, DB `speakasap_payment_db`.
-- [ ] No hardcoded secrets/URLs in `payment-service/src`.
-- [ ] Compose includes payment service wiring.
+- [x] Build in `payment-service/` passes.
+- [x] README includes port `4208`, DB `speakasap_payment_db`.
+- [x] No hardcoded secrets/URLs in `payment-service/src`.
+- [x] Compose includes payment service wiring.
 
 ## Sync gate (before TASK-45)
 
-- **P4-OA:** _PENDING / PASS / FAIL_
+- **P4-OA:** **PASS** (2026-04-13)
 
 ## Verdict
 
-_PENDING_
+**PASS** — TASK-44 closed; TASK-45 may proceed.
 
 ### If FAIL
 
