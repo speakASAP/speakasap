@@ -2,7 +2,7 @@
 
 This index lists the agent tasks for the SpeakASAP refactoring program. Each task has a dedicated agent prompt in `docs/agents/`.
 
-**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3 Wave 1** **P3-UA…P3-UE** closed **2026-04-12**; **Phase 3 Wave 2** **P3-CA…P3-CE** closed **2026-04-12**; **Phase 3 Wave 3** **P3-EA…P3-EE** closed **2026-04-12** — engineering **GO** per `PHASE3_EDUCATION_VALIDATION_REPORT.md`; deploy/HTTP smoke **DEFERRED** operator).
+**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3** waves 1–3 closed **2026-04-12** — engineering **GO**; deploy/HTTP smoke **DEFERRED** operator where noted). **Phase 4** (**TASK-44…TASK-63**) **opened** **2026-04-13** — sync gates **P4-OA…P4-FE** **open** until corresponding validators **PASS**; see `PHASE4_TASK_DECOMPOSITION.md`, `PHASE4_ORCHESTRATION_SUMMARY.md`.
 
 ## Task Structure
 
@@ -422,3 +422,188 @@ Wave2_closed → TASK-39 → TASK-40 → TASK-41 → TASK-42 → TASK-43
 - **Wave 1 (this repo):** User service — TASK-29…TASK-33 above.
 - **Wave 2 (this repo):** Course service — TASK-34…TASK-38 above.
 - **Wave 3 (this repo):** Education service — TASK-39…TASK-43 above (**closed 2026-04-12** — engineering **GO**; operator follow-up as in report).
+
+---
+
+## Orchestration (Phase 4) — Payment, Notification, Salary, Financial
+
+**Status:** **Active** (opened **2026-04-13**). **Dual prompts:** TASK-44…TASK-63 — Implementation then Validator; sync gates **P4-OA…P4-OE**, **P4-NA…P4-NE**, **P4-SA…P4-SE**, **P4-FA…P4-FE** per [`PHASE4_TASK_DECOMPOSITION.md`](PHASE4_TASK_DECOMPOSITION.md).
+
+**Docs:** `PHASE4_TASK_DECOMPOSITION.md`, `PHASE4_ORCHESTRATION_SUMMARY.md`.
+
+**Scope (`ROADMAP.md` §5 Phase 4):** `speakasap-payment-service` (**4208**, `speakasap_payment_db`); `speakasap-notification-service` (**4209**, `speakasap_notification_db`); `speakasap-salary-service` (**4212**, `speakasap_salary_db`); `speakasap-financial-service` (**4213**, `speakasap_financial_db`).
+
+```text
+Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…63
+```
+
+### TASK-44: Payment Service Scaffold
+
+- **Implementation:** `docs/agents/AGENT44_PAYMENT_SERVICE_SCAFFOLD.md`
+- **Validator:** `docs/agents/AGENT44V_PAYMENT_SERVICE_SCAFFOLD_VALIDATE.md`
+- **Status:** Pending — sync **P4-OA** open
+- **Dependencies:** Phase 3 complete (program gates)
+- **Agent Type:** Infra/Docker Agent
+
+### TASK-45: Payment Service — Design and API Contract
+
+- **Implementation:** `docs/agents/AGENT45_PAYMENT_SERVICE_DESIGN.md`
+- **Validator:** `docs/agents/AGENT45V_PAYMENT_SERVICE_DESIGN_VALIDATE.md`
+- **Status:** Pending — sync **P4-OB** open
+- **Dependencies:** TASK-44 + `AGENT44V` PASS
+- **Agent Type:** Backend Service Agent (Design)
+
+### TASK-46: Payment Service — Implementation
+
+- **Implementation:** `docs/agents/AGENT46_PAYMENT_SERVICE_IMPLEMENTATION.md`
+- **Validator:** `docs/agents/AGENT46V_PAYMENT_SERVICE_IMPLEMENTATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-OC** open
+- **Dependencies:** TASK-45 + `AGENT45V` PASS
+- **Agent Type:** Backend Service Agent (Implementation)
+
+### TASK-47: Payment Service — Data Migration
+
+- **Implementation:** `docs/agents/AGENT47_PAYMENT_SERVICE_MIGRATION.md`
+- **Validator:** `docs/agents/AGENT47V_PAYMENT_SERVICE_MIGRATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-OD** open
+- **Dependencies:** TASK-46 + `AGENT46V` PASS
+- **Agent Type:** Data Migration Agent
+
+### TASK-48: Payment Wave — Program Validation and Cutover
+
+- **Implementation:** `docs/agents/AGENT48_PAYMENT_PHASE4_VALIDATION.md`
+- **Validator:** `docs/agents/AGENT48V_PAYMENT_PHASE4_VALIDATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-OE** open
+- **Dependencies:** TASK-47 + `AGENT47V` PASS
+- **Agent Type:** QA/Contract Validator Agent
+- **Outputs (expected):** `PHASE4_PAYMENT_VALIDATION_REPORT.md`, `PHASE4_PAYMENT_CUTOVER_CHECKLIST.md`
+
+### TASK-49: Notification Service Scaffold
+
+- **Implementation:** `docs/agents/AGENT49_NOTIFICATION_SERVICE_SCAFFOLD.md`
+- **Validator:** `docs/agents/AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md`
+- **Status:** Pending — sync **P4-NA** open
+- **Dependencies:** TASK-48 + `AGENT48V` PASS (serial default)
+- **Agent Type:** Infra/Docker Agent
+
+### TASK-50: Notification Service — Design and API Contract
+
+- **Implementation:** `docs/agents/AGENT50_NOTIFICATION_SERVICE_DESIGN.md`
+- **Validator:** `docs/agents/AGENT50V_NOTIFICATION_SERVICE_DESIGN_VALIDATE.md`
+- **Status:** Pending — sync **P4-NB** open
+- **Dependencies:** TASK-49 + `AGENT49V` PASS
+- **Agent Type:** Backend Service Agent (Design)
+
+### TASK-51: Notification Service — Implementation
+
+- **Implementation:** `docs/agents/AGENT51_NOTIFICATION_SERVICE_IMPLEMENTATION.md`
+- **Validator:** `docs/agents/AGENT51V_NOTIFICATION_SERVICE_IMPLEMENTATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-NC** open
+- **Dependencies:** TASK-50 + `AGENT50V` PASS
+- **Agent Type:** Backend Service Agent (Implementation)
+
+### TASK-52: Notification Service — Data Migration
+
+- **Implementation:** `docs/agents/AGENT52_NOTIFICATION_SERVICE_MIGRATION.md`
+- **Validator:** `docs/agents/AGENT52V_NOTIFICATION_SERVICE_MIGRATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-ND** open
+- **Dependencies:** TASK-51 + `AGENT51V` PASS
+- **Agent Type:** Data Migration Agent
+
+### TASK-53: Notification Wave — Program Validation and Cutover
+
+- **Implementation:** `docs/agents/AGENT53_NOTIFICATION_PHASE4_VALIDATION.md`
+- **Validator:** `docs/agents/AGENT53V_NOTIFICATION_PHASE4_VALIDATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-NE** open
+- **Dependencies:** TASK-52 + `AGENT52V` PASS
+- **Agent Type:** QA/Contract Validator Agent
+- **Outputs (expected):** `PHASE4_NOTIFICATION_VALIDATION_REPORT.md`, `PHASE4_NOTIFICATION_CUTOVER_CHECKLIST.md`
+
+### TASK-54: Salary Service Scaffold
+
+- **Implementation:** `docs/agents/AGENT54_SALARY_SERVICE_SCAFFOLD.md`
+- **Validator:** `docs/agents/AGENT54V_SALARY_SERVICE_SCAFFOLD_VALIDATE.md`
+- **Status:** Pending — sync **P4-SA** open
+- **Dependencies:** TASK-53 + `AGENT53V` PASS
+- **Agent Type:** Infra/Docker Agent
+
+### TASK-55: Salary Service — Design and API Contract
+
+- **Implementation:** `docs/agents/AGENT55_SALARY_SERVICE_DESIGN.md`
+- **Validator:** `docs/agents/AGENT55V_SALARY_SERVICE_DESIGN_VALIDATE.md`
+- **Status:** Pending — sync **P4-SB** open
+- **Dependencies:** TASK-54 + `AGENT54V` PASS
+- **Agent Type:** Backend Service Agent (Design)
+
+### TASK-56: Salary Service — Implementation
+
+- **Implementation:** `docs/agents/AGENT56_SALARY_SERVICE_IMPLEMENTATION.md`
+- **Validator:** `docs/agents/AGENT56V_SALARY_SERVICE_IMPLEMENTATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-SC** open
+- **Dependencies:** TASK-55 + `AGENT55V` PASS
+- **Agent Type:** Backend Service Agent (Implementation)
+
+### TASK-57: Salary Service — Data Migration
+
+- **Implementation:** `docs/agents/AGENT57_SALARY_SERVICE_MIGRATION.md`
+- **Validator:** `docs/agents/AGENT57V_SALARY_SERVICE_MIGRATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-SD** open
+- **Dependencies:** TASK-56 + `AGENT56V` PASS
+- **Agent Type:** Data Migration Agent
+
+### TASK-58: Salary Wave — Program Validation and Cutover
+
+- **Implementation:** `docs/agents/AGENT58_SALARY_PHASE4_VALIDATION.md`
+- **Validator:** `docs/agents/AGENT58V_SALARY_PHASE4_VALIDATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-SE** open
+- **Dependencies:** TASK-57 + `AGENT57V` PASS
+- **Agent Type:** QA/Contract Validator Agent
+- **Outputs (expected):** `PHASE4_SALARY_VALIDATION_REPORT.md`, `PHASE4_SALARY_CUTOVER_CHECKLIST.md`
+
+### TASK-59: Financial Service Scaffold
+
+- **Implementation:** `docs/agents/AGENT59_FINANCIAL_SERVICE_SCAFFOLD.md`
+- **Validator:** `docs/agents/AGENT59V_FINANCIAL_SERVICE_SCAFFOLD_VALIDATE.md`
+- **Status:** Pending — sync **P4-FA** open
+- **Dependencies:** TASK-58 + `AGENT58V` PASS
+- **Agent Type:** Infra/Docker Agent
+
+### TASK-60: Financial Service — Design and API Contract
+
+- **Implementation:** `docs/agents/AGENT60_FINANCIAL_SERVICE_DESIGN.md`
+- **Validator:** `docs/agents/AGENT60V_FINANCIAL_SERVICE_DESIGN_VALIDATE.md`
+- **Status:** Pending — sync **P4-FB** open
+- **Dependencies:** TASK-59 + `AGENT59V` PASS
+- **Agent Type:** Backend Service Agent (Design)
+
+### TASK-61: Financial Service — Implementation
+
+- **Implementation:** `docs/agents/AGENT61_FINANCIAL_SERVICE_IMPLEMENTATION.md`
+- **Validator:** `docs/agents/AGENT61V_FINANCIAL_SERVICE_IMPLEMENTATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-FC** open
+- **Dependencies:** TASK-60 + `AGENT60V` PASS
+- **Agent Type:** Backend Service Agent (Implementation)
+
+### TASK-62: Financial Service — Data Migration
+
+- **Implementation:** `docs/agents/AGENT62_FINANCIAL_SERVICE_MIGRATION.md`
+- **Validator:** `docs/agents/AGENT62V_FINANCIAL_SERVICE_MIGRATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-FD** open
+- **Dependencies:** TASK-61 + `AGENT61V` PASS
+- **Agent Type:** Data Migration Agent
+
+### TASK-63: Financial Wave — Program Validation and Cutover
+
+- **Implementation:** `docs/agents/AGENT63_FINANCIAL_PHASE4_VALIDATION.md`
+- **Validator:** `docs/agents/AGENT63V_FINANCIAL_PHASE4_VALIDATION_VALIDATE.md`
+- **Status:** Pending — sync **P4-FE** open
+- **Dependencies:** TASK-62 + `AGENT62V` PASS
+- **Agent Type:** QA/Contract Validator Agent
+- **Outputs (expected):** `PHASE4_FINANCIAL_VALIDATION_REPORT.md`, `PHASE4_FINANCIAL_CUTOVER_CHECKLIST.md`
+
+---
+
+## Phase 5+ (Aligned to ROADMAP)
+
+- **Phase 5:** API gateway (**4210**) and frontend (**4211**) — decomposition TBD when phase opens (`ROADMAP.md` §5 Phase 5).
+- **Phases 6–7:** Integration and legacy decommission — decomposition TBD when opened.
