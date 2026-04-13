@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe, HttpException, HttpStatus } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { RemoteLogger } from './shared/remote-logger';
@@ -30,6 +30,25 @@ async function bootstrap(): Promise<void> {
     app.enableShutdownHooks();
     app.setGlobalPrefix('api/v1', { exclude: ['health'] });
     app.useGlobalFilters(new HttpErrorFilter());
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: false,
+        exceptionFactory: (errors) =>
+          new HttpException(
+            {
+              statusCode: HttpStatus.BAD_REQUEST,
+              error: {
+                code: 'VALIDATION_FAILED',
+                message: 'Validation failed',
+                details: { validation: errors },
+              },
+            },
+            HttpStatus.BAD_REQUEST,
+          ),
+      }),
+    );
     const port = Number(process.env.PORT);
     await app.listen(port);
     const version = process.env.npm_package_version || 'unknown';

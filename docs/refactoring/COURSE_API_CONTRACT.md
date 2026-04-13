@@ -4,7 +4,7 @@
 
 **Legacy sources (this wave):** Django apps **`products`** (`Category`, `Product`, `PartPaymentCollection`, `PartPaymentOption`, M2M `products_product_part_payments`) and **`offers`** (`Offer`, `ExtraLessonsOffer`). ROADMAP §3.1 groups installment/part-payment under **“pricing”**; there is no separate `pricing` app — those rows live under **`products_*`**.
 
-**Out of scope:** `speakasap-education-service`, `course_materials`, orders/payments execution, `marathon` products, financial billing categories (Phase 4). **Education consumer:** may call this service later using **`legacyProductId`** / **`offerUuid`** from this contract; no synchronous coupling in Wave 2.
+**Out of scope:** `speakasap-education-service`, `course_materials`, orders/payments execution, `marathon` products, financial **writable** billing catalog (Phase 4). **Financial read** of category/product metadata for reporting is **in scope** in §11 (TASK-60 addendum). **Education consumer:** may call this service later using **`legacyProductId`** / **`offerUuid`** from this contract; no synchronous coupling in Wave 2.
 
 **Auth:** **JWT from auth-microservice** on every `/api/v1/**` route. Header: `Authorization: Bearer <access_token>`. Validation: **`POST {AUTH_SERVICE_URL}/auth/validate`** with `{ "token": "<access_token>" }` (consumer-only). Wave 2 read APIs do not require a special staff claim unless product later adds one; until then, **any valid JWT** may call list/detail (tighten in a follow-up task if needed).
 
@@ -165,3 +165,37 @@ Same as user/content services (`HttpExceptionFilter`):
 
 - All list endpoints: **≤ 30** items per response (`MAX_PAGE_SIZE`).
 - No batch writes in Wave 2.
+
+---
+
+## 11. Financial consumer (TASK-60 addendum)
+
+**Ownership:** `products.Category` and `products.Product` remain **authoritative** in speakasap-course-service. **speakasap-financial-service** uses them only as **read** metadata for revenue-by-category aggregates (`FINANCIAL_API_CONTRACT.md`).
+
+**Auth:** `X-Internal-Token` with value accepted by course-service internal policy (same token family as other internal calls once named in `.env.example`).
+
+### `GET /api/v1/internal/financial/products-metadata`
+
+**Purpose:** Resolve **`legacyProductId` → `{ legacyCategoryId, title, enTitle }`** in batches for financial aggregation workers.
+
+**Query:** `ids` — comma-separated list of integer `Product.id`, **maximum 30** values per request (align `MAX_PAGE_SIZE`).
+
+**Response:**
+
+```json
+{
+  "items": [
+    {
+      "legacyProductId": 1,
+      "legacyCategoryId": 3,
+      "title": "…",
+      "enTitle": "…"
+    }
+  ],
+  "notFoundIds": [999]
+}
+```
+
+**Errors:** `401`/`403` for bad/missing token; `400` if `ids` empty or >30 ids.
+
+**Note:** Until implemented, financial-service may **backfill** category mapping from a one-time legacy DB export in TASK-62 and keep **`CategoryAxisSnapshot`** in financial DB synchronized periodically via paginated **`GET /api/v1/products`** (staff JWT or internal) — validator must record temporary deviation.

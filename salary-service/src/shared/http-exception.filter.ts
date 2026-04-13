@@ -1,5 +1,17 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { Request, Response } from 'express';
+
+type ContractError = {
+  statusCode: number;
+  error: { code: string; message: string; details: Record<string, unknown> };
+};
 
 @Catch()
 export class HttpErrorFilter implements ExceptionFilter {
@@ -10,12 +22,29 @@ export class HttpErrorFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status = exception instanceof HttpException
-      ? exception.getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
-    const message = exception instanceof HttpException
-      ? exception.message
-      : 'Internal server error';
+    const status =
+      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+
+    if (exception instanceof HttpException) {
+      const raw = exception.getResponse();
+      if (raw && typeof raw === 'object' && 'error' in raw) {
+        const body = raw as ContractError;
+        if (body.error && typeof body.error.code === 'string') {
+          this.logger.error(
+            `Request failed: ${request.method} ${request.originalUrl} status=${status} code=${body.error.code} message=${body.error.message}`,
+            exception.stack,
+          );
+          response.status(status).json({
+            statusCode: status,
+            error: body.error,
+          });
+          return;
+        }
+      }
+    }
+
+    const message =
+      exception instanceof HttpException ? exception.message : 'Internal server error';
     const code = mapStatusToCode(status);
     const details = buildErrorDetails(exception);
 
@@ -25,6 +54,7 @@ export class HttpErrorFilter implements ExceptionFilter {
     );
 
     response.status(status).json({
+      statusCode: status,
       error: {
         code,
         message,
@@ -57,7 +87,7 @@ function buildErrorDetails(exception: unknown): Record<string, unknown> {
 function mapStatusToCode(status: number): string {
   switch (status) {
     case HttpStatus.BAD_REQUEST:
-      return 'BAD_REQUEST';
+      return 'VALIDATION_FAILED';
     case HttpStatus.UNAUTHORIZED:
       return 'UNAUTHORIZED';
     case HttpStatus.FORBIDDEN:
@@ -66,6 +96,10 @@ function mapStatusToCode(status: number): string {
       return 'NOT_FOUND';
     case HttpStatus.CONFLICT:
       return 'CONFLICT';
+    case HttpStatus.UNPROCESSABLE_ENTITY:
+      return 'CALCULATION_INVALID';
+    case HttpStatus.BAD_GATEWAY:
+      return 'DEPENDENCY_UNAVAILABLE';
     default:
       return 'INTERNAL_ERROR';
   }

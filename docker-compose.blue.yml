@@ -374,6 +374,45 @@ services:
       timeout: 10s
       retries: 2
 
+  financial-service:
+    build:
+      context: ./financial-service
+      dockerfile: Dockerfile
+    container_name: speakasap-financial-blue
+    ports:
+      - "${FINANCIAL_SERVICE_PORT}:${FINANCIAL_SERVICE_PORT}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=speakasap-financial-service
+      - PORT=${FINANCIAL_SERVICE_PORT}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${FINANCIAL_DB_NAME}
+      - DATABASE_URL=${FINANCIAL_DATABASE_URL}
+      - FINANCIAL_SERVICE_PORT=${FINANCIAL_SERVICE_PORT}
+      - FINANCIAL_DB_NAME=${FINANCIAL_DB_NAME}
+      - FINANCIAL_DATABASE_URL=${FINANCIAL_DATABASE_URL}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_TIMESTAMP_FORMAT=${LOG_TIMESTAMP_FORMAT}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${FINANCIAL_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
   notification-service:
     build:
       context: ./notification-service

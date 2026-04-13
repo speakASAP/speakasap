@@ -9,7 +9,7 @@
 
 - **Root blue/green:** `docker-compose.blue.yml` / `docker-compose.green.yml` already use `env_file: .env` relative to the repo root.
 - **Per-service local compose** (`content-service/docker-compose.yml`, etc.): `env_file: ../.env`.
-- **Services with their own DB URL:** local compose sets `DATABASE_URL` from `CERTIFICATION_DATABASE_URL`, `ASSESSMENT_DATABASE_URL`, `USER_DATABASE_URL`, or `COURSE_DATABASE_URL` so the process still sees `DATABASE_URL` while `speakasap/.env` keeps one row per database.
+- **Services with their own DB URL:** local compose sets `DATABASE_URL` from `CERTIFICATION_DATABASE_URL`, `ASSESSMENT_DATABASE_URL`, `USER_DATABASE_URL`, `COURSE_DATABASE_URL`, **`SALARY_DATABASE_URL`**, or **`FINANCIAL_DATABASE_URL`** (see `salary-service/docker-compose.yml`, `financial-service/docker-compose.yml`) so the process still sees `DATABASE_URL` while `speakasap/.env` keeps one row per database.
 
 ## Prisma CLI
 
@@ -21,6 +21,29 @@ From a service directory, use npm scripts (they load `../.env` and pick the corr
 - `user-service`: `npm run prisma:validate` (uses `USER_DATABASE_URL`)
 - `course-service`: `npm run prisma:validate` (uses `COURSE_DATABASE_URL`)
 - `education-service`: `npm run prisma:validate` (uses `EDUCATION_DATABASE_URL`)
+- `salary-service`: `npm run prisma:validate` / `npm run prisma:migrate:deploy` (uses **`SALARY_DATABASE_URL`**).
+
+## salary-service
+
+Phase 4 service; port and DB name are fixed in `docs/infrastructure/PORT_ALLOCATION.md` (**4212**, **`speakasap_salary_db`**). Root keys (see `speakasap/.env.example`):
+
+- **`SALARY_SERVICE_PORT`**, **`SALARY_DATABASE_URL`** — required at startup (`salary-service/src/shared/validate-env.ts`).
+- **`SALARY_DB_NAME`** — optional compose helper for default `SALARY_DATABASE_URL` interpolation in `docker-compose.template.yml` (not read by salary-service `validate-env`).
+- **`SALARY_SERVICE_PORT_GREEN`** — used only by root `docker-compose.green.yml` for host port mapping; keep in sync with blue/green docs.
+- Cross-service HTTP (optional until payout/education wiring is live): **`EDUCATION_SERVICE_URL`**, **`PAYMENT_SERVICE_URL`**, **`SALARY_PAYOUT_LOCK_TTL_MS`**, **`HTTP_CLIENT_TIMEOUT_MS`**, **`EDUCATION_SERVICE_INTERNAL_TOKEN`**, **`PAYMENT_SERVICE_INTERNAL_TOKEN`**, **`SALARY_INTERNAL_API_TOKEN`** (see `docs/refactoring/SALARY_API_CONTRACT.md`).
+- Shared infra (same root `.env` as other Nest services): **`LOGGING_SERVICE_URL`**, **`LOGGING_SERVICE_API_PATH`**, **`LOGGING_SERVICE_TIMEOUT`**, and either **`AUTH_SERVICE_URL`** or **`AUTH_MICROSERVICE_URL`**, plus **`AUTH_SERVICE_TIMEOUT`**.
+
+Local compose: `salary-service/docker-compose.yml` uses `env_file: ../.env` and sets `DATABASE_URL` / `SALARY_DATABASE_URL` from the root file.
+
+## financial-service
+
+Phase 4 scaffold; port and DB name in `docs/infrastructure/PORT_ALLOCATION.md` (**4213**, **`speakasap_financial_db`**). Root keys (`speakasap/.env.example`):
+
+- **`FINANCIAL_SERVICE_PORT`**, **`FINANCIAL_DATABASE_URL`**, **`FINANCIAL_DB_NAME`** — required at startup (`financial-service/src/shared/validate-env.ts`).
+- **`FINANCIAL_SERVICE_PORT_GREEN`** — host port for green stack in root `docker-compose.green.yml` only.
+- Shared logging (same root `.env` as other Nest services): **`LOGGING_SERVICE_URL`**, **`LOGGING_SERVICE_API_PATH`**, **`LOGGING_SERVICE_TIMEOUT`**.
+
+Local compose: `financial-service/docker-compose.yml` uses `env_file: ../.env`.
 
 ## course-materials-service
 

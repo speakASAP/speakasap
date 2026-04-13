@@ -38,21 +38,29 @@ Confirm **salary-service** scaffold meets sync **P4-SA** so TASK-55 may start.
 
 ## Verification results (evidence)
 
-Leave empty until execution.
+| Check | Method | Evidence |
+| --- | --- | --- |
+| Scaffold exists | folder + layout | `speakasap/salary-service/`: Nest `src/` (modules, `main.ts`, `app.module.ts`), `prisma/`, `docker-compose.yml`, `package.json`, `scripts/` — same family as `user-service` / `course-service` (Nest + Prisma + compose). |
+| Build pass | `npm run build` | **2026-04-14** — `cd speakasap/salary-service && npm run build` → exit **0** (`prisma generate` + `tsc -p tsconfig.build.json`). |
+| Health endpoint | code | `src/app.controller.ts`: `@Get('health')`; `src/main.ts`: `setGlobalPrefix('api/v1', { exclude: ['health'] })` → **`GET /health`**. |
+| Env root-only | `.env.example` | `speakasap/.env.example`: `SALARY_SERVICE_PORT`, `SALARY_DATABASE_URL`, `SALARY_DB_NAME`, `SALARY_LEGACY_DATABASE_URL`, `SALARY_PAYOUT_LOCK_TTL_MS`, `SALARY_INTERNAL_API_TOKEN`, cross-service tokens (names only). |
+| Port / DB | `PORT_ALLOCATION.md` | `docs/infrastructure/PORT_ALLOCATION.md`: speakasap-salary-service **4212**, **`speakasap_salary_db`**. Matches `README.md` table. |
+| Hardcoded URLs | grep `src` | **2026-04-14** — no `http://` / `https://` literals under `salary-service/src` (URLs from `process.env` / config). |
+| Shared microservice repos | scope | Validator read-only; no edits under `*-microservice/` outside speakasap. |
 
 ## Manual Checks (record evidence)
 
-- [ ] `npm run build` in `salary-service/`
-- [ ] README port and DB name
-- [ ] Grep `salary-service/src` for suspicious hardcoded URLs
+- [x] `npm run build` in `salary-service/` — exit 0 **2026-04-14**
+- [x] README port **4212** and DB **`speakasap_salary_db`**
+- [x] Grep `salary-service/src` for suspicious hardcoded URLs — none
 
 ## Sync gate (before TASK-55)
 
-- **P4-SA:** _PENDING / PASS / FAIL_
+- **P4-SA:** **PASS**
 
 ## Verdict
 
-_PENDING_
+**PASS** — Scaffold and hygiene checks satisfied; TASK-55 may proceed (already complete per index).
 
 ### If FAIL
 
