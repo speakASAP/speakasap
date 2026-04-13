@@ -1,6 +1,8 @@
 import 'reflect-metadata';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { Logger } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import * as express from 'express';
 import { AppModule } from './app.module';
 import { RemoteLogger } from './shared/remote-logger';
 import { validateEnv } from './shared/validate-env';
@@ -24,9 +26,26 @@ async function bootstrap(): Promise<void> {
     process.env.DATABASE_URL = process.env.PAYMENT_DATABASE_URL || process.env.DATABASE_URL;
 
     const logger = new RemoteLogger();
-    const app = await NestFactory.create(AppModule, {
+    const app = await NestFactory.create<NestExpressApplication>(AppModule, {
       logger,
+      bodyParser: false,
     });
+    app.use(
+      express.json({
+        limit: '2mb',
+        verify: (req: express.Request & { rawBody?: Buffer }, _res, buf) => {
+          req.rawBody = Buffer.from(buf);
+        },
+      }),
+    );
+    app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
     app.enableShutdownHooks();
     app.setGlobalPrefix('api/v1', { exclude: ['health'] });
     app.useGlobalFilters(new HttpErrorFilter());

@@ -331,6 +331,87 @@ services:
       timeout: 10s
       retries: 2
 
+  salary-service:
+    build:
+      context: ./salary-service
+      dockerfile: Dockerfile
+    container_name: speakasap-salary-blue
+    ports:
+      - "${SALARY_SERVICE_PORT}:${SALARY_SERVICE_PORT}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=speakasap-salary-service
+      - PORT=${SALARY_SERVICE_PORT}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${SALARY_DB_NAME}
+      - DATABASE_URL=${SALARY_DATABASE_URL}
+      - SALARY_SERVICE_PORT=${SALARY_SERVICE_PORT}
+      - SALARY_DB_NAME=${SALARY_DB_NAME}
+      - SALARY_DATABASE_URL=${SALARY_DATABASE_URL}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_TIMESTAMP_FORMAT=${LOG_TIMESTAMP_FORMAT}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - AUTH_MICROSERVICE_URL=${AUTH_MICROSERVICE_URL}
+      - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT}
+      - AUTH_MICROSERVICE_PORT=${AUTH_MICROSERVICE_PORT}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${SALARY_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: speakasap-notification-blue
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT}:${NOTIFICATION_SERVICE_PORT}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DOMAIN=${DOMAIN}
+      - SERVICE_NAME=speakasap-notification-service
+      - PORT=${NOTIFICATION_SERVICE_PORT}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DATABASE_URL=${NOTIFICATION_DATABASE_URL}
+      - NOTIFICATION_SERVICE_PORT=${NOTIFICATION_SERVICE_PORT}
+      - NOTIFICATION_DATABASE_URL=${NOTIFICATION_DATABASE_URL}
+      - NOTIFICATIONS_MICROSERVICE_URL=${NOTIFICATIONS_MICROSERVICE_URL}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_TIMESTAMP_FORMAT=${LOG_TIMESTAMP_FORMAT}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL}
+      - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH}
+      - LOGGING_SERVICE_TIMEOUT=${LOGGING_SERVICE_TIMEOUT}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - nginx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${NOTIFICATION_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
 networks:
   nginx-network:
     external: true

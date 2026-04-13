@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model NotificationTemplate {
+  id            String    @id @default(uuid())
+  machineName   String    @unique @map("machine_name")
+  title         String
+  visible       Boolean   @default(true)
+  help          String    @default("") @db.Text
+  settingsTitle String?   @map("settings_title")
+  bodyHtml      String    @map("body_html") @db.Text
+  deletedAt     DateTime? @map("deleted_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  templateGroups TemplateGroup[]
+  templatePrefs  TemplatePreference[]
+  letters        Letter[]
+
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("notification_templates")
+}
+
+model NotificationGroup {
+  id          String   @id @default(uuid())
+  machineName String   @unique @map("machine_name")
+  title       String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  managers       NotificationGroupManager[]
+  templateGroups TemplateGroup[]
+
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("notification_groups")
+}
+
+model NotificationGroupManager {
+  groupId       String @map("group_id")
+  managerUserId String @map("manager_user_id") @db.VarChar(64)
+
+  group NotificationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, managerUserId])
+  @@map("notification_group_managers")
+}
+
+model TemplateGroup {
+  templateId String @map("template_id")
+  groupId    String @map("group_id")
+
+  template NotificationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  group    NotificationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([templateId, groupId])
+  @@map("template_groups")
+}
+
+model Letter {
+  id                 String    @id @default(uuid())
+  templateId         String    @map("template_id")
+  userId             String?   @map("user_id") @db.VarChar(64)
+  renderedBody       String    @map("rendered_body") @db.Text
+  renderedBodySha256 String    @map("rendered_body_sha256") @db.VarChar(64)
+  recipients         Json
+  fromEmail          String?   @map("from_email") @db.VarChar(512)
+  sentAt             DateTime? @map("sent_at")
+  transportError     String?   @map("transport_error") @db.Text
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  template NotificationTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("letters")
+}
+
+model CommonEmailSettings {
+  userId       String   @id @map("user_id") @db.VarChar(64)
+  emailEnabled Boolean  @default(true) @map("email_enabled")
+  doNotContact Boolean  @default(false) @map("do_not_contact")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("common_email_settings")
+}
+
+model TemplatePreference {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id") @db.VarChar(64)
+  templateId String   @map("template_id")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  template NotificationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, templateId])
+  @@map("template_preferences")
+}
+
+model InAppNotification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id") @db.VarChar(64)
+  text      String   @db.Text
+  link      String?  @db.VarChar(2048)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("in_app_notifications")
+}
+
+model DispatchIdempotency {
+  idempotencyKey String   @id @map("idempotency_key") @db.VarChar(128)
+  bodyHash       String   @map("body_hash") @db.VarChar(128)
+  statusCode     Int      @map("status_code")
+  responseBody   Json     @map("response_body")
+  expiresAt      DateTime @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("dispatch_idempotency")
+}

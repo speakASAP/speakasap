@@ -12,7 +12,7 @@ You manage multiple independent AI agents working in parallel on the same codeba
 - **Phase 1 (Foundation & Content Service):** ✅ **Complete** (TASK-16 GO, Lead Orchestrator sign-off **2026-04-10**). Sync A–D closed. Re-open Phase 1 only for an explicit regression or scope change.
 - **Phase 2 (Certification & Assessment):** ✅ **Complete** (program gates closed **2026-04-12**, `AGENT28V` PASS, `PHASE2_VALIDATION_REPORT.md` GO). Reference: `PHASE2_TASK_DECOMPOSITION.md`, `PHASE2_ORCHESTRATION_SUMMARY.md`. Re-open only for explicit regression or scope change.
 - **Phase 3 (Core Education Services):** **Wave 1 (user-service) program gates closed 2026-04-12** (`P3-UA`…`P3-UE`, `AGENT33V` PASS). Evidence: `PHASE3_USER_VALIDATION_REPORT.md` **rev. c** + `PHASE3_USER_CUTOVER_CHECKLIST.md`. **Wave 2 (course-service)** program gates **P3-CA…P3-CE** closed **2026-04-12** (`AGENT38V` PASS; `PHASE3_COURSE_VALIDATION_REPORT.md` — engineering **GO**; deploy/HTTP smoke **DEFERRED** operator). **Wave 3 (education-service)** program gates **P3-EA…P3-EE** closed **2026-04-12** (`AGENT43V` PASS; `PHASE3_EDUCATION_VALIDATION_REPORT.md` — engineering **GO**; deploy/HTTP smoke **DEFERRED** operator). Decomposition: `PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md`. Orchestration: `PHASE3_TASK_DECOMPOSITION.md` (Wave 1), `PHASE3_WAVE2_COURSE_TASK_DECOMPOSITION.md` (Wave 2), `PHASE3_ORCHESTRATION_SUMMARY.md`.
-- **Phase 4 (Payment, Notification, Salary, Financial):** **Opened 2026-04-13** — **TASK-44…TASK-63** with paired validators; **P4-OA** **PASS** **2026-04-13** (`AGENT44V`); gates **P4-OB…P4-OE**, **P4-NA…P4-NE**, **P4-SA…P4-SE**, **P4-FA…P4-FE** **open** until executed validators **PASS**. Decomposition: `PHASE4_TASK_DECOMPOSITION.md`. Orchestration: `PHASE4_ORCHESTRATION_SUMMARY.md`. Do not mark Phase 4 complete until **P4-FE** and wave reports record **GO** (or documented **WAIVE**).
+- **Phase 4 (Payment, Notification, Salary, Financial):** **Opened 2026-04-13** — **TASK-44…TASK-63** with paired validators; **Payment wave** sync gates **P4-OA…P4-OE** **PASS** **2026-04-13** (`PHASE4_PAYMENT_VALIDATION_REPORT.md`, `AGENT44V`…`AGENT48V`). Remaining gates **P4-NA…P4-NE**, **P4-SA…P4-SE**, **P4-FA…P4-FE** **open** until executed validators **PASS**. Decomposition: `PHASE4_TASK_DECOMPOSITION.md`. Orchestration: `PHASE4_ORCHESTRATION_SUMMARY.md`. Do not mark Phase 4 complete until **P4-FE** and wave reports record **GO** (or documented **WAIVE**).
 
 ## Related documentation
 
@@ -176,10 +176,10 @@ Aligned with the FlipFlop orchestrator pattern (`flipflop-service/docs/agents/ma
 | Sync | When | Gate |
 |------|------|------|
 | P4-OA | After TASK-44 + `AGENT44V` PASS | Payment scaffold (4208, `speakasap_payment_db`, build, `/health`, env/logging) — **PASS 2026-04-13** |
-| P4-OB | After TASK-45 + `AGENT45V` PASS | `PAYMENT_API_CONTRACT.md` + `PAYMENT_DATA_MAPPING.md` frozen |
-| P4-OC | After TASK-46 + `AGENT46V` PASS | Implementation matches contract; payments-microservice integration in code |
-| P4-OD | After TASK-47 + `AGENT47V` PASS | Migration script + validation docs complete |
-| P4-OE | After TASK-48 + `AGENT48V` PASS | `PHASE4_PAYMENT_VALIDATION_REPORT.md` + `PHASE4_PAYMENT_CUTOVER_CHECKLIST.md`; GO/NO-GO |
+| P4-OB | After TASK-45 + `AGENT45V` PASS | `PAYMENT_API_CONTRACT.md` + `PAYMENT_DATA_MAPPING.md` frozen — **PASS 2026-04-13** |
+| P4-OC | After TASK-46 + `AGENT46V` PASS | Implementation matches contract; payments-microservice integration in code — **PASS 2026-04-13** |
+| P4-OD | After TASK-47 + `AGENT47V` PASS | Migration script + validation docs complete — **PASS 2026-04-13** |
+| P4-OE | After TASK-48 + `AGENT48V` PASS | `PHASE4_PAYMENT_VALIDATION_REPORT.md` + `PHASE4_PAYMENT_CUTOVER_CHECKLIST.md`; GO/NO-GO — **PASS 2026-04-13** |
 
 **Phase 4 — Wave 2: notification-service**
 
@@ -287,7 +287,7 @@ Favor options that minimize long-term refactor cost, preserve service isolation,
 
 **Phase 3 — Wave 3 (education-service):** **TASK-39…TASK-43**, **P3-EA…P3-EE** — see `PHASE3_WAVE3_EDUCATION_TASK_DECOMPOSITION.md`. **Closed 2026-04-12** (TASK-43 + `AGENT43V` PASS; engineering **GO** in `PHASE3_EDUCATION_VALIDATION_REPORT.md`; operator deploy/ETL follow-up as documented).
 
-**Phase 4 (payment, notification, salary, financial):** **TASK-44** + `AGENT44V` **complete 2026-04-13** (**P4-OA** PASS). **TASK-45…TASK-63**, gates **P4-OB…P4-FE**, **P4-NA…P4-FE** — see `PHASE4_TASK_DECOMPOSITION.md`. **Opened 2026-04-13**; complete when **TASK-63** + `AGENT63V` PASS and financial wave reports record **GO** (operator deploy/HTTP smoke may be **DEFERRED** per Phase 3 pattern).
+**Phase 4 (payment, notification, salary, financial):** **Payment wave** **TASK-44…TASK-48** + validators **complete 2026-04-13**; sync gates **P4-OA…P4-OE** **PASS** (`PHASE4_PAYMENT_VALIDATION_REPORT.md`, `PHASE4_PAYMENT_CUTOVER_CHECKLIST.md`, `AGENT48V`). **TASK-49…TASK-63**, gates **P4-NA…P4-FE** — see `PHASE4_TASK_DECOMPOSITION.md`. **Opened 2026-04-13**; Phase 4 **program** complete when **TASK-63** + `AGENT63V` PASS and financial wave reports record **GO** (operator deploy/HTTP smoke may be **DEFERRED** per Phase 3 pattern).
 
 ## First action (every time you assume this role)
 
@@ -299,7 +299,7 @@ Favor options that minimize long-term refactor cost, preserve service isolation,
 6. **Phase 2 (closed):** Use `PHASE2_ORCHESTRATION_SUMMARY.md` and paired TASK-21…TASK-28 prompts **only** for regression or explicitly reopened scope — do not re-run the full program without cause.
 7. **Phase 1 remediation only** if explicitly reopened: use `PHASE1_ORCHESTRATION_SUMMARY.md` and `docs/agents/AGENT{nn}_*.md` for TASK-11…TASK-16.
 8. Do not restart completed phases without cause.
-9. **Phase 4 (opened 2026-04-13):** **P4-OA** **PASS** **2026-04-13**; continue with **TASK-45** + `AGENT45V` for **P4-OB**. Remaining gates **P4-OB…P4-FE**, **P4-NA…P4-FE** **open** until validators **PASS**; follow `PHASE4_TASK_DECOMPOSITION.md` and `PHASE4_ORCHESTRATION_SUMMARY.md`. Do not skip Implementation → Validator order.
+9. **Phase 4 (opened 2026-04-13):** **Payment wave** **P4-OA…P4-OE** **PASS** **2026-04-13** (`PHASE4_PAYMENT_VALIDATION_REPORT.md`, `AGENT48V`). **Next:** **TASK-49** + `AGENT49V` for **P4-NA**. Remaining gates **P4-NA…P4-FE** **open** until validators **PASS**; follow `PHASE4_TASK_DECOMPOSITION.md` and `PHASE4_ORCHESTRATION_SUMMARY.md`. Do not skip Implementation → Validator order.
 10. **Phase 4 operator:** complete deferred deploy/HTTP/live ETL items in each wave’s validation report before full production cutover; document **DEFERRED** with reason if routing blocks smoke.
 11. **Cross-service:** Before **TASK-61**, ensure **TASK-60** froze the **`products` / billing categories** boundary with course-service (no duplicate writable truth).
 12. **Phase 5+:** API gateway and frontend (`ROADMAP.md` Phase 5) — decomposition **TBD** when that phase opens; do not conflate with Phase 4 scope.

@@ -59,6 +59,8 @@ AUTH_MICROSERVICE_PORT=
 LOGGING_SERVICE_URL=
 LOGGING_MICROSERVICE_PORT=
 LOGGING_SERVICE_API_PATH=
+NOTIFICATION_SERVICE_PORT=
+NOTIFICATION_DATABASE_URL=
 NOTIFICATION_SERVICE_URL=
 NOTIFICATIONS_MICROSERVICE_URL=
 NOTIFICATIONS_MICROSERVICE_PORT=
@@ -76,7 +78,7 @@ Send structured JSON logs via HTTP to `LOGGING_SERVICE_URL` (path from `LOGGING_
 
 ### Database
 
-Use `DATABASE_URL` or `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_PASSWORD`/`DB_NAME`. From another container on `nginx-network`, PostgreSQL is typically `db-server-postgres:5432`.
+Use `DATABASE_URL` or `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_PASSWORD`/`DB_NAME`. **speakasap-notification-service** uses **`NOTIFICATION_DATABASE_URL`** only (full URL; database name is in the path). From another container on `nginx-network`, PostgreSQL is typically `db-server-postgres:5432`.
 
 ### Auth
 

@@ -56,7 +56,13 @@ Phase3_closed → TASK-44..48 → TASK-49..53 → TASK-54..58 → TASK-59..63
 | P4-OD | TASK-47 + AGENT47V | Migration artifacts validated |
 | P4-OE | TASK-48 + AGENT48V | Program report + cutover checklist |
 
-**Gate log:** **P4-OA** — **PASS** **2026-04-13** — evidence: `docs/agents/AGENT44V_PAYMENT_SERVICE_SCAFFOLD_VALIDATE.md`.
+**Gate log (payment wave):**
+
+- **P4-OA** — **PASS** **2026-04-13** — `docs/agents/AGENT44V_PAYMENT_SERVICE_SCAFFOLD_VALIDATE.md`
+- **P4-OB** — **PASS** **2026-04-13** — `docs/agents/AGENT45V_PAYMENT_SERVICE_DESIGN_VALIDATE.md`
+- **P4-OC** — **PASS** **2026-04-13** — `docs/agents/AGENT46V_PAYMENT_SERVICE_IMPLEMENTATION_VALIDATE.md`
+- **P4-OD** — **PASS** **2026-04-13** — `docs/agents/AGENT47V_PAYMENT_SERVICE_MIGRATION_VALIDATE.md`
+- **P4-OE** — **PASS** **2026-04-13** — `docs/agents/AGENT48V_PAYMENT_PHASE4_VALIDATION_VALIDATE.md`; deliverables `docs/refactoring/PHASE4_PAYMENT_VALIDATION_REPORT.md`, `docs/refactoring/PHASE4_PAYMENT_CUTOVER_CHECKLIST.md`
 
 ### TASK-44: Payment scaffold
 
