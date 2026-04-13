@@ -138,8 +138,8 @@ services:
   # speakasap-payment-service
   speakasap-payment-service:
     build:
-      context: .
-      dockerfile: ./services/payment-service/Dockerfile
+      context: ./payment-service
+      dockerfile: Dockerfile
     container_name: speakasap-payment-service
     environment:
       NODE_ENV: ${NODE_ENV:-production}
