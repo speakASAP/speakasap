@@ -1,0 +1,25 @@
+# Local / single-container run from this directory.
+# Production blue/green: use speakasap/docker-compose.blue.yml or .green.yml at repo root.
+services:
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: speakasap-payment-local
+    ports:
+      - "${PAYMENT_SERVICE_PORT:-4208}:${PAYMENT_SERVICE_PORT:-4208}"
+    env_file:
+      - ../.env
+    environment:
+      PORT: ${PAYMENT_SERVICE_PORT:-4208}
+      DATABASE_URL: ${PAYMENT_DATABASE_URL}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --quiet --tries=1 --spider http://127.0.0.1:$${PORT}/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+    restart: unless-stopped

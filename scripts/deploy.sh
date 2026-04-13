@@ -217,8 +217,8 @@ if [ $DEPLOY_EXIT_CODE -eq 0 ]; then
     echo ""
     echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║          ✅ Speakasap deployment completed successfully!             ║${NC}"
-    echo -e "${GREEN}║     Total deployment time: ${TOTAL_DURATION_FORMATTED}s                        ║${NC}"
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${GREEN} Total deployment time: ${TOTAL_DURATION_FORMATTED}s${NC}"
     echo ""
     echo "The speakasap application has been deployed using blue/green deployment."
     echo "Check the status with:"
@@ -227,11 +227,13 @@ if [ $DEPLOY_EXIT_CODE -eq 0 ]; then
     exit 0
 else
     TOTAL_DURATION_FORMATTED=$(awk "BEGIN {printf \"%.2f\", $TOTAL_DURATION}")
-    echo ""; echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
+    echo ""; 
+    echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
     echo -e "${RED}   ❌ Speakasap deployment failed! Failed after: ${TOTAL_DURATION_FORMATTED}s${NC}"
     echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
     print_phase_summary
-    echo ""; echo -e "${RED}╔══════════════════════════════════════════════════════════════════════╗${NC}"
+    echo ""; 
+    echo -e "${RED}╔══════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${RED}║                  ❌ Speakasap deployment failed!                     ║${NC}"
     echo -e "${RED}╚══════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
