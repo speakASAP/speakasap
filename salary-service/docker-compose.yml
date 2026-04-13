@@ -1,0 +1,27 @@
+# Local / single-container run from this directory.
+# Production blue/green: use speakasap/docker-compose.blue.yml or .green.yml at repo root.
+services:
+  salary-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: speakasap-salary-local
+    ports:
+      - "${SALARY_SERVICE_PORT:-4212}:${SALARY_SERVICE_PORT:-4212}"
+    env_file:
+      - ../.env
+    environment:
+      PORT: ${SALARY_SERVICE_PORT:-4212}
+      SALARY_SERVICE_PORT: ${SALARY_SERVICE_PORT:-4212}
+      DATABASE_URL: ${SALARY_DATABASE_URL}
+      SALARY_DATABASE_URL: ${SALARY_DATABASE_URL}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --quiet --tries=1 --spider http://127.0.0.1:$${PORT}/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+    restart: unless-stopped

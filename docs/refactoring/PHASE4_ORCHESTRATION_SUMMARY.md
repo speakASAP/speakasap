@@ -1,6 +1,6 @@
 # Phase 4 Orchestration Summary — Payment, Notification, Salary, Financial
 
-**Last updated:** 2026-04-13 (TASK-44 + `AGENT44V` complete; **P4-OA** PASS)
+**Last updated:** 2026-04-13 (Payment wave TASK-44…48 + validators complete; **P4-OA…P4-OE** PASS)
 **Lead Orchestrator:** `docs/agents/master-prompt.md`
 **Decomposition:** `PHASE4_TASK_DECOMPOSITION.md`
 **Tasks index:** `SPEAKASAP_REFACTORING_TASKS_INDEX.md`
@@ -49,7 +49,7 @@ Wave validation reports may mark **HTTP smoke**, **production routing**, or **li
 ## Next actions (Lead)
 
 1. Confirm **subscription vs education-service** boundary (see `PHASE4_TASK_DECOMPOSITION.md`).
-2. **TASK-44** + `AGENT44V` → **P4-OA**: **complete 2026-04-13**. **Next:** **TASK-45** + `AGENT45V` → **P4-OB**.
+2. **Payment wave (TASK-44…48):** **complete 2026-04-13**; **P4-OA…P4-OE** PASS (`PHASE4_PAYMENT_VALIDATION_REPORT.md`, `AGENT48V`). **Next:** **TASK-49** + `AGENT49V` → **P4-NA** (notification scaffold).
 3. Proceed strictly **Implementation → Validator** per task; do not skip gates.
 4. Before **TASK-60**, enforce **products / billing categories** single-source rule with course-service or ETL-only projection.
 

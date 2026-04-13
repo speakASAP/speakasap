@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { InternalTokenGuard } from '../auth/internal-token.guard';
 import { ManagersService } from '../managers/managers.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { StudentsService } from '../students/students.service';
 import { TeachersService } from '../teachers/teachers.service';
 
@@ -10,10 +11,36 @@ const MAX_BATCH = 30;
 @UseGuards(InternalTokenGuard)
 export class InternalController {
   constructor(
+    private readonly prisma: PrismaService,
     private readonly students: StudentsService,
     private readonly teachers: TeachersService,
     private readonly managers: ManagersService,
   ) {}
+
+  /**
+   * speakasap-notification-service: resolve mailbox + do-not-contact for an auth user id.
+   */
+  @Post('notification-target')
+  async notificationTarget(
+    @Body() body: { authUserId?: string },
+  ): Promise<{ email: string | null; doNotContact: boolean }> {
+    const authUserId = body.authUserId;
+    if (!authUserId || typeof authUserId !== 'string') {
+      throw new BadRequestException('authUserId is required');
+    }
+    const mirror = await this.prisma.userIdentityMirror.findUnique({
+      where: { authUserId },
+    });
+    const student = await this.prisma.student.findUnique({
+      where: { authUserId },
+    });
+    const raw = mirror?.email?.trim() ?? '';
+    const email = raw.includes('@') ? raw : null;
+    return {
+      email,
+      doNotContact: student?.doNotContact ?? false,
+    };
+  }
 
   @Post('students/upsert-by-auth-user')
   async upsertStudents(@Body() body: { items?: unknown[] }): Promise<{ upserted: number }> {

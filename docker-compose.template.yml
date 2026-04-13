@@ -161,13 +161,15 @@ services:
   # speakasap-notification-service
   speakasap-notification-service:
     build:
-      context: .
-      dockerfile: ./services/notification-service/Dockerfile
+      context: ./notification-service
+      dockerfile: Dockerfile
     container_name: speakasap-notification-service
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: ${NOTIFICATION_SERVICE_PORT:-4209}
-      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_notification_db}
+      NOTIFICATION_SERVICE_PORT: ${NOTIFICATION_SERVICE_PORT:-4209}
+      NOTIFICATION_DATABASE_URL: ${NOTIFICATION_DATABASE_URL}
+      DATABASE_URL: ${NOTIFICATION_DATABASE_URL}
       NOTIFICATIONS_MICROSERVICE_URL: ${NOTIFICATIONS_MICROSERVICE_URL:-http://notifications-microservice:${NOTIFICATIONS_MICROSERVICE_PORT:-3368}}
       LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
       SERVICE_NAME: speakasap-notification-service
@@ -204,6 +206,7 @@ services:
       - speakasap-user-service
       - speakasap-payment-service
       - speakasap-notification-service
+      - speakasap-salary-service
     networks:
       - nginx-network
     healthcheck:
@@ -236,15 +239,21 @@ services:
   # speakasap-salary-service
   speakasap-salary-service:
     build:
-      context: .
-      dockerfile: ./services/salary-service/Dockerfile
+      context: ./salary-service
+      dockerfile: Dockerfile
     container_name: speakasap-salary-service
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: ${SALARY_SERVICE_PORT:-4212}
-      DATABASE_URL: postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${DB_NAME:-speakasap_salary_db}
-      PAYMENTS_MICROSERVICE_URL: ${PAYMENTS_MICROSERVICE_URL:-http://payments-microservice:${PAYMENTS_MICROSERVICE_PORT:-3468}}
+      SALARY_SERVICE_PORT: ${SALARY_SERVICE_PORT:-4212}
+      SALARY_DB_NAME: ${SALARY_DB_NAME:-speakasap_salary_db}
+      SALARY_DATABASE_URL: ${SALARY_DATABASE_URL:-postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${SALARY_DB_NAME:-speakasap_salary_db}}
+      DATABASE_URL: ${SALARY_DATABASE_URL:-postgresql://${DB_USER:-dbadmin}:${DB_PASSWORD}@${DB_HOST:-db-server-postgres}:${DB_PORT:-5432}/${SALARY_DB_NAME:-speakasap_salary_db}}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-microservice:${AUTH_MICROSERVICE_PORT:-3370}}
+      AUTH_SERVICE_TIMEOUT: ${AUTH_SERVICE_TIMEOUT:-5000}
       LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL:-http://logging-microservice:${LOGGING_MICROSERVICE_PORT:-3367}}
+      LOGGING_SERVICE_API_PATH: ${LOGGING_SERVICE_API_PATH:-/api/logs}
+      LOGGING_SERVICE_TIMEOUT: ${LOGGING_SERVICE_TIMEOUT:-5000}
       SERVICE_NAME: speakasap-salary-service
     ports:
       - "${SALARY_SERVICE_PORT:-4212}:4212"

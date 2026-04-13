@@ -2,7 +2,7 @@
 
 This index lists the agent tasks for the SpeakASAP refactoring program. Each task has a dedicated agent prompt in `docs/agents/`.
 
-**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3** waves 1–3 closed **2026-04-12** — engineering **GO**; deploy/HTTP smoke **DEFERRED** operator where noted). **Phase 4** (**TASK-44…TASK-63**) **opened** **2026-04-13** — sync gates **P4-OA…P4-FE** **open** until corresponding validators **PASS**; see `PHASE4_TASK_DECOMPOSITION.md`, `PHASE4_ORCHESTRATION_SUMMARY.md`.
+**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3** waves 1–3 closed **2026-04-12** — engineering **GO**; deploy/HTTP smoke **DEFERRED** operator where noted). **Phase 4** (**TASK-44…TASK-63**) **opened** **2026-04-13** — **Payment wave** **P4-OA…P4-OE** **PASS** **2026-04-13** (`PHASE4_PAYMENT_VALIDATION_REPORT.md`, `AGENT48V`); remaining gates **P4-NA…P4-FE** **open** until corresponding validators **PASS**; see `PHASE4_TASK_DECOMPOSITION.md`, `PHASE4_ORCHESTRATION_SUMMARY.md`.
 
 ## Task Structure
 
@@ -427,7 +427,7 @@ Wave2_closed → TASK-39 → TASK-40 → TASK-41 → TASK-42 → TASK-43
 
 ## Orchestration (Phase 4) — Payment, Notification, Salary, Financial
 
-**Status:** **Active** (opened **2026-04-13**). **Dual prompts:** TASK-44…TASK-63 — Implementation then Validator; sync gates **P4-OA…P4-OE**, **P4-NA…P4-NE**, **P4-SA…P4-SE**, **P4-FA…P4-FE** per [`PHASE4_TASK_DECOMPOSITION.md`](PHASE4_TASK_DECOMPOSITION.md).
+**Status:** **Active** (opened **2026-04-13**). **Dual prompts:** TASK-44…TASK-63 — Implementation then Validator; **Payment wave** sync gates **P4-OA…P4-OE** **PASS** **2026-04-13** ([`PHASE4_PAYMENT_VALIDATION_REPORT.md`](PHASE4_PAYMENT_VALIDATION_REPORT.md), [`AGENT48V`](../agents/AGENT48V_PAYMENT_PHASE4_VALIDATION_VALIDATE.md)); remaining sync gates **P4-NA…P4-NE**, **P4-SA…P4-SE**, **P4-FA…P4-FE** per [`PHASE4_TASK_DECOMPOSITION.md`](PHASE4_TASK_DECOMPOSITION.md).
 
 **Docs:** `PHASE4_TASK_DECOMPOSITION.md`, `PHASE4_ORCHESTRATION_SUMMARY.md`.
 
@@ -441,7 +441,7 @@ Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…6
 
 - **Implementation:** `docs/agents/AGENT44_PAYMENT_SERVICE_SCAFFOLD.md`
 - **Validator:** `docs/agents/AGENT44V_PAYMENT_SERVICE_SCAFFOLD_VALIDATE.md`
-- **Status:** Pending — sync **P4-OA** open
+- **Status:** **Complete** **2026-04-13** — sync **P4-OA** **PASS** (evidence in validator doc)
 - **Dependencies:** Phase 3 complete (program gates)
 - **Agent Type:** Infra/Docker Agent
 
@@ -449,7 +449,7 @@ Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…6
 
 - **Implementation:** `docs/agents/AGENT45_PAYMENT_SERVICE_DESIGN.md`
 - **Validator:** `docs/agents/AGENT45V_PAYMENT_SERVICE_DESIGN_VALIDATE.md`
-- **Status:** Pending — sync **P4-OB** open
+- **Status:** **Complete** **2026-04-13** — sync **P4-OB** **PASS** (evidence in validator doc)
 - **Dependencies:** TASK-44 + `AGENT44V` PASS
 - **Agent Type:** Backend Service Agent (Design)
 
@@ -457,7 +457,7 @@ Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…6
 
 - **Implementation:** `docs/agents/AGENT46_PAYMENT_SERVICE_IMPLEMENTATION.md`
 - **Validator:** `docs/agents/AGENT46V_PAYMENT_SERVICE_IMPLEMENTATION_VALIDATE.md`
-- **Status:** Pending — sync **P4-OC** open
+- **Status:** **Complete** **2026-04-13** — sync **P4-OC** **PASS** (evidence in validator doc)
 - **Dependencies:** TASK-45 + `AGENT45V` PASS
 - **Agent Type:** Backend Service Agent (Implementation)
 
@@ -465,7 +465,7 @@ Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…6
 
 - **Implementation:** `docs/agents/AGENT47_PAYMENT_SERVICE_MIGRATION.md`
 - **Validator:** `docs/agents/AGENT47V_PAYMENT_SERVICE_MIGRATION_VALIDATE.md`
-- **Status:** Pending — sync **P4-OD** open
+- **Status:** **Complete** **2026-04-13** — sync **P4-OD** **PASS** (evidence in validator doc)
 - **Dependencies:** TASK-46 + `AGENT46V` PASS
 - **Agent Type:** Data Migration Agent
 
@@ -473,7 +473,7 @@ Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…6
 
 - **Implementation:** `docs/agents/AGENT48_PAYMENT_PHASE4_VALIDATION.md`
 - **Validator:** `docs/agents/AGENT48V_PAYMENT_PHASE4_VALIDATION_VALIDATE.md`
-- **Status:** Pending — sync **P4-OE** open
+- **Status:** **Complete** **2026-04-13** — sync **P4-OE** **PASS** ([`PHASE4_PAYMENT_VALIDATION_REPORT.md`](PHASE4_PAYMENT_VALIDATION_REPORT.md), [`AGENT48V`](../agents/AGENT48V_PAYMENT_PHASE4_VALIDATION_VALIDATE.md))
 - **Dependencies:** TASK-47 + `AGENT47V` PASS
 - **Agent Type:** QA/Contract Validator Agent
 - **Outputs (expected):** `PHASE4_PAYMENT_VALIDATION_REPORT.md`, `PHASE4_PAYMENT_CUTOVER_CHECKLIST.md`

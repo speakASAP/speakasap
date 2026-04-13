@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
+import type { PaymentErrorBody } from './payment-http.exception';
 
 @Catch()
 export class HttpErrorFilter implements ExceptionFilter {
@@ -13,18 +14,20 @@ export class HttpErrorFilter implements ExceptionFilter {
     const status = exception instanceof HttpException
       ? exception.getStatus()
       : HttpStatus.INTERNAL_SERVER_ERROR;
-    const message = exception instanceof HttpException
-      ? exception.message
-      : 'Internal server error';
-    const code = mapStatusToCode(status);
-    const details = buildErrorDetails(exception);
+
+    const custom = extractPaymentError(exception);
+    const message = custom?.message
+      ?? (exception instanceof HttpException ? exception.message : 'Internal server error');
+    const code = custom?.code ?? mapStatusToCode(status);
+    const details = custom?.details ?? buildErrorDetails(exception);
 
     this.logger.error(
-      `Request failed: ${request.method} ${request.originalUrl} status=${status} code=${code} message=${message}`,
+      `${new Date().toISOString()} Request failed: ${request.method} ${request.originalUrl} status=${status} code=${code} message=${message}`,
       exception instanceof Error ? exception.stack : undefined,
     );
 
     response.status(status).json({
+      statusCode: status,
       error: {
         code,
         message,
@@ -32,6 +35,22 @@ export class HttpErrorFilter implements ExceptionFilter {
       },
     });
   }
+}
+
+function extractPaymentError(exception: unknown): PaymentErrorBody | null {
+  if (!(exception instanceof HttpException)) {
+    return null;
+  }
+  const body = exception.getResponse();
+  if (body && typeof body === 'object' && 'code' in body && 'message' in body) {
+    const b = body as PaymentErrorBody;
+    return {
+      code: String(b.code),
+      message: String(b.message),
+      details: b.details,
+    };
+  }
+  return null;
 }
 
 function buildErrorDetails(exception: unknown): Record<string, unknown> {
@@ -57,7 +76,7 @@ function buildErrorDetails(exception: unknown): Record<string, unknown> {
 function mapStatusToCode(status: number): string {
   switch (status) {
     case HttpStatus.BAD_REQUEST:
-      return 'BAD_REQUEST';
+      return 'VALIDATION_FAILED';
     case HttpStatus.UNAUTHORIZED:
       return 'UNAUTHORIZED';
     case HttpStatus.FORBIDDEN:

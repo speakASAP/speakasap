@@ -1,12 +1,15 @@
 const REQUIRED_ENV = [
   'PAYMENT_SERVICE_PORT',
   'PAYMENT_DATABASE_URL',
-  'PAYMENT_DB_NAME',
   'PAYMENTS_MICROSERVICE_URL',
+  'PAYMENTS_MICROSERVICE_API_KEY',
+  'PAYMENT_APPLICATION_ID',
+  'PAYMENTS_CHECKOUT_CALLBACK_URL',
+  'PAYMENTS_WEBHOOK_SHARED_SECRET',
   'LOGGING_SERVICE_URL',
   'LOGGING_SERVICE_API_PATH',
   'LOGGING_SERVICE_TIMEOUT',
-  'AUTH_MICROSERVICE_URL',
+  'AUTH_SERVICE_TIMEOUT',
 ];
 
 export function validateEnv(): void {
@@ -15,12 +18,16 @@ export function validateEnv(): void {
     throw new Error(`Missing required env vars: ${missing.join(', ')}`);
   }
 
-  const numericKeys = [
-    'PAYMENT_SERVICE_PORT',
-    'LOGGING_SERVICE_TIMEOUT',
-  ];
-  const invalid = numericKeys.filter((key) => Number.isNaN(Number(process.env[key])));
-  if (invalid.length > 0) {
-    throw new Error(`Invalid numeric env vars: ${invalid.join(', ')}`);
+  const authBase = process.env.AUTH_SERVICE_URL || process.env.AUTH_MICROSERVICE_URL;
+  if (!authBase) {
+    throw new Error('Missing AUTH_SERVICE_URL or AUTH_MICROSERVICE_URL');
+  }
+
+  const numericKeys = ['PAYMENT_SERVICE_PORT', 'LOGGING_SERVICE_TIMEOUT', 'AUTH_SERVICE_TIMEOUT'];
+  for (const key of numericKeys) {
+    const v = process.env[key];
+    if (!v || Number.isNaN(Number(v))) {
+      throw new Error(`Invalid or missing numeric env var: ${key}`);
+    }
   }
 }
