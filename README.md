@@ -89,7 +89,7 @@ All services integrate with shared microservices:
 - **Auth Microservice** (`AUTH_SERVICE_URL`) - JWT validation, user identity
 - **Database Server** (`DB_HOST`) - PostgreSQL + Redis (shared)
 - **Logging Microservice** (`LOGGING_SERVICE_URL`) - Centralized logging
-- **Notifications Microservice** (`NOTIFICATIONS_MICROSERVICE_URL`) - Email/Telegram/WhatsApp
+- **Notifications Microservice** (`NOTIFICATION_SERVICE_URL`) - Email/Telegram/WhatsApp
 - **Payments Microservice** (`PAYMENTS_MICROSERVICE_URL`) - Payment processing
 - **AI Microservice** (`AI_SERVICE_URL`) - AI-powered translations and content
 

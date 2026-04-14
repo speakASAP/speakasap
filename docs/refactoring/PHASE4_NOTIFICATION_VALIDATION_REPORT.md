@@ -58,7 +58,7 @@ Executed on validator host unless noted.
 | **`GET /health`** | `curl` `http://127.0.0.1:4209/health` | **PASS** (2026-04-13) | Response `{"status":"ok"}` while listener up. **Owner:** Operations — re-verify on deploy target before cutover. |
 | **Template CRUD** (`/api/v1/templates` …) | HTTP + JWT | **DEFERRED** | **Owner:** Operations — **Unblock:** service + DB + staff JWT; spot **GET** list, **POST**, **PATCH**, **DELETE** per contract. |
 | **Preference update** (`PATCH /api/v1/preferences/me/email`, `PATCH …/templates/:machineName`) | HTTP + JWT | **DEFERRED** | **Owner:** Operations — **Unblock:** valid user JWT; assert 200/422 per opt-out rules in contract. |
-| **Dispatch request** (`POST /api/v1/dispatch/email`, group variant) | HTTP + JWT + transport | **DEFERRED** | **Owner:** Operations / backend — **Unblock:** `NOTIFICATIONS_MICROSERVICE_URL` reachable; optional `USER_SERVICE_URL` for resolution; use `Idempotency-Key` per contract. |
+| **Dispatch request** (`POST /api/v1/dispatch/email`, group variant) | HTTP + JWT + transport | **DEFERRED** | **Owner:** Operations / backend — **Unblock:** `NOTIFICATION_SERVICE_URL` reachable; optional `USER_SERVICE_URL` for resolution; use `Idempotency-Key` per contract. |
 | **`npm run build`** | `npm run build` | **PASS** (2026-04-13) | After `tsconfig.build.json` include/exclude fix. |
 
 ---

@@ -235,7 +235,7 @@ GET /api/v1/languages/de
 See `docs/infrastructure/SHARED_SERVICES.md`. **`speakasap/.env.example`** should keep keys for:
 
 - `LOGGING_SERVICE_URL`, `LOGGING_SERVICE_API_PATH`
-- `NOTIFICATIONS_MICROSERVICE_URL`, `NOTIFICATIONS_MICROSERVICE_PORT`
+- `NOTIFICATION_SERVICE_URL`, `NOTIFICATIONS_MICROSERVICE_PORT`
 - `NOTIFICATION_*` template keys already listed in **`speakasap/.env.example`** (order/stock/sync placeholders)
 - `AI_SERVICE_URL` (integration design in `CONTENT_AI_INTEGRATION.md`)
 

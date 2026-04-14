@@ -40,7 +40,7 @@ Clear sync **P4-NB** — contract + mapping frozen.
 - **Files:** `docs/refactoring/NOTIFICATION_API_CONTRACT.md`, `docs/refactoring/NOTIFICATION_DATA_MAPPING.md` — present (2026-04-13).
 - **Pagination:** Contract § “Pagination and sorting” — `limit` default 20, **maximum 30**; list routes `/api/v1/templates`, `/notification-groups`, `/preferences/me/templates`, `/in-app`, `/letters` each document `limit` ≤ 30 + `cursor`.
 - **Out-of-scope / legacy:** Contract § “Out of scope”; mapping § “Out-of-scope data”, SmartResponder / `smartresponder_*` skip, SES/telegram ownership table.
-- **Transport:** Contract § “Delivery boundary” — HTTP to `NOTIFICATIONS_MICROSERVICE_URL` / `POST /notifications/send` only for delivery; own DB via `NOTIFICATION_DATABASE_URL` / `speakasap_notification_db` in mapping — no shared DB with notifications-ms for delivery.
+- **Transport:** Contract § “Delivery boundary” — HTTP to `NOTIFICATION_SERVICE_URL` / `POST /notifications/send` only for delivery; own DB via `NOTIFICATION_DATABASE_URL` / `speakasap_notification_db` in mapping — no shared DB with notifications-ms for delivery.
 - **Telegram:** Contract forbids hosting a Telegram bot and direct Telegram Bot API from `notification-service`; non-email channels only via shared POST.
 
 ## Sync gate (before TASK-51)

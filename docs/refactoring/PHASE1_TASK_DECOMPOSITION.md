@@ -288,7 +288,7 @@ Implement the Content Service as a NestJS application with all API endpoints, bu
 - ✅ Build/run verification complete
 - ✅ Prisma migrations created and applied
 - ✅ Service deployed and running
-- ✅ **`speakasap/.env.example`** includes NOTIFICATIONS_MICROSERVICE_URL
+- ✅ **`speakasap/.env.example`** includes NOTIFICATION_SERVICE_URL
 
 #### Exit Criteria
 

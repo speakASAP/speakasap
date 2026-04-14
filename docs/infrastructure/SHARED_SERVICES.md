@@ -27,7 +27,7 @@ standard environment variables for integration.
 
 ### Notifications Microservice
 
-- URL: `NOTIFICATIONS_MICROSERVICE_URL` (default `http://notifications-microservice:3368`)
+- URL: `NOTIFICATION_SERVICE_URL` (default `http://notifications-microservice:3368`)
 - Port: `NOTIFICATIONS_MICROSERVICE_PORT` (default 3368)
 - Purpose: Email/Telegram/WhatsApp notifications
 - Usage: Services should forward notification events via HTTP API
@@ -62,7 +62,7 @@ LOGGING_SERVICE_API_PATH=
 NOTIFICATION_SERVICE_PORT=
 NOTIFICATION_DATABASE_URL=
 NOTIFICATION_SERVICE_URL=
-NOTIFICATIONS_MICROSERVICE_URL=
+NOTIFICATION_SERVICE_URL=
 NOTIFICATIONS_MICROSERVICE_PORT=
 PAYMENTS_MICROSERVICE_URL=
 PAYMENTS_MICROSERVICE_PORT=
@@ -86,7 +86,7 @@ Validate JWTs or resolve users by calling `AUTH_SERVICE_URL` over HTTP from the 
 
 ### Notifications
 
-Call `NOTIFICATIONS_MICROSERVICE_URL` for outbound email/Telegram/WhatsApp; use service-level timeouts and retries from env (`NOTIFICATION_SERVICE_TIMEOUT`, `NOTIFICATION_RETRY_*`).
+Call `NOTIFICATION_SERVICE_URL` for outbound email/Telegram/WhatsApp; use service-level timeouts and retries from env (`NOTIFICATION_SERVICE_TIMEOUT`, `NOTIFICATION_RETRY_*`).
 
 ## .env sync (local and production)
 

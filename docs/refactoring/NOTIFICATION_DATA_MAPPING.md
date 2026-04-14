@@ -88,7 +88,7 @@
 | `_convert_models_to_ids` | Caller passes **`context`** with ids; no Django ORM in new service |
 | `NotificationTemplate._send_sync` preference checks | `respectPreferences` + `respectDoNotContact` in API contract |
 | `Letter.create` + `render_to_string` | Template render engine in TASK-51 (store result in `Letter` lineage row before send) |
-| `Letter.send` → `notification_client.send_email` | Adapter: `POST {NOTIFICATIONS_MICROSERVICE_URL}/notifications/send` with DTO fields aligned to shared `SendNotificationDto` |
+| `Letter.send` → `notification_client.send_email` | Adapter: `POST {NOTIFICATION_SERVICE_URL}/notifications/send` with DTO fields aligned to shared `SendNotificationDto` |
 | `send_group` manager dedupe | `POST /api/v1/dispatch/email/group` implementation |
 
 ---

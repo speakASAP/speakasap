@@ -41,7 +41,7 @@ Clear sync **P4-NC**.
 | --- | --- |
 | Route parity | `main.ts` sets `api/v1` global prefix with `exclude: ['health']`. Controllers: `health`; `templates` (CRUD + list); `notification-groups` (CRUD + list); `preferences/me` (`email`, `templates`, PATCH paths); `dispatch/email` (`POST` + `POST group`); `in-app` (GET, PATCH `:id/read`, POST `mark-all-read`); `letters` (GET list, GET `:id`). Matches `NOTIFICATION_API_CONTRACT.md`. |
 | Pagination cap | `shared/pagination.ts`: `MAX_LIMIT = 30`, `DEFAULT_LIMIT = 20`, `{ data, meta: { nextCursor, limit } }`. |
-| Hardcoded secrets / URLs in `src` | `rg` on `https?://`, secrets, Bearer literals: **no matches**. HTTP clients use `process.env` (`NOTIFICATIONS_MICROSERVICE_URL`, auth URL, user-service URL, logging URL). |
+| Hardcoded secrets / URLs in `src` | `rg` on `https?://`, secrets, Bearer literals: **no matches**. HTTP clients use `process.env` (`NOTIFICATION_SERVICE_URL`, auth URL, user-service URL, logging URL). |
 | Delivery boundary | Outbound email send only via `notifications-ms/notifications-transport.service.ts` → `fetch(\`${base}/notifications/send\`)` with `channel: 'email'`, `service: 'speakasap-notification-service'`. `dispatch.service.ts` calls only `this.transport.sendEmail`. |
 | Telegram / transport | No `telegram` / Bot API / SMTP / SES / SendGrid references under `notification-service/src`. |
 | Logging + `duration_ms` | `request-logging.interceptor.ts`, `request-context.middleware.ts`, `auth-client.service.ts`, `user-lookup.service.ts`, `notifications-transport.service.ts` log ISO timestamps and `duration_ms` on spans; transport logs `component: 'notifications-microservice'`. |

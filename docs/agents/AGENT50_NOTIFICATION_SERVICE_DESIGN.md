@@ -34,7 +34,7 @@ Produce contract artifacts so TASK-51 implementation has no ambiguous coupling.
 
 ## Environment keys (key names only)
 
-- `NOTIFICATIONS_MICROSERVICE_URL`
+- `NOTIFICATION_SERVICE_URL`
 - `NOTIFICATION_SERVICE_PORT`
 - `NOTIFICATION_DATABASE_URL`
 - `LOGGING_SERVICE_URL`

@@ -15,7 +15,7 @@ export class NotificationsTransportService {
   private readonly logger = new Logger(NotificationsTransportService.name);
 
   private baseUrl(): string {
-    return (process.env.NOTIFICATIONS_MICROSERVICE_URL || '').replace(/\/$/, '');
+    return (process.env.NOTIFICATION_SERVICE_URL || '').replace(/\/$/, '');
   }
 
   private timeoutMs(): number {

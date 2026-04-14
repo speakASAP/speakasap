@@ -21,7 +21,7 @@
 
 Per `AGENT50_NOTIFICATION_SERVICE_DESIGN.md`:
 
-- `NOTIFICATIONS_MICROSERVICE_URL`
+- `NOTIFICATION_SERVICE_URL`
 - `NOTIFICATION_SERVICE_PORT`
 - `NOTIFICATION_DATABASE_URL`
 - `LOGGING_SERVICE_URL`
@@ -89,9 +89,9 @@ HTTP status + JSON body (same shape as `PAYMENT_API_CONTRACT.md`):
 
 ## Delivery boundary (**notifications-microservice** only)
 
-All **email / telegram / whatsapp / sms** delivery goes through **`NOTIFICATIONS_MICROSERVICE_URL`**. This service is responsible for **template management**, **preferences**, **rendering** (or delegating body assembly), **audit rows**, and **mapping** to the shared API.
+All **email / telegram / whatsapp / sms** delivery goes through **`NOTIFICATION_SERVICE_URL`**. This service is responsible for **template management**, **preferences**, **rendering** (or delegating body assembly), **audit rows**, and **mapping** to the shared API.
 
-**Outbound (notification-service → notifications-ms), base URL `NOTIFICATIONS_MICROSERVICE_URL`:**
+**Outbound (notification-service → notifications-ms), base URL `NOTIFICATION_SERVICE_URL`:**
 
 | Method | Path | Purpose |
 |--------|------|---------|
