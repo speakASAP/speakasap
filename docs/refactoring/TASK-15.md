@@ -28,7 +28,7 @@ Add payments-microservice configuration to speakasap-portal settings and environ
 - Add payments-microservice configuration:
   ```python
   # Payments Microservice Configuration
-  PAYMENT_SERVICE_URL = os.environ.get('PAYMENT_SERVICE_URL', 'https://payments.statex.cz')
+  PAYMENT_SERVICE_URL = os.environ.get('PAYMENT_SERVICE_URL', 'https://payments.alfares.cz')
   PAYMENT_API_KEY = os.environ.get('PAYMENT_API_KEY', '')
   ```
 - Use environment variables with defaults
@@ -40,7 +40,7 @@ Add payments-microservice configuration to speakasap-portal settings and environ
 - Add same configuration with default values:
   ```python
   # Payments Microservice Configuration
-  PAYMENT_SERVICE_URL = os.environ.get('PAYMENT_SERVICE_URL', 'https://payments.statex.cz')
+  PAYMENT_SERVICE_URL = os.environ.get('PAYMENT_SERVICE_URL', 'https://payments.alfares.cz')
   PAYMENT_API_KEY = os.environ.get('PAYMENT_API_KEY', '')
   ```
 - Document purpose of each setting
@@ -51,7 +51,7 @@ Add payments-microservice configuration to speakasap-portal settings and environ
 - Backup existing `.env` file first
 - Add payments-microservice variables:
   ```
-  PAYMENT_SERVICE_URL=https://payments.statex.cz
+  PAYMENT_SERVICE_URL=https://payments.alfares.cz
   PAYMENT_API_KEY=<api-key-value>
   ```
 - Use actual values for production/staging
@@ -88,7 +88,7 @@ Add payments-microservice configuration to speakasap-portal settings and environ
 
 ## Configuration Variables
 
-- `PAYMENT_SERVICE_URL` - Base URL for payments-microservice (e.g., `https://payments.statex.cz`)
+- `PAYMENT_SERVICE_URL` - Base URL for payments-microservice (e.g., `https://payments.alfares.cz`)
 - `PAYMENT_API_KEY` - API key for authenticating requests to payments-microservice
 
 ## Acceptance Criteria

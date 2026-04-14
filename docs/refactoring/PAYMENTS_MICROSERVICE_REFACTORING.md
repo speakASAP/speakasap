@@ -535,7 +535,7 @@ LOGGING_SERVICE_INTERNAL_URL=http://logging-microservice:3367
 **Configuration** (add to `portal/local_settings.py`):
 
 ```python
-PAYMENT_SERVICE_URL = os.environ.get('PAYMENT_SERVICE_URL', 'https://payments.statex.cz')
+PAYMENT_SERVICE_URL = os.environ.get('PAYMENT_SERVICE_URL', 'https://payments.alfares.cz')
 PAYMENT_API_KEY = os.environ.get('PAYMENT_API_KEY', '')
 ```
 
@@ -823,7 +823,7 @@ PAYMENT_API_KEY = os.environ.get('PAYMENT_API_KEY', '')
 
    ```python
    # Payments Microservice Configuration
-   PAYMENT_SERVICE_URL = os.environ.get('PAYMENT_SERVICE_URL', 'https://payments.statex.cz')
+   PAYMENT_SERVICE_URL = os.environ.get('PAYMENT_SERVICE_URL', 'https://payments.alfares.cz')
    PAYMENT_API_KEY = os.environ.get('PAYMENT_API_KEY', '')
    ```
 
