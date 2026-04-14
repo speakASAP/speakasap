@@ -13,7 +13,7 @@ Use this list immediately before and during traffic migration to **speakasap-not
 - [ ] **P4-NA** **PASS** recorded in [`AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md`](../agents/AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md) (do not skip — report currently **NO-GO** until this is done).
 - [ ] **P4-NE** **PASS** in [`AGENT53V_NOTIFICATION_PHASE4_VALIDATION_VALIDATE.md`](../agents/AGENT53V_NOTIFICATION_PHASE4_VALIDATION_VALIDATE.md).
 - [ ] **`npm run build`** succeeds in `speakasap/notification-service` on the commit being deployed (`tsconfig.build.json` includes only `src/**/*.ts`).
-- [ ] **`.env`** on target has `NOTIFICATION_DATABASE_URL`, `NOTIFICATION_SERVICE_PORT`, `NOTIFICATIONS_MICROSERVICE_URL`, `LOGGING_SERVICE_URL`, auth/JWT settings per root `speakasap/.env.example` (no secrets in repo).
+- [ ] **`.env`** on target has `NOTIFICATION_DATABASE_URL`, `NOTIFICATION_SERVICE_PORT`, `NOTIFICATION_SERVICE_URL`, `LOGGING_SERVICE_URL`, auth/JWT settings per root `speakasap/.env.example` (no secrets in repo).
 
 ---
 
@@ -28,7 +28,7 @@ Use this list immediately before and during traffic migration to **speakasap-not
 ## Deploy / routing
 
 - [ ] **Blue/green** (or project standard): **notification-service** revision healthy before route switch (service `deploy.sh` / compose — no hand-edited nginx).
-- [ ] **notifications-microservice** reachable from notification-service at `NOTIFICATIONS_MICROSERVICE_URL` (headers/keys per that service’s deployment).
+- [ ] **notifications-microservice** reachable from notification-service at `NOTIFICATION_SERVICE_URL` (headers/keys per that service’s deployment).
 - [ ] **user-service** (if used for email resolution) reachable when `USER_SERVICE_URL` is set.
 
 ---

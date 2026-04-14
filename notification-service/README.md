@@ -17,14 +17,14 @@ Required keys (see `speakasap/.env.example`):
 
 - `NOTIFICATION_SERVICE_PORT`
 - `NOTIFICATION_DATABASE_URL`
-- `NOTIFICATIONS_MICROSERVICE_URL`
+- `NOTIFICATION_SERVICE_URL`
 - `LOGGING_SERVICE_URL`
 - `LOGGING_SERVICE_API_PATH`, `LOGGING_SERVICE_TIMEOUT`
 - `AUTH_SERVICE_URL` or `AUTH_MICROSERVICE_URL`, `AUTH_SERVICE_TIMEOUT`
 
 Optional: `USER_SERVICE_URL` + `INTERNAL_API_TOKEN` (user-service internal `POST /api/v1/internal/notification-target` for `userId` → email / do-not-contact), `NOTIFICATIONS_MICROSERVICE_API_KEY`, `NOTIFICATION_SERVICE_TIMEOUT` (outbound HTTP to notifications-ms, default `8000` ms).
 
-Outbound email uses **notifications-microservice** `POST /notifications/send` only (`NOTIFICATIONS_MICROSERVICE_URL`).
+Outbound email uses **notifications-microservice** `POST /notifications/send` only (`NOTIFICATION_SERVICE_URL`).
 
 ## Local run
 

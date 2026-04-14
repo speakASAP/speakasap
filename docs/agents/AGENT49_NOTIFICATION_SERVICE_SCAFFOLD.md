@@ -27,7 +27,7 @@ Create baseline `notification-service` with `/health`, root env wiring, and logg
 
 - `NOTIFICATION_SERVICE_PORT`
 - `NOTIFICATION_DATABASE_URL`
-- `NOTIFICATIONS_MICROSERVICE_URL`
+- `NOTIFICATION_SERVICE_URL`
 - `LOGGING_SERVICE_URL`
 
 ## Legacy domain (for README context only — no business APIs in this task)

@@ -51,7 +51,7 @@ Use **logging-microservice** with ISO timestamps per platform standard.
 
 If AI pipeline sends user-facing alerts (e.g. generation failed), use **notifications-microservice** with keys from **`speakasap/.env.example`**:
 
-- `NOTIFICATIONS_MICROSERVICE_URL`, `NOTIFICATIONS_MICROSERVICE_PORT`
+- `NOTIFICATION_SERVICE_URL`, `NOTIFICATIONS_MICROSERVICE_PORT`
 - Template IDs: `NOTIFICATION_ORDER_CREATED`, etc. (add **content-specific** keys when implementing, e.g. `NOTIFICATION_CONTENT_AI_FAILED`, in **`speakasap/.env.example`** keys-only)
 
 Content read endpoints **must not** send notifications by default.

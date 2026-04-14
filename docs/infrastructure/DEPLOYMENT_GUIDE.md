@@ -72,7 +72,7 @@ LOGGING_SERVICE_URL=http://logging-microservice:3367
 LOGGING_SERVICE_API_PATH=/api/logs
 AUTH_SERVICE_URL=http://auth-microservice:3370
 NOTIFICATION_SERVICE_URL=http://notifications-microservice:3368
-NOTIFICATIONS_MICROSERVICE_URL=http://notifications-microservice:3368
+NOTIFICATION_SERVICE_URL=http://notifications-microservice:3368
 PAYMENTS_MICROSERVICE_URL=http://payments-microservice:3468
 AI_SERVICE_URL=http://ai-microservice:3380
 
