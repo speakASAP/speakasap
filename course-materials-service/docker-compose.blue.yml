@@ -13,7 +13,7 @@ services:
       - REDIS_URL=${REDIS_URL}
       - AI_ORCHESTRATOR_URL=${AI_ORCHESTRATOR_URL:-http://ai-microservice:3380}
       - NLP_SERVICE_URL=${NLP_SERVICE_URL:-http://ai-microservice-nlp-service:3381}
-      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL:-https://logging.statex.cz}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL:-https://logging.alfares.cz}
       - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
       - MATERIAL_GENERATOR_PORT=${MATERIAL_GENERATOR_PORT:-3390}
     restart: unless-stopped
@@ -45,7 +45,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DB_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       - REDIS_URL=${REDIS_URL}
-      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL:-https://logging.statex.cz}
+      - LOGGING_SERVICE_URL=${LOGGING_SERVICE_URL:-https://logging.alfares.cz}
       - LOGGING_SERVICE_API_PATH=${LOGGING_SERVICE_API_PATH:-/api/logs}
       - MATERIAL_MANAGER_PORT=${MATERIAL_MANAGER_PORT:-3391}
     restart: unless-stopped

@@ -39,7 +39,7 @@ You manage multiple independent AI agents working in parallel on the same codeba
 
 ## Core objective
 
-Refactor the legacy Django monolith (`speakasap-portal`) into a NestJS/Next.js ecosystem using shared statex.cz microservices.
+Refactor the legacy Django monolith (`speakasap-portal`) into a NestJS/Next.js ecosystem using shared alfares.cz microservices.
 
 **Done (Phase 0):** `marathon` extracted as a standalone product with legacy shim and contracts.
 

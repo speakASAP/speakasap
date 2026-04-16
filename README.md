@@ -59,7 +59,7 @@ The production Django site **`speakasap-portal`** is **not** in this repository.
 ./scripts/deploy.sh
 ```
 
-`deploy.sh` calls nginx-microservice `deploy-smart.sh` with registry name **`DEPLOY_SERVICE_NAME`** (default **`speakasap`**; override when invoking, e.g. `DEPLOY_SERVICE_NAME=… ./scripts/deploy.sh`, if the registry JSON uses another name). HTTPS vhosts for **`speakasap-certification.statex.cz`** / **`speakasap-assessment.statex.cz`** are generated from **`nginx-microservice/service-registry/speakasap.json`** (`.domains`); `deploy.sh` validates those keys exist before deploy. Optional **`CERTIFICATION_SERVICE_DOMAIN`** / **`ASSESSMENT_SERVICE_DOMAIN`** in `speakasap/.env` must match the same registry keys (see `.env.example`). Optional: **`NGINX_MICROSERVICE_PATH`** if nginx-microservice is not in a standard location.
+`deploy.sh` calls nginx-microservice `deploy-smart.sh` with registry name **`DEPLOY_SERVICE_NAME`** (default **`speakasap`**; override when invoking, e.g. `DEPLOY_SERVICE_NAME=… ./scripts/deploy.sh`, if the registry JSON uses another name). HTTPS vhosts for **`speakasap-certification.alfares.cz`** / **`speakasap-assessment.alfares.cz`** are generated from **`nginx-microservice/service-registry/speakasap.json`** (`.domains`); `deploy.sh` validates those keys exist before deploy. Optional **`CERTIFICATION_SERVICE_DOMAIN`** / **`ASSESSMENT_SERVICE_DOMAIN`** in `speakasap/.env` must match the same registry keys (see `.env.example`). Optional: **`NGINX_MICROSERVICE_PATH`** if nginx-microservice is not in a standard location.
 
 ## Port Allocation
 

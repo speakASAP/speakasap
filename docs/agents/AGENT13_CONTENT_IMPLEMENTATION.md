@@ -192,7 +192,7 @@ Implement the Content Service as a complete NestJS application with all API endp
 
 8. **`speakasap/content-service/nginx-api-routes.conf`**
    - Nginx route configuration
-   - Domain: `content.statex.cz` (or appropriate domain)
+   - Domain: `content.alfares.cz` (or appropriate domain)
    - Port mapping
 
 ### Optional Files

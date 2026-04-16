@@ -436,7 +436,7 @@ graph LR
 
    - **Required**: Configure connection to external shared logging-microservice
    - For services on the same Docker network: `LOGGING_SERVICE_URL=http://logging-microservice:3367` or `LOGGING_SERVICE_INTERNAL_URL=http://logging-microservice:3367`
-   - For services outside Docker network: `LOGGING_SERVICE_URL=https://logging.statex.cz`
+   - For services outside Docker network: `LOGGING_SERVICE_URL=https://logging.alfares.cz`
    - Default port: `3367` (configured in `logging-microservice/.env`)
    - Service name: `logging-microservice` (configured in `logging-microservice/.env`)
    - API endpoint: `/api/logs` (default, can be overridden with `LOGGING_SERVICE_API_PATH`)
@@ -482,7 +482,7 @@ LOGGING_SERVICE_URL=http://logging-microservice:3367
 LOGGING_SERVICE_INTERNAL_URL=http://logging-microservice:3367
 
 # For services outside Docker network:
-# LOGGING_SERVICE_URL=https://logging.statex.cz
+# LOGGING_SERVICE_URL=https://logging.alfares.cz
 
 # Optional: Override API path (default: /api/logs)
 # LOGGING_SERVICE_API_PATH=/api/logs
@@ -918,7 +918,7 @@ PAYMENT_API_KEY = os.environ.get('PAYMENT_API_KEY', '')
 1. **Use Centralized Logging Service**:
    - Configure connection to external shared logging-microservice: `LOGGING_SERVICE_URL=http://logging-microservice:3367`
    - For services on Docker network: `LOGGING_SERVICE_INTERNAL_URL=http://logging-microservice:3367`
-   - For services outside Docker network: `LOGGING_SERVICE_URL=https://logging.statex.cz`
+   - For services outside Docker network: `LOGGING_SERVICE_URL=https://logging.alfares.cz`
    - Reference: See `logging-microservice/README.md` for complete integration guide
 
 2. **Log All Operations**:

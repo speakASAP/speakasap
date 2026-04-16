@@ -31,7 +31,7 @@ Scope: TASK-11 through TASK-15 validation for Content Service cutover readiness.
   - Production checks via `ssh alfares`:
     - `curl http://127.0.0.1:4204/health` -> 200
     - `curl https://content.alfares.cz/health` -> 200
-    - `curl https://content.statex.cz/health` -> 301
+    - `curl https://content.alfares.cz/health` -> 301
 
 ## 1) API Contract Validation
 

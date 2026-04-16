@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Default notification service URL
 NOTIFICATION_SERVICE_URL = os.getenv(
     'NOTIFICATION_SERVICE_URL',
-    'https://notifications.statex.cz'
+    'https://notifications.alfares.cz'
 )
 
 # Default timeout in seconds (per request; do not increase - check logs if service hangs)

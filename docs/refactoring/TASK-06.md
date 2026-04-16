@@ -262,7 +262,7 @@ scp keys/des.key keys/publickey.pem user@payments-microservice-server:/path/to/p
   - `SPEAKASAP_PORTAL_API_KEY=<api-key-for-callbacks>`
 - ⚠️ Add logging service configuration to `.env`:
   - `LOGGING_SERVICE_URL=http://logging-microservice:3367` (for Docker network)
-  - OR `LOGGING_SERVICE_URL=https://logging.statex.cz` (for external access)
+  - OR `LOGGING_SERVICE_URL=https://logging.alfares.cz` (for external access)
 
 **Improvements Made**:
 - **Documentation Enhancement**: Added comprehensive comments to `.env.example` explaining:

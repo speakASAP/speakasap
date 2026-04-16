@@ -20,20 +20,20 @@
 
 - **Ingest:** `POST /api/logs`  
 - **Query:** `GET /api/logs/query?service=<name>&level=error&limit=100`  
-- **URLs:** Internal `http://logging-microservice:3367`; external `https://logging.statex.cz` (if exposed).  
+- **URLs:** Internal `http://logging-microservice:3367`; external `https://logging.alfares.cz` (if exposed).  
 - **Note:** Ensure the query endpoint is routed correctly; the root domain may serve a landing page instead of the API.
 
 **Useful queries:**
 
 ```bash
 # Speakasap-portal shim errors
-curl -s "https://logging.statex.cz/api/logs/query?service=speakasap-portal&level=error&limit=100"
+curl -s "https://logging.alfares.cz/api/logs/query?service=speakasap-portal&level=error&limit=100"
 
 # Marathon service errors
-curl -s "https://logging.statex.cz/api/logs/query?service=marathon&level=error&limit=100"
+curl -s "https://logging.alfares.cz/api/logs/query?service=marathon&level=error&limit=100"
 
 # Shim-related messages (filter client-side)
-curl -s "https://logging.statex.cz/api/logs/query?service=speakasap-portal&limit=200" | jq '.data[] | select(.message | test("marathon shim"))'
+curl -s "https://logging.alfares.cz/api/logs/query?service=speakasap-portal&limit=200" | jq '.data[] | select(.message | test("marathon shim"))'
 ```
 
 ### 2.2 Speakasap-portal logs

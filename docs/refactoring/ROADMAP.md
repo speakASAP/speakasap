@@ -5,13 +5,13 @@
 **Status**: Planning Phase - Comprehensive Analysis Complete - Marathon Service Separated - Analytics Out of Scope - Monitoring Out of Scope - Testing Out of Scope - Telegram Bot in Shared Service - AI-Teacher Core Feature Added - Platform Extension: Dual-Purpose Marketplace (Teachers + Learners)  
 **Domain**: Language Learning E-Learning Platform (<https://speakasap.com>)  
 **Legacy Project**: `/Users/sergiystashok/Documents/GitHub/speakasap-portal`  
-**Target Project**: `/Users/sergiystashok/Documents/GitHub/statex.cz/speakasap`
+**Target Project**: `/Users/sergiystashok/Documents/GitHub/alfares.cz/speakasap`
 
 ---
 
 ## Executive Summary
 
-This roadmap outlines the complete refactoring strategy for migrating the legacy Django monolith (`speakasap-portal`) into a modern microservices architecture integrated with the statex.cz ecosystem. The refactoring will transform speakasap.com into a cutting-edge, scalable platform using modern technologies and shared microservices. **AI-teacher is a core feature** that will be integrated into the education process, providing AI-powered chat, personal learning roadmaps, and pronunciation training.
+This roadmap outlines the complete refactoring strategy for migrating the legacy Django monolith (`speakasap-portal`) into a modern microservices architecture integrated with the alfares.cz ecosystem. The refactoring will transform speakasap.com into a cutting-edge, scalable platform using modern technologies and shared microservices. **AI-teacher is a core feature** that will be integrated into the education process, providing AI-powered chat, personal learning roadmaps, and pronunciation training.
 
 **Platform Vision**: The refactored platform will be extended to serve as a **dual-purpose language learning marketplace**:
 
@@ -22,7 +22,7 @@ This roadmap outlines the complete refactoring strategy for migrating the legacy
 - **Goal**: Build an attractive, modern platform that attracts both teachers and learners, providing flexible learning options and teaching opportunities
 
 **Current State**: Legacy Django monolith with 40+ Django apps  
-**Target State**: Modern microservices architecture (10 speakasap microservices) using NestJS, Next.js, and shared statex.cz infrastructure. **helpdesk-microservice** will be built separately as a shared microservice for the entire ecosystem.  
+**Target State**: Modern microservices architecture (10 speakasap microservices) using NestJS, Next.js, and shared alfares.cz infrastructure. **helpdesk-microservice** will be built separately as a shared microservice for the entire ecosystem.  
 **Port Range**: 42xx (speakasap application)  
 **Note**: `marathon` app will be extracted as a **separate marathon-service** (outside speakasap) for all kinds of fast learning programs, not just language learning  
 **Note**: Analytics is **out of scope** - obsolete features (`big_brother`, `actions`) will not be refactored, analytics will be created from scratch later  
@@ -31,8 +31,8 @@ This roadmap outlines the complete refactoring strategy for migrating the legacy
 
 ### Key Findings
 
-1. **Microservices Decomposition**: The platform will be split into **10 speakasap microservices** (8 backend + 2 frontend) based on domain-driven design principles. Additionally, `marathon` app will be extracted as a **separate marathon-service** for all kinds of fast learning (not just language learning). **Analytics is out of scope** - obsolete features will not be refactored, analytics will be created from scratch later. **helpdesk-microservice** will be built separately from scratch as a shared microservice for the entire statex.cz ecosystem (current `helpdesk` app is obsolete and out of scope). **Testing is out of scope** - we test in practice and fix bugs on the fly. No automated tests will be created. **Testing is out of scope** - we test in practice and fix bugs on the fly. No automated tests will be created.
-2. **Shared Microservices Integration**: Will leverage **8 critical shared microservices** from statex.cz ecosystem:
+1. **Microservices Decomposition**: The platform will be split into **10 speakasap microservices** (8 backend + 2 frontend) based on domain-driven design principles. Additionally, `marathon` app will be extracted as a **separate marathon-service** for all kinds of fast learning (not just language learning). **Analytics is out of scope** - obsolete features will not be refactored, analytics will be created from scratch later. **helpdesk-microservice** will be built separately from scratch as a shared microservice for the entire alfares.cz ecosystem (current `helpdesk` app is obsolete and out of scope). **Testing is out of scope** - we test in practice and fix bugs on the fly. No automated tests will be created. **Testing is out of scope** - we test in practice and fix bugs on the fly. No automated tests will be created.
+2. **Shared Microservices Integration**: Will leverage **8 critical shared microservices** from alfares.cz ecosystem:
    - auth-microservice (authentication)
    - database-server (PostgreSQL + Redis)
    - logging-microservice (centralized logging)
@@ -72,7 +72,7 @@ The legacy Django monolith (40+ apps) will be decomposed into **10 speakasap mic
 **Note**: Analytics is **out of scope** for this refactoring. The `big_brother` and `actions` apps are obsolete and not used. Analytics will be created from scratch later as a separate project.  
 **Note**: Testing is **out of scope** - we test in practice and fix bugs on the fly. No automated tests, unit tests, integration tests, or load tests will be created.
 
-**Note**: Helpdesk is **out of scope** for this refactoring. The current `helpdesk` app is obsolete. A new **helpdesk-microservice** will be built from scratch as a separate shared microservice for the entire statex.cz ecosystem (not part of speakasap refactoring).
+**Note**: Helpdesk is **out of scope** for this refactoring. The current `helpdesk` app is obsolete. A new **helpdesk-microservice** will be built from scratch as a separate shared microservice for the entire alfares.cz ecosystem (not part of speakasap refactoring).
 
 **Frontend Services (2 services)**:
 
@@ -83,7 +83,7 @@ The legacy Django monolith (40+ apps) will be decomposed into **10 speakasap mic
 
 #### 2. Which Existing Microservices Should Be Used in New SpeakASAP?
 
-The new SpeakASAP platform will integrate with **7 critical shared microservices** from the statex.cz ecosystem:
+The new SpeakASAP platform will integrate with **7 critical shared microservices** from the alfares.cz ecosystem:
 
 | Microservice | Port | Usage | Integration Phase |
 | ------------ | ---- | ----- | ----------------- |
@@ -352,7 +352,7 @@ The following features are **obsolete and out of scope** for the refactoring. Th
 
 **Note**: These features will remain in the legacy system but will not be part of the new microservices architecture. They are marked as obsolete and should not be included in any migration plans.
 
-**Special Note for Helpdesk**: The current `helpdesk` app is obsolete and out of scope. A new **helpdesk-microservice** will be built from scratch as a separate shared microservice for the entire statex.cz ecosystem. It will not migrate data from the legacy `helpdesk` app.
+**Special Note for Helpdesk**: The current `helpdesk` app is obsolete and out of scope. A new **helpdesk-microservice** will be built from scratch as a separate shared microservice for the entire alfares.cz ecosystem. It will not migrate data from the legacy `helpdesk` app.
 
 ### 1.4 Complete Django Apps Inventory
 
@@ -698,7 +698,7 @@ Based on domain-driven design principles and business boundaries, the platform s
    - **Data Sources**: `notifications`, `ses`, `smartresponder`
    - **Dependencies**: notifications-microservice (handles Telegram bot, email, WhatsApp)
 
-**Note**: **helpdesk-microservice** is **out of scope** for speakasap refactoring. The current `helpdesk` app is obsolete and will not be migrated. A new **helpdesk-microservice** will be built from scratch as a separate shared microservice for the entire statex.cz ecosystem. It will be developed independently and can be used by all applications (speakasap, flipflop, allegro, etc.). This microservice will include:
+**Note**: **helpdesk-microservice** is **out of scope** for speakasap refactoring. The current `helpdesk` app is obsolete and will not be migrated. A new **helpdesk-microservice** will be built from scratch as a separate shared microservice for the entire alfares.cz ecosystem. It will be developed independently and can be used by all applications (speakasap, flipflop, allegro, etc.). This microservice will include:
 
 - Helpdesk/ticket system
 - Support workflows
@@ -795,7 +795,7 @@ Based on domain-driven design principles and business boundaries, the platform s
 
 ---
 
-## 3. Integration with Existing Statex.cz Microservices
+## 3. Integration with Existing alfares.cz Microservices
 
 ### 3.1 Shared Microservices to Use
 
@@ -1010,7 +1010,7 @@ The new speakasap platform will leverage the following existing shared microserv
 
 **To**:
 
-- **Backend**: NestJS (TypeScript) - following statex.cz patterns
+- **Backend**: NestJS (TypeScript) - following alfares.cz patterns
 - **Frontend**: Next.js (TypeScript) - modern React framework
 - **Database**: PostgreSQL (shared database-server)
 - **Cache**: Redis (shared database-server)
@@ -1041,7 +1041,7 @@ The new speakasap platform will leverage the following existing shared microserv
 
 #### 1.1 Project Setup
 
-- [ ] Create `speakasap` directory structure in statex.cz
+- [ ] Create `speakasap` directory structure in alfares.cz
 - [ ] Set up Docker Compose files (blue/green deployment)
 - [ ] Configure nginx-microservice integration
 - [ ] Set up shared microservice connections (auth, database, logging)
@@ -1212,7 +1212,7 @@ The new speakasap platform will leverage the following existing shared microserv
 **Port**: 4209  
 **Database**: `speakasap_notification_db`
 
-**Note**: **helpdesk-microservice** is **out of scope** for speakasap refactoring. The current `helpdesk` app is obsolete and will not be migrated. A new **helpdesk-microservice** will be built from scratch as a separate shared microservice for the entire statex.cz ecosystem. It will be developed independently and is not part of this refactoring plan.
+**Note**: **helpdesk-microservice** is **out of scope** for speakasap refactoring. The current `helpdesk` app is obsolete and will not be migrated. A new **helpdesk-microservice** will be built from scratch as a separate shared microservice for the entire alfares.cz ecosystem. It will be developed independently and is not part of this refactoring plan.
 
 #### 4.3 Salary Service
 
@@ -1381,7 +1381,7 @@ For this refactoring phase:
 
 ## 6. Port Allocation
 
-Following statex.cz port allocation strategy:
+Following alfares.cz port allocation strategy:
 
 **Port Range**: 42xx (speakasap application)
 

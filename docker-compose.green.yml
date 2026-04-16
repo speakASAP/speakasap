@@ -71,7 +71,7 @@ services:
       - .env
     environment:
       - NODE_ENV=${NODE_ENV:-production}
-      - DOMAIN=${CERTIFICATION_SERVICE_DOMAIN:-speakasap-certification.statex.cz}
+      - DOMAIN=${CERTIFICATION_SERVICE_DOMAIN:-speakasap-certification.alfares.cz}
       - SERVICE_NAME=${CERTIFICATION_SERVICE_NAME:-certification-service}
       - PORT=${CERTIFICATION_SERVICE_PORT:-4202}
       - DB_HOST=${DB_HOST}
@@ -116,7 +116,7 @@ services:
       - .env
     environment:
       - NODE_ENV=${NODE_ENV:-production}
-      - DOMAIN=${ASSESSMENT_SERVICE_DOMAIN:-speakasap-assessment.statex.cz}
+      - DOMAIN=${ASSESSMENT_SERVICE_DOMAIN:-speakasap-assessment.alfares.cz}
       - SERVICE_NAME=${ASSESSMENT_SERVICE_NAME:-assessment-service}
       - PORT=${ASSESSMENT_SERVICE_PORT:-4203}
       - DB_HOST=${DB_HOST}
@@ -138,8 +138,8 @@ services:
       - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT}
       - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
       - AUTH_SERVICE_TIMEOUT=${AUTH_SERVICE_TIMEOUT}
-      - LANGUAGE_TEST_LANDING_BASE_URL=${LANGUAGE_TEST_LANDING_BASE_URL:-https://speakasap.statex.cz}
-      - ASSESSMENT_SERVICE_PUBLIC_BASE_URL=${ASSESSMENT_SERVICE_PUBLIC_BASE_URL:-https://speakasap-assessment.statex.cz}
+      - LANGUAGE_TEST_LANDING_BASE_URL=${LANGUAGE_TEST_LANDING_BASE_URL:-https://speakasap.alfares.cz}
+      - ASSESSMENT_SERVICE_PUBLIC_BASE_URL=${ASSESSMENT_SERVICE_PUBLIC_BASE_URL:-https://speakasap-assessment.alfares.cz}
       - ASSESSMENT_VIEW_TOKEN_SECRET=${ASSESSMENT_VIEW_TOKEN_SECRET}
       - USER_TEST_ASSETS_DIR=${USER_TEST_ASSETS_DIR:-/app/assets}
       - CORS_ORIGIN=${CORS_ORIGIN}
