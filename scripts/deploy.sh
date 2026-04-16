@@ -135,6 +135,74 @@ echo -e "${GREEN}✅ Found nginx-microservice at: $NGINX_MICROSERVICE_PATH${NC}"
 echo -e "${GREEN}✅ Deploying service (registry): $DEPLOY_SERVICE_NAME${NC}"
 echo ""
 
+# Preflight: ensure required SSL certs exist before deploy switches nginx traffic.
+# This prevents unrelated deployments from failing on global nginx reload due to one missing cert.
+REGISTRY_FILE="$NGINX_MICROSERVICE_PATH/service-registry/$DEPLOY_SERVICE_NAME.json"
+echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')] SSL preflight: validating certificate files${NC}"
+if [ ! -f "$REGISTRY_FILE" ]; then
+    echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️  Registry file not found: $REGISTRY_FILE${NC}"
+    echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️  Continuing with env-based domain checks only${NC}"
+fi
+
+CERT_PREFLIGHT_FAILED=0
+DOMAINS_TO_CHECK=""
+if [ -f "$REGISTRY_FILE" ] && command -v jq >/dev/null 2>&1; then
+    DOMAINS_TO_CHECK="$(jq -r '.domains | keys[]?' "$REGISTRY_FILE" 2>/dev/null || true)"
+fi
+for env_domain in "${DOMAIN:-}" "${CERTIFICATION_SERVICE_DOMAIN:-}" "${ASSESSMENT_SERVICE_DOMAIN:-}"; do
+    if [ -n "$env_domain" ] && ! printf '%s\n' "$DOMAINS_TO_CHECK" | awk -v d="$env_domain" '$0==d{f=1} END{exit(f?0:1)}'; then
+        DOMAINS_TO_CHECK="${DOMAINS_TO_CHECK}
+$env_domain"
+    fi
+done
+DOMAINS_TO_CHECK="$(printf '%s\n' "$DOMAINS_TO_CHECK" | awk 'NF' | awk '!seen[$0]++')"
+
+if [ -z "$DOMAINS_TO_CHECK" ]; then
+    echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️  No domains found for SSL preflight${NC}"
+else
+    while IFS= read -r domain; do
+        [ -z "$domain" ] && continue
+        fullchain_path="$NGINX_MICROSERVICE_PATH/certificates/$domain/fullchain.pem"
+        privkey_path="$NGINX_MICROSERVICE_PATH/certificates/$domain/privkey.pem"
+        if [ -f "$fullchain_path" ] && [ -f "$privkey_path" ]; then
+            echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Cert exists: $domain${NC}"
+            continue
+        fi
+
+        echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️  Missing cert files for $domain${NC}"
+        echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️  Attempting cert request via certbot before deploy${NC}"
+
+        certbot_cmd=(docker compose -f "$NGINX_MICROSERVICE_PATH/docker-compose.yml" run --rm certbot /scripts/request-cert.sh "$domain")
+        if [ -n "${CERTBOT_EMAIL:-}" ]; then
+            certbot_cmd+=("$CERTBOT_EMAIL")
+        fi
+
+        if "${certbot_cmd[@]}"; then
+            if [ -f "$fullchain_path" ] && [ -f "$privkey_path" ]; then
+                echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Cert ready after request: $domain${NC}"
+            else
+                echo -e "${RED}[$(date '+%Y-%m-%d %H:%M:%S')] ❌ Cert request finished but files still missing: $domain${NC}"
+                CERT_PREFLIGHT_FAILED=1
+            fi
+        else
+            echo -e "${RED}[$(date '+%Y-%m-%d %H:%M:%S')] ❌ Cert request failed for: $domain${NC}"
+            CERT_PREFLIGHT_FAILED=1
+        fi
+    done <<< "$DOMAINS_TO_CHECK"
+fi
+
+if [ "$CERT_PREFLIGHT_FAILED" -ne 0 ]; then
+    echo ""
+    echo -e "${RED}╔══════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║          ❌ SSL preflight failed - deployment aborted               ║${NC}"
+    echo -e "${RED}╚══════════════════════════════════════════════════════════════════════╝${NC}"
+    echo "Missing or invalid certificates would block nginx reload globally."
+    echo "Fix DNS/certificates for listed domains, then rerun ./scripts/deploy.sh."
+    exit 1
+fi
+echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')] ✅ SSL preflight passed${NC}"
+echo ""
+
 # Validate docker-compose files exist before deployment
 echo -e "${BLUE}Validating docker-compose files...${NC}"
 if [ ! -f "$PROJECT_ROOT/docker-compose.blue.yml" ]; then

@@ -1,48 +1,48 @@
-# SpeakASAP Orchestrator Specification
+# SpeakASAP — Orchestrator SPEC
 
-## Platform
+**Version:** 1.0 | **Created:** 2026-04-15 | **Owner:** Lead Orchestrator
 
-`speakasap` is an online language-learning platform focused on courses, assessments, certifications, and payments. It is in the refactoring phase from legacy speakasap-portal.
+## Platform Overview
 
-## Runtime and stack
+SpeakASAP is an online language-learning platform providing structured courses, progress-based assessments, and certifications. Users enrol in language courses, complete lessons and assessments, and earn certifications on completion.
 
-- **Ports:** 42xx range across multiple NestJS services
-- **Backend stack:** NestJS microservices
-- **Data layer:** PostgreSQL and Redis
+**Tech stack:** NestJS microservices (ports 42xx), PostgreSQL, Redis, RabbitMQ  
+**Key services:** api-gateway, course-service, assessment-service, certification-service, user-service, payment-service, notification-service
 
-## Core integrations
+## Business Goals
 
-- `auth-microservice:3370`
-- `payments-microservice:3468`
-- `notifications-microservice:3368`
+1. Automate course content quality — AI generates + reviews course descriptions
+2. Personalise student retention — AI sends contextual feedback after assessments
+3. Certify at scale — auto-generate completion emails + certificates
 
-## Service modules
+## AI Task Types
 
-- content
-- certification
-- assessment
-- course
-- education
-- user
-- payment
-- notification
-- api-gateway
-
-## AI task types
-
-The orchestrator can generate and schedule the following tasks:
-
-- `generate_course_description`  
-  AI-generated course descriptions for active courses.
-- `generate_assessment_feedback`  
-  Personalized student feedback after assessment completion.
-- `send_completion_email`  
-  Certification completion email sent via notifications-microservice.
+| Type | Tier | Description |
+|------|------|-------------|
+| `generate_course_description` | cheap | Generate SEO-friendly course description from title + syllabus |
+| `review_course_content` | cheap | Check course content for factual accuracy + completeness |
+| `generate_assessment_feedback` | cheap | Personalised feedback based on student's assessment answers |
+| `generate_completion_email` | cheap | Craft personalised congratulations email on certification |
+| `analyse_retention_risk` | cheap | Flag students with low engagement based on activity data |
 
 ## Constraints
 
-- Never modify student assessment results.
-- Payment processing must happen only through payments-microservice.
-- GDPR: no student data export without explicit approval.
-- Use free/cheap tier models only; no premium LLM calls.
-- Monthly LLM budget cap: 200k units.
+- **No premium tier** — free/cheap models only
+- **Budget cap:** 200,000 LLM units/month (separate from flipflop quota)
+- **No student data export** without explicit human approval via goal
+- **No direct DB access from agents** — all reads via speakasap REST API
+- **No email sends without notification-service** — never call SMTP directly
+
+## Integration Points
+
+| Service | Purpose |
+|---------|---------|
+| `ai-microservice:3380` | All LLM calls (POST /ai/complete, tier=cheap) |
+| `notifications-microservice:3340` | Email + Telegram sends |
+| `speakasap/api-gateway` | REST API for course/student/assessment data |
+
+## Key Invariants
+
+- All tasks must have a `goal_id` (coordinator enforces)
+- Agent outputs must pass validation before task is marked done
+- Goal pipeline: course content → student retention → analytics

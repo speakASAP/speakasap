@@ -29,7 +29,7 @@
 
 **P2-D cleared 2026-04-11** — TASK-24 ∥ TASK-27 per parallelism gate (`AGENT23V` + `AGENT26V` PASS; separate DBs; no shared runner). Deliverables: Python ETL scripts in `certification-service/scripts/` and `assessment-service/scripts/`, migration + validation markdown under `docs/refactoring/`, Prisma migration aligning `studentCourseId` with legacy UUID strings, contract/mapping doc updates. **`AGENT24V` / `AGENT27V`:** PASS on code + doc review; operators still run count/orphan SQL from validation docs after live import.
 
-**P2-E (TASK-28 / AGENT28V):** **Cleared 2026-04-12** — production DB counts + orphan integrity on alfares `db-server-postgres`; edge `GET https://speakasap.statex.cz/health` **200**; **`AGENT28V` PASS**. Dedicated cert/assessment API HTTP smoke deferred **non-blocking** (see validation report §3).
+**P2-E (TASK-28 / AGENT28V):** **Cleared 2026-04-12** — production DB counts + orphan integrity on alfares `db-server-postgres`; edge `GET https://speakasap.alfares.cz/health` **200**; **`AGENT28V` PASS**. Dedicated cert/assessment API HTTP smoke deferred **non-blocking** (see validation report §3).
 
 **Timeline (indicative):** Sequential critical path ~3–4 weeks with parallelism on contracts and possibly migrations; adjust per team velocity.
 

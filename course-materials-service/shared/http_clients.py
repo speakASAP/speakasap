@@ -141,7 +141,7 @@ class MessengerServiceClient(BaseServiceClient):
     
     def __init__(self, messenger_service_url: str = None):
         # Support both Docker and localhost environments
-        base_url = messenger_service_url or os.getenv("MESSENGER_SERVICE_URL", "https://messenger.statex.cz")
+        base_url = messenger_service_url or os.getenv("MESSENGER_SERVICE_URL", "https://messenger.alfares.cz")
         super().__init__(base_url)
         self.matrix_server = os.getenv("MESSENGER_MATRIX_SERVER", base_url)
         self.livekit_url = os.getenv("MESSENGER_LIVEKIT_URL", base_url)

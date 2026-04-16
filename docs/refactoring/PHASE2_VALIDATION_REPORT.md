@@ -34,7 +34,7 @@
 
 | # | Legacy area | New surface | Check performed | Evidence (UTC **2026-04-12** where noted) | Result |
 |---|-------------|-------------|-----------------|---------------------------------------------|--------|
-| C1 | Site liveness | `speakasap.statex.cz` | `GET /health` | HTTP **200**, body `{"status":"ok"}` (curl from **alfares**) | PASS |
+| C1 | Site liveness | `speakasap.alfares.cz` | `GET /health` | HTTP **200**, body `{"status":"ok"}` (curl from **alfares**) | PASS |
 | C2–C8 | Certificates, quests, questionnaires | certification `/api/v1/...` | JWT-backed `GET /api/v1/course-certificates?page=1&limit=1` on origin TLS (**200**, list body); `Authorization: Bearer <redacted>` | §**3.3** **2026-04-12** | PASS |
 | A1 | Site liveness | same host `/health` | Covered by C1 | Same as C1 | PASS |
 | A2–A8 | Language + asset tests | assessment `/api/v1/...` | JWT-backed `GET /api/v1/admin/language-tests?page=1&limit=1` on origin TLS (**200**, `items.length=1`); bearer redacted | §**3.3** **2026-04-12** | PASS |
@@ -50,9 +50,9 @@ Delegated re-run when routing is fixed: `docs/superpowers/cursor-tasks/task-01-f
 
 | Check | Command / observation | Result |
 |-------|------------------------|--------|
-| Cert HTTPS `/health` | `curl -sS -L https://speakasap-certification.statex.cz/health` | Body identifies **`auth-microservice`**, not certification-service — **wrong upstream** |
-| Assess HTTPS `/health` | `curl -sS -L https://speakasap-assessment.statex.cz/health` | Same (**auth-microservice**) |
-| Cert HTTPS API | `GET https://speakasap-certification.statex.cz/api/v1/course-certificates?page=1&limit=1` | **404** `Cannot GET ...` (not certification `UNAUTHORIZED` JSON) |
+| Cert HTTPS `/health` | `curl -sS -L https://speakasap-certification.alfares.cz/health` | Body identifies **`auth-microservice`**, not certification-service — **wrong upstream** |
+| Assess HTTPS `/health` | `curl -sS -L https://speakasap-assessment.alfares.cz/health` | Same (**auth-microservice**) |
+| Cert HTTPS API | `GET https://speakasap-certification.alfares.cz/api/v1/course-certificates?page=1&limit=1` | **404** `Cannot GET ...` (not certification `UNAUTHORIZED` JSON) |
 | Cert service local | `GET http://127.0.0.1:4202/health` (published **speakasap-certification-green**) | **200** `{"status":"ok"}` |
 | Cert service local API | `GET http://127.0.0.1:4202/api/v1/course-certificates?page=1&limit=1` (no `Authorization`) | **401** `UNAUTHORIZED` / missing bearer — **expected** Nest guard |
 | Assessment container | `docker ps`: **`speakasap-assessment-green`** | **`Restarting`** — no in-container `/health` for matrix until stable |
@@ -65,8 +65,8 @@ Same prerequisites as §3.1; outcome unchanged — **do not** set matrix PASS or
 
 | Check | Command / observation | Result |
 |-------|------------------------|--------|
-| Cert HTTPS `/health` | `curl -sS -L https://speakasap-certification.statex.cz/health` | Still **`service":"auth-microservice"`** (not Nest `{ "status": "ok" }` only) |
-| Assess HTTPS `/health` | `curl -sS -L https://speakasap-assessment.statex.cz/health` | Same (**auth-microservice**) |
+| Cert HTTPS `/health` | `curl -sS -L https://speakasap-certification.alfares.cz/health` | Still **`service":"auth-microservice"`** (not Nest `{ "status": "ok" }` only) |
+| Assess HTTPS `/health` | `curl -sS -L https://speakasap-assessment.alfares.cz/health` | Same (**auth-microservice**) |
 | Cert HTTPS list (no JWT) | `GET …/api/v1/course-certificates?page=1&limit=1` | **404** (wrong upstream; not certification **401** envelope) |
 | Cert local | `GET http://127.0.0.1:4202/health` | **200** `{"status":"ok"}` — **speakasap-certification-green** healthy |
 | Assessment container | `docker ps`: **`speakasap-assessment-green`** | **`Restarting`** — logs: **`Missing required env vars: USER_TEST_ASSETS_DIR`** (bootstrap fails before matrix) |
@@ -76,24 +76,24 @@ Same prerequisites as §3.1; outcome unchanged — **do not** set matrix PASS or
 
 ### §3.3 F2-HTTP-JWT — implementation pass (alfares, UTC **2026-04-12**)
 
-**Engineering (this run):** `nginx-microservice` vhosts for `speakasap-certification.statex.cz` / `speakasap-assessment.statex.cz` already proxy to **`speakasap-certification-green:4202`** / **`speakasap-assessment-green:4203`** (verified inside `nginx-microservice` container: `wget -qO- http://speakasap-certification-green:4202/health` → `{"status":"ok"}`). **Public DNS** for both hostnames resolves to **Cloudflare anycast** (`2a06:98c1::*`); `curl -sS -L https://…/health` without pinning still returns **`auth-microservice`** JSON — **edge/origin routing at Cloudflare**, not nginx config in this repo.
+**Engineering (this run):** `nginx-microservice` vhosts for `speakasap-certification.alfares.cz` / `speakasap-assessmentalfares.czcz` already proxy to **`speakasap-certification-green:4202`** / **`speakasap-assessment-green:4203`** (verified inside `nginx-microservice` container: `wget -qO- http://speakasap-certification-green:4202/health` → `{"status":"ok"}`). **Public DNS** for both hostnames resolves to **Cloudflare anycast** (`2a06:98c1::*`); `curl -sS -L https://…/health` without pinning still returns **`auth-microservice`** JSON — **edge/origin routing at Cloudflare**, not nginx config in this repo.
 
 **Origin-bound TLS + JWT (operator procedure when public resolver is wrong):** pin TLS to the host running `nginx-microservice` (example: loopback on alfares) and preserve SNI:
 
 ```bash
-curl -skS --resolve "speakasap-certification.statex.cz:443:127.0.0.1" "https://speakasap-certification.statex.cz/health"
-curl -skS --resolve "speakasap-assessment.statex.cz:443:127.0.0.1" "https://speakasap-assessment.statex.cz/health"
+curl -skS --resolve "speakasap-certification.alfares.cz:443:127.0.0.1" "https://speakasap-certificationalfares.czcz/health"
+curl -skS --resolve "speakasap-assessment.alfares.cz:443:127.0.0.1" "https://speakasap-assessmentalfares.czcz/health"
 ```
 
 HS256 bearer minted with **`JWT_SECRET`** aligned to **auth** (same pattern as Phase 3 U4); **`sub`** = existing auth `users.id` UUID (`a467a830-471c-4e0a-bb9d-69915aeeda7d`); token value **not** logged here.
 
 | Check | Command / observation | Result |
 |-------|------------------------|--------|
-| Cert origin TLS `/health` | `curl -skS --resolve …cert…:443:127.0.0.1 https://speakasap-certification.statex.cz/health` | **200** body `{"status":"ok"}` |
-| Assess origin TLS `/health` | `curl -skS --resolve …assess…:443:127.0.0.1 https://speakasap-assessment.statex.cz/health` | **200** body `{"status":"ok"}` |
+| Cert origin TLS `/health` | `curl -skS --resolve …cert…:443:127.0.0.1 https://speakasap-certification.alfares.cz/health` | **200** body `{"status":"ok"}` |
+| Assess origin TLS `/health` | `curl -skS --resolve …assess…:443:127.0.0.1 https://speakasap-assessment.alfares.cz/health` | **200** body `{"status":"ok"}` |
 | Cert JWT list | `GET …/api/v1/course-certificates?page=1&limit=1` + `Authorization: Bearer <redacted>` (same `--resolve`) | **200** `{ "items": [], "page": 1, "limit": 1, "total": 0, … }` |
 | Assess JWT admin list | `GET …/api/v1/admin/language-tests?page=1&limit=1` + bearer (same `--resolve`) | **200** `{ "items": [ { "id": 1, … } ], "total": 1, … }` |
-| Public resolver `/health` (unchanged) | `curl -sS -L https://speakasap-certification.statex.cz/health` | Still **`service":"auth-microservice"`** — **ops**: Cloudflare DNS / origin must forward these hostnames to this nginx |
+| Public resolver `/health` (unchanged) | `curl -sS -L https://speakasap-certification.alfares.cz/health` | Still **`service":"auth-microservice"`** — **ops**: Cloudflare DNS / origin must forward these hostnames to this nginx |
 
 **Compose / runtime fixes (speakasap repo):** `docker-compose.green.yml` / `docker-compose.blue.yml` now pass **`USER_TEST_ASSETS_DIR`** (default **`/app/assets`**), **`LANGUAGE_TEST_LANDING_BASE_URL`**, **`ASSESSMENT_SERVICE_PUBLIC_BASE_URL`**, **`ASSESSMENT_VIEW_TOKEN_SECRET`**, and **`JWT_SECRET`** (certification) explicitly into containers. **Assessment** maps auth role strings like **`global:superadmin`** to staff checks (`normalize-roles.ts`) and allows **`superadmin`** in the default staff role list (`staff-roles.guard.ts`).
 
@@ -162,7 +162,7 @@ Latest applied migrations include `20260411203000_student_course_uuid_string` (U
 
 **2026-04-12:** Cursor ran `task-01-f2-http-jwt-smoke.md` on alfares; prerequisites still failed — see **§3.2** (not done).
 
-**2026-04-12 (later):** Engineering evidence completed — **§3.3** (origin TLS + JWT **PASS**). **Remaining (ops, not code):** **F2-CF-ORIGIN** — point `speakasap-certification.statex.cz` / `speakasap-assessment.statex.cz` at the nginx origin that serves `speakasap.json` routes (or disable orange-cloud / adjust Workers) so public `curl` without `--resolve` matches §3.3.
+**2026-04-12 (later):** Engineering evidence completed — **§3.3** (origin TLS + JWT **PASS**). **Remaining (ops, not code):** **F2-CF-ORIGIN** — point `speakasap-certification.alfares.cz` / `speakasap-assessmentalfares.czcz` at the nginx origin that serves `speakasap.json` routes (or disable orange-cloud / adjust Workers) so public `curl` without `--resolve` matches §3.3.
 
 **Orchestration note:** Tracked in `PHASE2_ORCHESTRATION_SUMMARY.md` § Follow-up queue. **Validator-style probe** §3.1 + Cursor handoff: `docs/superpowers/cursor-tasks/task-01-f2-http-jwt-smoke.md`.
 

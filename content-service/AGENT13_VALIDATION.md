@@ -80,7 +80,7 @@
 #### ✅ 8. nginx-api-routes.conf
 
 - ✅ Nginx route configuration
-- ✅ Domain: `content.statex.cz`
+- ✅ Domain: `content.alfares.cz`
 - ✅ All API routes listed
 
 ### Implementation Requirements Validation

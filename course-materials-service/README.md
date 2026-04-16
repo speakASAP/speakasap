@@ -39,10 +39,10 @@ Centralized service for generating and managing course materials. Integrates wit
 
 ```bash
 # Material Generator
-curl https://course-materials.statex.cz/health
+curl https://course-materials.alfares.cz/health
 
 # Material Manager
-curl https://course-materials.statex.cz/api/materials
+curl https://course-materials.alfares.cz/api/materials
 ```
 
 ### Docker Network Access
@@ -165,7 +165,7 @@ Applications use the course materials microservice via HTTP:
 
 ```python
 # Production
-COURSE_MATERIALS_SERVICE_URL=https://course-materials.statex.cz
+COURSE_MATERIALS_SERVICE_URL=https://course-materials.alfares.cz
 
 # Docker Network
 COURSE_MATERIALS_SERVICE_URL=http://course-materials-microservice:3390
@@ -186,7 +186,7 @@ All course materials data, generation jobs, and related information are stored i
 
 All services send logs to the centralized logging microservice:
 
-- **Production URL**: `https://logging.statex.cz`
+- **Production URL**: `https://logging.alfares.cz`
 - **Docker Network URL**: `http://logging-microservice:3367`
 - **API Endpoint**: `POST /api/logs`
 - **Fallback**: Local log files if logging service unavailable
@@ -248,7 +248,7 @@ For issues or questions:
 
 - Check service logs: `docker compose logs <service-name>`
 - Verify network connectivity: `docker network inspect nginx-network`
-- Check health endpoints: `curl https://course-materials.statex.cz/health`
+- Check health endpoints: `curl https://course-materials.alfares.cz/health`
 
 ---
 

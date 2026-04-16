@@ -2,7 +2,7 @@
 
 ## Goal
 
-Refactor the legacy Django monolith (`speakasap-portal`) into a modern, modular architecture using NestJS/Next.js and shared statex.cz microservices, starting with `marathon` as a standalone product extraction.
+Refactor the legacy Django monolith (`speakasap-portal`) into a modern, modular architecture using NestJS/Next.js and shared alfares.cz microservices, starting with `marathon` as a standalone product extraction.
 
 ## Strategy
 

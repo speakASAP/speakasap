@@ -196,16 +196,16 @@ ticket['communication_room_id'] = support_room['room_id']
 
 ```bash
 # Messenger Service Integration
-MESSENGER_SERVICE_URL=https://messenger.statex.cz
-MESSENGER_MATRIX_SERVER=https://messenger.statex.cz
-MESSENGER_LIVEKIT_URL=https://messenger.statex.cz
+MESSENGER_SERVICE_URL=https://messenger.alfares.cz
+MESSENGER_MATRIX_SERVER=https://messenger.alfares.cz
+MESSENGER_LIVEKIT_URL=https://messenger.alfares.cz
 ```
 
 ### Service URLs
 
-- **Matrix Server**: `https://messenger.statex.cz` (Synapse homeserver)
-- **LiveKit**: `https://messenger.statex.cz` (LiveKit SFU)
-- **Element Client**: `https://messenger.statex.cz` (Web client)
+- **Matrix Server**: `https://messenger.alfares.cz` (Synapse homeserver)
+- **LiveKit**: `https://messenger.alfares.cz` (LiveKit SFU)
+- **Element Client**: `https://messenger.alfares.cz` (Web client)
 
 ## Architecture
 

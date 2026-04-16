@@ -196,7 +196,7 @@ LOGGING_SERVICE_INTERNAL_URL=http://logging-microservice:3367
 
 **For services outside Docker network**:
 ```env
-LOGGING_SERVICE_URL=https://logging.statex.cz
+LOGGING_SERVICE_URL=https://logging.alfares.cz
 ```
 
 **Configuration Details**:

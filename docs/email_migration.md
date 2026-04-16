@@ -94,7 +94,7 @@ Add these to your `.env` file:
 
 ```bash
 # Notification Service URL
-NOTIFICATION_SERVICE_URL=https://notifications.statex.cz
+NOTIFICATION_SERVICE_URL=https://notifications.alfares.cz
 # or for local development:
 # NOTIFICATION_SERVICE_URL=http://notifications-microservice:3368
 
@@ -115,7 +115,7 @@ NOTIFICATION_SERVICE_URL=http://notifications-microservice:3368
 In production, use the HTTPS URL:
 
 ```bash
-NOTIFICATION_SERVICE_URL=https://notifications.statex.cz
+NOTIFICATION_SERVICE_URL=https://notifications.alfares.cz
 ```
 
 ## Apps Migration Details
@@ -268,7 +268,7 @@ NotificationTemplate.get(
 2. **Test Notification Service Connection**:
 
    ```bash
-   curl https://notifications.statex.cz/health
+   curl https://notifications.alfares.cz/health
    ```
 
 3. **Check Logs**:
@@ -369,7 +369,7 @@ The notification client (`speakasap/shared/notifications/notification_client.py`
 
 Environment variables are configured in `portal/local_settings_default.py`:
 
-- `NOTIFICATION_SERVICE_URL` - Defaults to `https://notifications.statex.cz`
+- `NOTIFICATION_SERVICE_URL` - Defaults to `https://notifications.alfares.cz`
 - `NOTIFICATION_SERVICE_TIMEOUT` - Defaults to `10` seconds
 
 These can be overridden via `.env` file or environment variables.
