@@ -28,3 +28,4 @@ Thumbs.db
 node_modules/
 dist/
 __pycache__
+k8s/secret.yaml
