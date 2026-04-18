@@ -22,7 +22,7 @@ SpeakASAP is an online language-learning platform providing structured courses, 
 | `generate_course_description` | cheap | Generate SEO-friendly course description from title + syllabus |
 | `review_course_content` | cheap | Check course content for factual accuracy + completeness |
 | `generate_assessment_feedback` | cheap | Personalised feedback based on student's assessment answers |
-| `generate_completion_email` | cheap | Craft personalised congratulations email on certification |
+| `send_completion_email` | cheap | Craft personalised congratulations email on certification |
 | `analyse_retention_risk` | cheap | Flag students with low engagement based on activity data |
 
 ## Constraints
