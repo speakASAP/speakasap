@@ -2,7 +2,7 @@
 
 This index lists the agent tasks for the SpeakASAP refactoring program. Each task has a dedicated agent prompt in `docs/agents/`.
 
-**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3** waves 1–3 closed **2026-04-12** — engineering **GO**; deploy/HTTP smoke **DEFERRED** operator where noted). **Phase 4** (**TASK-44…TASK-63**) **opened** **2026-04-13** — **Payment wave** **P4-OA…P4-OE** **PASS** **2026-04-13** (`PHASE4_PAYMENT_VALIDATION_REPORT.md`, `AGENT48V`); remaining gates **P4-NA…P4-FE** **open** until corresponding validators **PASS**; see `PHASE4_TASK_DECOMPOSITION.md`, `PHASE4_ORCHESTRATION_SUMMARY.md`.
+**Lead orchestrator:** `docs/agents/master-prompt.md` (Phase 0–2 closed **2026-04-12**; **Phase 3** waves 1–3 closed **2026-04-12** — engineering **GO**; deploy/HTTP smoke **DEFERRED** operator where noted). **Phase 4** (**TASK-44…TASK-63**) execution complete through **P4-FE PASS** (**2026-04-14**): Payment/Notification/Salary/Financial waves all validator-closed; operational DEFERRED items remain tracked in wave validation checklists/reports. See `PHASE4_TASK_DECOMPOSITION.md`, `PHASE4_ORCHESTRATION_SUMMARY.md`, `PHASE4_FINANCIAL_VALIDATION_REPORT.md`.
 
 ## Task Structure
 
@@ -427,7 +427,7 @@ Wave2_closed → TASK-39 → TASK-40 → TASK-41 → TASK-42 → TASK-43
 
 ## Orchestration (Phase 4) — Payment, Notification, Salary, Financial
 
-**Status:** **Active** (opened **2026-04-13**). **Payment wave P4-OA…P4-OE** **PASS** **2026-04-13**. **Notification wave P4-NA…P4-NE** **PASS** **2026-04-13**. **Salary wave P4-SA…P4-SE** **PASS** **2026-04-14** (`AGENT54V`…`AGENT58V`, [`PHASE4_SALARY_VALIDATION_REPORT.md`](PHASE4_SALARY_VALIDATION_REPORT.md)). Remaining gates **P4-FA…P4-FE** open until validators PASS; see [`PHASE4_TASK_DECOMPOSITION.md`](PHASE4_TASK_DECOMPOSITION.md).
+**Status:** **Program complete (engineering)**. **Payment P4-OA…P4-OE** **PASS** (**2026-04-13**), **Notification P4-NA…P4-NE** **PASS** (**2026-04-13**), **Salary P4-SA…P4-SE** **PASS** (**2026-04-14**), **Financial P4-FA…P4-FE** **PASS** (**2026-04-14**, [`AGENT63V`](../agents/AGENT63V_FINANCIAL_PHASE4_VALIDATION_VALIDATE.md)). Operational cutover closure remains checklist-driven for DEFERRED smoke/reconciliation items.
 
 **Docs:** `PHASE4_TASK_DECOMPOSITION.md`, `PHASE4_ORCHESTRATION_SUMMARY.md`.
 
@@ -564,7 +564,7 @@ Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…6
 
 - **Implementation:** `docs/agents/AGENT59_FINANCIAL_SERVICE_SCAFFOLD.md`
 - **Validator:** `docs/agents/AGENT59V_FINANCIAL_SERVICE_SCAFFOLD_VALIDATE.md`
-- **Status:** Pending — sync **P4-FA** open
+- **Status:** ✅ Complete **2026-04-14** — sync **P4-FA** **PASS** (`AGENT59V`)
 - **Dependencies:** TASK-58 + `AGENT58V` PASS
 - **Agent Type:** Infra/Docker Agent
 
@@ -572,7 +572,7 @@ Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…6
 
 - **Implementation:** `docs/agents/AGENT60_FINANCIAL_SERVICE_DESIGN.md`
 - **Validator:** `docs/agents/AGENT60V_FINANCIAL_SERVICE_DESIGN_VALIDATE.md`
-- **Status:** Pending — sync **P4-FB** open
+- **Status:** ✅ Complete **2026-04-14** — sync **P4-FB** **PASS** (`AGENT60V`)
 - **Dependencies:** TASK-59 + `AGENT59V` PASS
 - **Agent Type:** Backend Service Agent (Design)
 
@@ -580,7 +580,7 @@ Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…6
 
 - **Implementation:** `docs/agents/AGENT61_FINANCIAL_SERVICE_IMPLEMENTATION.md`
 - **Validator:** `docs/agents/AGENT61V_FINANCIAL_SERVICE_IMPLEMENTATION_VALIDATE.md`
-- **Status:** Pending — sync **P4-FC** open
+- **Status:** ✅ Complete **2026-04-14** — sync **P4-FC** **PASS** (`AGENT61V`)
 - **Dependencies:** TASK-60 + `AGENT60V` PASS
 - **Agent Type:** Backend Service Agent (Implementation)
 
@@ -588,7 +588,7 @@ Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…6
 
 - **Implementation:** `docs/agents/AGENT62_FINANCIAL_SERVICE_MIGRATION.md`
 - **Validator:** `docs/agents/AGENT62V_FINANCIAL_SERVICE_MIGRATION_VALIDATE.md`
-- **Status:** Pending — sync **P4-FD** open
+- **Status:** ✅ Complete **2026-04-14** — sync **P4-FD** **PASS** (`AGENT62V`)
 - **Dependencies:** TASK-61 + `AGENT61V` PASS
 - **Agent Type:** Data Migration Agent
 
@@ -596,7 +596,7 @@ Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…6
 
 - **Implementation:** `docs/agents/AGENT63_FINANCIAL_PHASE4_VALIDATION.md`
 - **Validator:** `docs/agents/AGENT63V_FINANCIAL_PHASE4_VALIDATION_VALIDATE.md`
-- **Status:** Pending — sync **P4-FE** open
+- **Status:** ✅ Complete **2026-04-14** — sync **P4-FE** **PASS** (`AGENT63V`)
 - **Dependencies:** TASK-62 + `AGENT62V` PASS
 - **Agent Type:** QA/Contract Validator Agent
 - **Outputs (expected):** `PHASE4_FINANCIAL_VALIDATION_REPORT.md`, `PHASE4_FINANCIAL_CUTOVER_CHECKLIST.md`
@@ -605,5 +605,5 @@ Phase3_closed → TASK-44…48 → TASK-49…53 → TASK-54…58 → TASK-59…6
 
 ## Phase 5+ (Aligned to ROADMAP)
 
-- **Phase 5:** API gateway (**4210**) and frontend (**4211**) — decomposition TBD when phase opens (`ROADMAP.md` §5 Phase 5).
+- **Phase 5:** API gateway (**4210**) and frontend (**4211**) — decomposition opened in `PHASE5_TASK_DECOMPOSITION.md` (`ROADMAP.md` §5 Phase 5); next execution block starts at **TASK-64** (gateway scaffold + validator).
 - **Phases 6–7:** Integration and legacy decommission — decomposition TBD when opened.

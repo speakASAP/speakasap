@@ -39,14 +39,14 @@ Clear **P4-NE**.
 | Matrix row | Result | Notes |
 | --- | --- | --- |
 | Report completeness | **PASS** | `docs/refactoring/PHASE4_NOTIFICATION_VALIDATION_REPORT.md`: executive summary, gate table (P4-NA…P4-ND), DB reconciliation, HTTP matrix, contract section, rollback/cutover summary, **NO-GO** sign-off (2026-04-13). |
-| Gate consistency | **PASS** | `AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md` still shows **P4-NA** `_PENDING_` / empty verification block — matches report **OPEN** for P4-NA. |
+| Gate consistency | **PASS** | `AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md` now shows **P4-NA: PASS** with evidence; report gate table also marks **P4-NA PASS** and keeps program **NO-GO** only for deferred runtime checks. |
 | Checklist parity | **PASS** | `PHASE4_NOTIFICATION_CUTOVER_CHECKLIST.md` references same gates, DEFERRED HTTP/migration closure, env keys; **Rollback** section present (traffic + data + dispatch). |
 | Contract alignment | **PASS** | Report HTTP paths (`/health`, `/api/v1/templates`, preferences, `POST /api/v1/dispatch/email`, group variant, `Idempotency-Key`) align with `NOTIFICATION_API_CONTRACT.md`; delivery boundary unchanged. |
 | Deferred governance | **PASS** | DEFERRED rows include **Owner** and **Unblock** (DB run log, post-load, template CRUD, preferences, dispatch). |
 
 ## Sync gate
 
-- **P4-NE:** **PASS** (meta-validator: TASK-53 report + cutover checklist are consistent and complete; program verdict remains **NO-GO** until P4-NA **PASS** in AGENT49V per report.)
+- **P4-NE:** **PASS** (meta-validator: TASK-53 report + cutover checklist are consistent and complete; program verdict remains **NO-GO** only while deferred runtime checks remain open.)
 
 ## Verdict
 

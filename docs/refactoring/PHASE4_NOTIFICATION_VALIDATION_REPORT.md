@@ -9,9 +9,7 @@
 
 ## Executive summary
 
-Sync gates **P4-NB**, **P4-NC**, and **P4-ND** are **PASS** with evidence in the paired validator documents and refactoring artifacts (design freeze, implementation review, migration script + static validation).
-
-**P4-NA** is **not** cleared in the canonical validator: [`AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md`](../agents/AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md) still records **P4-NA** as **_PENDING_** with empty verification results. TASK-53 therefore cannot treat the scaffold gate as **PASS** until that document is executed and updated.
+Sync gates **P4-NA**, **P4-NB**, **P4-NC**, and **P4-ND** are **PASS** with evidence in paired validator documents and refactoring artifacts (scaffold, design freeze, implementation review, migration script + static validation).
 
 During TASK-53, **`npm run build`** in `speakasap/notification-service` initially failed (`TS6059`: migration script picked up by `tsc` while `rootDir` is `src`). **`tsconfig.build.json`** was aligned with **`payment-service`** (`include` `src/**/*.ts`, `exclude` `scripts`) so the service build is **green** again. **`GET /health`** on `127.0.0.1:4209` returned **`200`** with `{"status":"ok"}` at validation time (local listener present).
 
@@ -21,8 +19,8 @@ Authenticated API paths (templates, preferences, dispatch) were **not** exercise
 
 | Verdict | Meaning |
 |--------|---------|
-| **Engineering (partial)** | **P4-NB … P4-ND** satisfied per validators; build **PASS** after tsconfig fix; optional local `/health` **PASS**. |
-| **Program** | **NO-GO** until **P4-NA** is **PASS** in **AGENT49V** and **P4-NE** is **PASS** in **AGENT53V** (no unchecked items claimed as PASS). |
+| **Engineering (partial)** | **P4-NA … P4-ND** satisfied per validators; build **PASS** after tsconfig fix; optional local `/health` **PASS**. |
+| **Program** | **NO-GO** until deferred runtime items are closed by operations (migration execution evidence + authenticated HTTP smoke) and **P4-NE** is finalized in **AGENT53V**. |
 
 ---
 
@@ -30,7 +28,7 @@ Authenticated API paths (templates, preferences, dispatch) were **not** exercise
 
 | Gate | Task + validator | Status | Evidence |
 |------|------------------|--------|----------|
-| **P4-NA** | TASK-49 + [`AGENT49V`](../agents/AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md) | **OPEN** | Validator doc: sync line still **_PENDING_**; manual checklist unchecked. Scaffold tree exists under `speakasap/notification-service/`; TASK-53 build **PASS** after `tsconfig.build.json` fix (mirror `payment-service` include/exclude). |
+| **P4-NA** | TASK-49 + [`AGENT49V`](../agents/AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md) | **PASS** | Validator includes scaffold structure, build pass, `/health` implementation/docs, env keys present, hardcoded URL scan clean, and `P4-NA: PASS`. |
 | **P4-NB** | TASK-50 + [`AGENT50V`](../agents/AGENT50V_NOTIFICATION_SERVICE_DESIGN_VALIDATE.md) | **PASS** | Contract + mapping present; pagination cap 30; delivery boundary; Telegram out of scope — see AGENT50V table. |
 | **P4-NC** | TASK-51 + [`AGENT51V`](../agents/AGENT51V_NOTIFICATION_SERVICE_IMPLEMENTATION_VALIDATE.md) | **PASS** | Routes, pagination, transport adapter, logging `duration_ms`, build noted PASS in AGENT51V — see validator. |
 | **P4-ND** | TASK-52 + [`AGENT52V`](../agents/AGENT52V_NOTIFICATION_SERVICE_MIGRATION_VALIDATE.md) | **PASS** | Script `notification-service/scripts/migrate-notification-data.ts`; validation + migration log template; static review PASS; runtime DB runs operator-owned per AGENT52V. |
@@ -75,7 +73,7 @@ Detailed sequencing: [`PHASE4_NOTIFICATION_CUTOVER_CHECKLIST.md`](PHASE4_NOTIFIC
 
 - **Data:** snapshot / truncate per [`NOTIFICATION_DATA_VALIDATION.md`](NOTIFICATION_DATA_VALIDATION.md) before reversing a load.  
 - **Traffic:** routing via service **`deploy.sh`** / compose — no hand-edited nginx ([`CLAUDE.md`](../../../CLAUDE.md)).  
-- **Order:** complete **P4-NA** (AGENT49V) → operator migration dry-run/load → HTTP smoke → blue/green traffic switch → post-cutover logging checks (see checklist).
+- **Order:** operator migration dry-run/load → HTTP smoke → blue/green traffic switch → post-cutover logging checks (see checklist).
 
 ---
 
@@ -89,6 +87,6 @@ Detailed sequencing: [`PHASE4_NOTIFICATION_CUTOVER_CHECKLIST.md`](PHASE4_NOTIFIC
 
 | Role | Artifact | Date | Program |
 |------|-----------|------|---------|
-| AGENT53 | This report | 2026-04-13 | **NO-GO** (P4-NA / P4-NE open; see executive summary) |
+| AGENT53 | This report | 2026-04-13 | **NO-GO** (runtime deferred items open; see executive summary) |
 
 **Next:** [`AGENT53V_NOTIFICATION_PHASE4_VALIDATION_VALIDATE.md`](../agents/AGENT53V_NOTIFICATION_PHASE4_VALIDATION_VALIDATE.md) → **PASS** for **P4-NE** after meta-review of this report + checklist.

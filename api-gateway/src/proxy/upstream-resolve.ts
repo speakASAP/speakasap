@@ -1,0 +1,88 @@
+/**
+ * Longest-prefix wins: first matching entry owns the request.
+ * Aligned with docs/refactoring/GATEWAY_ROUTE_OWNERSHIP_MATRIX.md
+ */
+const ROUTES: { prefix: string; envKey: string }[] = [
+  { prefix: '/api/v1/internal/financial/products-metadata', envKey: 'COURSE_SERVICE_URL' },
+  { prefix: '/api/v1/internal/financial/orders-paid-slice', envKey: 'PAYMENT_SERVICE_URL' },
+  { prefix: '/api/v1/internal/financial/transactions-slice', envKey: 'PAYMENT_SERVICE_URL' },
+  { prefix: '/api/v1/internal/financial/period-salary-totals', envKey: 'SALARY_SERVICE_URL' },
+  { prefix: '/api/v1/internal/financial/refresh-window', envKey: 'FINANCIAL_SERVICE_URL' },
+  { prefix: '/api/v1/internal/financial', envKey: 'FINANCIAL_SERVICE_URL' },
+  { prefix: '/api/v1/internal/salary', envKey: 'SALARY_SERVICE_URL' },
+  { prefix: '/api/v1/internal', envKey: 'USER_SERVICE_URL' },
+
+  { prefix: '/api/v1/manager/user-questionnaires', envKey: 'CERTIFICATION_SERVICE_URL' },
+  { prefix: '/api/v1/user-questionnaires', envKey: 'CERTIFICATION_SERVICE_URL' },
+  { prefix: '/api/v1/questionnaires', envKey: 'CERTIFICATION_SERVICE_URL' },
+  { prefix: '/api/v1/quests', envKey: 'CERTIFICATION_SERVICE_URL' },
+  { prefix: '/api/v1/education-certificates', envKey: 'CERTIFICATION_SERVICE_URL' },
+  { prefix: '/api/v1/course-certificates', envKey: 'CERTIFICATION_SERVICE_URL' },
+
+  { prefix: '/api/v1/admin/language-user-tests', envKey: 'ASSESSMENT_SERVICE_URL' },
+  { prefix: '/api/v1/admin/language-tests', envKey: 'ASSESSMENT_SERVICE_URL' },
+  { prefix: '/api/v1/language-user-tests', envKey: 'ASSESSMENT_SERVICE_URL' },
+  { prefix: '/api/v1/asset-user-tests', envKey: 'ASSESSMENT_SERVICE_URL' },
+
+  { prefix: '/api/v1/employee-profiles', envKey: 'USER_SERVICE_URL' },
+  { prefix: '/api/v1/managers', envKey: 'USER_SERVICE_URL' },
+  { prefix: '/api/v1/teachers', envKey: 'USER_SERVICE_URL' },
+  { prefix: '/api/v1/students', envKey: 'USER_SERVICE_URL' },
+
+  { prefix: '/api/v1/part-payment-collections', envKey: 'COURSE_SERVICE_URL' },
+  { prefix: '/api/v1/offers', envKey: 'COURSE_SERVICE_URL' },
+  { prefix: '/api/v1/products', envKey: 'COURSE_SERVICE_URL' },
+  { prefix: '/api/v1/categories', envKey: 'COURSE_SERVICE_URL' },
+
+  { prefix: '/api/v1/student-courses', envKey: 'EDUCATION_SERVICE_URL' },
+  { prefix: '/api/v1/homeworks', envKey: 'EDUCATION_SERVICE_URL' },
+  { prefix: '/api/v1/lessons', envKey: 'EDUCATION_SERVICE_URL' },
+  { prefix: '/api/v1/groups', envKey: 'EDUCATION_SERVICE_URL' },
+
+  { prefix: '/api/v1/dictionary', envKey: 'CONTENT_SERVICE_URL' },
+  { prefix: '/api/v1/songs', envKey: 'CONTENT_SERVICE_URL' },
+  { prefix: '/api/v1/phonetics', envKey: 'CONTENT_SERVICE_URL' },
+  { prefix: '/api/v1/grammar', envKey: 'CONTENT_SERVICE_URL' },
+  { prefix: '/api/v1/languages', envKey: 'CONTENT_SERVICE_URL' },
+
+  { prefix: '/api/v1/webhooks/payments', envKey: 'PAYMENT_SERVICE_URL' },
+  { prefix: '/api/v1/discounts', envKey: 'PAYMENT_SERVICE_URL' },
+  { prefix: '/api/v1/invoices', envKey: 'PAYMENT_SERVICE_URL' },
+  { prefix: '/api/v1/subscriptions', envKey: 'PAYMENT_SERVICE_URL' },
+  { prefix: '/api/v1/orders', envKey: 'PAYMENT_SERVICE_URL' },
+
+  { prefix: '/api/v1/notification-groups', envKey: 'NOTIFICATION_SERVICE_URL' },
+  { prefix: '/api/v1/preferences/me', envKey: 'NOTIFICATION_SERVICE_URL' },
+  { prefix: '/api/v1/dispatch', envKey: 'NOTIFICATION_SERVICE_URL' },
+  { prefix: '/api/v1/in-app', envKey: 'NOTIFICATION_SERVICE_URL' },
+  { prefix: '/api/v1/letters', envKey: 'NOTIFICATION_SERVICE_URL' },
+  { prefix: '/api/v1/templates', envKey: 'NOTIFICATION_SERVICE_URL' },
+
+  { prefix: '/api/v1/admin/summary', envKey: 'SALARY_SERVICE_URL' },
+  { prefix: '/api/v1/salary-profiles', envKey: 'SALARY_SERVICE_URL' },
+  { prefix: '/api/v1/salary-expenses', envKey: 'SALARY_SERVICE_URL' },
+  { prefix: '/api/v1/calculation-runs', envKey: 'SALARY_SERVICE_URL' },
+  { prefix: '/api/v1/payout-runs', envKey: 'SALARY_SERVICE_URL' },
+  { prefix: '/api/v1/contracts', envKey: 'SALARY_SERVICE_URL' },
+
+  { prefix: '/api/v1/dashboard/overview', envKey: 'FINANCIAL_SERVICE_URL' },
+  { prefix: '/api/v1/revenue', envKey: 'FINANCIAL_SERVICE_URL' },
+  { prefix: '/api/v1/expenses', envKey: 'FINANCIAL_SERVICE_URL' },
+];
+
+function normalizeBase(url: string): string {
+  return url.replace(/\/$/, '');
+}
+
+export function resolveUpstreamBaseUrl(pathname: string): string | null {
+  for (const { prefix, envKey } of ROUTES) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
+      const raw = process.env[envKey];
+      if (!raw) {
+        return null;
+      }
+      return normalizeBase(raw);
+    }
+  }
+  return null;
+}

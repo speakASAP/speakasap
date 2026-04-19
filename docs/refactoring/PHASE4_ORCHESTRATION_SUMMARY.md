@@ -1,6 +1,6 @@
 # Phase 4 Orchestration Summary — Payment, Notification, Salary, Financial
 
-**Last updated:** 2026-04-13 (Payment wave TASK-44…48 + validators complete; **P4-OA…P4-OE** PASS)
+**Last updated:** 2026-04-14 (all Phase 4 waves validator-complete; **P4-OA…P4-FE** PASS; operational DEFERRED items tracked in checklists)
 **Lead Orchestrator:** `docs/agents/master-prompt.md`
 **Decomposition:** `PHASE4_TASK_DECOMPOSITION.md`
 **Tasks index:** `SPEAKASAP_REFACTORING_TASKS_INDEX.md`
@@ -48,13 +48,14 @@ Wave validation reports may mark **HTTP smoke**, **production routing**, or **li
 
 ## Next actions (Lead)
 
-1. Confirm **subscription vs education-service** boundary (see `PHASE4_TASK_DECOMPOSITION.md`).
-2. **Payment wave (TASK-44…48):** **complete 2026-04-13**; **P4-OA…P4-OE** PASS (`PHASE4_PAYMENT_VALIDATION_REPORT.md`, `AGENT48V`). **Next:** **TASK-49** + `AGENT49V` → **P4-NA** (notification scaffold).
-3. Proceed strictly **Implementation → Validator** per task; do not skip gates.
-4. Before **TASK-60**, enforce **products / billing categories** single-source rule with course-service or ETL-only projection.
+1. **Payment wave (TASK-44…48):** complete **2026-04-13**; **P4-OA…P4-OE** PASS.
+2. **Notification wave (TASK-49…53):** complete **2026-04-13**; **P4-NA…P4-NE** PASS.
+3. **Salary wave (TASK-54…58):** complete **2026-04-14**; **P4-SA…P4-SE** PASS.
+4. **Financial wave:** **TASK-59…TASK-63** complete with validator PASS at every gate (**P4-FA…P4-FE**).
+5. **Next:** execute Phase 5 from `PHASE5_TASK_DECOMPOSITION.md`; start with `TASK-64` + `AGENT64V` (gateway scaffold gate `P5-GA`).
 
 ---
 
 ## Optional parallel (exception)
 
-If documented by Lead: after **P4-OA**, **TASK-49** (notification scaffold) may overlap with payment design/implementation. Default remains **full serial** waves.
+If documented by Lead: after **P4-FA**, **TASK-60** (financial design) may overlap with financial scaffold hardening. Default remains **full serial** waves.

@@ -39,21 +39,27 @@ Confirm **notification-service** scaffold meets sync **P4-NA** so TASK-50 may st
 
 ## Verification results (evidence)
 
-Leave empty until execution.
+- Scaffold structure: `notification-service/` present with expected scaffold (`src`, `prisma`, `scripts`, `Dockerfile`, `docker-compose.yml`, `README.md`, TypeScript build configs), consistent with `course-service/` and `user-service/` layout.
+- Build: `npm run build` in `notification-service/` passed (`prisma generate` + `tsc -p tsconfig.build.json`, exit code 0).
+- Health endpoint: implemented at `src/app.controller.ts` (`GET /health`) and exposed with global prefix exclusion in `src/main.ts`; documented in `notification-service/README.md` with curl example.
+- Env root usage: `speakasap/.env.example` contains `NOTIFICATION_SERVICE_PORT` and `NOTIFICATION_DATABASE_URL`.
+- Hardcoded values scan: no `http://`, `https://`, `localhost` matches in `notification-service/src`.
+- Port/DB allocation check: `docs/infrastructure/PORT_ALLOCATION.md` matches `4209` and `speakasap_notification_db`; README matches the same mapping.
+- Shared repo isolation: `git status --short` in `speakasap/` returned no changed paths.
 
 ## Manual Checks (record evidence)
 
-- [ ] `npm run build` in `notification-service/`
-- [ ] README port and DB name
-- [ ] Grep `notification-service/src` for suspicious hardcoded URLs
+- [x] `npm run build` in `notification-service/`
+- [x] README port and DB name
+- [x] Grep `notification-service/src` for suspicious hardcoded URLs
 
 ## Sync gate (before TASK-50)
 
-- **P4-NA:** _PENDING / PASS / FAIL_
+- **P4-NA:** **PASS**
 
 ## Verdict
 
-_PENDING_
+**PASS**
 
 ### If FAIL
 

@@ -9,8 +9,8 @@ Use this list immediately before and during traffic migration to **speakasap-not
 
 ## Pre-cutover (engineering)
 
-- [ ] **P4-NB … P4-ND** all **PASS** in paired validator docs (see report gate table).
-- [ ] **P4-NA** **PASS** recorded in [`AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md`](../agents/AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md) (do not skip — report currently **NO-GO** until this is done).
+- [ ] **P4-NA … P4-ND** all **PASS** in paired validator docs (see report gate table).
+- [x] **P4-NA** **PASS** recorded in [`AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md`](../agents/AGENT49V_NOTIFICATION_SERVICE_SCAFFOLD_VALIDATE.md).
 - [ ] **P4-NE** **PASS** in [`AGENT53V_NOTIFICATION_PHASE4_VALIDATION_VALIDATE.md`](../agents/AGENT53V_NOTIFICATION_PHASE4_VALIDATION_VALIDATE.md).
 - [ ] **`npm run build`** succeeds in `speakasap/notification-service` on the commit being deployed (`tsconfig.build.json` includes only `src/**/*.ts`).
 - [ ] **`.env`** on target has `NOTIFICATION_DATABASE_URL`, `NOTIFICATION_SERVICE_PORT`, `NOTIFICATION_SERVICE_URL`, `LOGGING_SERVICE_URL`, auth/JWT settings per root `speakasap/.env.example` (no secrets in repo).
@@ -59,11 +59,10 @@ Use this list immediately before and during traffic migration to **speakasap-not
 
 ## Cutover ordering (recommended)
 
-1. Execute and **PASS** **AGENT49V** (**P4-NA**).  
-2. Confirm **P4-NB … P4-ND** unchanged PASS on the release commit.  
-3. Run migration **dry-run** → review logs → **load** → **verify-post-load** → append **migration log**.  
-4. Deploy green stack; **GET /health**; authenticated smoke (templates, preferences, dispatch).  
-5. Switch traffic; monitor logs; **PASS** **AGENT53V** (**P4-NE**) for program closure.
+1. Confirm **P4-NA … P4-ND** unchanged PASS on the release commit.  
+2. Run migration **dry-run** → review logs → **load** → **verify-post-load** → append **migration log**.  
+3. Deploy green stack; **GET /health**; authenticated smoke (templates, preferences, dispatch).  
+4. Switch traffic; monitor logs; **PASS** **AGENT53V** (**P4-NE**) for program closure.
 
 ---
 
