@@ -35,7 +35,7 @@ Confirm **api-gateway** scaffold meets sync **P5-GA** so TASK-65 may start.
 ## Commands (examples)
 
 - `npm run build`
-- `rg "GATEWAY_SERVICE_PORT|AUTH_SERVICE_URL" /home/ssf/Documents/Github/speakasap/.env.example`
+- `rg "API_GATEWAY_PORT|AUTH_SERVICE_URL" /home/ssf/Documents/Github/speakasap/.env.example`
 - `rg "http://|https://|localhost" api-gateway/src`
 
 ## Manual Checks (record evidence)

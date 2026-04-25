@@ -25,13 +25,11 @@ Create baseline API gateway scaffold with health endpoint, root env configuratio
 
 ## Environment keys (key names only)
 
-- `GATEWAY_SERVICE_PORT`
-- `GATEWAY_DATABASE_URL`
-- `GATEWAY_DB_NAME`
+- `API_GATEWAY_PORT`
 - `LOGGING_SERVICE_URL`
 - `AUTH_SERVICE_URL`
 
-## Integration context (for README only — no routing APIs in this task)
+## Integration context (for README only - no routing APIs in this task)
 
 Gateway fronts Phase 1-4 services over HTTP and enforces auth/rate-limit/versioning in later tasks.
 
