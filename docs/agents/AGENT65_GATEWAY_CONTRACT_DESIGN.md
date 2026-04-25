@@ -37,8 +37,8 @@ Produce gateway contract artifacts so TASK-66 implementation has no ambiguous ro
 
 ## Environment keys (key names only)
 
-- `GATEWAY_SERVICE_PORT`
-- `GATEWAY_AUTH_SERVICE_URL`
+- `API_GATEWAY_PORT`
+- `AUTH_SERVICE_URL`
 - `CONTENT_SERVICE_URL`
 - `CERTIFICATION_SERVICE_URL`
 - `ASSESSMENT_SERVICE_URL`
