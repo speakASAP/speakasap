@@ -11,14 +11,79 @@ data:
   SERVICE_NAME: "speakasap"
   DOMAIN: "speakasap.alfares.cz"
   PORT: "3000"
-  # Add environment variables from .env that are non-sensitive (no secrets, API keys, passwords)
-  # Examples:
-  # DATABASE_POOL_SIZE: "10"
-  # LOG_LEVEL: "info"
+
+  # Database
   DB_HOST: "192.168.88.53"
   DB_PORT: "5432"
   DB_USER: "dbadmin"
-  DB_NAME: "speakasap"
+  DB_NAME: "speakasap_content_db"
   DB_SYNC: "false"
   DB_AUTO_CREATE: "true"
-  # TIMEOUT_MS: "30000"
+
+  # Logging service (Docker host, port 3367)
+  LOGGING_SERVICE_URL: "http://192.168.88.53:3367"
+  LOGGING_SERVICE_API_PATH: "/api/logs"
+  LOGGING_SERVICE_TIMEOUT: "5000"
+  LOG_LEVEL: "info"
+
+  # Auth service (Docker host, port 3370)
+  AUTH_SERVICE_URL: "http://192.168.88.53:3370"
+  AUTH_SERVICE_TIMEOUT: "5000"
+  AUTH_RETRY_MAX_ATTEMPTS: "3"
+  AUTH_RETRY_DELAY_MS: "1000"
+
+  # Speakasap internal microservices (Docker host)
+  # Content service: speakasap-content-green -> 4204:4201
+  CONTENT_SERVICE_URL: "http://192.168.88.53:4204"
+  # Certification service: speakasap-certification-green -> 4202
+  CERTIFICATION_SERVICE_URL: "http://192.168.88.53:4202"
+  # Assessment service: speakasap-assessment-green -> 4203
+  ASSESSMENT_SERVICE_URL: "http://192.168.88.53:4203"
+  # Course service: speakasap-course-green -> 4216:4205
+  COURSE_SERVICE_URL: "http://192.168.88.53:4216"
+  # Education service: speakasap-education-green -> 4217:4206
+  EDUCATION_SERVICE_URL: "http://192.168.88.53:4217"
+  # User service: speakasap-user-blue -> 4207
+  USER_SERVICE_URL: "http://192.168.88.53:4207"
+  # Payment service (Docker, port 4208)
+  PAYMENT_SERVICE_URL: "http://192.168.88.53:4208"
+  # Notification service (Docker, port 4209)
+  NOTIFICATION_SERVICE_URL: "http://192.168.88.53:4209"
+  # Salary service (Docker, port 4212)
+  SALARY_SERVICE_URL: "http://192.168.88.53:4212"
+  # Financial service (Docker, port 4213)
+  FINANCIAL_SERVICE_URL: "http://192.168.88.53:4213"
+
+  # Payments microservice (Docker host, port 3376 -> internal 3468)
+  PAYMENTS_MICROSERVICE_URL: "http://192.168.88.53:3376"
+  PAYMENTS_MICROSERVICE_PORT: "3376"
+
+  # Notifications microservice
+  NOTIFICATIONS_MICROSERVICE_PORT: "3368"
+  NOTIFICATION_SERVICE_TIMEOUT: "5000"
+  NOTIFICATION_RETRY_MAX_ATTEMPTS: "3"
+  NOTIFICATION_RETRY_DELAY_MS: "1000"
+
+  # AI service
+  AI_SERVICE_URL: "http://192.168.88.53:3380"
+  AI_MICROSERVICE_PORT: "3380"
+  AI_SERVICE_TIMEOUT: "5000"
+  AI_SERVICE_TRANSLATE_PATH: "/api/v1/translate"
+
+  # General
+  HTTP_TIMEOUT: "30000"
+  GATEWAY_TIMEOUT: "60000"
+  RETRY_MAX_ATTEMPTS: "3"
+  RETRY_DELAY_MS: "1000"
+  DEFAULT_PAGE_SIZE: "10"
+  MAX_PAGE_SIZE: "30"
+  ASSETS_BASE_URL: "https://assets.alfares.cz"
+  FRONTEND_URL: "https://speakasap.alfares.cz"
+  CORS_ORIGIN: "https://speakasap.alfares.cz"
+  NEXT_PUBLIC_API_URL: "http://192.168.88.53:3000"
+
+  # Payment config
+  PAYMENT_APPLICATION_ID: "speakasap"
+  PAYMENT_CALLBACK_URL: "https://speakasap.alfares.cz/api/webhooks/payment-result"
+  PAYMENT_SUCCESS_URL: "https://speakasap.alfares.cz/payment-result?status=completed"
+  PAYMENT_CANCEL_URL: "https://speakasap.alfares.cz/payment-result?status=cancelled"

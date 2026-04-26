@@ -20,6 +20,7 @@ export class ProxyService {
 
   async forward(req: Request, res: Response): Promise<void> {
     const pathname = (req.originalUrl || '').split('?')[0];
+    this.enforceListLimit(req);
     const base = resolveUpstreamBaseUrl(pathname);
     if (!base) {
       throw new HttpException(
@@ -134,5 +135,25 @@ export class ProxyService {
       chunks.push(chunk as Buffer);
     }
     return chunks.length > 0 ? Buffer.concat(chunks) : undefined;
+  }
+
+  private enforceListLimit(req: Request): void {
+    const rawLimit = req.query?.limit;
+    if (rawLimit === undefined) {
+      return;
+    }
+
+    const value = Array.isArray(rawLimit) ? rawLimit[0] : rawLimit;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 30) {
+      throw new HttpException(
+        {
+          code: 'INVALID_LIMIT',
+          message: 'Query parameter "limit" must be between 1 and 30',
+          details: { limit: value },
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 }
