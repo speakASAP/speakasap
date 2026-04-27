@@ -12,6 +12,11 @@ services:
     environment:
       PORT: ${API_GATEWAY_PORT:-4210}
       SERVICE_NAME: api-gateway
+      CONTENT_SERVICE_URL: ${CONTENT_SERVICE_URL:-http://content-service:4201}
+      CERTIFICATION_SERVICE_URL: ${CERTIFICATION_SERVICE_URL:-http://certification-service:4202}
+      ASSESSMENT_SERVICE_URL: ${ASSESSMENT_SERVICE_URL:-http://assessment-service:4203}
+      EDUCATION_SERVICE_URL: ${EDUCATION_SERVICE_URL:-http://education-service:4206}
+      FINANCIAL_SERVICE_URL: ${FINANCIAL_SERVICE_URL:-http://financial-service:4213}
     healthcheck:
       test:
         [
