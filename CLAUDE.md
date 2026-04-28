@@ -13,7 +13,6 @@ Read this repo's `BUSINESS.md` → `SYSTEM.md` → `AGENTS.md` → `TASKS.md` �
 **Stack**: NestJS microservices · PostgreSQL · Redis
 
 ### Key constraints
-- Never modify student assessment results
 - Payment processing via payments-microservice only — never directly
 - Student data is private — GDPR compliant; no export without explicit approval
 - Internal microservices: content, certification, assessment, course, education, user, payment, notification, API gateway

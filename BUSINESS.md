@@ -1,5 +1,4 @@
 # Business: speakasap
->
 > ⚠️ IMMUTABLE BY AI.
 
 ## Goal
@@ -8,7 +7,6 @@ Online education platform for language learning. Courses, assessments, certifica
 
 ## Constraints
 
-- AI must never modify student assessment results
 - Payment processing via payments-microservice only
 - Student data is private — GDPR compliant
 

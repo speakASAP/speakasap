@@ -17,9 +17,9 @@ NestJS microservices (42xx range) + PostgreSQL + Redis. Multiple internal servic
 | payments-microservice:3468 | Course payments |
 
 ## Current State
-<!-- AI-maintained -->
+
 Stage: active
 
 ## Known Issues
-<!-- AI-maintained -->
+
 - None
