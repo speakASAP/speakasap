@@ -1,232 +1,64 @@
 # SpeakASAP Deployment Guide
 
-This guide explains how to deploy SpeakASAP services using blue/green deployment via nginx-microservice.
+## Production (Kubernetes)
 
-## Prerequisites
+All services run in the `statex-apps` namespace on k3s.
 
-- Docker and Docker Compose installed
-- nginx-microservice installed and configured
-- Service registered in nginx-microservice registry
-- `.env` file configured with all required environment variables
-- `docker-compose.blue.yml` and `docker-compose.green.yml` files created
+**Secrets flow:** Vault `secret/prod/speakasap` → ESO → K8s Secret `speakasap-secret` → pod `envFrom`.
+See `../../../shared/docs/VAULT.md` for Vault operations.
 
-## Files Required
+**Deploy a service:**
+```bash
+# Rebuild image and push to local registry
+cd <service-dir>
+docker build -t localhost:5000/speakasap-<svc>:latest .
+docker push localhost:5000/speakasap-<svc>:latest
 
-Each service needs:
+# Apply manifests
+kubectl apply -f k8s/ -n statex-apps
 
-1. **`docker-compose.blue.yml`** - Blue environment configuration
-2. **`docker-compose.green.yml`** - Green environment configuration
-3. **`speakasap/.env`** - Environment variables for all SpeakASAP services here (keep synchronized with `speakasap/.env.example`; see `docs/infrastructure/ENV_MONOREPO.md`)
-4. **`scripts/deploy.sh`** - Service-specific deployment script (optional, can use base template)
+# Or rolling restart if image tag didn't change
+kubectl rollout restart deployment/speakasap-<svc> -n statex-apps
+kubectl rollout status deployment/speakasap-<svc> -n statex-apps
+```
 
-## Container Naming Convention
+**Check health:**
+```bash
+kubectl get pods -n statex-apps -l app=speakasap-<svc>
+kubectl logs -n statex-apps deployment/speakasap-<svc> --tail=50
+```
 
-All services follow the blue/green naming pattern:
+**Force secret refresh (Vault → ESO):**
+```bash
+kubectl annotate externalsecret speakasap-secret force-sync=$(date +%s) -n statex-apps --overwrite
+```
 
-- **Blue containers**: `{service-name}-blue` (e.g., `speakasap-content-service-blue`)
-- **Green containers**: `{service-name}-green` (e.g., `speakasap-content-service-green`)
-- **Shared services**: Database and Redis are shared (no color suffix)
+## K8s Manifests
 
-## Port Configuration
+`speakasap/k8s/` contains:
+- `deployment.yaml` — pod spec, resource limits, health probes
+- `service.yaml` — ClusterIP service
+- `ingress.yaml` — external routing
+- `configmap.yaml` — non-secret env vars
+- `external-secret.yaml` — ESO → K8s Secret from Vault
 
-All services use ports in the **42xx** range:
+Each service may have its own `k8s/` directory with service-specific manifests.
 
-- Content Service: `4201`
-- Certification Service: `4202`
-- Assessment Service: `4203`
-- Course Service: `4205`
-- Education Service: `4206`
-- User Service: `4207`
-- Payment Service: `4208`
-- Notification Service: `4209`
-- API Gateway: `4210`
-- Frontend: `4211`
-- Salary Service: `4212`
-- Financial Service: `4213`
-
-**Note**: These are container ports. Nginx-microservice connects via Docker DNS using container names, not host ports.
-
-## Environment Variables
-
-### Required Variables
-
-The monorepo root `speakasap/.env` must include:
+## Local Dev (Docker Compose)
 
 ```bash
-# Service Configuration
-SERVICE_NAME=speakasap-content-service
-PORT=4201
-NODE_ENV=production
-DOMAIN=speakasap.com
+# Generate .env from Vault
+./shared/scripts/vault-env-gen.sh speakasap prod
 
-# Database Configuration (from database-server)
-DB_HOST=db-server-postgres
-DB_PORT=5432
-DB_USER=dbadmin
-DB_PASSWORD=your_password_here
-DB_NAME=speakasap_content_db
-DATABASE_URL=postgresql://dbadmin:password@db-server-postgres:5432/speakasap_content_db
-
-# Shared Microservices
-LOGGING_SERVICE_URL=http://logging-microservice:3367
-LOGGING_SERVICE_API_PATH=/api/logs
-AUTH_SERVICE_URL=http://auth-microservice:3370
-NOTIFICATION_SERVICE_URL=http://notifications-microservice:3368
-NOTIFICATION_SERVICE_URL=http://notifications-microservice:3368
-PAYMENTS_MICROSERVICE_URL=http://payments-microservice:3468
-AI_SERVICE_URL=http://ai-microservice:3380
-
-# Timeouts and Retries
-HTTP_TIMEOUT=5000
-GATEWAY_TIMEOUT=30000
-AUTH_SERVICE_TIMEOUT=5000
-NOTIFICATION_SERVICE_TIMEOUT=10000
-LOGGING_SERVICE_TIMEOUT=5000
-RETRY_MAX_ATTEMPTS=3
-RETRY_DELAY_MS=1000
-
-# CORS and Frontend
-CORS_ORIGIN=https://speakasap.com
-FRONTEND_URL=https://speakasap.com
+# Run a specific service
+cd <service-dir>
+docker compose up --build
 ```
 
-### .env Sync Process
+## Health Check
 
-**Local and production (monorepo):**
+All services expose `GET /health` → 200 OK when healthy.
 
-1. Copy `speakasap/.env.example` to `speakasap/.env` once at the repo root.
-2. Fill in all required values (see `ENV_MONOREPO.md`).
-3. Never commit `.env` to git.
-4. When adding a variable, add the key to `speakasap/.env.example` and the value to `speakasap/.env` only.
+## Full K8s ops reference
 
-## Deployment Process
-
-### Using Deployment Script
-
-```bash
-# From service directory
-# Service name detected from .env SERVICE_NAME or directory name
-./scripts/deploy.sh
-```
-
-### Manual Deployment
-
-```bash
-# 1. Navigate to nginx-microservice directory
-cd ~/nginx-microservice
-
-# 2. Run deployment script
-./scripts/blue-green/deploy-smart.sh speakasap-content-service
-```
-
-## Blue/Green Deployment Flow
-
-1. **Prepare Green**: Builds and starts green containers
-2. **Switch Traffic**: Updates nginx configuration to route traffic to green
-3. **Monitor Health**: Monitors green deployment for 30 seconds
-4. **Cleanup**: Stops old blue containers if green is healthy
-
-### Rollback
-
-If deployment fails, the script automatically:
-
-1. Switches traffic back to blue
-2. Stops green containers
-3. Logs the error
-
-Manual rollback:
-
-```bash
-cd ~/nginx-microservice
-./scripts/blue-green/rollback.sh speakasap-content-service
-```
-
-## Health Checks
-
-All services must implement a `/health` endpoint that returns:
-
-- `200 OK` when healthy
-- Any other status when unhealthy
-
-Health check configuration in docker-compose:
-
-```yaml
-healthcheck:
-  test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${PORT}/health"]
-  interval: 10s
-  timeout: 10s
-  retries: 2
-```
-
-## Docker Compose Template
-
-Use `docker-compose.yml` as a template:
-
-1. Copy to service directory
-2. Replace `service-name` with actual service name
-3. Update environment variables
-4. Create `docker-compose.blue.yml` and `docker-compose.green.yml` based on template
-5. Ensure container names include `-blue` and `-green` suffixes
-
-## Nginx API routes
-
-Copy `nginx/nginx-api-routes.conf.template` to `nginx/nginx-api-routes.conf`. List public API path prefixes, one per line. `deploy-smart.sh` reads this from the service directory on the server. Details: `shared/docs/NGINX_LOCAL_CONFIG.md` in the workspace.
-
-## Network Configuration
-
-All services must connect to `nginx-network`:
-
-```yaml
-networks:
-  nginx-network:
-    external: true
-    name: nginx-network
-```
-
-## Troubleshooting
-
-### Service Not Found in Registry
-
-```bash
-cd ~/nginx-microservice
-./scripts/add-service-registry.sh speakasap-content-service
-```
-
-### Docker Compose Validation Errors
-
-```bash
-# Validate blue / green (uses .env in repo root)
-docker compose -f docker-compose.blue.yml config
-docker compose -f docker-compose.green.yml config
-
-# Base template docker-compose.yml needs required vars in the .env
-# (e.g. PORT, DATABASE_URL, LOGGING_SERVICE_URL) or `config` will fail on empty interpolation
-```
-
-### Health Check Failures
-
-1. Check service logs: `docker logs speakasap-content-service-blue`
-2. Verify `/health` endpoint responds: `curl http://localhost:4201/health`
-3. Check environment variables are set correctly
-
-### Port Conflicts
-
-Ensure ports are unique across all services. Check `docs/infrastructure/PORT_ALLOCATION.md` for port assignments.
-
-## Best Practices
-
-1. **Always validate docker-compose files** before deployment
-2. **Keep `speakasap/.env` synchronized** with `speakasap/.env.example` (keys only in example)
-3. **Test health endpoint** before deploying
-4. **Monitor logs** during deployment
-5. **Use blue/green naming** consistently
-6. **Never hardcode URLs or ports** - use environment variables
-7. **Follow marathon service patterns** for consistency
-
-## References
-
-- Port Allocation: `docs/infrastructure/PORT_ALLOCATION.md`
-- Shared Services: `docs/infrastructure/SHARED_SERVICES.md`
-- Base Template: `docker-compose.yml`
-- Deployment Script: `scripts/deploy.sh`
-- Marathon Reference: `/Users/sergiystashok/Documents/GitHub/marathon`
+→ `../../../shared/docs/KUBERNETES_SETUP_GUIDE.md`

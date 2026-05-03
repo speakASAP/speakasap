@@ -1,54 +1,34 @@
 # speakasap-notification-service
 
-Phase 4 notification wave — NestJS scaffold. List pagination uses **cursor + `meta`** (same helpers as `payment-service` — `src/shared/pagination.ts`). `GET /api/v1/templates` is a **stub** (empty `data`) until TASK-51; it already clamps `limit` (max 30).
+Notification domain — templates, preferences, delivery via `notifications-microservice`.
 
-## Port and database
+## Port & Database
 
-| Item | Value |
-| --- | --- |
-| HTTP port | **4209** (`NOTIFICATION_SERVICE_PORT`) |
-| PostgreSQL database | **`speakasap_notification_db`** (name is part of `NOTIFICATION_DATABASE_URL`) |
+**Port:** 4209 | **DB:** `speakasap_notification_db` (`NOTIFICATION_DATABASE_URL`) | **K8s:** `statex-apps` namespace
 
-Authoritative table: `docs/infrastructure/PORT_ALLOCATION.md`.
+## Health
 
-## Environment (root `speakasap/.env` only)
+`GET /health` → 200 OK
 
-Required keys (see `speakasap/.env.example`):
+## API
 
-- `NOTIFICATION_SERVICE_PORT`
-- `NOTIFICATION_DATABASE_URL`
-- `NOTIFICATION_SERVICE_URL`
-- `LOGGING_SERVICE_URL`
-- `LOGGING_SERVICE_API_PATH`, `LOGGING_SERVICE_TIMEOUT`
-- `AUTH_SERVICE_URL` or `AUTH_MICROSERVICE_URL`, `AUTH_SERVICE_TIMEOUT`
+Base path: `/api/v1/*` · `GET /api/v1/templates` (cursor pagination, max 30).
 
-Optional: `USER_SERVICE_URL` + `INTERNAL_API_TOKEN` (user-service internal `POST /api/v1/internal/notification-target` for `userId` → email / do-not-contact), `NOTIFICATIONS_MICROSERVICE_API_KEY`, `NOTIFICATION_SERVICE_TIMEOUT` (outbound HTTP to notifications-ms, default `8000` ms).
+Key env: `NOTIFICATION_SERVICE_PORT`, `NOTIFICATION_DATABASE_URL`, `NOTIFICATION_SERVICE_URL`, `AUTH_SERVICE_URL`.
+Optional: `USER_SERVICE_URL`, `INTERNAL_API_TOKEN`, `NOTIFICATIONS_MICROSERVICE_API_KEY`.
 
-Outbound email uses **notifications-microservice** `POST /notifications/send` only (`NOTIFICATION_SERVICE_URL`).
-
-## Local run
-
-From repo root, ensure `speakasap/.env` defines the variables above, then:
+## Run locally
 
 ```bash
 cd notification-service
-npm install
-npm run build
-npm start
-```
-
-Manual health check:
-
-```bash
-curl -sS "http://127.0.0.1:${NOTIFICATION_SERVICE_PORT:-4209}/health"
-```
-
-Docker (this folder):
-
-```bash
+# .env at repo root — generate from Vault: ../shared/scripts/vault-env-gen.sh speakasap prod
 docker compose up --build
 ```
 
-## Logging
+## Deploy (K8s)
 
-Structured logs are forwarded to **logging-microservice** via `LOGGING_SERVICE_URL` and `LOGGING_SERVICE_API_PATH`. Request logs include ISO timestamps and `duration_ms`.
+```bash
+docker build -t localhost:5000/speakasap-notification-service:latest .
+docker push localhost:5000/speakasap-notification-service:latest
+kubectl rollout restart deployment/speakasap-notification-service -n statex-apps
+```

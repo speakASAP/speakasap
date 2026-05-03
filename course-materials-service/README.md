@@ -57,10 +57,10 @@ curl http://course-materials-microservice:${MATERIAL_MANAGER_PORT:-3391}/health
 
 ```bash
 # Connect to production server
-ssh statex
+ssh alfares
 
 # Access microservice directory
-cd /home/statex/course-materials-microservice
+cd ~/Documents/Github/course-materials-microservice
 ```
 
 ## Environment Configuration

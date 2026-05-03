@@ -1,72 +1,33 @@
 # speakasap-assessment-service
 
-NestJS service for **adaptive language tests** (`language_tests`) and **asset-based quizzes** (`user_tests`) per `docs/refactoring/ASSESSMENT_API_CONTRACT.md`. Legacy **`teacher_tests`** are out of scope.
+Adaptive language tests (`language_tests`) and asset-based quizzes (`user_tests`).
 
-## Port and database
+## Port & Database
 
-| Item | Typical value |
-| ---- | ------------- |
-| Listen port | **4203** (`PORT`) |
-| PostgreSQL DB | **`speakasap_assessment_db`** (`DATABASE_URL`) |
+**Port:** 4203 | **DB:** `speakasap_assessment_db` (`ASSESSMENT_DATABASE_URL`) | **K8s:** `statex-apps` namespace
+
+## Health
+
+`GET /health` → 200 OK
 
 ## API
 
-- **Health:** `GET /health` (no `/api/v1` prefix).
-- **Versioned API:** `GET/POST/PATCH/...` under **`/api/v1`** (see contract doc).
+Base path: `/api/v1/*` · Auth: `Authorization: Bearer <JWT>` on protected routes.
 
-### Highlights
+Key env: `ASSESSMENT_SERVICE_PORT`, `ASSESSMENT_DATABASE_URL`, `AUTH_SERVICE_URL`, `ASSESSMENT_VIEW_TOKEN_SECRET`, `USER_TEST_ASSETS_DIR`, `LANGUAGE_TEST_LANDING_BASE_URL`, `ASSESSMENT_SERVICE_PUBLIC_BASE_URL`.
 
-- **Auth:** `Authorization: Bearer <JWT>` on protected routes; tokens validated via **`AUTH_SERVICE_URL`** → `POST /auth/validate`.
-- **Staff (admin language tests):** users must have a role listed in **`ASSESSMENT_STAFF_ROLE_NAMES`** (default `admin,super_admin,staff` if unset).
-- **Managers (asset list `?userId=`):** roles from **`ASSESSMENT_MANAGER_ROLE_NAMES`** (default `manager,admin,super_admin`).
-- **Pagination:** `page`, `limit` (max **30**).
-- **Errors:** JSON `{ error: { code, message, details } }` (same shape as content-service contract).
-- **Asset JSON:** load from **`USER_TEST_ASSETS_DIR`** (e.g. `./assets`); sample `webinar1.json` / `webinar2.json` are copied into `./assets` for local use.
-
-## Configuration
-
-Use **`speakasap/.env`** (see `docs/infrastructure/ENV_MONOREPO.md`). Required keys include:
-
-`ASSESSMENT_SERVICE_PORT`, `ASSESSMENT_SERVICE_NAME`, `ASSESSMENT_DATABASE_URL`, logging trio, `AUTH_SERVICE_URL`, `AUTH_SERVICE_TIMEOUT`, `LANGUAGE_TEST_LANDING_BASE_URL`, `ASSESSMENT_SERVICE_PUBLIC_BASE_URL`, `ASSESSMENT_VIEW_TOKEN_SECRET`, `USER_TEST_ASSETS_DIR`.
-
-Runtime still uses **`DATABASE_URL`** inside the container (mapped from `ASSESSMENT_DATABASE_URL` in compose).
-
-- **`LANGUAGE_TEST_LANDING_BASE_URL`:** public site base for HTML language test entry (used for `testUrl` catalog links).
-- **`ASSESSMENT_SERVICE_PUBLIC_BASE_URL`:** public base of this API (used for signed `resultUrl`).
-- **`ASSESSMENT_VIEW_TOKEN_SECRET`:** HMAC secret for result view tokens.
-
-## Data migration (legacy portal → this DB)
-
-Script: `scripts/migrate-assessment-from-legacy.py`  
-Env (in **`speakasap/.env`**): **`ASSESSMENT_SOURCE_DATABASE_URL`**, **`ASSESSMENT_TARGET_DATABASE_URL`** (or legacy `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`). See `docs/infrastructure/ENV_MONOREPO.md`.  
-Docs: `speakasap/docs/refactoring/ASSESSMENT_DATA_MIGRATION_LOG.md`, `ASSESSMENT_DATA_VALIDATION.md`.  
-Does not touch `teacher_tests`.
-
-## Prisma
-
-Schema: `prisma/schema.prisma`. After schema changes:
+## Run locally
 
 ```bash
-npx prisma migrate dev
+cd assessment-service
+# .env at repo root — generate from Vault: ../shared/scripts/vault-env-gen.sh speakasap prod
+docker compose up --build
 ```
 
-(Or apply SQL migrations in your environment.)
-
-## Run
+## Deploy (K8s)
 
 ```bash
-npm install
-npm run build
-npm start
+docker build -t localhost:5000/speakasap-assessment-service:latest .
+docker push localhost:5000/speakasap-assessment-service:latest
+kubectl rollout restart deployment/speakasap-assessment-service -n statex-apps
 ```
-
-## Verify
-
-```bash
-npm run build
-curl -s http://localhost:${PORT:-4203}/health
-```
-
-## Next step
-
-Run `docs/agents/AGENT26V_ASSESSMENT_IMPLEMENTATION_VALIDATE.md` for contract validation (PASS/FAIL).

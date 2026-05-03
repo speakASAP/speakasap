@@ -1,104 +1,25 @@
 # Shared Services Integration
 
-This document lists shared microservices used by SpeakASAP services and the
-standard environment variables for integration.
+Standard env keys for shared microservices. In K8s these come from `speakasap-secret` (Vault → ESO). In local dev, generate `.env` via `vault-env-gen.sh speakasap prod`.
 
-## Core Shared Services
+| Service | Env key | Default |
+|---------|---------|---------|
+| Auth | `AUTH_SERVICE_URL` | `http://192.168.88.53:3370` |
+| PostgreSQL | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | `192.168.88.53:5432` |
+| Redis | `REDIS_HOST`, `REDIS_PORT` | `192.168.88.53:6379` |
+| Logging | `LOGGING_SERVICE_URL`, `LOGGING_SERVICE_API_PATH` | `http://192.168.88.53:3367`, `/api/logs` |
+| Notifications | `NOTIFICATION_SERVICE_URL` | `http://192.168.88.53:3368` |
+| Payments | `PAYMENTS_MICROSERVICE_URL` | `http://192.168.88.53:3468` |
+| AI | `AI_SERVICE_URL` | `http://192.168.88.53:3380` |
 
-### Auth Microservice
+## Integration notes
 
-- URL: `AUTH_SERVICE_URL`
-- Port: `AUTH_MICROSERVICE_PORT` (default 3370)
-- Purpose: JWT validation, user identity resolution
+- **Auth**: POST `{AUTH_SERVICE_URL}/auth/validate` with Bearer token — no shared npm package.
+- **Logging**: POST structured JSON to `{LOGGING_SERVICE_URL}{LOGGING_SERVICE_API_PATH}` with `{service, level, msg, duration_ms, timestamp}`.
+- **DB**: Each service has its own database (see `PORT_ALLOCATION.md`). Use `DATABASE_URL` or `DB_*` vars.
+- **Notifications**: POST to `{NOTIFICATION_SERVICE_URL}` — handles email/Telegram/WhatsApp.
+- **Payments**: All payment capture via `{PAYMENTS_MICROSERVICE_URL}` — never handle payment directly.
 
-### Database Server
+## Secrets
 
-- Host: `DB_HOST` (default `db-server-postgres`)
-- Port: `DB_PORT` (default 5432)
-- User: `DB_USER`
-- Password: `DB_PASSWORD`
-- Purpose: Postgres + Redis (shared)
-
-### Logging Microservice
-
-- URL: `LOGGING_SERVICE_URL` (default `http://logging-microservice:3367`)
-- Port: `LOGGING_MICROSERVICE_PORT` (default 3367)
-- Purpose: Centralized logging
-
-### Notifications Microservice
-
-- URL: `NOTIFICATION_SERVICE_URL` (default `http://notifications-microservice:3368`)
-- Port: `NOTIFICATIONS_MICROSERVICE_PORT` (default 3368)
-- Purpose: Email/Telegram/WhatsApp notifications
-- Usage: Services should forward notification events via HTTP API
-
-### Payments Microservice
-
-- URL: `PAYMENTS_MICROSERVICE_URL` (default `http://payments-microservice:3468`)
-- Port: `PAYMENTS_MICROSERVICE_PORT` (default 3468)
-- Purpose: Payment processing and checkout
-
-### AI Microservice
-
-- URL: `AI_SERVICE_URL` (default `http://ai-microservice:3380`)
-- Port: `AI_MICROSERVICE_PORT` (default 3380)
-- Purpose: AI-powered translations and content generation
-
-### Nginx Microservice
-
-- Used for reverse proxy and blue/green deployment
-- Deployment script: `nginx-microservice/scripts/blue-green/deploy-smart.sh`
-
-## Standard Env Keys
-
-Include these in `speakasap/.env.example` (keys only; monorepo single template):
-
-```text
-AUTH_SERVICE_URL=
-AUTH_MICROSERVICE_PORT=
-LOGGING_SERVICE_URL=
-LOGGING_MICROSERVICE_PORT=
-LOGGING_SERVICE_API_PATH=
-NOTIFICATION_SERVICE_PORT=
-NOTIFICATION_DATABASE_URL=
-NOTIFICATION_SERVICE_URL=
-NOTIFICATION_SERVICE_URL=
-NOTIFICATIONS_MICROSERVICE_PORT=
-PAYMENTS_MICROSERVICE_URL=
-PAYMENTS_MICROSERVICE_PORT=
-AI_SERVICE_URL=
-AI_MICROSERVICE_PORT=
-```
-
-## Connection examples
-
-### Logging microservice
-
-Send structured JSON logs via HTTP to `LOGGING_SERVICE_URL` (path from `LOGGING_SERVICE_API_PATH`, often `/api/logs`). Include ISO 8601 `timestamp` and `duration_ms` on request handlers. See `logging-microservice/README.md` in the ecosystem for DTO shape.
-
-### Database
-
-Use `DATABASE_URL` or `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_PASSWORD`/`DB_NAME`. **speakasap-notification-service** uses **`NOTIFICATION_DATABASE_URL`** only (full URL; database name is in the path). From another container on `nginx-network`, PostgreSQL is typically `db-server-postgres:5432`.
-
-### Auth
-
-Validate JWTs or resolve users by calling `AUTH_SERVICE_URL` over HTTP from the service (no shared npm package; use your stack’s HTTP client with timeouts from env).
-
-### Notifications
-
-Call `NOTIFICATION_SERVICE_URL` for outbound email/Telegram/WhatsApp; use service-level timeouts and retries from env (`NOTIFICATION_SERVICE_TIMEOUT`, `NOTIFICATION_RETRY_*`).
-
-## .env sync (local and production)
-
-See **`docs/infrastructure/ENV_MONOREPO.md`** for the single-file rule (`speakasap/.env` + `speakasap/.env.example` only).
-
-1. Add new keys to `speakasap/.env.example` first (keys only, no secrets).
-2. Copy into `speakasap/.env` locally and on the server (one file for all services in this repo).
-3. Use `shared/scripts/compare-env.sh speakasap` or `shared/scripts/env-diff-summary.sh` from the GitHub workspace when aligning with other hosts.
-4. After changing keys, run `docker compose -f docker-compose.blue.yml config --quiet` (and green) from the `speakasap/` root before deploy.
-
-## Notes
-
-- Use env-driven configuration only.
-- Do not hardcode service URLs or ports.
-- Keep **`speakasap/.env`** synchronized with **`speakasap/.env.example`** (local + prod).
+Never hardcode credentials. All secrets via Vault: `secret/prod/speakasap`. See `../../../shared/docs/VAULT.md`.

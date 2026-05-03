@@ -1,53 +1,41 @@
 # speakasap-user-service
 
-Phase 3 Wave 1 — user domain (`USER_API_CONTRACT.md`, `USER_DATA_MAPPING.md`).
+User domain — students, teachers, employee profiles, internal batch upsert.
 
-| Item | Value |
-| ---- | ----- |
-| Default port | **4207** (`PORT`) |
-| Target PostgreSQL database | **`speakasap_user_db`** (`DATABASE_URL`) |
-| HTTP API prefix | `/api/v1` (health: `GET /health` without prefix) |
+## Port & Database
 
-## Local run (Node)
+**Port:** 4207 | **DB:** `speakasap_user_db` (`USER_DATABASE_URL`) | **K8s:** `statex-apps` namespace
 
-1. Configure **`speakasap/.env`** at the monorepo root (see `docs/infrastructure/ENV_MONOREPO.md`). Set **`USER_DATABASE_URL`**, **`USER_SERVICE_PORT`**, **`USER_SERVICE_NAME`**, auth/logging/pagination keys, **`INTERNAL_API_TOKEN`**, etc.
-2. Apply DB schema: `npm run prisma:migrate:deploy` (loads `../.env` and uses `USER_DATABASE_URL`).
-3. `npm install`
-4. `npm run build`
-5. `npm start`
-6. Health: `curl -s http://localhost:${PORT:-4207}/health`
+## Health
 
-## Manual smoke (after DB + env)
+`GET /health` → 200 OK
+
+## API
+
+Base path: `/api/v1/*` · Auth: `Authorization: Bearer <JWT>`.
 
 ```bash
-# Health (no auth)
-curl -s "http://localhost:${PORT:-4207}/health"
-
-# Student self (requires real JWT from auth-microservice)
-curl -s -H "Authorization: Bearer <ACCESS_TOKEN>" "http://localhost:${PORT:-4207}/api/v1/students/me"
-
-# Internal batch (requires INTERNAL_API_TOKEN)
-curl -s -X POST "http://localhost:${PORT:-4207}/api/v1/internal/students/upsert-by-auth-user" \
-  -H "Content-Type: application/json" \
-  -H "X-Internal-Token: ${INTERNAL_API_TOKEN}" \
+curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:4207/api/v1/students/me"
+# Internal batch (requires INTERNAL_API_TOKEN):
+curl -s -X POST "http://localhost:4207/api/v1/internal/students/upsert-by-auth-user" \
+  -H "X-Internal-Token: $INTERNAL_API_TOKEN" -H "Content-Type: application/json" \
   -d '{"items":[{"authUserId":"<UUID>","country":"ru"}]}'
 ```
 
-## ETL (TASK-32)
+Key env: `USER_SERVICE_PORT`, `USER_DATABASE_URL`, `AUTH_SERVICE_URL`, `INTERNAL_API_TOKEN`.
 
-See `docs/refactoring/USER_DATA_MIGRATION_LOG.md` and run `scripts/migrate-user-from-legacy.py` (`--dry-run`, optional `--truncate-first`).
-
-## Docker
+## Run locally
 
 ```bash
-docker compose build && docker compose up -d
-curl -s "http://localhost:${PORT:-4207}/health"
+cd user-service
+# .env at repo root — generate from Vault: ../shared/scripts/vault-env-gen.sh speakasap prod
+docker compose up --build
 ```
 
-## Docs
+## Deploy (K8s)
 
-- Contract: `docs/refactoring/USER_API_CONTRACT.md`
-- Mapping: `docs/refactoring/USER_DATA_MAPPING.md`
-- **AGENT31V (2026-04-12):** `npm run build` OK; route inventory matches contract (students/teachers/managers/employee-profiles + internal batch); list cap enforced via `MAX_PAGE_SIZE` / `getPaginationParams`; no hardcoded URLs in `src/`; request logging with ISO timestamps + `duration_ms` in `RequestContextMiddleware`. Run `/health` and curl smoke against a live DB + auth when available.
-- **AGENT32V (2026-04-12):** PASS (script + docs + target schema/orphan SQL). Run live `migrate-user-from-legacy.py` when `ssh speakasap` works (add `IdentityFile` under `Host speakasap` in `~/.ssh/config`).
-- **AGENT33V (2026-04-12):** PASS — see `docs/refactoring/PHASE3_USER_VALIDATION_REPORT.md` (**P3-UE**).
+```bash
+docker build -t localhost:5000/speakasap-user-service:latest .
+docker push localhost:5000/speakasap-user-service:latest
+kubectl rollout restart deployment/speakasap-user-service -n statex-apps
+```

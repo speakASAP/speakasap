@@ -1,41 +1,33 @@
 # speakasap-payment-service
 
-Phase 4 Wave 1 scaffold (`TASK-44`) for future payment domain implementation.
+Payment domain — orders, discounts, subscriptions. Delegates payment capture to `payments-microservice`.
 
-| Item | Value |
-| ---- | ----- |
-| Default port | **4208** (`PAYMENT_SERVICE_PORT` / `PORT`) |
-| Target PostgreSQL database | **`speakasap_payment_db`** (`PAYMENT_DATABASE_URL` / `DATABASE_URL`) |
-| HTTP API prefix | `/api/v1` (health: `GET /health` without prefix) |
+## Port & Database
 
-## Local run (Node)
+**Port:** 4208 | **DB:** `speakasap_payment_db` (`PAYMENT_DATABASE_URL`) | **K8s:** `statex-apps` namespace
 
-1. Configure `speakasap/.env` at monorepo root (`docs/infrastructure/ENV_MONOREPO.md`) with:
-   - `PAYMENT_SERVICE_PORT`
-   - `PAYMENT_DATABASE_URL`
-   - `PAYMENT_DB_NAME`
-   - `PAYMENTS_MICROSERVICE_URL`
-   - `LOGGING_SERVICE_URL`, `LOGGING_SERVICE_API_PATH`, `LOGGING_SERVICE_TIMEOUT`
-   - `AUTH_MICROSERVICE_URL`
-2. `npm install`
-3. `npm run build`
-4. `npm start`
-5. Health: `curl -s http://localhost:${PAYMENT_SERVICE_PORT:-4208}/health`
+## Health
 
-## Docker (this directory)
+`GET /health` → 200 OK
+
+## API
+
+Base path: `/api/v1/*` · Auth: `Authorization: Bearer <JWT>`.
+
+Key env: `PAYMENT_SERVICE_PORT`, `PAYMENT_DATABASE_URL`, `PAYMENTS_MICROSERVICE_URL`, `AUTH_MICROSERVICE_URL`.
+
+## Run locally
 
 ```bash
-docker compose build && docker compose up -d
-curl -s "http://localhost:${PAYMENT_SERVICE_PORT:-4208}/health"
+cd payment-service
+# .env at repo root — generate from Vault: ../shared/scripts/vault-env-gen.sh speakasap prod
+docker compose up --build
 ```
 
-## Scope for this scaffold
+## Deploy (K8s)
 
-- `GET /health` only
-- Fail-fast env validation before startup
-- Timestamped request logs with `duration_ms`
-- Centralized logging via `LOGGING_SERVICE_URL`
-
-## Next
-
-Payment provider integration and business APIs (`orders`, `discount`, `subscription`) are intentionally deferred to `TASK-46` (`docs/agents/AGENT46_PAYMENT_SERVICE_IMPLEMENTATION.md`).
+```bash
+docker build -t localhost:5000/speakasap-payment-service:latest .
+docker push localhost:5000/speakasap-payment-service:latest
+kubectl rollout restart deployment/speakasap-payment-service -n statex-apps
+```

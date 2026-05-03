@@ -1,113 +1,36 @@
 # speakasap-certification-service
 
-NestJS service for certification, quests, and user questionnaires extracted from `speakasap-portal`, implemented against the frozen contract in `speakasap/docs/refactoring/CERTIFICATION_API_CONTRACT.md`.
+Certification, quests, and user questionnaires. Generates PDF certificates, tracks quest progress, manages questionnaire lifecycle.
 
-## Port and database
+## Port & Database
 
-| Item | Value |
-| ---- | ----- |
-| Default port | **4202** |
-| PostgreSQL database | **`speakasap_certification_db`** (via `DATABASE_URL`) |
-
-See `speakasap/docs/infrastructure/PORT_ALLOCATION.md`.
+**Port:** 4202 | **DB:** `speakasap_certification_db` (`CERTIFICATION_DATABASE_URL`) | **K8s:** `statex-apps` namespace
 
 ## Health
 
-- **GET** `/health` — `{ "status": "ok" }` (no `/api/v1` prefix).
+`GET /health` → `{ "status": "ok" }`
 
-## API (`/api/v1`)
+## API
 
-All routes below are under the global prefix **`/api/v1`** except `/health`. Authenticated routes expect **`Authorization: Bearer <access_token>`** from **auth-microservice** (shared **`JWT_SECRET`** for HS256 verification).
+Base path: `/api/v1/*` · Auth: `Authorization: Bearer <JWT>` (shared JWT_SECRET, HS256).
 
-Pagination matches **content-service**: `page`, `limit`; `limit` is clamped to **`MAX_PAGE_SIZE` (≤ 30)**.
+Routes: `/course-certificates`, `/education-certificates`, `/quests`, `/questionnaires`, `/user-questionnaires`.
+Internal: `POST /internal/.../generate` with `X-Internal-Api-Key`.
 
-### Course certificates (`certificates` legacy app)
+Key env: `CERTIFICATION_SERVICE_PORT`, `CERTIFICATION_DATABASE_URL`, `JWT_SECRET`, `CERT_VIEW_TOKEN_SECRET`, `MATERIALS_PUBLIC_BASE_URL`, `INTERNAL_API_KEY`.
 
-| Method | Path | Auth |
-| ------ | ---- | ---- |
-| GET | `/course-certificates` | JWT (owner list) |
-| GET | `/course-certificates/:id` | JWT (owner) |
-| GET | `/course-certificates/public/:viewToken` | Public |
-| POST | `/internal/course-certificates/generate` | `X-Internal-Api-Key` |
-
-### Group education certificates
-
-| Method | Path | Auth |
-| ------ | ---- | ---- |
-| GET | `/education-certificates` | JWT |
-| GET | `/education-certificates/:id` | JWT (owner or teacher/manager “staff”) |
-| GET | `/education-certificates/public/:viewToken` | Public |
-| POST | `/internal/education-certificates/generate` | `X-Internal-Api-Key` |
-
-### Quests
-
-| Method | Path | Auth |
-| ------ | ---- | ---- |
-| GET | `/quests/:questId` | JWT (owner; teacher/manager read) |
-| PATCH | `/quests/:questId` | JWT (owner only; 403 if already completed) |
-| GET | `/teacher/courses/:studentCourseUuid/quests/students/:studentId/:postfix` | JWT, **portal teacher** role only (`teacher_strict`, legacy `TeacherRequired` parity) |
-
-### Questionnaires / user questionnaires
-
-| Method | Path | Auth |
-| ------ | ---- | ---- |
-| GET | `/questionnaires` | JWT |
-| GET | `/questionnaires/:id` | JWT |
-| GET | `/user-questionnaires?status=incomplete\|completed` | JWT (optional `userId=` for managers on completed-style policy) |
-| GET | `/user-questionnaires/:id` | JWT (incomplete, owner only) |
-| POST | `/user-questionnaires/:id/submit` | JWT |
-| GET | `/manager/user-questionnaires/completed` | JWT, manager |
-| GET | `/manager/user-questionnaires/completed/:id` | JWT, manager |
-
-## Configuration
-
-Use **`speakasap/.env`** (see `docs/infrastructure/ENV_MONOREPO.md`). Required keys for this service include:
-
-`CERTIFICATION_SERVICE_PORT`, `CERTIFICATION_SERVICE_NAME`, `CERTIFICATION_DATABASE_URL`, logging trio, `DEFAULT_PAGE_SIZE`, `MAX_PAGE_SIZE` (≤ 30), `JWT_SECRET`, `CERT_VIEW_TOKEN_SECRET`, `MATERIALS_PUBLIC_BASE_URL`, `INTERNAL_API_KEY`.
-
-Containers still receive **`DATABASE_URL`** (wired from `CERTIFICATION_DATABASE_URL` in compose).
-
-- **`MATERIALS_PUBLIC_BASE_URL`**: base URL used with stored relative `imagePath` to build `imageUrl` in API responses.
-- **`INTERNAL_API_KEY`**: required for `POST /internal/.../generate` routes (`X-Internal-Api-Key` header).
-
-## Database
+## Run locally
 
 ```bash
-npm run prisma:migrate:deploy
-```
-
-(Or `npm run prisma:migrate` during development.)
-
-## Local run
-
-```bash
-npm install
-npm run build
-npm start
-```
-
-Docker (this directory):
-
-```bash
+cd certification-service
+# .env at repo root — generate from Vault: ../shared/scripts/vault-env-gen.sh speakasap prod
 docker compose up --build
 ```
 
-## Error shape
+## Deploy (K8s)
 
-HTTP errors follow **content-service** style: `{ "error": { "code", "message", "details" } }`.
-
-## References
-
-- `speakasap/docs/refactoring/CERTIFICATION_API_CONTRACT.md`
-- `speakasap/docs/refactoring/CERTIFICATION_DATA_MAPPING.md`
-- `speakasap/docs/infrastructure/SHARED_SERVICES.md`
-
-## Data migration (legacy portal → this DB)
-
-Script: `scripts/migrate-certification-from-legacy.py`  
-Env (in **`speakasap/.env`**): **`CERTIFICATION_SOURCE_DATABASE_URL`**, **`CERTIFICATION_TARGET_DATABASE_URL`** (or legacy `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`). See `docs/infrastructure/ENV_MONOREPO.md`.  
-Docs: `speakasap/docs/refactoring/CERTIFICATION_DATA_MIGRATION_LOG.md`, `CERTIFICATION_DATA_VALIDATION.md`.
-
-## Next
-
-Phase 2 migration validator: `speakasap/docs/agents/AGENT24V_CERTIFICATION_MIGRATION_VALIDATE.md`.
+```bash
+docker build -t localhost:5000/speakasap-certification-service:latest .
+docker push localhost:5000/speakasap-certification-service:latest
+kubectl rollout restart deployment/speakasap-certification-service -n statex-apps
+```

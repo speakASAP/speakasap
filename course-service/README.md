@@ -1,39 +1,39 @@
 # speakasap-course-service
 
-Phase 3 Wave 2 — course catalog pricing domain (`COURSE_API_CONTRACT.md`, `COURSE_DATA_MAPPING.md` after TASK-35).
+Course catalog pricing domain — categories, products, offers, pricing rules.
 
-| Item | Value |
-| ---- | ----- |
-| Default port | **4205** (`PORT` / `COURSE_SERVICE_PORT`) |
-| Target PostgreSQL database | **`speakasap_course_db`** (`DATABASE_URL` / `COURSE_DATABASE_URL`) |
-| HTTP API prefix | `/api/v1` (health: `GET /health` without prefix) |
+## Port & Database
 
-## Local run (Node)
+**Port:** 4205 | **DB:** `speakasap_course_db` (`COURSE_DATABASE_URL`) | **K8s:** `statex-apps` namespace
 
-1. Configure **`speakasap/.env`** at the monorepo root (`docs/infrastructure/ENV_MONOREPO.md`). Set **`COURSE_DATABASE_URL`**, **`COURSE_SERVICE_PORT`**, **`COURSE_SERVICE_NAME`**, **`COURSE_DB_NAME`**, logging, auth timeouts, pagination, **`INTERNAL_API_TOKEN`** (same keys pattern as `user-service`).
-2. `npm run prisma:migrate:deploy` (uses `../.env` and `COURSE_DATABASE_URL`).
-3. `npm install`
-4. `npm run build`
-5. `PORT` and `SERVICE_NAME` must match compose overrides (`COURSE_SERVICE_PORT` / `COURSE_SERVICE_NAME`) when running `npm start` manually, or run via Docker Compose below.
-6. Health: `curl -s http://localhost:${PORT:-4205}/health`
+## Health
 
-## API (JWT required on `/api/v1/**`)
+`GET /health` → 200 OK
 
-Contract: `docs/refactoring/COURSE_API_CONTRACT.md`.
+## API
+
+Base path: `/api/v1/*` · Auth: `Authorization: Bearer <JWT>` on all routes.
 
 ```bash
-TOKEN="<access_token from auth-microservice>"
+TOKEN="<JWT from auth-microservice>"
 curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:4205/api/v1/categories?page=1&limit=10"
 curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:4205/api/v1/products?page=1&limit=10"
 ```
 
-## Docker (this directory)
+Key env: `COURSE_SERVICE_PORT`, `COURSE_DATABASE_URL`, `AUTH_SERVICE_URL`, `INTERNAL_API_TOKEN`.
+
+## Run locally
 
 ```bash
-docker compose build && docker compose up -d
-curl -s "http://localhost:${PORT:-4205}/health"
+cd course-service
+# .env at repo root — generate from Vault: ../shared/scripts/vault-env-gen.sh speakasap prod
+docker compose up --build
 ```
 
-## Next
+## Deploy (K8s)
 
-- **TASK-35:** `docs/agents/AGENT35_COURSE_SERVICE_DESIGN.md` — freeze `COURSE_API_CONTRACT.md` + `COURSE_DATA_MAPPING.md`.
+```bash
+docker build -t localhost:5000/speakasap-course-service:latest .
+docker push localhost:5000/speakasap-course-service:latest
+kubectl rollout restart deployment/speakasap-course-service -n statex-apps
+```

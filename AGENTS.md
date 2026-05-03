@@ -1,13 +1,17 @@
 # Agents: speakasap
 
-## Repositories and production hosts
+## Repositories
 
-| Repo | Role | Typical host | Deploy |
-|------|------|--------------|--------|
-| **speakasap** (this monorepo speakasap.alfares.cz) | NestJS content-service, nginx templates, course-materials, Docker compose |
-| **speakasap-portal** (speakasap.com) | Legacy Django 1.11, legacy Postgres and Python 3.4 `ssh speakasap` → `cd speakasap-portal` → `git pull` |
+| Repo | Role |
+|------|------|
+| **speakasap** (this repo) | NestJS microservices monorepo — all 12 speakasap services |
+| **speakasap-portal** | Legacy Django 1.11 at speakasap.com — read-only reference; migration complete |
 
-Content migration script `content-service/scripts/migrate-content-data.py` lives **only** in **speakasap**. Copy it to `speakasap-portal` on the legacy server when running `--export-dir` there (`README_MIGRATION.md`).
+## Deployment
+
+All services run on Kubernetes (`statex-apps` namespace). Manifests in `speakasap/k8s/`.
+Secrets: Vault → ESO → K8s Secrets. See `../shared/docs/VAULT.md`.
+Deploy: `kubectl rollout restart deployment/<svc> -n statex-apps` or rebuild image + apply manifests.
 
 ## Coordinator Config
 
@@ -17,14 +21,6 @@ cycle_interval_minutes: 120
 max_tasks_per_cycle: 8
 ```
 
-## Worker Pool Config
-
-```yaml
-max_concurrent_workers: 3
-default_model_tier: free
-allowed_mcp_servers: [filesystem, postgres]
-```
-
 ## Active Agents
 <!-- Coordinator-maintained -->
-None — awaiting business-orchestrator Phase 1 deployment.
+None.

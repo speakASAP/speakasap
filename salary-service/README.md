@@ -1,45 +1,34 @@
 # speakasap-salary-service
 
-Phase 4 Wave 3 scaffold (`TASK-54`) for future salary domain implementation.
+Staff salary management and teacher payments — salary calculations, payment schedules, expense tracking.
 
-| Item | Value |
-| ---- | ----- |
-| Default port | **4212** (`SALARY_SERVICE_PORT` / `PORT`) |
-| Target PostgreSQL database | **`speakasap_salary_db`** (`SALARY_DATABASE_URL` / `DATABASE_URL`) |
-| HTTP API prefix | `/api/v1` (health: `GET /health` without prefix) |
+## Port & Database
 
-## Local run (Node)
+**Port:** 4212 | **DB:** `speakasap_salary_db` (`SALARY_DATABASE_URL`) | **K8s:** `statex-apps` namespace
 
-1. Configure `speakasap/.env` at monorepo root with:
-   - `SALARY_SERVICE_PORT`
-   - `SALARY_DATABASE_URL`
-   - `SALARY_DB_NAME`
-   - `LOGGING_SERVICE_URL`, `LOGGING_SERVICE_API_PATH`, `LOGGING_SERVICE_TIMEOUT`
-   - `AUTH_SERVICE_URL` or `AUTH_MICROSERVICE_URL`
-   - `AUTH_SERVICE_TIMEOUT`
-2. `npm install`
-3. `npm run build`
-4. `npm start`
-5. Health: `curl -s http://localhost:${SALARY_SERVICE_PORT:-4212}/health`
+## Health
 
-## Docker (this directory)
+`GET /health` → 200 OK
+
+## API
+
+Base path: `/api/v1/*` · Auth: `Authorization: Bearer <JWT>`.
+
+Key env: `SALARY_SERVICE_PORT`, `SALARY_DATABASE_URL`, `AUTH_SERVICE_URL`, `LOGGING_SERVICE_URL`.
+Optional: `EDUCATION_SERVICE_URL`, `PAYMENT_SERVICE_URL`, `SALARY_INTERNAL_API_TOKEN`.
+
+## Run locally
 
 ```bash
-docker compose build && docker compose up -d
-curl -s "http://localhost:${SALARY_SERVICE_PORT:-4212}/health"
+cd salary-service
+# .env at repo root — generate from Vault: ../shared/scripts/vault-env-gen.sh speakasap prod
+docker compose up --build
 ```
 
-## Scope for this scaffold
+## Deploy (K8s)
 
-- `GET /health` only
-- Fail-fast env validation before startup
-- Timestamped request logs with `duration_ms`
-- Centralized logging via `LOGGING_SERVICE_URL`
-
-## Planned integration (later tasks)
-
-- **speakasap-payment-service (HTTP)** for payout and related flows; no shared database and no scaffold-time HTTP client.
-
-## Next
-
-Salary API design and contracts are deferred to `TASK-55` (`docs/agents/AGENT55_SALARY_SERVICE_DESIGN.md`).
+```bash
+docker build -t localhost:5000/speakasap-salary-service:latest .
+docker push localhost:5000/speakasap-salary-service:latest
+kubectl rollout restart deployment/speakasap-salary-service -n statex-apps
+```

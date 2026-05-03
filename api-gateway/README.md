@@ -1,27 +1,32 @@
 # speakasap-api-gateway
 
-Public HTTP entry for Phase 5. Proxies `/api/v1/**` to Phase 1–4 SpeakASAP services per `docs/refactoring/GATEWAY_API_CONTRACT.md`.
+Public HTTP entry point. Proxies `/api/v1/**` to Phase 1–4 services with JWT auth guard and rate limiting.
 
-## Port
+## Port & Database
 
-Default **4210** (`API_GATEWAY_PORT` in monorepo `.env`).
+**Port:** 4210 (`API_GATEWAY_PORT`) | **DB:** — (routing only) | **K8s:** `statex-apps` namespace
 
 ## Health
 
-`GET /health` — no auth, no `/api/v1` prefix.
+`GET /health` → 200 OK (no auth, no `/api/v1` prefix)
+
+## API
+
+Full route contract: `../docs/refactoring/GATEWAY_API_CONTRACT.md`
+Auth boundary: `../docs/refactoring/GATEWAY_AUTH_BOUNDARY.md`
 
 ## Run locally
 
-From repo root `speakasap/`:
-
 ```bash
-cd api-gateway && npm install && npm run build && PORT=4210 SERVICE_NAME=api-gateway node dist/main.js
+cd api-gateway
+# .env at repo root — generate from Vault: ../shared/scripts/vault-env-gen.sh speakasap prod
+docker compose up --build
 ```
 
-Load env from `../.env` (required keys in `src/shared/validate-env.ts`).
-
-## Docker
+## Deploy (K8s)
 
 ```bash
-docker compose -f api-gateway/docker-compose.yml --env-file .env up --build
+docker build -t localhost:5000/speakasap-api-gateway:latest .
+docker push localhost:5000/speakasap-api-gateway:latest
+kubectl rollout restart deployment/speakasap-api-gateway -n statex-apps
 ```

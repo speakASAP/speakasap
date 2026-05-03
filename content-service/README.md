@@ -1,35 +1,39 @@
-# Content Service
+# speakasap-content-service
 
-Read-only Content Service (NestJS + TypeScript) for legacy content apps:
-`grammar`, `phonetics`, `dictionary`, `songs`, `language`.
+Read-only content service for: grammar, phonetics, dictionary, songs, language.
 
-## Setup
+## Port & Database
 
-- Use **`speakasap/.env`** only (see `docs/infrastructure/ENV_MONOREPO.md`): `DATABASE_URL` for content DB, `PORT` / `CONTENT_SERVICE_PORT`, logging, notifications, AI keys, etc.
-- **Run from this folder:** `docker compose build && docker compose up -d` then `curl http://localhost:${PORT:-4201}/health`.
-- **Blue/green (production):** compose files also live at `speakasap/docker-compose.blue.yml` and `docker-compose.green.yml` (repo root). Run `./scripts/deploy.sh` from `speakasap` after `docker network create nginx-network` (if missing).
+**Port:** 4201 | **DB:** `speakasap_content_db` (`DATABASE_URL`) | **K8s:** `statex-apps` namespace
 
-## Deployment (blue/green)
+## Health
 
-- `cd <speakasap-repo-root> && ./content-service/scripts/deploy.sh` (script `cd`s to repo root and calls nginx-microservice `deploy-smart.sh`).
+`GET /health` → 200 OK
 
 ## API
 
-- Health: `GET /health`
-- Base path: `GET /api/v1/*`
-- Pagination: `page` + `limit` (max 30)
+Base path: `GET /api/v1/*` · Pagination: `page` + `limit` (max 30)
+
+## Run locally
+
+```bash
+cd content-service
+# .env at repo root — generate from Vault: ../shared/scripts/vault-env-gen.sh speakasap prod
+docker compose up --build
+```
+
+## Deploy (K8s)
+
+```bash
+docker build -t localhost:5000/speakasap-content-service:latest .
+docker push localhost:5000/speakasap-content-service:latest
+kubectl rollout restart deployment/speakasap-content-service -n statex-apps
+```
 
 ## Database
 
-- Prisma schema in `prisma/schema.prisma`
-- Generate client: `npm run prisma:generate`
+Prisma schema: `prisma/schema.prisma`. Generate client: `npm run prisma:generate`.
 
 ## Data migration (legacy → Prisma)
 
-Script: `scripts/migrate-content-data.py` (canonical copy in this repo on **alfares** after `git pull`). Legacy Django **`speakasap-portal`** lives on **speakasap** — copy the script there for `--export-dir`. Full steps: `scripts/README_MIGRATION.md`.
-
-## Notes
-
-- Production-only workflow
-- Centralized logging via `LOGGING_SERVICE_URL`
-- Nginx API routes in `nginx-api-routes.conf`
+Script: `scripts/migrate-content-data.py`. Full steps: `scripts/README_MIGRATION.md`.
