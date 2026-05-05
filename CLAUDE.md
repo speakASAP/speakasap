@@ -6,9 +6,9 @@
 
 ## speakasap
 
-**Purpose**: Online education platform for language learning — courses, assessments, certifications, and payments. Currently in refactoring state from legacy speakasap-portal.
-**Ports**: 42xx range (multiple NestJS microservices)  
-**Stack**: NestJS microservices · PostgreSQL · Redis
+**Purpose**: Online education platform for language learning — courses, assessments, certifications, and payments.  
+**Domain**: https://speakasap.alfares.cz  
+**Stack**: NestJS microservices · PostgreSQL · Redis · Kubernetes (`statex-apps`)
 
 ### Key constraints
 - Payment processing via payments-microservice only — never directly
@@ -22,4 +22,4 @@
 | payments-microservice:3468 | Course payments |
 | notifications-microservice:3368 | Student emails |
 
-**Ops**: `docker compose logs -f` · `./scripts/deploy.sh`
+**Ops**: `kubectl logs -n statex-apps -l app=speakasap -f` · `kubectl rollout restart deployment/speakasap -n statex-apps` · `./scripts/deploy.sh`
