@@ -17,7 +17,7 @@ RUN npm run build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
-RUN apk add --no-cache wget
+RUN apk add --no-cache wget openssl
 ENV NODE_ENV=production
 ENV npm_config_update_notifier=false
 COPY --from=deps /app/node_modules ./node_modules
