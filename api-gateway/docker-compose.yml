@@ -21,7 +21,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "wget --quiet --tries=1 --spider http://127.0.0.1:$${PORT}/health || exit 1",
+          "curl -sf http://127.0.0.1:$${PORT}/health || exit 1",
         ]
       interval: 10s
       timeout: 10s
