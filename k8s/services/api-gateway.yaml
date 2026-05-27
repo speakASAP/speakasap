@@ -1,0 +1,130 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: speakasap-api-gateway
+  namespace: statex-apps
+  labels:
+    app: speakasap-api-gateway
+    managed-by: k8s-migration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: speakasap-api-gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: speakasap-api-gateway
+    spec:
+      initContainers:
+        - name: wait-content
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z speakasap-content 4201; do echo waiting for content-service; sleep 2; done']
+        - name: wait-course
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z speakasap-course 4205; do echo waiting for course-service; sleep 2; done']
+      containers:
+        - name: app
+          image: localhost:5000/speakasap-api-gateway:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4210
+              name: http
+          envFrom:
+            - configMapRef:
+                name: speakasap-api-gateway-config
+            - secretRef:
+                name: speakasap-secret
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 4210
+            failureThreshold: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4210
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4210
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: speakasap-api-gateway
+  namespace: statex-apps
+  labels:
+    app: speakasap-api-gateway
+    managed-by: k8s-migration
+spec:
+  type: ClusterIP
+  selector:
+    app: speakasap-api-gateway
+  ports:
+    - protocol: TCP
+      port: 4210
+      targetPort: 4210
+      name: http
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: speakasap-api-gateway-config
+  namespace: statex-apps
+  labels:
+    app: speakasap-api-gateway
+    managed-by: k8s-migration
+data:
+  NODE_ENV: "production"
+  SERVICE_NAME: "api-gateway"
+  PORT: "4210"
+  LOG_LEVEL: "info"
+  LOGGING_SERVICE_URL: "http://logging-microservice:3367"
+  LOGGING_SERVICE_API_PATH: "/api/logs"
+  LOGGING_SERVICE_TIMEOUT: "5000"
+  AUTH_SERVICE_URL: "http://auth-microservice:3370"
+  AUTH_SERVICE_TIMEOUT: "5000"
+  AUTH_RETRY_MAX_ATTEMPTS: "3"
+  AUTH_RETRY_DELAY_MS: "1000"
+  CONTENT_SERVICE_URL: "http://speakasap-content:4201"
+  CERTIFICATION_SERVICE_URL: "http://speakasap-certification:4202"
+  ASSESSMENT_SERVICE_URL: "http://speakasap-assessment:4203"
+  COURSE_SERVICE_URL: "http://speakasap-course:4205"
+  EDUCATION_SERVICE_URL: "http://speakasap-education:4206"
+  USER_SERVICE_URL: "http://speakasap-user:4207"
+  PAYMENT_SERVICE_URL: "http://speakasap-payment:4208"
+  NOTIFICATION_SERVICE_URL: "http://speakasap-notification:4209"
+  SALARY_SERVICE_URL: "http://speakasap-salary:4212"
+  FINANCIAL_SERVICE_URL: "http://speakasap-financial:4213"
+  HTTP_TIMEOUT: "30000"
+  GATEWAY_TIMEOUT: "60000"
+  RETRY_MAX_ATTEMPTS: "3"
+  RETRY_DELAY_MS: "1000"
+  DEFAULT_PAGE_SIZE: "10"
+  MAX_PAGE_SIZE: "30"
+  ASSETS_BASE_URL: "https://assets.alfares.cz"
+  FRONTEND_URL: "https://speakasap.alfares.cz"
+  CORS_ORIGIN: "https://speakasap.alfares.cz"

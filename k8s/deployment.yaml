@@ -24,10 +24,10 @@ spec:
       initContainers:
         - name: wait-postgres
           image: busybox:1.36
-          command: ['sh', '-c', 'until nc -z 192.168.88.53 5432; do echo waiting for postgres; sleep 2; done']
+          command: ['sh', '-c', 'until nc -z db-server-postgres 5432; do echo waiting for postgres; sleep 2; done']
         - name: wait-auth
           image: busybox:1.36
-          command: ['sh', '-c', 'until nc -z 192.168.88.53 3370; do echo waiting for auth; sleep 2; done']
+          command: ['sh', '-c', 'until nc -z auth-microservice 3370; do echo waiting for auth; sleep 2; done']
       containers:
         - name: app
           image: localhost:5000/speakasap:latest
@@ -37,12 +37,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: speakasap-config
-          env:
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: database-credentials
-                  key: DB_PASSWORD
+            - secretRef:
+                name: speakasap-secret
           startupProbe:
             httpGet:
               path: /health

@@ -1,0 +1,166 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: speakasap-certification
+  namespace: statex-apps
+  labels:
+    app: speakasap-certification
+    managed-by: k8s-migration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: speakasap-certification
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: speakasap-certification
+    spec:
+      initContainers:
+        - name: wait-postgres
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z db-server-postgres 5432; do echo waiting for postgres; sleep 2; done']
+      containers:
+        - name: app
+          image: localhost:5000/speakasap-certification:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4202
+              name: http
+          envFrom:
+            - configMapRef:
+                name: speakasap-certification-config
+            - secretRef:
+                name: speakasap-certification-secret
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 4202
+            failureThreshold: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4202
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4202
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: speakasap-certification
+  namespace: statex-apps
+  labels:
+    app: speakasap-certification
+    managed-by: k8s-migration
+spec:
+  type: ClusterIP
+  selector:
+    app: speakasap-certification
+  ports:
+    - protocol: TCP
+      port: 4202
+      targetPort: 4202
+      name: http
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: speakasap-certification-config
+  namespace: statex-apps
+  labels:
+    app: speakasap-certification
+    managed-by: k8s-migration
+data:
+  NODE_ENV: "production"
+  SERVICE_NAME: "speakasap-certification"
+  PORT: "4202"
+  DB_HOST: "db-server-postgres"
+  DB_PORT: "5432"
+  DB_USER: "dbadmin"
+  DB_NAME: "speakasap_certification_db"
+  DB_SYNC: "false"
+  DB_AUTO_CREATE: "true"
+  REDIS_HOST: "db-server-redis"
+  REDIS_PORT: "6379"
+  LOG_LEVEL: "info"
+  LOGGING_SERVICE_URL: "http://logging-microservice:3367"
+  LOGGING_SERVICE_API_PATH: "/api/logs"
+  LOGGING_SERVICE_TIMEOUT: "5000"
+  AUTH_SERVICE_URL: "http://auth-microservice:3370"
+  AUTH_SERVICE_TIMEOUT: "5000"
+  AUTH_RETRY_MAX_ATTEMPTS: "3"
+  AUTH_RETRY_DELAY_MS: "1000"
+  USER_SERVICE_URL: "http://speakasap-user:4207"
+  COURSE_SERVICE_URL: "http://speakasap-course:4205"
+  ASSESSMENT_SERVICE_URL: "http://speakasap-assessment:4203"
+  NOTIFICATION_SERVICE_URL: "http://speakasap-notification:4209"
+  NOTIFICATION_SERVICE_TIMEOUT: "5000"
+  HTTP_TIMEOUT: "30000"
+  GATEWAY_TIMEOUT: "60000"
+  RETRY_MAX_ATTEMPTS: "3"
+  RETRY_DELAY_MS: "1000"
+  DEFAULT_PAGE_SIZE: "10"
+  MAX_PAGE_SIZE: "30"
+  ASSETS_BASE_URL: "https://assets.alfares.cz"
+  MATERIALS_PUBLIC_BASE_URL: "https://assets.alfares.cz"
+  FRONTEND_URL: "https://speakasap.alfares.cz"
+  CORS_ORIGIN: "https://speakasap.alfares.cz"
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: speakasap-certification-secret
+  namespace: statex-apps
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: speakasap-certification-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: DB_PASSWORD
+      remoteRef:
+        key: secret/prod/speakasap
+        property: DB_PASSWORD
+    - secretKey: DATABASE_URL
+      remoteRef:
+        key: secret/prod/speakasap/certification
+        property: DATABASE_URL
+    - secretKey: JWT_SECRET
+      remoteRef:
+        key: secret/prod/speakasap/certification
+        property: JWT_SECRET
+    - secretKey: CERT_VIEW_TOKEN_SECRET
+      remoteRef:
+        key: secret/prod/speakasap/certification
+        property: CERT_VIEW_TOKEN_SECRET
+    - secretKey: INTERNAL_API_KEY
+      remoteRef:
+        key: secret/prod/speakasap/certification
+        property: INTERNAL_API_KEY

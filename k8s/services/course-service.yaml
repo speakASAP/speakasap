@@ -1,0 +1,158 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: speakasap-course
+  namespace: statex-apps
+  labels:
+    app: speakasap-course
+    managed-by: k8s-migration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: speakasap-course
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: speakasap-course
+    spec:
+      initContainers:
+        - name: wait-postgres
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z db-server-postgres 5432; do echo waiting for postgres; sleep 2; done']
+      containers:
+        - name: app
+          image: localhost:5000/speakasap-course:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4205
+              name: http
+          envFrom:
+            - configMapRef:
+                name: speakasap-course-config
+            - secretRef:
+                name: speakasap-course-secret
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 4205
+            failureThreshold: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4205
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4205
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: speakasap-course
+  namespace: statex-apps
+  labels:
+    app: speakasap-course
+    managed-by: k8s-migration
+spec:
+  type: ClusterIP
+  selector:
+    app: speakasap-course
+  ports:
+    - protocol: TCP
+      port: 4205
+      targetPort: 4205
+      name: http
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: speakasap-course-config
+  namespace: statex-apps
+  labels:
+    app: speakasap-course
+    managed-by: k8s-migration
+data:
+  NODE_ENV: "production"
+  SERVICE_NAME: "speakasap-course"
+  PORT: "4205"
+  DB_HOST: "db-server-postgres"
+  DB_PORT: "5432"
+  DB_USER: "dbadmin"
+  DB_NAME: "speakasap_course_db"
+  DB_SYNC: "false"
+  DB_AUTO_CREATE: "true"
+  REDIS_HOST: "db-server-redis"
+  REDIS_PORT: "6379"
+  LOG_LEVEL: "info"
+  LOGGING_SERVICE_URL: "http://logging-microservice:3367"
+  LOGGING_SERVICE_API_PATH: "/api/logs"
+  LOGGING_SERVICE_TIMEOUT: "5000"
+  AUTH_SERVICE_URL: "http://auth-microservice:3370"
+  AUTH_SERVICE_TIMEOUT: "5000"
+  AUTH_RETRY_MAX_ATTEMPTS: "3"
+  AUTH_RETRY_DELAY_MS: "1000"
+  CONTENT_SERVICE_URL: "http://speakasap-content:4201"
+  NOTIFICATION_SERVICE_URL: "http://speakasap-notification:4209"
+  NOTIFICATION_SERVICE_TIMEOUT: "5000"
+  NOTIFICATION_RETRY_MAX_ATTEMPTS: "3"
+  NOTIFICATION_RETRY_DELAY_MS: "1000"
+  PAYMENTS_MICROSERVICE_URL: "http://payments-microservice:3468"
+  HTTP_TIMEOUT: "30000"
+  GATEWAY_TIMEOUT: "60000"
+  RETRY_MAX_ATTEMPTS: "3"
+  RETRY_DELAY_MS: "1000"
+  DEFAULT_PAGE_SIZE: "10"
+  MAX_PAGE_SIZE: "30"
+  ASSETS_BASE_URL: "https://assets.alfares.cz"
+  FRONTEND_URL: "https://speakasap.alfares.cz"
+  CORS_ORIGIN: "https://speakasap.alfares.cz"
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: speakasap-course-secret
+  namespace: statex-apps
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: speakasap-course-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: DB_PASSWORD
+      remoteRef:
+        key: secret/prod/speakasap
+        property: DB_PASSWORD
+    - secretKey: DATABASE_URL
+      remoteRef:
+        key: secret/prod/speakasap/course
+        property: DATABASE_URL
+    - secretKey: INTERNAL_API_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap/course
+        property: INTERNAL_API_TOKEN
