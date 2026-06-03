@@ -1005,7 +1005,7 @@ The new speakasap platform will leverage the following existing shared microserv
 - Django REST Framework
 - Django templates
 - Celery for background tasks
-- Direct database access
+- Kubernetes-backed datastore access through approved application paths
 - Local authentication
 
 **To**:

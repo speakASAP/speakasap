@@ -92,7 +92,7 @@ REDIS_URL=
 
 # Redis (Shared)
 REDIS_HOST=
-REDIS_SERVER_PORT=
+REDIS_PORT=6379
 
 # Logging Service (Shared)
 LOGGING_SERVICE_URL=
