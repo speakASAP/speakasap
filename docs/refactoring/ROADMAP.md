@@ -1042,7 +1042,7 @@ The new speakasap platform will leverage the following existing shared microserv
 #### 1.1 Project Setup
 
 - [ ] Create `speakasap` directory structure in alfares.cz
-- [ ] Set up Docker Compose files (blue/green deployment)
+- [ ] Set up Kubernetes files (blue/green deployment)
 - [ ] Configure nginx-microservice integration
 - [ ] Set up shared microservice connections (auth, database, logging)
 - [x] **`speakasap/.env.example`** maintained as monorepo template (`ENV_MONOREPO.md`); per-service copies removed
@@ -1783,7 +1783,7 @@ quest.completed: { questId, userId, completedAt, rewards }
 
 ```typescript
 // ❌ BAD - Hardcoded values
-const dbUrl = 'postgresql://user:pass@localhost:5432/db';
+const dbUrl = 'postgresql://user:pass@db-server-postgres.statex-apps.svc.cluster.local:5432/db';
 const apiKey = 'sk-1234567890';
 const serviceUrl = 'https://api.example.com';
 
@@ -1816,7 +1816,7 @@ const serviceUrl = process.env.SERVICE_URL || 'https://api.example.com';
 - **GraphQL API**: More flexible data fetching
 - **gRPC**: High-performance service-to-service communication
 - **Service Mesh**: Advanced traffic management and security
-- **Kubernetes**: Container orchestration (if scaling beyond Docker Compose)
+- **Kubernetes**: Container orchestration (if scaling beyond Kubernetes)
 
 ### 15.3 Feature Enhancements (Future)
 

@@ -44,7 +44,7 @@ kubectl annotate externalsecret speakasap-secret force-sync=$(date +%s) -n state
 
 Each service may have its own `k8s/` directory with service-specific manifests.
 
-## Local Dev (Docker Compose)
+## Local Dev (Kubernetes)
 
 ```bash
 # Generate .env from Vault

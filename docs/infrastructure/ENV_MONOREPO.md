@@ -41,7 +41,6 @@ npm run prisma:migrate:deploy  # apply migrations
 ## Legacy portal DB tunnel (ETL only)
 
 ```bash
-ssh -fN -L 127.0.0.1:15432:127.0.0.1:5432 speakasap
 ```
 
-Use `CERTIFICATION_SOURCE_DATABASE_URL=postgresql://...@127.0.0.1:15432/...` for ETL scripts.
+Use `CERTIFICATION_SOURCE_DATABASE_URL=postgresql://...@db-server-postgres.statex-apps.svc.cluster.local:5432/...` for ETL scripts.

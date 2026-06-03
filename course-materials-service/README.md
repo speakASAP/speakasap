@@ -178,9 +178,9 @@ MATERIAL_MANAGER_URL=http://course-materials-microservice:3391
 
 All course materials data, generation jobs, and related information are stored in the shared database:
 
-- **Database Server**: `db-server-postgres` (Docker network)
+- **Database Server**: `db-server-postgres` (Kubernetes service DNS)
 - **Database Name**: `statex_course_materials`
-- **Connection**: All services connect to shared `db-server-postgres:5432`
+- **Connection**: All services connect to shared `db-server-postgres:5432` in `statex-apps`
 
 ### Logging
 

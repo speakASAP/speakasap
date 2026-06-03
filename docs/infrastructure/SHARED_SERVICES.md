@@ -5,8 +5,8 @@ Standard env keys for shared microservices. In K8s these come from `speakasap-se
 | Service | Env key | Default |
 |---------|---------|---------|
 | Auth | `AUTH_SERVICE_URL` | `http://192.168.88.53:3370` |
-| PostgreSQL | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | `192.168.88.53:5432` |
-| Redis | `REDIS_HOST`, `REDIS_PORT` | `192.168.88.53:6379` |
+| PostgreSQL | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | `db-server-postgres.statex-apps.svc.cluster.local:5432` |
+| Redis | `REDIS_HOST`, `REDIS_PORT` | `db-server-redis.statex-apps.svc.cluster.local:6379` |
 | Logging | `LOGGING_SERVICE_URL`, `LOGGING_SERVICE_API_PATH` | `http://192.168.88.53:3367`, `/api/logs` |
 | Notifications | `NOTIFICATION_SERVICE_URL` | `http://192.168.88.53:3368` |
 | Payments | `PAYMENTS_MICROSERVICE_URL` | `http://192.168.88.53:3468` |
