@@ -130,8 +130,8 @@ Chunks:
 - [x] 5.1 Confirm lesson-record target readiness after core education apply.
 - [x] 5.2 Add target lesson-record schema and write-gated metadata/private key-reference migration.
 - [x] 5.3 Run remote Prisma validation/build and capture fresh DB-backed no-write report.
-- [ ] 5.4 Run write-gated lesson-record metadata apply only after explicit owner approval.
-- [ ] Verify delete, merge, playback, and download behaviors.
+- [x] 5.4 Run write-gated lesson-record metadata apply only after explicit owner approval.
+- [ ] 5.5 Verify delete, merge, playback, and download behaviors.
 - [ ] Add runtime checks for private access and failure modes.
 
 Acceptance criteria:

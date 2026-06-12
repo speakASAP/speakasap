@@ -1250,3 +1250,55 @@ Approval / rollback:
 Next:
 
 - Request explicit owner approval for the target DB schema migration and the lesson-record metadata apply command, with rollback path recorded before apply.
+
+## 2026-06-12 - Goal 5.4 Lesson Recording Schema Deploy And Metadata Apply
+
+Status: done
+
+Changed:
+
+- Owner approved proceeding with the `education-service` Prisma schema deploy and lesson-record metadata apply on 2026-06-12.
+- Recorded owner permission in `AGENTS.md` allowing AI/Codex sessions to create git commits on remote `alfares` only inside `/home/ssf/Documents/Github/speakasap`.
+- Applied Prisma migration `20260612120000_lesson_record_metadata` to `speakasap_education_db`.
+- Ran the write-gated lesson-record metadata apply with:
+  - `--apply`
+  - `--confirm-write`
+  - `--approval-note "Owner approved lesson-record schema deploy and metadata apply for SpeakASAP on 2026-06-12"`
+  - `--rollback-plan /tmp/speakasap-lesson-records-rollback-g5-4.sql`
+  - `--json-report /tmp/speakasap-lesson-records-apply-g5-4.json`
+- Ran a post-apply no-write reconciliation report at `/tmp/speakasap-lesson-records-post-apply-g5-4.json`.
+
+Evidence:
+
+- Prisma deploy:
+  - `cd education-service && npm run prisma:migrate:deploy`
+  - migration applied successfully: `20260612120000_lesson_record_metadata`
+- Rollback artifact:
+  - `/tmp/speakasap-lesson-records-rollback-g5-4.sql`
+- Apply report:
+  - `/tmp/speakasap-lesson-records-apply-g5-4.json`
+  - `writes=true`
+  - `source_lesson_records=101184`
+  - `source_lesson_record_parts=58234`
+  - `would_upsert_lesson_records=101184`
+  - `would_upsert_lesson_record_parts=52453`
+  - `missing_target_lesson=0`
+- Target DB verification after apply:
+  - `education_lessonrecord=101184`
+  - `education_lessonrecordpart=52453`
+  - lesson-record rows missing target lessons: `0`
+- Post-apply dry-run report:
+  - `/tmp/speakasap-lesson-records-post-apply-g5-4.json`
+  - `missing_target_lesson=0`
+  - source/state/key counts match the pre-apply evidence
+  - remaining reconciliation issues are unchanged media/key inventory: `parts_missing_rows=4080`, `orphan_parts=5781`, `legacy_prefix_keys_without_date=25934`, `record_key_date_mismatch=39477`
+
+Guardrail:
+
+- No object storage read, write, delete, public URL, or presigned access change was performed.
+- The apply migrated metadata and private object-key references only.
+- Temporary Kubernetes DB port-forwards were closed after the commands.
+
+Next:
+
+- Continue Goal 5 by verifying runtime private access behavior: playback/download must remain scoped, merge/delete behavior must be checked against legacy semantics, and media/key reconciliation issues must remain visible until resolved or explicitly accepted.

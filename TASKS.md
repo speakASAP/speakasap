@@ -4,13 +4,13 @@ This file is the root task index for the SpeakASAP master orchestrator. Detailed
 
 ## Active Task
 
-- Goal 5.4: get explicit owner approval for lesson-recording schema deploy and metadata apply.
+- Goal 5.5: verify runtime private access, playback/download, merge, delete, and failure modes for migrated lesson recordings.
 
 Current gate:
 
-- Lesson-record schema and write-gated metadata migration are copied to `alfares`.
-- Remote `prisma:validate`, `npm run build`, script compile/help, and DB-backed no-write report passed.
-- Do not run lesson-record target DB schema deploy or metadata apply until explicit owner approval is recorded.
+- Lesson-record schema migration and write-gated metadata apply completed on `alfares` after owner approval.
+- Applied counts: `education_lessonrecord=101184`, `education_lessonrecordpart=52453`, missing target lessons `0`.
+- Do not run future lesson-record reruns, rollback execution, object-storage mutation, or access behavior changes without fresh evidence and explicit approval where applicable.
 - Preserve dry-run reports, apply commands, approval notes, rollback evidence, and post-apply verification in `docs/orchestrator/STATUS.md`.
 
 ## Required Task Flow

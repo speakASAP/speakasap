@@ -450,8 +450,26 @@ Verification:
 - Apply report records `writes=true` and imported counts.
 - Post-apply dry-run has no target conflicts and keeps media/key issues as reconciliation-only evidence.
 
-Status: pending explicit write approval.
+Status: done. Owner approval recorded on 2026-06-12; Prisma migration applied; metadata apply report and rollback SQL captured; post-apply reconciliation passed with missing target lessons `0`.
+
+### Chunk 5.5 - Runtime Private Access And Media Behavior Verification
+
+Deliverables:
+
+- Verify or implement scoped playback/download behavior for migrated recording metadata.
+- Verify merge and delete behavior against legacy semantics before exposing new runtime paths.
+- Keep object access private: no public permanent URLs, no public bucket, no raw credentials.
+- Preserve media/key reconciliation issues as visible evidence until corrected or explicitly accepted.
+
+Verification:
+
+- Unauthorized access returns `401/403`.
+- Authorized student/teacher/staff access is scoped to the lesson.
+- Playback/download uses short-lived private access or service streaming.
+- Merge/delete failure modes are documented and tested without deleting legacy objects unexpectedly.
+
+Status: pending.
 
 ## Next Goal Selection
 
-Continue Goal 5.4 by requesting explicit owner approval for schema deploy and metadata apply; do not run target DB writes without that approval.
+Continue Goal 5.5 by verifying runtime private access behavior before any frontend/gateway cutover.
