@@ -547,7 +547,7 @@ def dry_run_report(
     check_target: bool = False,
     limit: int = 25,
 ) -> dict[str, object]:
-    email_map = load_email_to_uuid(auth) if auth is not None else None
+    email_map = load_email_to_uuid(auth, log_index=False) if auth is not None else None
     report = {
         "dry_run": True,
         "writes": False,
@@ -623,7 +623,7 @@ def truncate_target(tgt) -> None:
     cur.close()
 
 
-def load_email_to_uuid(auth) -> dict[str, str]:
+def load_email_to_uuid(auth, log_index: bool = True) -> dict[str, str]:
     """Lowercased trimmed email -> users.id::text."""
     cur = auth.cursor()
     cur.execute('SELECT id::text, lower(trim(email)) AS em FROM users WHERE email IS NOT NULL AND trim(email) <> %s', ("",))
@@ -632,7 +632,8 @@ def load_email_to_uuid(auth) -> dict[str, str]:
         if em:
             m[em] = uid
     cur.close()
-    log(f"auth users indexed by email: {len(m)}")
+    if log_index:
+        log(f"auth users indexed by email: {len(m)}")
     return m
 
 
