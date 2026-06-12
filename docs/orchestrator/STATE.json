@@ -8,5 +8,5 @@
   "next_goal": "Goal 5 - Lesson Recording And Private Media Migration",
   "status": "active",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md",
-  "next_required_action": "Continue Goal 5 runtime verification: implement or verify scoped private playback/download access, merge/delete behavior, and failure modes before frontend/gateway cutover."
+  "next_required_action": "Continue Goal 5.5 by resolving paid student eligibility mapping and implementing private upload presign/commit or recording an owner-approved deferral; keep frontend/gateway cutover blocked until runtime smoke tests pass."
 }

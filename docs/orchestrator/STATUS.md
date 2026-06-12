@@ -1302,3 +1302,115 @@ Guardrail:
 Next:
 
 - Continue Goal 5 by verifying runtime private access behavior: playback/download must remain scoped, merge/delete behavior must be checked against legacy semantics, and media/key reconciliation issues must remain visible until resolved or explicitly accepted.
+
+## 2026-06-12 - Goal 5.5 Runtime Private Access Verification
+
+Status: active; frontend/gateway cutover blocked
+
+Changed:
+
+- Added `docs/orchestrator/LESSON_RECORDING_RUNTIME_VERIFICATION.md`.
+- Verified the current target service/runtime surface before any frontend or gateway cutover.
+- Ran a fresh no-write lesson-record metadata/target reconciliation report.
+
+Evidence:
+
+- RAG lookup failed with curl exit code 6, so repository and remote evidence were used.
+- Remote repo `/home/ssf/Documents/Github/speakasap` was clean before verification.
+- Target runtime search found no implemented `education-service` route/module for lesson-record state, playback, download, presign, commit, scoped media token, merge worker, stuck-record worker, or delete behavior.
+- `education-service/src/lessons/lessons.controller.ts` currently exposes only staff-only lesson list/detail routes.
+- `api-gateway` docs map `/api/v1/lessons/:lessonUuid/record*` to `education-service`, but no target runtime route exists to receive those requests.
+- Legacy evidence reviewed:
+  - `speakasap-portal/cabinet/record_playback.py`
+  - `speakasap-portal/cabinet/views.py`
+  - `speakasap-portal/cabinet/teacher/views/lessons.py`
+  - `speakasap-portal/education/tasks.py`
+  - `speakasap-portal/education/lesson_records/tests/test_lesson_records.py`
+  - `speakasap-portal/portal/utils/records_storage.py`
+- Fresh no-write report: `/tmp/speakasap-lesson-records-g5-5-target-verification.json`.
+- Report summary:
+  - `writes=false`
+  - `source_lesson_records=101184`
+  - `target_lesson_records_existing=101184`
+  - `source_lesson_record_parts=58234`
+  - `would_upsert_lesson_record_parts=52453`
+  - `missing_target_lesson=0`
+  - `duplicate_lesson_records=0`
+  - `part_referenced_by_multiple_records=0`
+  - `bad_parts_json=0`
+  - `records_ready=96729`
+  - `records_processing=1414`
+  - `records_unavailable=2332`
+  - `records_none=2`
+  - `records_inconsistent=4787`
+  - remaining media/key inventory remains `parts_missing_rows=4080`, `orphan_parts=5781`, `legacy_prefix_keys_without_date=25934`, and `record_key_date_mismatch=39477`.
+- Temporary Kubernetes target DB port-forward was closed after the no-write report.
+
+Intent / ownership:
+
+- Lesson-record metadata remains private and key-only in `education-service`.
+- No object storage read, write, delete, public URL, presigned access change, deployment, frontend change, or gateway cutover was performed.
+- Runtime access still must be owned by `education-service` behind `api-gateway`; object storage remains owned by `minio-microservice`.
+
+Cutover gate:
+
+- Goal 5.5 cannot be marked done yet because target runtime private playback/download, merge/delete, and failure-mode checks do not exist.
+- Frontend or gateway cutover for recordings must remain blocked until target runtime endpoints and tests/smoke checks cover unauthorized access, paid/student eligibility, teacher assignment, staff policy, one-hour scoped token/presign expiry, old/new key fallback, helper/storage failures, merge idempotence, and safe part deletion behavior.
+
+Next:
+
+- Implement the target `education-service` lesson-recording runtime module and tests without changing frontend/gateway cutover; defer object deletion or production access changes until explicit owner approval and rollback evidence are recorded.
+
+## 2026-06-12 - Goal 5.5 Lesson Recording Runtime Module Scaffold
+
+Status: in progress; build verified; cutover still blocked
+
+Changed:
+
+- Added `education-service/src/lesson-records/` with a `LessonRecordsModule`.
+- Registered the module in `education-service/src/app.module.ts`.
+- Added gateway-aligned target routes under `education-service`:
+  - `GET /api/v1/lessons/:lessonUuid/record`
+  - `GET /api/v1/lessons/:lessonUuid/record/playback`
+  - `GET /api/v1/lessons/:lessonUuid/record/download?token=...`
+  - `POST /api/v1/lessons/:lessonUuid/record/presign`
+  - `POST /api/v1/lessons/:lessonUuid/record/commit`
+  - `POST /api/v1/lessons/:lessonUuid/record/merge`
+  - `DELETE /api/v1/lessons/:lessonUuid/record`
+- Added scoped playback media-token signing/verification with max TTL `3600` seconds.
+- Added private helper-proxied download streaming that uses `RECORDS_S3_HELPER_URL` plus `RECORDS_S3_BUCKET`, preserves range headers, and tries key fallback with and without `courses/records/`.
+- Added user-service profile lookup for teacher/student legacy IDs via `USER_SERVICE_URL` and bearer token.
+- Added `education-service/scripts/verify-lesson-record-runtime-contract.js` and package script `npm run test:lesson-records`.
+
+Intent / ownership:
+
+- Owner replied `agree` on 2026-06-12 to continue the next Goal 5.5 implementation chunk.
+- No deployment, gateway/frontend cutover, object storage mutation, object deletion, or public/permanent URL exposure was performed.
+- Runtime routes are implemented in `education-service` behind existing `/api/v1/lessons` gateway ownership.
+- Identity remains owned by `auth-microservice`; `education-service` resolves domain profile IDs through `user-service` rather than inventing identities.
+- Object storage remains private; download is helper-proxied and token-scoped.
+
+Guardrails still active:
+
+- Student playback is deliberately blocked with `Student paid lesson-record access is not implemented in target data yet` because no migrated `StudentAccess`/paid lesson eligibility table exists in the target education schema.
+- Presign and commit routes perform JWT and lesson-level teacher/staff authorization, then return service-unavailable until the private upload adapter and object metadata verification are implemented.
+- Merge route performs JWT and lesson-level teacher/staff authorization, then returns service-unavailable until the target merge worker is implemented.
+- Delete route performs JWT and lesson-level teacher/staff authorization, then refuses with conflict because object deletion requires explicit owner approval and rollback evidence.
+
+Verification:
+
+- `ssh alfares 'cd /home/ssf/Documents/Github/speakasap/education-service && npm run build'` passed.
+- `ssh alfares 'cd /home/ssf/Documents/Github/speakasap/education-service && npm run test:lesson-records'` passed.
+- Previous fresh no-write DB report remains `/tmp/speakasap-lesson-records-g5-5-target-verification.json` with `writes=false`, `target_lesson_records_existing=101184`, and `missing_target_lesson=0`.
+
+Remaining blockers before cutover:
+
+- Add or map target paid lesson eligibility equivalent to legacy `StudentAccess.is_paid` before student playback can be enabled.
+- Implement private upload presign/commit with 900-second PUT expiry, audio content-type/60MB validation, object key validation, and ETag/size verification.
+- Implement or explicitly defer target merge worker parity; no part deletion may run until merged output validation is implemented.
+- Define owner-approved delete semantics and rollback before any target object deletion is enabled.
+- Add runtime smoke tests against deployed service only after deployment approval.
+
+Next:
+
+- Continue Goal 5.5 by resolving paid student eligibility mapping and implementing private upload presign/commit or recording the owner-approved deferral before any frontend/gateway cutover.

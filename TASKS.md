@@ -10,6 +10,9 @@ Current gate:
 
 - Lesson-record schema migration and write-gated metadata apply completed on `alfares` after owner approval.
 - Applied counts: `education_lessonrecord=101184`, `education_lessonrecordpart=52453`, missing target lessons `0`.
+- Goal 5.5 runtime verification found no target private playback/download, presign/commit, scoped media token, merge worker, stuck-record worker, or delete implementation; frontend/gateway cutover remains blocked.
+- Fresh no-write report `/tmp/speakasap-lesson-records-g5-5-target-verification.json` recorded `writes=false`, `target_lesson_records_existing=101184`, `missing_target_lesson=0`, and unchanged media/key reconciliation inventory.
+- Runtime scaffold now exists in `education-service/src/lesson-records`; build and `npm run test:lesson-records` passed. Student playback, upload presign/commit, merge worker, and delete remain gated as recorded in `STATUS.md`.
 - Do not run future lesson-record reruns, rollback execution, object-storage mutation, or access behavior changes without fresh evidence and explicit approval where applicable.
 - Preserve dry-run reports, apply commands, approval notes, rollback evidence, and post-apply verification in `docs/orchestrator/STATUS.md`.
 
