@@ -359,3 +359,35 @@ Remaining for Goal 4.5:
 Next:
 
 - Goal 4.5 continuation: harden `course-service/scripts/migrate-course-from-legacy.py` dry-run/reconciliation reporting.
+
+## 2026-06-12 - Goal 4.5 Course Dry-Run/Reconciliation Hardening
+
+Status: done
+
+Changed:
+
+- Hardened `course-service/scripts/migrate-course-from-legacy.py`.
+- Added `--check-target`, `--json-report`, `--limit`, and `--allow-truncate-first`.
+- Replaced counts-only dry run with source reconciliation for counts, duplicate keys, missing FK endpoints, offer/product/order relationship gaps, and teacher/student cross-service references.
+- Added optional target reconciliation for existing target IDs, offer UUID conflicts, and product-part composite link conflicts.
+- Kept dry run read-only.
+- Added a pre-connection refusal for `--truncate-first` unless `--allow-truncate-first` is also supplied.
+- Marked Goal 4.5 complete and advanced state to Goal 4.6.
+
+Evidence:
+
+- `python3 -m py_compile course-service/scripts/migrate-course-from-legacy.py` passed on the remote repo.
+- `python3 course-service/scripts/migrate-course-from-legacy.py --help` shows the new dry-run/reporting flags.
+- Running dry run without `COURSE_SOURCE_DATABASE_URL` or `SOURCE_DATABASE_URL` exits with code 1 and reports the missing source URL.
+- Running `--truncate-first` with invalid source/target URLs exits with code 2 and refuses before attempting a DB connection.
+- Remote shell environment does not currently contain `EDUCATION_*`, `COURSE_*`, `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`, `AUTH_DATABASE_URL`, or `DATABASE_URL`, so DB-backed dry-run reports were not executed in this pass.
+
+Goal 4.5 result:
+
+- `education-service/scripts/migrate-education-from-legacy.py`, `user-service/scripts/migrate-user-from-legacy.py`, and `course-service/scripts/migrate-course-from-legacy.py` now have dry-run/reconciliation reporting before write use.
+- All three scripts require an explicit second approval flag before destructive truncation.
+- DB-backed dry-run output remains a cutover prerequisite when runtime database URLs are available in a safe execution environment.
+
+Next:
+
+- Goal 4.6: add idempotency or duplicate guards where these migrations can be rerun, starting with plain-insert education/course copy paths.

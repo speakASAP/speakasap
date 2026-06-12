@@ -241,8 +241,22 @@ Verification:
 - Dry run remains no-write.
 - Reconciliation output is stable enough to paste into `STATUS.md`.
 
-Status: in progress. `education-service/scripts/migrate-education-from-legacy.py` and `user-service/scripts/migrate-user-from-legacy.py` are hardened and verified. Continue with `course-service/scripts/migrate-course-from-legacy.py`.
+Status: done. `education-service/scripts/migrate-education-from-legacy.py`, `user-service/scripts/migrate-user-from-legacy.py`, and `course-service/scripts/migrate-course-from-legacy.py` are hardened and verified at code/safety-gate level. DB-backed dry-run output still requires runtime database URLs.
+
+### Chunk 4.6 - Idempotency And Duplicate Guards
+
+Deliverables:
+
+- Add duplicate guards or idempotent write behavior for migrations that currently use plain inserts.
+- Start with `education-service/scripts/migrate-education-from-legacy.py` and `course-service/scripts/migrate-course-from-legacy.py`.
+- Preserve service database ownership and keep destructive truncation opt-in only.
+
+Verification:
+
+- Scripts compile.
+- Rerun behavior is documented.
+- Any write-mode idempotency policy is explicit: upsert, skip duplicate, or fail with conflict report.
 
 ## Next Goal Selection
 
-Continue Goal 4.5 by hardening the course migration dry-run/reconciliation report.
+Continue Goal 4.6 by adding idempotency or duplicate guards to the education/course plain-insert migration paths.

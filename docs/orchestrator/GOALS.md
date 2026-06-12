@@ -81,7 +81,7 @@ Chunks:
 - [x] 4.2 Add lesson-recording dry-run script with report output.
 - [x] 4.3 Inventory remaining existing migration scripts and Prisma schemas.
 - [x] 4.4 Define source-to-target mapping for course, education, user, assessment, certification, payment, salary, financial, notification, and content records.
-- [ ] 4.5 Add dry-run/reconciliation reports before writes for selected migrations.
+- [x] 4.5 Add dry-run/reconciliation reports before writes for selected migrations.
 - [ ] 4.6 Add idempotency keys or duplicate guards where migration can be rerun.
 
 Acceptance criteria:

@@ -381,6 +381,33 @@ def emit_report(report: dict[str, object], json_report: bool) -> None:
             log(f"dry-run target_pair_conflict {name} count={result['count']} sample={result['sample']}")
 
 
+def target_conflict_total(target: dict[str, object]) -> int:
+    total = 0
+    for group_name in ("target_key_conflicts", "target_pair_conflicts"):
+        for result in target[group_name].values():
+            total += int(result["count"])
+    return total
+
+
+def log_target_conflicts(target: dict[str, object]) -> None:
+    for group_name in ("target_key_conflicts", "target_pair_conflicts"):
+        for name, result in target[group_name].items():
+            if int(result["count"]) > 0:
+                log(f"target conflict {name} count={result['count']} sample={result['sample']}")
+
+
+def guard_no_target_conflicts(src, tgt, limit: int) -> bool:
+    target = target_reconciliation(src, tgt, limit)
+    conflicts = target_conflict_total(target)
+    if conflicts == 0:
+        log("write preflight target_conflicts=0 conflict_policy=fail")
+        return True
+    log(f"Refusing import: target_conflicts={conflicts} conflict_policy=fail")
+    log_target_conflicts(target)
+    log("Run --dry-run --check-target --json-report for the full reconciliation report.")
+    return False
+
+
 def truncate_target(tgt) -> None:
     cur = tgt.cursor()
     stmts = [
@@ -565,6 +592,8 @@ def main() -> int:
             return 1
         tgt = connect(tgt_u)
         try:
+            if not args.truncate_first and not guard_no_target_conflicts(src, tgt, max(args.limit, 1)):
+                return 2
             migrate(src, tgt, args.truncate_first)
         finally:
             tgt.close()

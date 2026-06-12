@@ -8,7 +8,7 @@ The previous growth-and-retention plan is superseded for this workstream by the 
 
 **Goal 4 - Data Migration And Reconciliation**
 
-Harden dry-run and reconciliation reports for selected migration scripts. Education and user dry-run hardening are verified; the next target is course migration reporting because lesson and offer context depends on course/product parity.
+Add idempotency or duplicate guards to migration scripts that still use plain inserts, starting with education and course migrations.
 
 ## Roadmap
 
