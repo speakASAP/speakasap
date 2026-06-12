@@ -13,6 +13,7 @@ Options:
   --check-target     — include target counts/conflict samples in dry run
   --json-report      — print machine-readable dry-run report
   --limit            — maximum sample rows per reconciliation bucket
+  --batch-size       — rows per write batch; default 10000
   --truncate-first   — delete target course tables (FK-safe order) before import
   --allow-truncate-first — required together with --truncate-first outside dry run
   --confirm-write    — required with --apply
@@ -584,29 +585,34 @@ def truncate_target(tgt) -> None:
     cur.close()
 
 
-def copy_table(src, tgt, table: str, columns: list[str]) -> int:
+def copy_table(src, tgt, table: str, columns: list[str], batch_size: int) -> int:
     col_sql = ", ".join(f'"{c}"' for c in columns)
     sel = ", ".join(columns)
-    sc = src.cursor()
+    sc = src.cursor(name=f"copy_{table}_source")
+    sc.itersize = batch_size
     tc = tgt.cursor()
     sc.execute(f'SELECT {sel} FROM "{table}"')
-    rows = sc.fetchall()
     n = 0
-    for row in rows:
-        placeholders = ", ".join(["%s"] * len(columns))
-        tc.execute(
-            f'INSERT INTO "{table}" ({col_sql}) VALUES ({placeholders})',
-            row,
-        )
-        n += 1
-    tgt.commit()
+    while True:
+        rows = sc.fetchmany(batch_size)
+        if not rows:
+            break
+        for row in rows:
+            placeholders = ", ".join(["%s"] * len(columns))
+            tc.execute(
+                f'INSERT INTO "{table}" ({col_sql}) VALUES ({placeholders})',
+                row,
+            )
+            n += 1
+        tgt.commit()
+        log(f"copied {table} batch committed total_rows_written={n}")
     sc.close()
     tc.close()
     log(f"copied {table} rows_written={n}")
     return n
 
 
-def migrate(src, tgt, truncate: bool) -> None:
+def migrate(src, tgt, truncate: bool, batch_size: int) -> None:
     if truncate:
         truncate_target(tgt)
     # Order respects FKs on target
@@ -615,18 +621,21 @@ def migrate(src, tgt, truncate: bool) -> None:
         tgt,
         "products_category",
         ["id", "title", "product_for_offers"],
+        batch_size,
     )
     copy_table(
         src,
         tgt,
         "products_partpaymentcollection",
         ["id", "title", "comment"],
+        batch_size,
     )
     copy_table(
         src,
         tgt,
         "products_partpaymentoption",
         ["id", "part_id", "price", "day", "open_steps"],
+        batch_size,
     )
     copy_table(
         src,
@@ -645,12 +654,14 @@ def migrate(src, tgt, truncate: bool) -> None:
             "material_language",
             "trashed",
         ],
+        batch_size,
     )
     copy_table(
         src,
         tgt,
         "products_product_part_payments",
         ["product_id", "partpaymentcollection_id"],
+        batch_size,
     )
     copy_table(
         src,
@@ -665,6 +676,7 @@ def migrate(src, tgt, truncate: bool) -> None:
             "lessons_native",
             "comment",
         ],
+        batch_size,
     )
     copy_table(
         src,
@@ -681,6 +693,7 @@ def migrate(src, tgt, truncate: bool) -> None:
             "created",
             "opened",
         ],
+        batch_size,
     )
 
 
@@ -714,6 +727,7 @@ def main() -> int:
     parser.add_argument("--check-target", action="store_true", help="include target counts and key conflicts in dry-run")
     parser.add_argument("--json-report", action="store_true", help="print dry-run report as JSON")
     parser.add_argument("--limit", type=int, default=25, help="maximum sample rows per reconciliation bucket")
+    parser.add_argument("--batch-size", type=int, default=10000, help="rows per write batch")
     parser.add_argument("--truncate-first", action="store_true", help="delete target course tables before import")
     parser.add_argument(
         "--allow-truncate-first",
@@ -729,6 +743,9 @@ def main() -> int:
     tgt_u = target_url()
     if args.dry_run and args.apply:
         log("Refusing to combine --dry-run and --apply")
+        return 2
+    if args.batch_size < 1:
+        log("ERROR: --batch-size must be greater than 0")
         return 2
     if not args.dry_run and not args.apply:
         log("Refusing to write by default; use --dry-run for reconciliation or --apply with write gates")
@@ -778,7 +795,7 @@ def main() -> int:
             write_rollback_plan(args.rollback_plan, args.truncate_first)
             log(f"rollback plan written: {args.rollback_plan}")
             log(f"write approval noted: {args.approval_note}")
-            migrate(src, tgt, args.truncate_first)
+            migrate(src, tgt, args.truncate_first, args.batch_size)
         finally:
             tgt.close()
     finally:

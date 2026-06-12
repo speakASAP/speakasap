@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """
-Dry-run reconciliation: speakasap-portal lesson records -> education-service.
+ETL: speakasap-portal lesson recording metadata -> education-service.
 
-This script is intentionally read-only. It reports source rows, normalized object
-keys, part membership, target lesson availability, and conflicts before any
-schema or data migration is implemented.
+This migration imports metadata and private object-key references only. It never
+reads, writes, deletes, or publishes MinIO/S3 objects.
 
 Env:
   EDUCATION_SOURCE_DATABASE_URL or SOURCE_DATABASE_URL
-  EDUCATION_TARGET_DATABASE_URL or TARGET_DATABASE_URL (required with --check-target)
+  EDUCATION_TARGET_DATABASE_URL or TARGET_DATABASE_URL
+
+Modes:
+  --dry-run          Reconciliation report only; no writes
+  --apply            Write-gated upsert; requires --confirm-write,
+                     --approval-note, and --rollback-plan
 """
 from __future__ import annotations
 
@@ -19,18 +23,24 @@ import re
 import sys
 from collections import Counter, defaultdict
 from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Any
 
-try:
-    import psycopg2
-    import psycopg2.extras
-except ImportError:
-    print("Install psycopg2-binary: pip install psycopg2-binary", file=sys.stderr)
-    sys.exit(1)
+psycopg2 = None
 
 
 OLD_PREFIX = "courses/records/"
 MODERN_KEY_RE = re.compile(r"^\d{4}/\d{2}/\d{2}/.+$")
+BLOCKING_ISSUES = {
+    "bad_parts_json",
+    "missing_source_lesson",
+    "missing_target_lessons",
+    "duplicate_lesson_records",
+    "part_referenced_by_multiple_records",
+    "target_lesson_record_uuid_conflicts",
+    "target_lesson_record_lesson_conflicts",
+    "target_lesson_record_part_uuid_conflicts",
+}
 
 
 def log(message: str) -> None:
@@ -46,7 +56,21 @@ def target_url() -> str:
 
 
 def connect(url: str):
+    ensure_psycopg2()
     return psycopg2.connect(url, connect_timeout=30)
+
+
+def ensure_psycopg2() -> None:
+    global psycopg2
+    if psycopg2 is not None:
+        return
+    try:
+        import psycopg2 as loaded_psycopg2
+        import psycopg2.extras  # noqa: F401
+    except ImportError:
+        print("Install psycopg2-binary: pip install psycopg2-binary", file=sys.stderr)
+        sys.exit(1)
+    psycopg2 = loaded_psycopg2
 
 
 def json_default(value: Any) -> str:
@@ -143,11 +167,10 @@ def fetch_source_records(src, source_limit: int) -> list[dict[str, Any]]:
         LEFT JOIN education_lesson l ON l.uuid = lr.lesson_id
         ORDER BY lr.created, lr.uuid
     """
+    params: tuple[Any, ...] = ()
     if source_limit > 0:
         sql += " LIMIT %s"
-        params: tuple[Any, ...] = (source_limit,)
-    else:
-        params = ()
+        params = (source_limit,)
     cur = src.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(sql, params)
     rows = [dict(r) for r in cur.fetchall()]
@@ -163,39 +186,87 @@ def fetch_source_parts(src) -> dict[str, str]:
     return rows
 
 
+def table_exists(tgt, table_name: str) -> bool:
+    cur = tgt.cursor()
+    cur.execute("SELECT to_regclass(%s)", (table_name,))
+    exists = cur.fetchone()[0] is not None
+    cur.close()
+    return exists
+
+
 def fetch_target_lessons(tgt, lesson_ids: set[str]) -> set[str]:
     if not lesson_ids:
         return set()
     found: set[str] = set()
     cur = tgt.cursor()
     ids = sorted(lesson_ids)
-    chunk_size = 1000
-    for idx in range(0, len(ids), chunk_size):
-        chunk = ids[idx:idx + chunk_size]
+    for idx in range(0, len(ids), 1000):
+        chunk = ids[idx:idx + 1000]
         cur.execute('SELECT "uuid"::text FROM "education_lesson" WHERE "uuid"::text = ANY(%s)', (chunk,))
         found.update(row[0] for row in cur.fetchall())
     cur.close()
     return found
 
 
-def build_report(src, tgt, args) -> dict[str, Any]:
+def fetch_target_records(tgt, record_ids: set[str], lesson_ids: set[str]) -> tuple[dict[str, str], dict[str, str]]:
+    if not table_exists(tgt, "education_lessonrecord"):
+        return {}, {}
+    by_uuid: dict[str, str] = {}
+    by_lesson: dict[str, str] = {}
+    cur = tgt.cursor()
+    ids = sorted(record_ids)
+    for idx in range(0, len(ids), 1000):
+        chunk = ids[idx:idx + 1000]
+        cur.execute('SELECT "uuid"::text, "lesson_id"::text FROM "education_lessonrecord" WHERE "uuid"::text = ANY(%s)', (chunk,))
+        by_uuid.update({uuid: lesson_id for uuid, lesson_id in cur.fetchall()})
+    lessons = sorted(lesson_ids)
+    for idx in range(0, len(lessons), 1000):
+        chunk = lessons[idx:idx + 1000]
+        cur.execute('SELECT "lesson_id"::text, "uuid"::text FROM "education_lessonrecord" WHERE "lesson_id"::text = ANY(%s)', (chunk,))
+        by_lesson.update({lesson_id: uuid for lesson_id, uuid in cur.fetchall()})
+    cur.close()
+    return by_uuid, by_lesson
+
+
+def fetch_target_parts(tgt, part_ids: set[str]) -> dict[str, str]:
+    if not table_exists(tgt, "education_lessonrecordpart") or not part_ids:
+        return {}
+    found: dict[str, str] = {}
+    cur = tgt.cursor()
+    ids = sorted(part_ids)
+    for idx in range(0, len(ids), 1000):
+        chunk = ids[idx:idx + 1000]
+        cur.execute(
+            'SELECT "uuid"::text, "lesson_record_id"::text FROM "education_lessonrecordpart" WHERE "uuid"::text = ANY(%s)',
+            (chunk,),
+        )
+        found.update({uuid: lesson_record_id for uuid, lesson_record_id in cur.fetchall()})
+    cur.close()
+    return found
+
+
+def build_plan(src, tgt, args) -> tuple[dict[str, Any], list[tuple[Any, ...]], list[tuple[Any, ...]]]:
     records = fetch_source_records(src, args.source_limit)
     parts_by_uuid = fetch_source_parts(src)
-    target_lessons = fetch_target_lessons(tgt, {r["lesson_id"] for r in records if r.get("lesson_id")},) if tgt else set()
-    check_target = tgt is not None
+    lesson_ids = {r["lesson_id"] for r in records if r.get("lesson_id")}
+    target_lessons = fetch_target_lessons(tgt, lesson_ids) if tgt else set()
+    target_records_by_uuid, target_records_by_lesson = fetch_target_records(
+        tgt,
+        {r["uuid"] for r in records},
+        lesson_ids,
+    ) if tgt else ({}, {})
 
     counts: Counter[str] = Counter()
     issues: dict[str, list[Any]] = defaultdict(list)
     part_to_record: dict[str, list[str]] = defaultdict(list)
-    would_insert_records: list[str] = []
-    would_insert_parts: list[str] = []
-    would_update_existing: list[str] = []
+    referenced_parts: set[str] = set()
+    lesson_record_seen: Counter[str] = Counter()
+    record_rows: list[tuple[Any, ...]] = []
+    part_rows: list[tuple[Any, ...]] = []
 
     counts["source_lesson_records"] = len(records)
     counts["source_lesson_record_parts"] = len(parts_by_uuid)
-
-    lesson_record_seen: Counter[str] = Counter()
-    referenced_parts: set[str] = set()
+    counts["target_lesson_records_existing"] = len(target_records_by_uuid)
 
     for row in records:
         record_uuid = row["uuid"]
@@ -212,16 +283,37 @@ def build_report(src, tgt, args) -> dict[str, Any]:
 
         counts[f"records_{state}"] += 1
         counts[f"keys_{key_kind}"] += 1
-        would_insert_records.append(record_uuid)
+        record_rows.append((
+            record_uuid,
+            lesson_id,
+            record_key or None,
+            processed,
+            unavailable,
+            json.dumps(parts),
+            row.get("created"),
+        ))
 
         if parts_warning:
             issues["bad_parts_json"].append({"lessonRecordUuid": record_uuid, "warning": parts_warning})
-
         if not row.get("lesson_uuid"):
             issues["missing_source_lesson"].append({"lessonRecordUuid": record_uuid, "lessonId": lesson_id})
-
-        if check_target and lesson_id not in target_lessons:
+        if tgt and lesson_id not in target_lessons:
             issues["missing_target_lessons"].append({"lessonRecordUuid": record_uuid, "lessonId": lesson_id})
+
+        target_lesson_for_uuid = target_records_by_uuid.get(record_uuid)
+        if target_lesson_for_uuid and target_lesson_for_uuid != lesson_id:
+            issues["target_lesson_record_uuid_conflicts"].append({
+                "lessonRecordUuid": record_uuid,
+                "sourceLessonId": lesson_id,
+                "targetLessonId": target_lesson_for_uuid,
+            })
+        target_uuid_for_lesson = target_records_by_lesson.get(lesson_id)
+        if target_uuid_for_lesson and target_uuid_for_lesson != record_uuid:
+            issues["target_lesson_record_lesson_conflicts"].append({
+                "lessonId": lesson_id,
+                "sourceLessonRecordUuid": record_uuid,
+                "targetLessonRecordUuid": target_uuid_for_lesson,
+            })
 
         canonical_key = canonical_lesson_key(row.get("lesson_start"), lesson_uuid)
         if record_key and canonical_key:
@@ -233,7 +325,6 @@ def build_report(src, tgt, args) -> dict[str, Any]:
                     "recordKey": record_key,
                     "canonicalKey": canonical_key,
                 })
-
         if key_kind == "old_prefix_modern":
             issues["old_prefix_keys"].append({"lessonRecordUuid": record_uuid, "recordKey": record_key})
         elif key_kind == "old_prefix_legacy":
@@ -245,19 +336,27 @@ def build_report(src, tgt, args) -> dict[str, Any]:
             if part_uuid not in parts_by_uuid:
                 issues["parts_missing_rows"].append({"lessonRecordUuid": record_uuid, "partUuid": part_uuid})
             else:
-                would_insert_parts.append(part_uuid)
+                part_rows.append((part_uuid, record_uuid, parts_by_uuid[part_uuid], row.get("created")))
+
+    target_parts = fetch_target_parts(tgt, {p[0] for p in part_rows}) if tgt else {}
+    for part_uuid, record_uuid, _part_key, _created in part_rows:
+        target_record_uuid = target_parts.get(part_uuid)
+        if target_record_uuid and target_record_uuid != record_uuid:
+            issues["target_lesson_record_part_uuid_conflicts"].append({
+                "partUuid": part_uuid,
+                "sourceLessonRecordUuid": record_uuid,
+                "targetLessonRecordUuid": target_record_uuid,
+            })
 
     for lesson_id, n in lesson_record_seen.items():
         if lesson_id and n > 1:
             issues["duplicate_lesson_records"].append({"lessonId": lesson_id, "count": n})
-
     for part_uuid, record_uuids in part_to_record.items():
         if len(record_uuids) > 1:
             issues["part_referenced_by_multiple_records"].append({
                 "partUuid": part_uuid,
                 "lessonRecordUuids": record_uuids,
             })
-
     for part_uuid, part_key in parts_by_uuid.items():
         if part_uuid not in referenced_parts:
             issues["orphan_parts"].append({"partUuid": part_uuid, "partKey": part_key})
@@ -265,6 +364,8 @@ def build_report(src, tgt, args) -> dict[str, Any]:
     counts["parts_missing_rows"] = len(issues["parts_missing_rows"])
     counts["parts_orphan_rows"] = len(issues["orphan_parts"])
     counts["missing_target_lesson"] = len(issues["missing_target_lessons"])
+    counts["would_upsert_lesson_records"] = len(record_rows)
+    counts["would_upsert_lesson_record_parts"] = len(part_rows)
     counts["records_inconsistent"] += (
         len(issues["bad_parts_json"])
         + len(issues["missing_source_lesson"])
@@ -274,24 +375,109 @@ def build_report(src, tgt, args) -> dict[str, Any]:
         + len(issues["part_referenced_by_multiple_records"])
     )
 
+    issue_counts = {key: len(values) for key, values in sorted(issues.items())}
+    blocking_issue_counts = {key: issue_counts.get(key, 0) for key in sorted(BLOCKING_ISSUES) if issue_counts.get(key, 0)}
+    mode = "apply-plan" if args.apply else "dry-run"
     report = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
-        "mode": "dry-run",
+        "mode": mode,
+        "writes": False,
         "sampleLimit": args.limit or None,
         "sourceLimit": args.source_limit or None,
-        "checkTarget": check_target,
+        "checkTarget": tgt is not None,
         "counts": dict(sorted(counts.items())),
         "issues": {key: sample(values, args.limit) for key, values in sorted(issues.items())},
-        "issueCounts": {key: len(values) for key, values in sorted(issues.items())},
-        "wouldInsertLessonRecords": sample(sorted(set(would_insert_records)), args.limit),
-        "wouldInsertLessonRecordParts": sample(sorted(set(would_insert_parts)), args.limit),
-        "wouldUpdateExisting": sample(sorted(set(would_update_existing)), args.limit),
+        "issueCounts": issue_counts,
+        "blockingIssueCounts": blocking_issue_counts,
+        "wouldUpsertLessonRecords": sample(sorted({r[0] for r in record_rows}), args.limit),
+        "wouldUpsertLessonRecordParts": sample(sorted({p[0] for p in part_rows}), args.limit),
         "notes": [
-            "Read-only report; no source or target writes were performed.",
-            "Object storage existence is not checked by this script version.",
+            "Metadata/key-reference migration only; object storage was not modified.",
+            "Key mismatch and old-prefix issues are preserved as source evidence and do not rewrite keys.",
+            "Orphan part rows are not imported because the target part table is attached to a lesson record.",
         ],
     }
-    return report
+    return report, record_rows, part_rows
+
+
+def ensure_no_blocking_issues(report: dict[str, Any]) -> None:
+    blocking = report.get("blockingIssueCounts") or {}
+    if blocking:
+        raise RuntimeError(f"Refusing apply because blocking reconciliation issues remain: {blocking}")
+
+
+def sql_string(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def write_rollback(path: str, record_rows: list[tuple[Any, ...]], part_rows: list[tuple[Any, ...]], approval_note: str) -> None:
+    record_ids = sorted({str(row[0]) for row in record_rows})
+    part_ids = sorted({str(row[0]) for row in part_rows})
+    lines = [
+        "-- Rollback for SpeakASAP lesson-record metadata migration.",
+        f"-- Generated at {datetime.now(timezone.utc).isoformat()}",
+        f"-- Approval note: {approval_note}",
+        "-- Object storage is not modified by rollback.",
+        "BEGIN;",
+    ]
+    if part_ids:
+        lines.append(
+            'DELETE FROM "education_lessonrecordpart" WHERE "uuid" = ANY(ARRAY['
+            + ",".join(sql_string(v) for v in part_ids)
+            + "]::uuid[]);"
+        )
+    if record_ids:
+        lines.append(
+            'DELETE FROM "education_lessonrecord" WHERE "uuid" = ANY(ARRAY['
+            + ",".join(sql_string(v) for v in record_ids)
+            + "]::uuid[]);"
+        )
+    lines.append("COMMIT;")
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def apply_rows(tgt, record_rows: list[tuple[Any, ...]], part_rows: list[tuple[Any, ...]]) -> dict[str, int]:
+    with tgt:
+        with tgt.cursor() as cur:
+            psycopg2.extras.execute_values(
+                cur,
+                """
+                INSERT INTO "education_lessonrecord"
+                  ("uuid", "lesson_id", "record", "processed", "record_unavailable", "parts", "created", "updated")
+                VALUES %s
+                ON CONFLICT ("uuid") DO UPDATE SET
+                  "lesson_id" = EXCLUDED."lesson_id",
+                  "record" = EXCLUDED."record",
+                  "processed" = EXCLUDED."processed",
+                  "record_unavailable" = EXCLUDED."record_unavailable",
+                  "parts" = EXCLUDED."parts",
+                  "created" = EXCLUDED."created",
+                  "updated" = CURRENT_TIMESTAMP
+                """,
+                record_rows,
+                template="(%s::uuid, %s::uuid, %s, %s, %s, %s::jsonb, %s, CURRENT_TIMESTAMP)",
+                page_size=1000,
+            )
+            if part_rows:
+                psycopg2.extras.execute_values(
+                    cur,
+                    """
+                    INSERT INTO "education_lessonrecordpart"
+                      ("uuid", "lesson_record_id", "part_file", "created")
+                    VALUES %s
+                    ON CONFLICT ("uuid") DO UPDATE SET
+                      "lesson_record_id" = EXCLUDED."lesson_record_id",
+                      "part_file" = EXCLUDED."part_file",
+                      "created" = EXCLUDED."created"
+                    """,
+                    part_rows,
+                    template="(%s::uuid, %s::uuid, %s, %s)",
+                    page_size=1000,
+                )
+    return {
+        "upsertedLessonRecords": len(record_rows),
+        "upsertedLessonRecordParts": len(part_rows),
+    }
 
 
 def print_summary(report: dict[str, Any]) -> None:
@@ -312,25 +498,55 @@ def print_summary(report: dict[str, Any]) -> None:
         "keys_old_prefix_legacy",
         "keys_empty",
         "keys_other",
+        "would_upsert_lesson_records",
+        "would_upsert_lesson_record_parts",
     ]
     for key in ordered_keys:
         log(f"{key}={counts.get(key, 0)}")
-    for key, values in report["issues"].items():
-        log(f"issue {key}={len(values)}")
+    for key, count in report.get("issueCounts", {}).items():
+        log(f"issue {key}={count}")
+    if report.get("blockingIssueCounts"):
+        log(f"blocking_issues={report['blockingIssueCounts']}")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--dry-run", action="store_true", help="Read-only reconciliation mode.")
+    mode.add_argument("--apply", action="store_true", help="Write-gated upsert mode.")
+    parser.add_argument("--check-target", action="store_true", help="Verify source lesson IDs exist in target education_lesson.")
+    parser.add_argument("--limit", type=int, default=25, help="Limit sample arrays in the report; counts inspect all selected source records.")
+    parser.add_argument("--source-limit", type=int, default=0, help="Debug-only cap for source lesson records. Do not use for migration evidence.")
+    parser.add_argument("--json-report", default="", help="Write JSON report to this path.")
+    parser.add_argument("--confirm-write", action="store_true", help="Required with --apply.")
+    parser.add_argument("--approval-note", default="", help="Owner approval evidence; required with --apply.")
+    parser.add_argument("--rollback-plan", default="", help="Path for rollback SQL generated before --apply writes.")
+    return parser.parse_args()
+
+
+def validate_mode(args: argparse.Namespace) -> int:
+    if args.apply:
+        missing = []
+        if not args.confirm_write:
+            missing.append("--confirm-write")
+        if not args.approval_note.strip():
+            missing.append("--approval-note")
+        if not args.rollback_plan.strip():
+            missing.append("--rollback-plan")
+        if missing:
+            log("Refusing apply; missing " + ", ".join(missing))
+            return 2
+    elif args.confirm_write or args.approval_note or args.rollback_plan:
+        log("Write-gate flags are only valid with --apply.")
+        return 2
+    return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dry-run", action="store_true", help="Read-only mode. This is the only supported mode.")
-    parser.add_argument("--check-target", action="store_true", help="Verify source lesson IDs exist in target education_lesson.")
-    parser.add_argument("--limit", type=int, default=0, help="Limit sample arrays in the report; counts still inspect all source records.")
-    parser.add_argument("--source-limit", type=int, default=0, help="Debug-only cap for source lesson records. Do not use for migration evidence.")
-    parser.add_argument("--json-report", default="", help="Write full JSON report to this path.")
-    args = parser.parse_args()
-
-    if not args.dry_run:
-        log("Only --dry-run mode is implemented. Refusing to run without --dry-run.")
-        return 2
+    args = parse_args()
+    mode_error = validate_mode(args)
+    if mode_error:
+        return mode_error
 
     src_u = source_url()
     if not src_u:
@@ -338,16 +554,35 @@ def main() -> int:
         return 1
 
     tgt_u = target_url()
-    if args.check_target and not tgt_u:
-        log("Missing EDUCATION_TARGET_DATABASE_URL or TARGET_DATABASE_URL for --check-target")
+    if (args.check_target or args.apply) and not tgt_u:
+        log("Missing EDUCATION_TARGET_DATABASE_URL or TARGET_DATABASE_URL")
         return 1
 
     src = connect(src_u)
     tgt = None
     try:
-        if args.check_target:
+        if args.check_target or args.apply:
             tgt = connect(tgt_u)
-        report = build_report(src, tgt, args)
+        if args.apply and (
+            not table_exists(tgt, "education_lessonrecord")
+            or not table_exists(tgt, "education_lessonrecordpart")
+        ):
+            log("Refusing apply; target lesson-record tables are missing. Run education-service Prisma migrations first.")
+            return 2
+        report, record_rows, part_rows = build_plan(src, tgt, args)
+        if args.apply:
+            ensure_no_blocking_issues(report)
+            write_rollback(args.rollback_plan, record_rows, part_rows, args.approval_note)
+            log(f"rollback_plan={args.rollback_plan}")
+            apply_summary = apply_rows(tgt, record_rows, part_rows)
+            report["mode"] = "apply"
+            report["writes"] = True
+            report["applySummary"] = apply_summary
+            report["approvalNote"] = args.approval_note
+            report["rollbackPlan"] = args.rollback_plan
+    except RuntimeError as exc:
+        log(str(exc))
+        return 2
     finally:
         if tgt is not None:
             tgt.close()

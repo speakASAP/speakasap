@@ -12,6 +12,7 @@ Options:
   --apply            — execute write-gated import; requires --confirm-write, --approval-note, and --rollback-plan
   --check-target     — include target counts/conflict samples in dry run
   --json-report      — print machine-readable dry-run report
+  --batch-size       — rows per write batch; default 10000
   --truncate-first   — delete target education tables (FK-safe order) before import
   --allow-truncate-first — required together with --truncate-first outside dry run
   --confirm-write    — required with --apply
@@ -432,29 +433,34 @@ def qname(name: str) -> str:
     return '"' + name.replace('"', "") + '"'
 
 
-def copy_table(src, tgt, table: str, columns: list[str]) -> int:
+def copy_table(src, tgt, table: str, columns: list[str], batch_size: int) -> int:
     col_sql = ", ".join(qname(c) for c in columns)
     sel = ", ".join(qname(c) for c in columns)
-    sc = src.cursor()
+    sc = src.cursor(name=f"copy_{table}_source")
+    sc.itersize = batch_size
     tc = tgt.cursor()
     sc.execute(f'SELECT {sel} FROM "{table}"')
-    rows = sc.fetchall()
     n = 0
-    for row in rows:
-        placeholders = ", ".join(["%s"] * len(columns))
-        tc.execute(
-            f'INSERT INTO "{table}" ({col_sql}) VALUES ({placeholders})',
-            row,
-        )
-        n += 1
-    tgt.commit()
+    while True:
+        rows = sc.fetchmany(batch_size)
+        if not rows:
+            break
+        for row in rows:
+            placeholders = ", ".join(["%s"] * len(columns))
+            tc.execute(
+                f'INSERT INTO "{table}" ({col_sql}) VALUES ({placeholders})',
+                row,
+            )
+            n += 1
+        tgt.commit()
+        log(f"copied {table} batch committed total_rows_written={n}")
     sc.close()
     tc.close()
     log(f"copied {table} rows_written={n}")
     return n
 
 
-def copy_student_courses_two_phase(src, tgt) -> None:
+def copy_student_courses_two_phase(src, tgt, batch_size: int) -> None:
     cols = [
         "uuid",
         "course_class",
@@ -470,7 +476,8 @@ def copy_student_courses_two_phase(src, tgt) -> None:
         "pause_date",
     ]
     sel = ", ".join(qname(c) for c in cols + ["previous_id"])
-    sc = src.cursor()
+    sc = src.cursor(name="copy_education_studentcourse_source")
+    sc.itersize = batch_size
     tc = tgt.cursor()
     sc.execute(
         f"""
@@ -478,42 +485,53 @@ def copy_student_courses_two_phase(src, tgt) -> None:
         FROM "education_studentcourse"
         """
     )
-    rows = sc.fetchall()
     n = 0
-    for row in rows:
-        data = row[:-1]
-        placeholders = ", ".join(["%s"] * (len(cols) + 1))
-        col_sql = ", ".join(qname(c) for c in cols + ["previous_id"])
-        tc.execute(
-            f'INSERT INTO "education_studentcourse" ({col_sql}) VALUES ({placeholders})',
-            list(data) + [None],
-        )
-        n += 1
-    tgt.commit()
+    while True:
+        rows = sc.fetchmany(batch_size)
+        if not rows:
+            break
+        for row in rows:
+            data = row[:-1]
+            placeholders = ", ".join(["%s"] * (len(cols) + 1))
+            col_sql = ", ".join(qname(c) for c in cols + ["previous_id"])
+            tc.execute(
+                f'INSERT INTO "education_studentcourse" ({col_sql}) VALUES ({placeholders})',
+                list(data) + [None],
+            )
+            n += 1
+        tgt.commit()
+        log(f"copied education_studentcourse phase1 batch committed total_rows={n}")
     log(f"copied education_studentcourse phase1 rows={n} (previous_id deferred)")
+    sc.close()
+    sc = src.cursor(name="patch_education_studentcourse_previous_source")
+    sc.itersize = batch_size
     sc.execute(
         'SELECT "uuid", "previous_id" FROM "education_studentcourse" WHERE "previous_id" IS NOT NULL'
     )
-    patches = sc.fetchall()
     p = 0
-    for uuid, previous_id in patches:
-        tc.execute(
-            'UPDATE "education_studentcourse" SET previous_id = %s WHERE uuid = %s',
-            [previous_id, uuid],
-        )
-        p += 1
-    tgt.commit()
+    while True:
+        patches = sc.fetchmany(batch_size)
+        if not patches:
+            break
+        for uuid, previous_id in patches:
+            tc.execute(
+                'UPDATE "education_studentcourse" SET previous_id = %s WHERE uuid = %s',
+                [previous_id, uuid],
+            )
+            p += 1
+        tgt.commit()
+        log(f"patched education_studentcourse previous_id batch committed total_rows={p}")
     sc.close()
     tc.close()
     log(f"patched education_studentcourse previous_id rows={p}")
 
 
-def migrate(src, tgt, truncate: bool) -> None:
+def migrate(src, tgt, truncate: bool, batch_size: int) -> None:
     if truncate:
         truncate_target(tgt)
-    copy_table(src, tgt, "education_group", ["uuid", "title", "created"])
-    copy_table(src, tgt, "education_group_students", ["id", "group_id", "student_id"])
-    copy_student_courses_two_phase(src, tgt)
+    copy_table(src, tgt, "education_group", ["uuid", "title", "created"], batch_size)
+    copy_table(src, tgt, "education_group_students", ["id", "group_id", "student_id"], batch_size)
+    copy_student_courses_two_phase(src, tgt, batch_size)
     copy_table(
         src,
         tgt,
@@ -532,6 +550,7 @@ def migrate(src, tgt, truncate: bool) -> None:
             "recommendation",
             "to_manager",
         ],
+        batch_size,
     )
     copy_table(
         src,
@@ -547,6 +566,7 @@ def migrate(src, tgt, truncate: bool) -> None:
             "comment",
             "checked",
         ],
+        batch_size,
     )
 
 
@@ -578,6 +598,7 @@ def main() -> int:
     parser.add_argument("--check-target", action="store_true", help="include target counts and key conflicts in dry-run")
     parser.add_argument("--json-report", action="store_true", help="print dry-run report as JSON")
     parser.add_argument("--limit", type=int, default=25, help="maximum sample rows per reconciliation bucket")
+    parser.add_argument("--batch-size", type=int, default=10000, help="rows per write batch")
     parser.add_argument("--truncate-first", action="store_true", help="delete target education tables before import")
     parser.add_argument(
         "--allow-truncate-first",
@@ -593,6 +614,9 @@ def main() -> int:
     tgt_u = target_url()
     if args.dry_run and args.apply:
         log("Refusing to combine --dry-run and --apply")
+        return 2
+    if args.batch_size < 1:
+        log("ERROR: --batch-size must be greater than 0")
         return 2
     if not args.dry_run and not args.apply:
         log("Refusing to write by default; use --dry-run for reconciliation or --apply with write gates")
@@ -642,7 +666,7 @@ def main() -> int:
             write_rollback_plan(args.rollback_plan, args.truncate_first)
             log(f"rollback plan written: {args.rollback_plan}")
             log(f"write approval noted: {args.approval_note}")
-            migrate(src, tgt, args.truncate_first)
+            migrate(src, tgt, args.truncate_first, args.batch_size)
         finally:
             tgt.close()
     finally:

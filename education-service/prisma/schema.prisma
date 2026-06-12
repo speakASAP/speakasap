@@ -67,6 +67,7 @@ model Lesson {
   toManager                    String        @default("") @map("to_manager") @db.Text
   studentCourse                StudentCourse @relation(fields: [studentCourseUuid], references: [uuid], onDelete: Cascade)
   homeworks                    Homework[]
+  lessonRecord                 LessonRecord?
 
   @@index([studentCourseUuid])
   @@map("education_lesson")
@@ -86,4 +87,31 @@ model Homework {
   @@unique([lessonUuid, studentId])
   @@index([studentId])
   @@map("education_homework")
+}
+
+model LessonRecord {
+  uuid              String             @id @map("uuid") @db.Uuid
+  lessonUuid        String             @unique @map("lesson_id") @db.Uuid
+  recordKey         String?            @map("record") @db.Text
+  processed         Boolean            @default(false)
+  recordUnavailable String             @default("") @map("record_unavailable") @db.Text
+  parts             Json               @default("[]")
+  createdAt         DateTime           @default(now()) @map("created")
+  updatedAt         DateTime           @updatedAt @map("updated")
+  lesson            Lesson             @relation(fields: [lessonUuid], references: [uuid], onDelete: Cascade)
+  recordParts       LessonRecordPart[]
+
+  @@index([lessonUuid])
+  @@map("education_lessonrecord")
+}
+
+model LessonRecordPart {
+  uuid             String       @id @map("uuid") @db.Uuid
+  lessonRecordUuid String       @map("lesson_record_id") @db.Uuid
+  partKey          String       @map("part_file") @db.Text
+  createdAt        DateTime     @default(now()) @map("created")
+  lessonRecord     LessonRecord @relation(fields: [lessonRecordUuid], references: [uuid], onDelete: Cascade)
+
+  @@index([lessonRecordUuid])
+  @@map("education_lessonrecordpart")
 }

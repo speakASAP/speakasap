@@ -1027,6 +1027,51 @@ Next:
 
 - Capture post-apply reconciliation for education/course and retrofit batching before any further large write/rerun.
 
+## 2026-06-12 - Education/Course Batch Hardening
+
+Status: done
+
+Changed:
+
+- Added `--batch-size` to `education-service/scripts/migrate-education-from-legacy.py`.
+- Added `--batch-size` to `course-service/scripts/migrate-course-from-legacy.py`.
+- Default batch size is `10000` rows.
+- Future education/course applies or idempotent reruns now stream source rows with server-side cursors and commit per batch instead of loading whole tables with `fetchall()`.
+- Education batching covers:
+  - `education_group`
+  - `education_group_students`
+  - `education_studentcourse` phase 1
+  - `education_studentcourse.previous_id` patch phase
+  - `education_lesson`
+  - `education_homework`
+- Course batching covers all copied tables:
+  - `products_category`
+  - `products_partpaymentcollection`
+  - `products_partpaymentoption`
+  - `products_product`
+  - `products_product_part_payments`
+  - `offers_extralessonsoffer`
+  - `offers_offer`
+
+Evidence:
+
+- No additional education/course write migration was run by this hardening step.
+- Remote syntax check passed on `alfares`:
+  - `python3 -m py_compile education-service/scripts/migrate-education-from-legacy.py course-service/scripts/migrate-course-from-legacy.py`
+- Remote help output for both scripts shows `--batch-size BATCH_SIZE`.
+- Invalid batch size refuses before database connection for both scripts:
+  - `ERROR: --batch-size must be greater than 0`
+- `education-service/scripts/migrate-lesson-records-from-legacy.py` is currently read-only only; it has no lesson-record write/apply path to batch yet.
+
+Guardrail:
+
+- Future large writes should keep the default `--batch-size 10000` unless there is explicit evidence that the server can safely handle a larger batch.
+- Existing target conflict guards still run before non-truncating apply, so an idempotent rerun should refuse rather than duplicate rows unless a separately approved path is used.
+
+Next:
+
+- Add batching to the lesson-record metadata write path when that write path is implemented; until then, lesson-record migration remains dry-run/reconciliation only.
+
 ## 2026-06-12 - Intent Preservation System Compliance Refresh
 
 Status: done
