@@ -149,46 +149,66 @@ def unresolved_auth_report(src, auth_map: dict[int, str] | None, limit: int) -> 
     if auth_map is None:
         return {"available": False, "reason": "AUTH_DATABASE_URL not set"}
     legacy_user_ids = sorted(auth_map.keys())
+    cur = src.cursor()
+    cur.execute("DROP TABLE IF EXISTS tmp_auth_mapping_legacy_user_ids")
+    cur.execute("CREATE TEMP TABLE tmp_auth_mapping_legacy_user_ids (legacy_user_id integer) ON COMMIT DROP")
+    if legacy_user_ids:
+        psycopg2.extras.execute_values(
+            cur,
+            "INSERT INTO tmp_auth_mapping_legacy_user_ids (legacy_user_id) VALUES %s",
+            [(legacy_user_id,) for legacy_user_id in legacy_user_ids],
+            page_size=10000,
+        )
+    cur.close()
     checks = {
         "auth_user": """
             SELECT u.id, u.email
             FROM auth_user u
-            WHERE u.id <> ALL(%s)
+            LEFT JOIN tmp_auth_mapping_legacy_user_ids a ON a.legacy_user_id = u.id
+            WHERE a.legacy_user_id IS NULL
         """,
         "students": """
             SELECT s.id, s.user_id, u.email
             FROM students_student s
             JOIN auth_user u ON u.id = s.user_id
-            WHERE s.user_id <> ALL(%s)
+            LEFT JOIN tmp_auth_mapping_legacy_user_ids a ON a.legacy_user_id = s.user_id
+            WHERE a.legacy_user_id IS NULL
         """,
         "teachers": """
             SELECT t.id, t.user_id, u.email
             FROM employees_teacher t
             JOIN auth_user u ON u.id = t.user_id
-            WHERE t.user_id <> ALL(%s)
+            LEFT JOIN tmp_auth_mapping_legacy_user_ids a ON a.legacy_user_id = t.user_id
+            WHERE a.legacy_user_id IS NULL
         """,
         "managers": """
             SELECT m.id, m.user_id, u.email
             FROM employees_manager m
             JOIN auth_user u ON u.id = m.user_id
-            WHERE m.user_id <> ALL(%s)
+            LEFT JOIN tmp_auth_mapping_legacy_user_ids a ON a.legacy_user_id = m.user_id
+            WHERE a.legacy_user_id IS NULL
         """,
         "employee_profiles": """
             SELECT e.id, e.user_id, u.email
             FROM employees_employeeprofile e
             JOIN auth_user u ON u.id = e.user_id
-            WHERE e.user_id <> ALL(%s)
+            LEFT JOIN tmp_auth_mapping_legacy_user_ids a ON a.legacy_user_id = e.user_id
+            WHERE a.legacy_user_id IS NULL
         """,
     }
     report: dict[str, object] = {"available": True, "auth_mapping_size": len(auth_map)}
-    for name, base_sql in checks.items():
-        report[name] = count_and_sample(
-            src,
-            f"SELECT COUNT(*) FROM ({base_sql}) unresolved",
-            f"{base_sql} ORDER BY 1 LIMIT %s",
-            limit,
-            [legacy_user_ids],
-        )
+    try:
+        for name, base_sql in checks.items():
+            report[name] = count_and_sample(
+                src,
+                f"SELECT COUNT(*) FROM ({base_sql}) unresolved",
+                f"{base_sql} ORDER BY 1 LIMIT %s",
+                limit,
+            )
+    finally:
+        cur = src.cursor()
+        cur.execute("DROP TABLE IF EXISTS tmp_auth_mapping_legacy_user_ids")
+        cur.close()
     return report
 
 

@@ -672,3 +672,56 @@ Guardrail:
 Next:
 
 - Goal 4.11: re-run and harden user-service profile migration so it resolves target auth UUIDs from `legacy_identity_mappings` by legacy `auth_user.id`, not email-only matching.
+
+## 2026-06-12 - Goal 4.11 User/Profile Auth Mapping Dry-Run
+
+Status: done
+
+Changed:
+
+- Updated `/home/ssf/Documents/Github/speakasap/user-service/scripts/migrate-user-from-legacy.py`.
+- Replaced email-only auth UUID resolution with auth-owned `legacy_identity_mappings` lookup by legacy `auth_user.id`.
+- Updated dry-run unresolved-auth reporting to use the same mapping-table identity source.
+- Updated future write-mode helpers for `user_identity_mirror`, `students`, `teachers`, `managers`, and `employee_profiles` to resolve by legacy user ID.
+- Optimized dry-run reconciliation with temporary-table joins for large auth mapping and target conflict sets.
+
+Evidence:
+
+- `python3 -m py_compile user-service/scripts/migrate-user-from-legacy.py` passed locally and on `alfares`.
+- No-write dry-run report: `/tmp/speakasap-user-dry-run-auth-mapping-v3.json`.
+- Dry-run summary:
+  - `writes=false`
+  - `dry_run=true`
+  - auth mapping size: `214230`
+  - unresolved auth users: `0`
+  - unresolved students: `0`
+  - unresolved teachers: `0`
+  - unresolved managers: `0`
+  - unresolved employee profiles: `0`
+- Source counts:
+  - `auth_user=214230`
+  - `students_student=214188`
+  - `employees_teacher=380`
+  - `employees_manager=3`
+  - `employees_employeeprofile=8`
+  - `employees_teacher_additional_languages=80`
+- Source duplicate-key counts are `0` for user IDs and teacher-language pairs.
+- Missing reference counts are `0` for auth users, managers, teacher languages, and teacher additional language references.
+- Target user-service tables are currently empty:
+  - `user_identity_mirror=0`
+  - `students=0`
+  - `teachers=0`
+  - `managers=0`
+  - `employee_profiles=0`
+  - `teacher_additional_languages=0`
+- Target ID conflicts are `0`.
+- Target auth UUID conflicts are `0`.
+
+Guardrail:
+
+- User-service write migration was not executed.
+- The user-service script still does not create or mutate auth users; it only references auth UUIDs supplied by `auth-microservice` mappings.
+
+Next:
+
+- Goal 4.12: review the user/profile dry-run evidence and run write-gated user-service apply only after explicit owner approval.

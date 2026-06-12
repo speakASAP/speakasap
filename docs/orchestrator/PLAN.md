@@ -345,8 +345,26 @@ Verification:
 - Duplicate-email legacy users resolve to distinct auth UUIDs through mappings.
 - Any remaining unresolved users are listed by source ID and reason before write mode is considered.
 
+Status: done. `user-service/scripts/migrate-user-from-legacy.py` now resolves auth UUIDs from auth-owned `legacy_identity_mappings` by legacy `auth_user.id`. Dry-run report `/tmp/speakasap-user-dry-run-auth-mapping-v3.json` completed with `writes=false`, auth mapping size `214230`, unresolved auth counts `0`, target user-service tables empty, and target conflicts `0`.
+
+### Chunk 4.12 - User/Profile Apply Gate
+
+Deliverables:
+
+- Review `/tmp/speakasap-user-dry-run-auth-mapping-v3.json` before any write.
+- Confirm exact write command, rollback/reset boundary, and owner approval note.
+- Run user-service migration write mode only after explicit approval.
+- Capture post-apply counts for `user_identity_mirror`, `students`, `teachers`, `managers`, `employee_profiles`, and `teacher_additional_languages`.
+
+Verification:
+
+- Apply refuses destructive truncation unless `--allow-truncate-first` is explicitly provided.
+- Post-apply target counts match source expectations or documented skips.
+- Auth UUID conflicts remain zero before write.
+- No auth users are created or modified by user-service migration.
+
 Status: next.
 
 ## Next Goal Selection
 
-Continue Goal 4.11 by re-running and hardening the user/profile migration against auth-owned `legacy_identity_mappings`.
+Continue Goal 4.12 by reviewing the user/profile dry-run evidence and running the write-gated user-service apply only after explicit owner approval.
