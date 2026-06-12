@@ -56,6 +56,7 @@ TABLES = [
     "education_group_students",
     "education_studentcourse",
     "education_lesson",
+    "education_studentaccess",
     "education_homework",
 ]
 
@@ -64,11 +65,13 @@ TARGET_KEY_COLUMNS = {
     "education_group_students": "id",
     "education_studentcourse": "uuid",
     "education_lesson": "uuid",
+    "education_studentaccess": "uuid",
     "education_homework": "uuid",
 }
 
 TARGET_PAIR_KEYS = {
     "education_group_students": ("group_id", "student_id"),
+    "education_studentaccess": ("lesson_id", "student_id"),
     "education_homework": ("lesson_id", "student_id"),
 }
 
@@ -167,6 +170,13 @@ def source_reconciliation(src, limit: int) -> dict[str, object]:
                 '"previous_id" IS NOT NULL',
             ),
             "education_lesson.uuid": duplicate_key_report(src, "education_lesson", ["uuid"], limit),
+            "education_studentaccess.uuid": duplicate_key_report(src, "education_studentaccess", ["uuid"], limit),
+            "education_studentaccess.lesson_student": duplicate_key_report(
+                src,
+                "education_studentaccess",
+                ["lesson_id", "student_id"],
+                limit,
+            ),
             "education_homework.uuid": duplicate_key_report(src, "education_homework", ["uuid"], limit),
             "education_homework.lesson_student": duplicate_key_report(
                 src,
@@ -244,6 +254,24 @@ def source_reconciliation(src, limit: int) -> dict[str, object]:
                 LEFT JOIN "education_studentcourse" sc ON sc."uuid" = l."student_course_id"
                 WHERE sc."uuid" IS NULL
                 ORDER BY l."uuid"
+                LIMIT %s
+                """,
+                limit,
+            ),
+            "student_access_missing_lesson": count_and_sample(
+                src,
+                """
+                SELECT COUNT(*)
+                FROM "education_studentaccess" sa
+                LEFT JOIN "education_lesson" l ON l."uuid" = sa."lesson_id"
+                WHERE l."uuid" IS NULL
+                """,
+                """
+                SELECT sa."uuid", sa."lesson_id", sa."student_id", sa."is_paid"
+                FROM "education_studentaccess" sa
+                LEFT JOIN "education_lesson" l ON l."uuid" = sa."lesson_id"
+                WHERE l."uuid" IS NULL
+                ORDER BY sa."uuid"
                 LIMIT %s
                 """,
                 limit,
@@ -344,6 +372,44 @@ def target_reconciliation(src, tgt, limit: int) -> dict[str, object]:
     }
 
 
+def target_reconciliation_for_tables(src, tgt, limit: int, tables: list[str]) -> dict[str, object]:
+    key_conflicts: dict[str, object] = {}
+    for table in tables:
+        column = TARGET_KEY_COLUMNS[table]
+        key_conflicts[f"{table}.{column}"] = target_key_conflict_count(
+            tgt,
+            table,
+            column,
+            fetch_key_values(src, table, column),
+            limit,
+        )
+
+    pair_conflicts: dict[str, object] = {}
+    for table in tables:
+        columns = TARGET_PAIR_KEYS.get(table)
+        if columns:
+            pair_conflicts[f"{table}.{columns[0]}_{columns[1]}"] = target_pair_conflict_count(
+                src,
+                tgt,
+                table,
+                columns,
+                limit,
+            )
+
+    target_counts = {}
+    cur = tgt.cursor()
+    for table in tables:
+        cur.execute('SELECT COUNT(*) FROM "{}"'.format(table))
+        target_counts[table] = int(cur.fetchone()[0])
+    cur.close()
+
+    return {
+        "target_counts": target_counts,
+        "target_key_conflicts": key_conflicts,
+        "target_pair_conflicts": pair_conflicts,
+    }
+
+
 def dry_run_report(src, tgt=None, check_target: bool = False, limit: int = 25) -> dict[str, object]:
     report = {
         "dry_run": True,
@@ -401,8 +467,8 @@ def log_target_conflicts(target: dict[str, object]) -> None:
                 log(f"target conflict {name} count={result['count']} sample={result['sample']}")
 
 
-def guard_no_target_conflicts(src, tgt, limit: int) -> bool:
-    target = target_reconciliation(src, tgt, limit)
+def guard_no_target_conflicts(src, tgt, limit: int, tables: list[str] | None = None) -> bool:
+    target = target_reconciliation_for_tables(src, tgt, limit, tables) if tables else target_reconciliation(src, tgt, limit)
     conflicts = target_conflict_total(target)
     if conflicts == 0:
         log("write preflight target_conflicts=0 conflict_policy=fail")
@@ -417,6 +483,7 @@ def truncate_target(tgt) -> None:
     cur = tgt.cursor()
     stmts = [
         'DELETE FROM "education_homework"',
+        'DELETE FROM "education_studentaccess"',
         'DELETE FROM "education_lesson"',
         'DELETE FROM "education_studentcourse"',
         'DELETE FROM "education_group_students"',
@@ -555,6 +622,13 @@ def migrate(src, tgt, truncate: bool, batch_size: int) -> None:
     copy_table(
         src,
         tgt,
+        "education_studentaccess",
+        ["uuid", "lesson_id", "student_id", "is_paid"],
+        batch_size,
+    )
+    copy_table(
+        src,
+        tgt,
         "education_homework",
         [
             "uuid",
@@ -570,7 +644,30 @@ def migrate(src, tgt, truncate: bool, batch_size: int) -> None:
     )
 
 
-def write_rollback_plan(path: str, truncate: bool) -> None:
+def migrate_student_access_only(src, tgt, batch_size: int) -> None:
+    copy_table(
+        src,
+        tgt,
+        "education_studentaccess",
+        ["uuid", "lesson_id", "student_id", "is_paid"],
+        batch_size,
+    )
+
+
+def write_rollback_plan(path: str, truncate: bool, student_access_only: bool = False) -> None:
+    if student_access_only:
+        sql = """-- SpeakASAP education student-access migration rollback plan
+-- Generated before write-gated apply.
+-- Review before executing. This removes imported paid lesson-access rows only.
+
+BEGIN;
+DELETE FROM "education_studentaccess";
+COMMIT;
+"""
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(sql)
+        return
+
     note = "Target tables are expected to be empty or conflict-free before apply."
     if truncate:
         note = "Apply used --truncate-first; this rollback removes imported rows but cannot restore rows deleted before import."
@@ -581,6 +678,7 @@ def write_rollback_plan(path: str, truncate: bool) -> None:
 
 BEGIN;
 DELETE FROM "education_homework";
+DELETE FROM "education_studentaccess";
 DELETE FROM "education_lesson";
 DELETE FROM "education_studentcourse";
 DELETE FROM "education_group_students";
@@ -599,6 +697,11 @@ def main() -> int:
     parser.add_argument("--json-report", action="store_true", help="print dry-run report as JSON")
     parser.add_argument("--limit", type=int, default=25, help="maximum sample rows per reconciliation bucket")
     parser.add_argument("--batch-size", type=int, default=10000, help="rows per write batch")
+    parser.add_argument(
+        "--student-access-only",
+        action="store_true",
+        help="apply only education_studentaccess; intended after core education rows already exist",
+    )
     parser.add_argument("--truncate-first", action="store_true", help="delete target education tables before import")
     parser.add_argument(
         "--allow-truncate-first",
@@ -631,6 +734,9 @@ def main() -> int:
         if not args.rollback_plan.strip():
             log("Refusing --apply without --rollback-plan")
             return 2
+    if args.student_access_only and args.truncate_first:
+        log("Refusing to combine --student-access-only and --truncate-first")
+        return 2
     if not src_u:
         log("Missing EDUCATION_SOURCE_DATABASE_URL or SOURCE_DATABASE_URL")
         return 1
@@ -661,12 +767,16 @@ def main() -> int:
             return 1
         tgt = connect(tgt_u)
         try:
-            if not args.truncate_first and not guard_no_target_conflicts(src, tgt, max(args.limit, 1)):
+            conflict_tables = ["education_studentaccess"] if args.student_access_only else None
+            if not args.truncate_first and not guard_no_target_conflicts(src, tgt, max(args.limit, 1), conflict_tables):
                 return 2
-            write_rollback_plan(args.rollback_plan, args.truncate_first)
+            write_rollback_plan(args.rollback_plan, args.truncate_first, args.student_access_only)
             log(f"rollback plan written: {args.rollback_plan}")
             log(f"write approval noted: {args.approval_note}")
-            migrate(src, tgt, args.truncate_first, args.batch_size)
+            if args.student_access_only:
+                migrate_student_access_only(src, tgt, args.batch_size)
+            else:
+                migrate(src, tgt, args.truncate_first, args.batch_size)
         finally:
             tgt.close()
     finally:

@@ -49,13 +49,13 @@ export class LessonRecordsController {
   @Post('presign')
   @UseGuards(JwtAuthGuard)
   presign(@Req() req: Request, @Param('lessonUuid') lessonUuid: string, @Body() _body: Record<string, unknown>) {
-    return this.records.presignUpload(lessonUuid, req.authUser!, bearerToken(req));
+    return this.records.presignUpload(lessonUuid, req.authUser!, bearerToken(req), _body);
   }
 
   @Post('commit')
   @UseGuards(JwtAuthGuard)
   commit(@Req() req: Request, @Param('lessonUuid') lessonUuid: string, @Body() _body: Record<string, unknown>) {
-    return this.records.commitUpload(lessonUuid, req.authUser!, bearerToken(req));
+    return this.records.commitUpload(lessonUuid, req.authUser!, bearerToken(req), _body);
   }
 
   @Post('merge')

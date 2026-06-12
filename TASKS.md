@@ -13,7 +13,14 @@ Current gate:
 - Goal 5.5 runtime verification found no target private playback/download, presign/commit, scoped media token, merge worker, stuck-record worker, or delete implementation; frontend/gateway cutover remains blocked.
 - Fresh no-write report `/tmp/speakasap-lesson-records-g5-5-target-verification.json` recorded `writes=false`, `target_lesson_records_existing=101184`, `missing_target_lesson=0`, and unchanged media/key reconciliation inventory.
 - Runtime scaffold now exists in `education-service/src/lesson-records`; build and `npm run test:lesson-records` passed. Student playback, upload presign/commit, merge worker, and delete remain gated as recorded in `STATUS.md`.
-- Do not run future lesson-record reruns, rollback execution, object-storage mutation, or access behavior changes without fresh evidence and explicit approval where applicable.
+- Paid eligibility mapping is implemented and applied via target `StudentAccess` / `education_studentaccess`; source and target now both have `184464` rows, including `184214` paid rows, with no duplicate groups or missing lesson references.
+- Owner approved and the `education_studentaccess` schema/import was applied: target/source rows `184464`, paid rows `184214`, duplicate groups `0`, missing lesson refs `0`; rollback SQL is `/tmp/speakasap-education-studentaccess-rollback-g5-5.sql`.
+- Private upload presign/commit is implemented and deployed in `speakasap-education` with teacher/staff authorization, 900-second SigV4 PUT presign, audio/60MB validation, deterministic keys, and S3 HEAD ETag/size verification.
+- Scoped `speakasap-education` deploy completed after owner approval: image digest `sha256:aac37a909b47872e368a733f973d287e00be35136ff10f423c54bd84c3e5350e`, deployment `1/1` ready, restart count `0`, health `ok`.
+- Runtime smoke report `/tmp/speakasap-education-runtime-smoke-g5-5.json` verifies unauthenticated rejection, invalid/mismatched media-token rejection, unrelated-student rejection, and no permanent URL exposure.
+- Service-level deployed-image mock report `/tmp/speakasap-education-service-level-smoke-g5-5.json` verifies presign invalid content type/oversize, 900-second signed PUT shape, commit key/ETag/size mismatch, merge disabled, and delete disabled without DB writes or object mutation.
+- Goal 5.5 remains active because safe paid/unpaid student, assigned/unassigned teacher, and staff tokens are unavailable, and `RECORDS_S3_*` runtime configuration is absent from the education pod.
+- Do not run future lesson-record reruns, rollback execution, object-storage mutation, merge execution, frontend/gateway cutover, legacy retirement, or access behavior changes without fresh evidence and explicit approval where applicable.
 - Preserve dry-run reports, apply commands, approval notes, rollback evidence, and post-apply verification in `docs/orchestrator/STATUS.md`.
 
 ## Required Task Flow

@@ -116,6 +116,7 @@ data:
   AUTH_RETRY_DELAY_MS: "1000"
   CONTENT_SERVICE_URL: "http://speakasap-content:4201"
   COURSE_SERVICE_URL: "http://speakasap-course:4205"
+  USER_SERVICE_URL: "http://speakasap-user:4207"
   ASSESSMENT_SERVICE_URL: "http://speakasap-assessment:4203"
   AI_SERVICE_URL: "http://ai-microservice:3380"
   AI_SERVICE_TIMEOUT: "5000"

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -6,6 +7,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { LessonRecord } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import type { Response } from 'express';
 import type { AuthContextUser } from '../shared/auth.types';
 import { isStaffUser } from '../shared/staff-access';
@@ -15,6 +17,7 @@ import { LessonRecordStorageService } from './storage.service';
 import { UserProfilesClient } from './user-profiles.client';
 
 type AccessMode = 'state' | 'playback' | 'teacher-write';
+const MAX_RECORD_SIZE = 60 * 1024 * 1024;
 
 function partsArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map((v) => String(v)).filter(Boolean) : [];
@@ -95,16 +98,176 @@ export class LessonRecordsService {
     await this.storage.streamRecord(record.recordKey, rangeHeader, res);
   }
 
-  async presignUpload(lessonUuid: string, auth: AuthContextUser, bearerToken: string): Promise<never> {
+  async presignUpload(lessonUuid: string, auth: AuthContextUser, bearerToken: string, body: Record<string, unknown>) {
     const { lesson } = await this.loadLessonAndRecord(lessonUuid);
     await this.assertDomainAccess(lesson, auth, bearerToken, 'teacher-write');
-    throw new ServiceUnavailableException('Private upload presign is not implemented in education-service yet');
+    const filename = requiredString(body.filename, 'filename');
+    const contentType = requiredString(body.contentType ?? body.content_type, 'contentType');
+    const kind = requiredString(body.kind, 'kind');
+    const size = Number(body.size);
+    if (kind !== 'lesson' && kind !== 'part') {
+      throw new BadRequestException('kind must be lesson or part');
+    }
+    if (!contentType.startsWith('audio/')) {
+      throw new BadRequestException('contentType must start with audio/');
+    }
+    if (!Number.isInteger(size) || size < 0 || size > MAX_RECORD_SIZE) {
+      throw new BadRequestException('size must be an integer between 0 and 62914560');
+    }
+    const requestedStudentId = optionalInteger(body.studentId ?? body.student_id);
+    if (requestedStudentId !== null && !lesson.studentCourse.group.groupStudents.some((s) => s.studentId === requestedStudentId)) {
+      throw new BadRequestException('studentId is not attached to lesson group');
+    }
+    const partUuid = kind === 'part' ? randomUUID() : null;
+    const key = kind === 'lesson' ? lessonKey(lesson.uuid, lesson.start, filename) : partKey(partUuid!, lesson.start, filename);
+    const signed = this.storage.presignPut(key, contentType, 900);
+    return {
+      method: 'PUT',
+      url: signed.url,
+      key,
+      headers: { 'Content-Type': contentType },
+      partUuid,
+      expiresIn: signed.expiresIn,
+    };
   }
 
-  async commitUpload(lessonUuid: string, auth: AuthContextUser, bearerToken: string): Promise<never> {
+  async commitUpload(lessonUuid: string, auth: AuthContextUser, bearerToken: string, body: Record<string, unknown>) {
     const { lesson } = await this.loadLessonAndRecord(lessonUuid);
     await this.assertDomainAccess(lesson, auth, bearerToken, 'teacher-write');
-    throw new ServiceUnavailableException('Private upload commit is not implemented in education-service yet');
+    const items = Array.isArray(body.items) ? body.items : [];
+    const recordUnavailable = typeof body.recordUnavailable === 'string'
+      ? body.recordUnavailable.trim()
+      : typeof body.record_unavailable === 'string'
+        ? body.record_unavailable.trim()
+        : '';
+    if (items.length === 0 && !recordUnavailable) {
+      throw new BadRequestException('items or recordUnavailable is required');
+    }
+    const expectedItems = [];
+    for (const raw of items) {
+      if (!raw || typeof raw !== 'object') {
+        throw new BadRequestException('each item must be an object');
+      }
+      const item = raw as Record<string, unknown>;
+      const kind = requiredString(item.kind, 'kind');
+      const key = requiredString(item.key, 'key');
+      const filename = typeof item.filename === 'string' && item.filename.trim() ? item.filename.trim() : 'record.mp3';
+      const size = Number(item.size);
+      const etag = typeof item.etag === 'string' ? item.etag.replace(/"/g, '').trim() : '';
+      if (!Number.isInteger(size) || size < 0 || size > MAX_RECORD_SIZE) {
+        throw new BadRequestException('item size is invalid');
+      }
+      if (kind === 'lesson') {
+        const expectedKey = lessonKey(lesson.uuid, lesson.start, filename);
+        if (key !== expectedKey) {
+          throw new BadRequestException('lesson key mismatch');
+        }
+        expectedItems.push({ kind, key, size, etag, partUuid: null });
+      } else if (kind === 'part') {
+        const partUuid = requiredString(item.partUuid ?? item.part_uuid, 'partUuid');
+        const expectedKey = partKey(partUuid, lesson.start, filename);
+        if (key !== expectedKey) {
+          throw new BadRequestException('part key mismatch');
+        }
+        expectedItems.push({ kind, key, size, etag, partUuid });
+      } else {
+        throw new BadRequestException('kind must be lesson or part');
+      }
+    }
+    for (const item of expectedItems) {
+      const meta = await this.storage.headObject(item.key);
+      if (item.etag && item.etag !== meta.etag) {
+        throw new BadRequestException(`ETag mismatch for key ${item.key}`);
+      }
+      if (item.size !== meta.size) {
+        throw new BadRequestException(`Size mismatch for key ${item.key}`);
+      }
+    }
+    const existing = await this.prisma.lessonRecord.findUnique({ where: { lessonUuid: lesson.uuid } });
+    const recordUuid = existing?.uuid ?? randomUUID();
+    const lessonItems = expectedItems.filter((i) => i.kind === 'lesson');
+    const partItems = expectedItems.filter((i) => i.kind === 'part');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.lesson.update({
+        where: { uuid: lesson.uuid },
+        data: {
+          recommendation: typeof body.recommendation === 'string' ? body.recommendation : lesson.recommendation,
+          toManager: typeof body.toManager === 'string'
+            ? body.toManager
+            : typeof body.to_manager === 'string'
+              ? body.to_manager
+              : lesson.toManager,
+        },
+      });
+      if (lessonItems.length > 0) {
+        await tx.lessonRecord.upsert({
+          where: { lessonUuid: lesson.uuid },
+          create: {
+            uuid: recordUuid,
+            lessonUuid: lesson.uuid,
+            recordKey: lessonItems[0].key,
+            processed: true,
+            recordUnavailable: '',
+            parts: [],
+          },
+          update: {
+            recordKey: lessonItems[0].key,
+            processed: true,
+            recordUnavailable: '',
+            parts: [],
+          },
+        });
+        await tx.lessonRecordPart.deleteMany({ where: { lessonRecordUuid: recordUuid } });
+      } else if (partItems.length > 0) {
+        await tx.lessonRecord.upsert({
+          where: { lessonUuid: lesson.uuid },
+          create: {
+            uuid: recordUuid,
+            lessonUuid: lesson.uuid,
+            recordKey: null,
+            processed: false,
+            recordUnavailable: '',
+            parts: partItems.map((i) => i.partUuid),
+          },
+          update: {
+            recordKey: null,
+            processed: false,
+            recordUnavailable: '',
+            parts: partItems.map((i) => i.partUuid),
+          },
+        });
+        await tx.lessonRecordPart.deleteMany({ where: { lessonRecordUuid: recordUuid } });
+        for (const item of partItems) {
+          await tx.lessonRecordPart.create({
+            data: {
+              uuid: item.partUuid!,
+              lessonRecordUuid: recordUuid,
+              partKey: item.key,
+            },
+          });
+        }
+      } else {
+        await tx.lessonRecord.upsert({
+          where: { lessonUuid: lesson.uuid },
+          create: {
+            uuid: recordUuid,
+            lessonUuid: lesson.uuid,
+            recordKey: null,
+            processed: true,
+            recordUnavailable,
+            parts: [],
+          },
+          update: {
+            recordKey: null,
+            processed: true,
+            recordUnavailable,
+            parts: [],
+          },
+        });
+        await tx.lessonRecordPart.deleteMany({ where: { lessonRecordUuid: recordUuid } });
+      }
+    });
+    return { status: 'ok', lessonRecordUuid: recordUuid };
   }
 
   async requestMerge(lessonUuid: string, auth: AuthContextUser, bearerToken: string): Promise<never> {
@@ -124,6 +287,7 @@ export class LessonRecordsService {
       where: { uuid: lessonUuid },
       include: {
         lessonRecord: true,
+        studentAccesses: true,
         studentCourse: { include: { group: { include: { groupStudents: true } } } },
       },
     });
@@ -150,13 +314,53 @@ export class LessonRecordsService {
       throw new ForbiddenException('Assigned teacher or staff access required');
     }
     const studentId = await this.users.getStudentId(bearerToken);
-    const isGroupStudent = lesson.studentCourse.group.groupStudents.some((row) => row.studentId === studentId);
-    if (studentId && isGroupStudent && mode === 'state') {
+    const hasAnyAccess = lesson.studentAccesses.some((row) => row.studentId === studentId);
+    const hasPaidAccess = lesson.studentAccesses.some((row) => row.studentId === studentId && row.isPaid);
+    if (studentId && hasAnyAccess && mode === 'state') {
       return;
     }
-    if (studentId && isGroupStudent && mode === 'playback') {
-      throw new ForbiddenException('Student paid lesson-record access is not implemented in target data yet');
+    if (studentId && hasPaidAccess && mode === 'playback') {
+      return;
     }
     throw new ForbiddenException('Lesson record access denied');
   }
+}
+
+function requiredString(value: unknown, name: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new BadRequestException(`${name} is required`);
+  }
+  return value.trim();
+}
+
+function optionalInteger(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const n = Number(value);
+  if (!Number.isInteger(n)) {
+    throw new BadRequestException('studentId must be an integer');
+  }
+  return n;
+}
+
+function datePrefix(start: Date | null): string {
+  const d = start ?? new Date();
+  const yyyy = String(d.getUTCFullYear()).padStart(4, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${yyyy}/${mm}/${dd}`;
+}
+
+function extension(filename: string): string {
+  const raw = filename.split('.').pop() || 'mp3';
+  return raw.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'mp3';
+}
+
+function lessonKey(lessonUuid: string, start: Date | null, filename: string): string {
+  return `${datePrefix(start)}/lesson_${lessonUuid}.${extension(filename)}`;
+}
+
+function partKey(partUuid: string, start: Date | null, filename: string): string {
+  return `${datePrefix(start)}/parts_${partUuid}.${extension(filename)}`;
 }

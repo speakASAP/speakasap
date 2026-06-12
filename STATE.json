@@ -4,10 +4,10 @@
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "tasks_active": 1,
   "current_goal": "Goal 5 - Lesson Recording And Private Media Migration",
-  "current_chunk": "5.5 runtime private access, playback, merge, and delete verification",
+  "current_chunk": "5.5 runtime private access, playback, merge, and delete verification - deployment done; success-path smoke blocked by tokens/storage env",
   "intent_preservation_system": "docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md",
   "next_goal": "Goal 5 - Lesson Recording And Private Media Migration",
   "status": "active",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
-  "next_required_action": "Continue Goal 5.5 by resolving paid student eligibility mapping and implementing private upload presign/commit or recording an owner-approved deferral; keep frontend/gateway cutover blocked until runtime smoke tests pass."
+  "next_required_action": "Resolve safe real paid/unpaid student, assigned/unassigned teacher, and staff tokens plus RECORDS_S3_* runtime configuration, then re-run deployed speakasap-education HTTP smoke for success paths before any frontend/gateway cutover."
 }

@@ -68,9 +68,22 @@ model Lesson {
   studentCourse                StudentCourse @relation(fields: [studentCourseUuid], references: [uuid], onDelete: Cascade)
   homeworks                    Homework[]
   lessonRecord                 LessonRecord?
+  studentAccesses              StudentAccess[]
 
   @@index([studentCourseUuid])
   @@map("education_lesson")
+}
+
+model StudentAccess {
+  uuid      String  @id @map("uuid") @db.Uuid
+  lessonUuid String @map("lesson_id") @db.Uuid
+  studentId Int    @map("student_id")
+  isPaid    Boolean @default(false) @map("is_paid")
+  lesson    Lesson @relation(fields: [lessonUuid], references: [uuid], onDelete: Cascade)
+
+  @@unique([lessonUuid, studentId])
+  @@index([studentId])
+  @@map("education_studentaccess")
 }
 
 model Homework {

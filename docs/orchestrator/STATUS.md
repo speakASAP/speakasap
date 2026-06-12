@@ -1414,3 +1414,216 @@ Remaining blockers before cutover:
 Next:
 
 - Continue Goal 5.5 by resolving paid student eligibility mapping and implementing private upload presign/commit or recording the owner-approved deferral before any frontend/gateway cutover.
+
+## 2026-06-12 - Goal 5.5 Paid Eligibility Mapping And Private Upload Runtime
+
+Status: implementation added; schema/data apply and deployment remain approval-gated
+
+Changed:
+
+- Added target Prisma model `StudentAccess` mapped to `education_studentaccess`.
+- Added Prisma migration `20260612143000_student_access`.
+- Extended `education-service/scripts/migrate-education-from-legacy.py` to include `education_studentaccess` in:
+  - source counts;
+  - duplicate UUID checks;
+  - duplicate `(lesson_id, student_id)` checks;
+  - missing lesson reference checks;
+  - target conflict checks;
+  - write-gated copy order;
+  - rollback/truncate SQL order.
+- Updated `education-service/src/lesson-records` so student playback now requires target paid access (`StudentAccess.isPaid`) instead of only group membership.
+- Implemented private upload presign:
+  - assigned teacher or staff authorization;
+  - optional `studentId` group membership validation;
+  - `kind=lesson|part`;
+  - `contentType` must start with `audio/`;
+  - size must be `0..62914560`;
+  - legacy-compatible keys `YYYY/MM/DD/lesson_<lesson_uuid>.<ext>` and `YYYY/MM/DD/parts_<part_uuid>.<ext>`;
+  - path-style SigV4 PUT URL with 900-second max expiry.
+- Implemented private upload commit:
+  - assigned teacher or staff authorization;
+  - expected-key validation;
+  - S3/MinIO HEAD metadata check;
+  - optional ETag check;
+  - size check;
+  - DB metadata update for full lesson recording, part uploads, or unavailable recording.
+- Added `USER_SERVICE_URL: "http://speakasap-user:4207"` to `k8s/services/education-service.yaml`.
+- Updated `education-service/scripts/verify-lesson-record-runtime-contract.js` to assert paid access mapping and presign/commit storage checks.
+
+Intent / ownership:
+
+- Legacy paid playback behavior maps from `education_studentaccess.is_paid` to target `StudentAccess.isPaid`.
+- Auth identity remains owned by `auth-microservice`; teacher/student legacy IDs are resolved via `user-service`.
+- Object storage remains owned by MinIO/storage infrastructure; `education-service` only generates scoped private access and verifies object metadata.
+- No object deletion, merge worker execution, deployment, frontend cutover, gateway cutover, Prisma migrate deploy, or target data apply was run.
+
+Verification:
+
+- `ssh alfares 'cd /home/ssf/Documents/Github/speakasap/education-service && npm run prisma:validate && npm run build && npm run test:lesson-records'` passed.
+- `ssh alfares 'cd /home/ssf/Documents/Github/speakasap && python3 -m py_compile education-service/scripts/migrate-education-from-legacy.py'` passed.
+- `ssh alfares 'cd /home/ssf/Documents/Github/speakasap && python3 education-service/scripts/migrate-education-from-legacy.py --help'` passed.
+- Default write refusal passed:
+  - `python3 education-service/scripts/migrate-education-from-legacy.py`
+  - exited `2` with `Refusing to write by default`.
+- Source-only dry run for student access passed without target writes:
+  - `education_studentaccess=184464`
+  - duplicate `education_studentaccess.uuid=0`
+  - duplicate `education_studentaccess.lesson_student=0`
+  - `student_access_missing_lesson=0`
+
+Approval / rollback:
+
+- Applying `20260612143000_student_access`, importing `education_studentaccess`, deploying `speakasap-education`, or enabling frontend/gateway traffic still requires explicit owner approval and fresh target dry-run evidence.
+- Target object deletion remains disabled and still requires a separate owner-approved rollback plan.
+
+Remaining blockers before cutover:
+
+- Run target DB dry-run/check after the new `education_studentaccess` schema migration is approved for deploy.
+- Apply/import `education_studentaccess` only after explicit write approval and rollback SQL.
+- Add runtime smoke tests after deployment approval for unauthorized playback, unrelated student, unpaid student, paid student, assigned teacher, unassigned teacher, presign invalid content type/size/key, commit ETag/size mismatch, and old/new key fallback.
+- Implement or defer merge-worker parity; no source part deletion may be enabled until merged output validation exists.
+
+Next:
+
+- Request approval for `education-service` Prisma migration deploy and write-gated `education_studentaccess` import, backed by a fresh target dry-run and rollback artifact.
+
+## 2026-06-12 - Goal 5.5 Student Access Schema Deploy And Import
+
+Status: done for paid eligibility data apply; deployment/cutover still blocked
+
+Approval:
+
+- Owner replied `I approve.` on 2026-06-12 after the approval request for `education_studentaccess` schema deploy/import.
+
+Changed / applied:
+
+- Applied Prisma migration `20260612143000_student_access` to `speakasap_education_db`.
+- Ran a fresh target dry-run before write:
+  - report path: `/tmp/speakasap-education-studentaccess-dry-run-g5-5.json`
+  - source `education_studentaccess=184464`
+  - target `education_studentaccess=0`
+  - target UUID conflicts `0`
+  - target `(lesson_id, student_id)` conflicts `0`
+  - source missing lesson references `0`
+  - source duplicate UUIDs `0`
+  - source duplicate lesson/student pairs `0`
+- Ran write-gated student-access-only import:
+  - command class: `migrate-education-from-legacy.py --apply --student-access-only --confirm-write --approval-note ... --rollback-plan ...`
+  - approval note: `Owner approved education_studentaccess schema deploy and import for SpeakASAP Goal 5.5 on 2026-06-12`
+  - rollback artifact: `/tmp/speakasap-education-studentaccess-rollback-g5-5.sql`
+  - rows written before script exit: `184464`
+- Fixed the scoped migration function after the first import attempt exited nonzero: it had copied all `education_studentaccess` rows, then attempted a second duplicate copy because the new scoped function accidentally included a second student-access copy. The target was complete and duplicate-free; the script now copies `education_studentaccess` only once and compiles.
+
+Post-apply read-only verification:
+
+- Target `education_studentaccess=184464`
+- Target paid rows `184214`
+- Source `education_studentaccess=184464`
+- Source paid rows `184214`
+- Target duplicate UUID groups `0`
+- Target duplicate `(lesson_id, student_id)` groups `0`
+- Target missing lesson references `0`
+- Prisma migration state: `20260612143000_student_access|t`
+
+Verification:
+
+- `python3 -m py_compile education-service/scripts/migrate-education-from-legacy.py` passed after the script fix.
+- `git diff --check` passed.
+- `STATE.json` and `docs/orchestrator/STATE.json` parse as JSON.
+- Temporary Kubernetes DB port-forwards were closed after commands.
+
+Guardrails:
+
+- No `speakasap-education` deployment or rollout was run.
+- No frontend/gateway cutover was run.
+- No object storage write/delete/merge execution was run.
+- Target record deletion remains disabled in code.
+
+Next:
+
+- Rebuild and deploy `speakasap-education` only after deployment approval, then run runtime smoke checks for paid/unpaid playback and presign/commit failure modes before frontend/gateway cutover.
+
+## 2026-06-12 - Goal 5.5 Education Deployment And Runtime Smoke
+
+Status: deployed `speakasap-education`; Goal 5.5 remains active; frontend/gateway cutover still blocked
+
+Approval:
+
+- Owner approval from delegated session: deploy `speakasap-education` and run runtime smoke checks only.
+- No approval was inferred for frontend/gateway cutover, object deletion, merge-worker execution, or legacy route retirement.
+
+Session context:
+
+- Required orchestrator files were read from the remote authoritative repo where present.
+- `docs/orchestrator/IMPLEMENTATION_ORCHESTRATOR.md` and `docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md` are referenced by instructions/state but are not present in the remote repo file list for this session; repository evidence and the available orchestrator docs were used.
+- RAG lookup failed with curl exit code `6` (`Could not resolve host: docs-rag-microservice.statex-apps.svc.cluster.local`), so repository and runtime evidence were used.
+- Remote worktree before deploy contained the expected uncommitted Goal 5.5 changes on `main`.
+
+Deploy evidence:
+
+- Re-ran `education-service` build and lesson-record contract check before deploy:
+  - `npm run build` passed.
+  - `npm run test:lesson-records` passed.
+- Top-level `scripts/deploy.sh` was not used because it applies gateway manifests and restarts all SpeakASAP services.
+- Scoped deploy path used only education service resources:
+  - built `localhost:5000/speakasap-education:latest` from `education-service/Dockerfile`.
+  - pushed digest `sha256:aac37a909b47872e368a733f973d287e00be35136ff10f423c54bd84c3e5350e`.
+  - applied only `k8s/services/education-service.yaml`.
+  - restarted only `deployment/speakasap-education -n statex-apps`.
+- Rollout evidence:
+  - `deployment/speakasap-education` successfully rolled out.
+  - ready replicas `1/1`, updated replicas `1`.
+  - running pod image ID `localhost:5000/speakasap-education@sha256:aac37a909b47872e368a733f973d287e00be35136ff10f423c54bd84c3e5350e`.
+  - restart count `0`, pod ready `true`.
+  - `/health` returned `{"status":"ok"}`.
+
+Runtime smoke evidence:
+
+- Deployed HTTP smoke report: `/tmp/speakasap-education-runtime-smoke-g5-5.json`.
+- Normal auth smoke user login succeeded through `auth-microservice` and mapped to migrated student profile `333`; the token has no teacher profile and no recorded-lesson `StudentAccess` rows.
+- Candidate paid and unpaid `StudentAccess` rows exist in target data, but no safe real tokens were available for those users.
+- `RECORDS_S3_*` settings are absent from the running `speakasap-education` pod, so valid object presign/download success paths are blocked by runtime configuration.
+- Deployed HTTP checks passed for safe non-mutating cases:
+  - state without auth: `401 UNAUTHORIZED`.
+  - playback without auth: `401 UNAUTHORIZED`.
+  - state with invalid token: `401 UNAUTHORIZED`.
+  - download missing token: `403 FORBIDDEN`, no permanent URL in response.
+  - download invalid token: `401 UNAUTHORIZED`, no permanent URL in response.
+  - download token scoped to the wrong lesson: `401 UNAUTHORIZED`, no permanent URL in response.
+  - download with syntactically valid scoped media token: `503` because private record storage helper is not configured; no permanent URL in response.
+  - authenticated unrelated student state/playback: `403 FORBIDDEN`.
+  - authenticated unrelated student presign/commit/merge/delete attempts: `403 FORBIDDEN` before write/delete/merge behavior.
+
+Service-level smoke evidence:
+
+- Deployed-image service-level mock report: `/tmp/speakasap-education-service-level-smoke-g5-5.json`.
+- This used the compiled code inside the deployed pod with mocked Prisma/profile/storage dependencies; no network object storage call and no DB write were performed.
+- Service-level checks covered blocked teacher/staff branches safely:
+  - presign invalid content type: `400 BadRequestException`.
+  - presign oversize: `400 BadRequestException`.
+  - valid staff presign shape: method `PUT`, expiresIn `900`, deterministic private key, SigV4-style signature present.
+  - commit key mismatch: `400 BadRequestException`.
+  - commit ETag mismatch: `400 BadRequestException`.
+  - commit size mismatch: `400 BadRequestException`.
+  - merge remains disabled: `503 ServiceUnavailableException`.
+  - delete remains disabled: `409 ConflictException`.
+  - mock counters showed `transactions=0` and `partDeletes=0`.
+
+Guardrails preserved:
+
+- No frontend or gateway deployment/cutover was run.
+- No merge worker was executed.
+- No object deletion or object write was run.
+- No legacy route was retired.
+- No rollback SQL was executed.
+- `git diff --check` passed after deployment/smoke.
+
+Blockers before Goal 5.5 can be closed:
+
+- Obtain safe real tokens for a paid recorded-lesson student, unpaid recorded-lesson student, assigned teacher, unassigned teacher, and staff user; or add an owner-approved non-production token fixture path.
+- Configure `RECORDS_S3_HELPER_URL`, `RECORDS_S3_BUCKET`, `RECORDS_S3_ENDPOINT_URL`, `RECORDS_S3_ACCESS_KEY`, `RECORDS_S3_SECRET_KEY`, and region/SSL settings for `speakasap-education` through Vault/ESO before valid runtime presign/download success can be smoked.
+- Re-run deployed HTTP smoke for paid/unpaid playback, teacher/staff presign, commit mismatch after authorization, and valid 900-second private SigV4 PUT after the token and storage blockers are resolved.
+
+Next:
+
+- Continue Goal 5.5 by resolving runtime auth-token fixtures and recording-storage env configuration; keep frontend/gateway cutover, merge execution, object deletion, and legacy retirement blocked until separate approval and evidence exist.

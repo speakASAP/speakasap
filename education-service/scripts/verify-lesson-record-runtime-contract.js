@@ -23,11 +23,16 @@ assertIncludes('src/lesson-records/lesson-records.controller.ts', "@Post('presig
 assertIncludes('src/lesson-records/lesson-records.controller.ts', "@Post('commit')");
 assertIncludes('src/lesson-records/lesson-records.controller.ts', "@Post('merge')");
 assertIncludes('src/lesson-records/lesson-records.controller.ts', '@Delete()');
-assertIncludes('src/lesson-records/lesson-records.service.ts', 'Student paid lesson-record access is not implemented in target data yet');
+assertIncludes('src/lesson-records/lesson-records.service.ts', 'hasPaidAccess');
+assertIncludes('src/lesson-records/lesson-records.service.ts', 'presignPut');
+assertIncludes('src/lesson-records/lesson-records.service.ts', 'headObject');
 assertIncludes('src/lesson-records/lesson-records.service.ts', 'Target record deletion is disabled until owner-approved object deletion exists');
 assertIncludes('src/lesson-records/storage.service.ts', 'RECORDS_S3_HELPER_URL');
+assertIncludes('src/lesson-records/storage.service.ts', 'RECORDS_S3_ACCESS_KEY');
 assertIncludes('src/lesson-records/storage.service.ts', 'courses/records/');
 assertIncludes('src/lesson-records/media-token.service.ts', 'MAX_TTL_SECONDS = 3600');
 assertIncludes('src/lesson-records/media-token.service.ts', "scope: 'playback'");
+assertIncludes('prisma/schema.prisma', 'model StudentAccess');
+assertIncludes('prisma/migrations/20260612143000_student_access/migration.sql', 'education_studentaccess');
 
 console.log('lesson-record runtime contract verification passed');
