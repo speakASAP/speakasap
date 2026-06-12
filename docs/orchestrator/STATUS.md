@@ -458,3 +458,90 @@ Result:
 Next:
 
 - Goal 4.8: trace the existing auth migration/bootstrap path and decide how legacy `auth_user` rows map to target auth UUIDs before any user/profile write migration.
+
+## 2026-06-12 - Goal 4.8 Auth Identity Reconciliation
+
+Status: done
+
+Changed:
+
+- Added `docs/orchestrator/AUTH_IDENTITY_RECONCILIATION.md`.
+- Confirmed `auth-microservice` is a separate repo at `/home/ssf/Documents/Github/auth-microservice`, not a service folder inside the SpeakASAP repo.
+- Confirmed `auth-microservice` has no existing SpeakASAP legacy auth import script.
+- Recorded the decision gate that user-service write migration must wait for auth-owned bootstrap/mapping.
+
+Evidence:
+
+- `auth-microservice/BUSINESS.md` says password hashing is bcrypt only and AI agents must not directly write the user table.
+- `auth-microservice/src/auth/auth.service.ts` rejects password login when stored password is not bcrypt format.
+- Target auth `users` table currently has `22` rows, `22` emails, `17` passwords, and `0` duplicate email groups.
+- Legacy `auth_user` has `214230` rows, all with email and password, and `95` duplicate lower-trimmed email groups.
+- Legacy password hash families are `212415` Django PBKDF2 hashes and `1815` Django unusable-password markers.
+- The Goal 4.7 user dry run indexed only `22` target auth emails and left `214224` legacy `auth_user` rows unresolved.
+
+Decision:
+
+- Auth bootstrap is required before user-service profile migration.
+- Email-only mapping is unsafe because legacy has duplicate email groups while target auth email is unique.
+- Copying legacy Django password hashes into target auth is rejected without owner approval because current auth login accepts bcrypt only.
+- Recommended first cutover policy is auth-owned bootstrap with `password = NULL` plus password reset or magic-link setup.
+- Alternative policy is an owner-approved auth-service code change to verify Django PBKDF2 and rehash to bcrypt on successful login.
+
+Next:
+
+- Goal 4.9: get owner approval for the auth bootstrap duplicate-email and password policy, then implement the approved path only inside `auth-microservice`.
+
+## 2026-06-12 - Goal 4.9 Auth Bootstrap Owner Decision Packet
+
+Status: in progress
+
+Changed:
+
+- Added `docs/orchestrator/AUTH_BOOTSTRAP_OWNER_DECISION.md`.
+- Recorded the recommended policy: auth-owned legacy identity mapping plus `password = NULL` with password reset or magic-link setup.
+- Kept Goal 4.9 pending because owner approval is still required before implementation or writes.
+
+Evidence:
+
+- Legacy duplicate lower-trimmed email groups: `95`.
+- Rows in duplicate email groups: `192`.
+- Largest duplicate group size: `3`.
+- Active rows in duplicate groups: `190`.
+- Student user references in duplicate groups: `192`.
+- Teacher user references in duplicate groups: `2`.
+- Staff and superuser rows in duplicate groups: `0`.
+
+Decision Request:
+
+- Password policy: approve `password = NULL` plus reset/magic-link setup, or require Django PBKDF2 compatibility in `auth-microservice`.
+- Duplicate-email policy: approve a dedicated auth-owned mapping table, account merge, or canonical import with skipped duplicates.
+- Implementation boundary: approve adding the dry-run/bootstrap path only inside `/home/ssf/Documents/Github/auth-microservice`.
+
+Next:
+
+- Record owner approval for the recommended auth-owned mapping and password-reset policy, then create the auth-microservice dry-run/bootstrap implementation plan.
+
+## 2026-06-12 - Goal 4.9 Auth Bootstrap Implementation Plan
+
+Status: in progress
+
+Changed:
+
+- Added `docs/orchestrator/AUTH_BOOTSTRAP_IMPLEMENTATION_PLAN.md`.
+- Inspected `auth-microservice` implementation patterns without changing that repo.
+- Recorded the proposed TypeORM mapping entity, dry-run script contract, apply-mode restrictions, verification sequence, and rollback boundary.
+
+Evidence:
+
+- `auth-microservice/package.json` uses NestJS/TypeScript with `npm run build`, `npm run test`, and TypeORM dependencies.
+- `auth-microservice/shared/database/database.module.ts` registers TypeORM entities directly and uses `DB_SYNC=true` only when configured.
+- Existing operational scripts include TypeScript/Nest application-context scripts such as `scripts/seed-rbac.ts`.
+- No `auth-microservice` files were modified in this step.
+
+Guardrail:
+
+- The implementation plan does not authorize auth code changes or writes. Owner approval is still required for password policy, duplicate-email policy, and the auth-owned implementation boundary.
+
+Next:
+
+- Owner approval remains required before creating the auth-microservice dry-run/bootstrap implementation.

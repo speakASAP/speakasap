@@ -84,7 +84,8 @@ Chunks:
 - [x] 4.5 Add dry-run/reconciliation reports before writes for selected migrations.
 - [x] 4.6 Add idempotency keys or duplicate guards where migration can be rerun.
 - [x] 4.7 Capture DB-backed dry-run reports from education, user, course, and lesson-record migrations when the legacy source database endpoint is reachable.
-- [ ] 4.8 Resolve auth identity reconciliation/bootstrap prerequisite before any user/profile write migration.
+- [x] 4.8 Resolve auth identity reconciliation/bootstrap prerequisite before any user/profile write migration.
+- [ ] 4.9 Get owner approval for auth bootstrap duplicate-email and password policy, then implement only inside `auth-microservice`.
 
 Acceptance criteria:
 
@@ -99,6 +100,9 @@ Acceptance criteria:
 - `education-service/scripts/migrate-education-from-legacy.py` and `course-service/scripts/migrate-course-from-legacy.py` refuse write-mode reruns when target preserved IDs or composite keys already exist, unless the owner-approved truncation path is explicitly selected.
 - DB-backed dry-run reports were captured under `/tmp/speakasap-*-dry-run.json` on `alfares`; no writes were performed.
 - User/profile migration remains gated by auth identity mapping because the target auth index currently resolves only a small subset of legacy portal users.
+- `docs/orchestrator/AUTH_IDENTITY_RECONCILIATION.md` records the Goal 4.8 decision: auth bootstrap is required, email-only mapping is unsafe, and no user-service write migration may run before owner-approved auth-owned mapping exists.
+- `docs/orchestrator/AUTH_BOOTSTRAP_OWNER_DECISION.md` records the Goal 4.9 approval request and recommended auth-owned mapping/password policy.
+- `docs/orchestrator/AUTH_BOOTSTRAP_IMPLEMENTATION_PLAN.md` records the post-approval implementation boundary, proposed mapping schema, dry-run script contract, verification sequence, and rollback boundary.
 
 ## Goal 5 - Lesson Recording And Private Media Migration
 

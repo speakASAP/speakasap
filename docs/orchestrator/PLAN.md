@@ -290,8 +290,29 @@ Verification:
 - Owner approval is required before any auth bootstrap or user/profile write migration.
 - User migration remains read-only until identity reconciliation is resolved.
 
-Status: pending. Goal 4.7 found target user-service tables empty but only a small target auth identity subset available for legacy email matching.
+Status: done. See `AUTH_IDENTITY_RECONCILIATION.md`.
+
+### Chunk 4.9 - Auth Bootstrap Owner Decision
+
+Deliverables:
+
+- Get owner approval for the auth bootstrap policy:
+  - password reset/magic-link setup vs Django PBKDF2 compatibility;
+  - duplicate email merge/skip/mapping-table handling;
+  - auth-owned schema/API/script location.
+- Implement only in `auth-microservice` after approval; do not write auth users directly from SpeakASAP scripts.
+- Add an auth-owned dry-run report before any auth write path.
+- Record the approval options and duplicate-email evidence in an owner-facing decision artifact.
+- Prepare the implementation plan for the approved path without changing `auth-microservice` before owner approval.
+
+Verification:
+
+- Auth dry-run reports total legacy users, duplicate email groups, importable identities, skipped identities, and password policy.
+- No direct DB write to auth `users` table is performed by AI outside an approved auth-service migration path.
+- User-service dry run shows unresolved auth counts match the approved skip policy.
+
+Status: pending. `AUTH_BOOTSTRAP_OWNER_DECISION.md` records the approval request, recommended policy, alternatives, and duplicate-email aggregate evidence. `AUTH_BOOTSTRAP_IMPLEMENTATION_PLAN.md` records the proposed auth-microservice implementation sequence after approval.
 
 ## Next Goal Selection
 
-Continue Goal 4.8 by tracing the existing auth migration/bootstrap path and deciding how legacy `auth_user` rows should map to target auth UUIDs.
+Continue Goal 4.9 by getting owner approval for the auth bootstrap password and duplicate-email policy before any write-mode migration.
