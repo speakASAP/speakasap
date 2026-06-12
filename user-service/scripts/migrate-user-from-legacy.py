@@ -9,11 +9,15 @@ Env:
 
 Options:
   --dry-run          — reconciliation report only; no writes
+  --apply            — execute user-service writes; requires --confirm-write, --approval-note, and --rollback-plan
   --check-target     — include target counts/conflict samples in dry run
   --json-report      — print machine-readable dry-run report
   --limit            — maximum sample rows per reconciliation bucket
   --truncate-first   — delete target user-domain tables (FK-safe order) before import
   --allow-truncate-first — required together with --truncate-first outside dry run
+  --confirm-write    — required with --apply
+  --approval-note    — owner approval evidence; required with --apply
+  --rollback-plan    — path for rollback SQL generated before --apply writes
 
 Identity:
   Target rows require auth_user_id (UUID) = auth-microservice users.id.
@@ -1083,9 +1087,41 @@ def reset_sequences(tgt) -> None:
     cur.close()
 
 
+def write_rollback_plan(path: str) -> None:
+    sql = """-- Rollback boundary for SpeakASAP legacy user/profile migration.
+-- Generated before write-gated apply. Review before execution.
+-- Scope: removes rows created/updated from legacy SpeakASAP portal identities.
+BEGIN;
+DELETE FROM "teacher_additional_languages"
+WHERE "teacher_id" IN (
+  SELECT "id" FROM "teachers" WHERE "legacy_portal_user_id" IS NOT NULL
+);
+DELETE FROM "students" WHERE "legacy_portal_user_id" IS NOT NULL;
+DELETE FROM "teachers" WHERE "legacy_portal_user_id" IS NOT NULL;
+DELETE FROM "managers" WHERE "legacy_portal_user_id" IS NOT NULL;
+DELETE FROM "employee_profiles" WHERE "legacy_portal_user_id" IS NOT NULL;
+DELETE FROM "user_identity_mirror" WHERE "legacy_portal_user_id" IS NOT NULL;
+COMMIT;
+"""
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(sql)
+
+
+def post_apply_report(tgt, approval_note: str, elapsed_s: float, migrated: dict[str, int]) -> dict[str, object]:
+    return {
+        "dry_run": False,
+        "writes": True,
+        "approval_note": approval_note,
+        "elapsed_s": round(elapsed_s, 1),
+        "migrated": migrated,
+        "target_counts": table_counts(tgt, TARGET_TABLES),
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true", help="produce reconciliation report without writes")
+    ap.add_argument("--apply", action="store_true", help="execute write-gated user-service import")
     ap.add_argument("--check-target", action="store_true", help="include target counts and conflicts in dry run")
     ap.add_argument("--json-report", action="store_true", help="print dry-run report as JSON")
     ap.add_argument("--limit", type=int, default=25, help="maximum sample rows per reconciliation bucket")
@@ -1095,6 +1131,9 @@ def main() -> int:
         action="store_true",
         help="required with --truncate-first outside dry-run",
     )
+    ap.add_argument("--confirm-write", action="store_true", help="required with --apply")
+    ap.add_argument("--approval-note", default="", help="owner approval note required with --apply")
+    ap.add_argument("--rollback-plan", default="", help="write rollback SQL to this path before --apply writes")
     args = ap.parse_args()
 
     src_url = os.environ.get("SOURCE_DATABASE_URL")
@@ -1104,6 +1143,22 @@ def main() -> int:
     if not src_url:
         log("ERROR: SOURCE_DATABASE_URL required")
         return 1
+    if args.dry_run and args.apply:
+        log("Refusing to combine --dry-run and --apply")
+        return 2
+    if not args.dry_run and not args.apply:
+        log("Refusing to write by default; use --dry-run for reconciliation or --apply with write gates")
+        return 2
+    if args.apply:
+        if not args.confirm_write:
+            log("Refusing --apply without --confirm-write")
+            return 2
+        if not args.approval_note.strip():
+            log("Refusing --apply without --approval-note")
+            return 2
+        if not args.rollback_plan.strip():
+            log("Refusing --apply without --rollback-plan")
+            return 2
     if not args.dry_run and args.truncate_first and not args.allow_truncate_first:
         log("Refusing --truncate-first without --allow-truncate-first")
         return 2
@@ -1145,6 +1200,9 @@ def main() -> int:
     auth_map = load_legacy_user_id_to_uuid(auth)
     auth.close()
 
+    write_rollback_plan(args.rollback_plan)
+    log(f"rollback plan written: {args.rollback_plan}")
+
     if args.truncate_first:
         truncate_target(tgt)
 
@@ -1166,7 +1224,28 @@ def main() -> int:
 
     reset_sequences(tgt)
 
-    log(f"done elapsed_s={time.time() - t0:.1f}")
+    elapsed_s = time.time() - t0
+    report = post_apply_report(
+        tgt,
+        args.approval_note.strip(),
+        elapsed_s,
+        {
+            "user_identity_mirror": n_mir,
+            "user_identity_mirror_skipped_no_auth": sk_mir,
+            "managers": n_man,
+            "managers_skipped_no_auth": sk_man,
+            "teachers": n_t,
+            "teachers_skipped_no_auth": sk_t,
+            "teacher_additional_languages": n_lang,
+            "students": n_s,
+            "students_skipped_no_auth": sk_s,
+            "employee_profiles": n_e,
+            "employee_profiles_skipped_no_auth": sk_e,
+        },
+    )
+    if args.json_report:
+        print(json.dumps(report, indent=2, sort_keys=True), flush=True)
+    log(f"done elapsed_s={elapsed_s:.1f}")
     src.close()
     tgt.close()
     return 0

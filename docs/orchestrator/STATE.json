@@ -3,7 +3,7 @@
   "last_cycle_at": "2026-06-12T00:00:00.000Z",
   "tasks_active": 1,
   "current_goal": "Goal 4 - Data Migration And Reconciliation",
-  "current_chunk": "4.10 Auth bootstrap apply gate",
+  "current_chunk": "4.12 User/profile apply gate awaiting owner approval",
   "next_goal": "Goal 4 - Data Migration And Reconciliation",
   "status": "active"
 }

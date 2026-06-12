@@ -725,3 +725,57 @@ Guardrail:
 Next:
 
 - Goal 4.12: review the user/profile dry-run evidence and run write-gated user-service apply only after explicit owner approval.
+
+## 2026-06-12 - Goal 4.12 User/Profile Apply Gate Review
+
+Status: awaiting owner approval
+
+Changed:
+
+- Reviewed the user/profile no-write dry-run evidence from `/tmp/speakasap-user-dry-run-auth-mapping-v3.json` on `alfares`.
+- Hardened `user-service/scripts/migrate-user-from-legacy.py` so write mode is no longer the default when `--dry-run` is omitted.
+- Added explicit write gates: `--apply`, `--confirm-write`, `--approval-note`, and `--rollback-plan`.
+- Added pre-apply rollback SQL generation for legacy user/profile rows and optional post-apply JSON reporting.
+- Copied the gated script to `/home/ssf/Documents/Github/speakasap/user-service/scripts/migrate-user-from-legacy.py` on `alfares`.
+
+Evidence:
+
+- RAG retrieval from `docs-rag-microservice.statex-apps.svc.cluster.local:3397` was attempted from the local session and timed out, so repository and remote report evidence were used.
+- Dry-run report reviewed on `alfares`: `/tmp/speakasap-user-dry-run-auth-mapping-v3.json`.
+- Dry-run summary:
+  - `writes=false`
+  - `auth_mapping_size=214230`
+  - unresolved auth counts for auth users, students, teachers, managers, and employee profiles are all `0`
+  - missing source references are all `0`
+  - target user-service tables are all empty
+  - target ID conflicts are all `0`
+  - target auth UUID conflicts are all `0`
+  - `teacher_additional_languages` replacement scope is `0`
+- Remote verification passed:
+  - `python3 -m py_compile user-service/scripts/migrate-user-from-legacy.py`
+  - `python3 user-service/scripts/migrate-user-from-legacy.py --help` shows `--apply`, `--confirm-write`, `--approval-note`, and `--rollback-plan`
+  - default write mode refuses before DB connection: `Refusing to write by default; use --dry-run for reconciliation or --apply with write gates`
+  - incomplete apply refuses before DB connection without `--confirm-write`, without `--approval-note`, and without `--rollback-plan`
+- A fresh dry run with the gated script was attempted, but `AUTH_DATABASE_URL` currently points to `127.0.0.1:5432` on `alfares` and that connection refused. The existing v3 dry-run remains the reviewed data evidence, and the final pre-apply dry run must be rerun after the auth DB connection is restored.
+
+Guardrail:
+
+- User-service apply was not run in this session because explicit owner approval for the user-service write migration was not provided.
+- User-service migration still only reads auth-owned `legacy_identity_mappings`; it does not create or mutate auth users.
+
+Prepared apply command after explicit owner approval and restored DB connectivity:
+
+```bash
+cd /home/ssf/Documents/Github/speakasap
+set -a && . ./.env && set +a
+python3 user-service/scripts/migrate-user-from-legacy.py \
+  --apply \
+  --confirm-write \
+  --approval-note "OWNER_APPROVAL_TEXT_AND_DATE" \
+  --rollback-plan /tmp/speakasap-user-profile-rollback-apply-v1.sql \
+  --json-report > /tmp/speakasap-user-profile-apply-v1.json
+```
+
+Next:
+
+- Get explicit owner approval for the user-service write migration, restore the auth DB connection for the final pre-apply dry run, then run the gated apply and capture post-apply counts.

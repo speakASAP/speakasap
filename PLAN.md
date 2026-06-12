@@ -8,7 +8,7 @@ The previous growth-and-retention plan is superseded for this workstream by the 
 
 **Goal 4 - Data Migration And Reconciliation**
 
-Auth bootstrap is applied and deployed in `auth-microservice` with legacy Django PBKDF2 password continuity. User/profile migration now resolves target auth UUIDs from auth-owned `legacy_identity_mappings` and has a clean no-write dry-run. Continue with Goal 4.12: review the user/profile dry-run evidence and run write-gated user-service apply only after explicit owner approval.
+Auth bootstrap is applied and deployed in `auth-microservice` with legacy Django PBKDF2 password continuity. User/profile migration resolves target auth UUIDs from auth-owned `legacy_identity_mappings`, has clean no-write dry-run evidence, and now refuses writes unless explicit apply gates are supplied. Continue Goal 4.12 by getting explicit owner approval, restoring the auth DB connection for the final pre-apply check, and then running the write-gated user-service apply.
 
 ## Roadmap
 

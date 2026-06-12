@@ -363,8 +363,8 @@ Verification:
 - Auth UUID conflicts remain zero before write.
 - No auth users are created or modified by user-service migration.
 
-Status: next.
+Status: awaiting owner approval. The user/profile dry-run evidence in `/tmp/speakasap-user-dry-run-auth-mapping-v3.json` was reviewed and is clean. `user-service/scripts/migrate-user-from-legacy.py` now refuses default writes and requires `--apply --confirm-write --approval-note ... --rollback-plan ...` before any write. Apply was not run because this session did not include explicit owner approval for the user-service write migration.
 
 ## Next Goal Selection
 
-Continue Goal 4.12 by reviewing the user/profile dry-run evidence and running the write-gated user-service apply only after explicit owner approval.
+Continue Goal 4.12 by getting explicit owner approval for the user-service write migration, restoring the `AUTH_DATABASE_URL` connection needed for the final pre-apply check, and then running the write-gated apply command with rollback/report artifacts.
