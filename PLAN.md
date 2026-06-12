@@ -8,7 +8,7 @@ The previous growth-and-retention plan is superseded for this workstream by the 
 
 **Goal 4 - Data Migration And Reconciliation**
 
-Capture DB-backed dry-run reports for education, user, course, and lesson-record migrations once the configured legacy source database endpoint is reachable.
+Resolve auth identity reconciliation/bootstrap before any user/profile write migration. DB-backed dry-run reports are captured; the current blocker is mapping legacy portal users to target auth UUIDs.
 
 ## Roadmap
 

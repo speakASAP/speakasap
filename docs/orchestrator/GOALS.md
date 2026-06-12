@@ -83,7 +83,8 @@ Chunks:
 - [x] 4.4 Define source-to-target mapping for course, education, user, assessment, certification, payment, salary, financial, notification, and content records.
 - [x] 4.5 Add dry-run/reconciliation reports before writes for selected migrations.
 - [x] 4.6 Add idempotency keys or duplicate guards where migration can be rerun.
-- [ ] 4.7 Capture DB-backed dry-run reports from education, user, course, and lesson-record migrations when the legacy source database endpoint is reachable.
+- [x] 4.7 Capture DB-backed dry-run reports from education, user, course, and lesson-record migrations when the legacy source database endpoint is reachable.
+- [ ] 4.8 Resolve auth identity reconciliation/bootstrap prerequisite before any user/profile write migration.
 
 Acceptance criteria:
 
@@ -96,6 +97,8 @@ Acceptance criteria:
 - `docs/orchestrator/MIGRATION_SCRIPT_INVENTORY.md` records existing migration scripts, Prisma schemas, dry-run quality, write safety, and next mapping priority.
 - `docs/orchestrator/SOURCE_TARGET_MAPPING.md` maps source tables, target models, identifier strategy, orphan handling, and reconciliation checks for the remaining migration domains.
 - `education-service/scripts/migrate-education-from-legacy.py` and `course-service/scripts/migrate-course-from-legacy.py` refuse write-mode reruns when target preserved IDs or composite keys already exist, unless the owner-approved truncation path is explicitly selected.
+- DB-backed dry-run reports were captured under `/tmp/speakasap-*-dry-run.json` on `alfares`; no writes were performed.
+- User/profile migration remains gated by auth identity mapping because the target auth index currently resolves only a small subset of legacy portal users.
 
 ## Goal 5 - Lesson Recording And Private Media Migration
 

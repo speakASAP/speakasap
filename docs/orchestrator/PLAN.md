@@ -273,8 +273,25 @@ Verification:
 - Dry-run commands complete without writes.
 - Status records report locations or summarized counts.
 
-Status: pending. Current `.env` points the legacy source to `127.0.0.1:15432`, which refused connection during verification.
+Status: done. Captured DB-backed dry-run reports under `/tmp/speakasap-education-dry-run.json`, `/tmp/speakasap-course-dry-run.json`, `/tmp/speakasap-user-dry-run.json`, and `/tmp/speakasap-lesson-records-dry-run.json` on `alfares`.
+
+### Chunk 4.8 - Auth Identity Reconciliation
+
+Deliverables:
+
+- Determine whether target `auth-microservice` should be bootstrapped from legacy `auth_user` before user-service profile migration.
+- Define the exact identity mapping contract from legacy `auth_user.id` and email to target auth UUID.
+- Add or identify a dry-run report that explains unresolved identities before any write path.
+- Preserve `auth-microservice` ownership; user-service must not invent auth identities outside the approved auth path.
+
+Verification:
+
+- The target auth index size and unresolved legacy identity counts are recorded.
+- Owner approval is required before any auth bootstrap or user/profile write migration.
+- User migration remains read-only until identity reconciliation is resolved.
+
+Status: pending. Goal 4.7 found target user-service tables empty but only a small target auth identity subset available for legacy email matching.
 
 ## Next Goal Selection
 
-Continue Goal 4.7 by restoring the legacy source DB endpoint configured at `127.0.0.1:15432`, then running the read-only dry-run reports.
+Continue Goal 4.8 by tracing the existing auth migration/bootstrap path and deciding how legacy `auth_user` rows should map to target auth UUIDs.
