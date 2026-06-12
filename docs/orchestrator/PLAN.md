@@ -257,6 +257,24 @@ Verification:
 - Rerun behavior is documented.
 - Any write-mode idempotency policy is explicit: upsert, skip duplicate, or fail with conflict report.
 
+Status: done. Education and course write mode now use explicit `conflict_policy=fail` target preflight before plain inserts.
+
+### Chunk 4.7 - DB-Backed Dry-Run Capture
+
+Deliverables:
+
+- Run education, user, course, and lesson-record dry-run reports against actual source and target databases.
+- Store or summarize counts, missing references, duplicate keys, and target conflicts without exposing secrets.
+- Keep reports read-only.
+
+Verification:
+
+- Legacy source DB endpoint is reachable.
+- Dry-run commands complete without writes.
+- Status records report locations or summarized counts.
+
+Status: pending. Current `.env` points the legacy source to `127.0.0.1:15432`, which refused connection during verification.
+
 ## Next Goal Selection
 
-Continue Goal 4.6 by adding idempotency or duplicate guards to the education/course plain-insert migration paths.
+Continue Goal 4.7 by restoring the legacy source DB endpoint configured at `127.0.0.1:15432`, then running the read-only dry-run reports.

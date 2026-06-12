@@ -82,7 +82,8 @@ Chunks:
 - [x] 4.3 Inventory remaining existing migration scripts and Prisma schemas.
 - [x] 4.4 Define source-to-target mapping for course, education, user, assessment, certification, payment, salary, financial, notification, and content records.
 - [x] 4.5 Add dry-run/reconciliation reports before writes for selected migrations.
-- [ ] 4.6 Add idempotency keys or duplicate guards where migration can be rerun.
+- [x] 4.6 Add idempotency keys or duplicate guards where migration can be rerun.
+- [ ] 4.7 Capture DB-backed dry-run reports from education, user, course, and lesson-record migrations when the legacy source database endpoint is reachable.
 
 Acceptance criteria:
 
@@ -94,6 +95,7 @@ Acceptance criteria:
 - `education-service/scripts/migrate-lesson-records-from-legacy.py` exists and supports read-only dry-run reporting.
 - `docs/orchestrator/MIGRATION_SCRIPT_INVENTORY.md` records existing migration scripts, Prisma schemas, dry-run quality, write safety, and next mapping priority.
 - `docs/orchestrator/SOURCE_TARGET_MAPPING.md` maps source tables, target models, identifier strategy, orphan handling, and reconciliation checks for the remaining migration domains.
+- `education-service/scripts/migrate-education-from-legacy.py` and `course-service/scripts/migrate-course-from-legacy.py` refuse write-mode reruns when target preserved IDs or composite keys already exist, unless the owner-approved truncation path is explicitly selected.
 
 ## Goal 5 - Lesson Recording And Private Media Migration
 

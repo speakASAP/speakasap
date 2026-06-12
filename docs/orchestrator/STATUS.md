@@ -391,3 +391,31 @@ Goal 4.5 result:
 Next:
 
 - Goal 4.6: add idempotency or duplicate guards where these migrations can be rerun, starting with plain-insert education/course copy paths.
+
+## 2026-06-12 - Goal 4.6 Idempotency / Duplicate Guards
+
+Status: done
+
+Changed:
+
+- Added write-mode duplicate guards to `education-service/scripts/migrate-education-from-legacy.py`.
+- Added write-mode duplicate guards to `course-service/scripts/migrate-course-from-legacy.py`.
+- Both scripts now run target conflict preflight before plain-insert write mode when `--truncate-first` is not selected.
+- The explicit write-mode policy is `conflict_policy=fail`: preserved target IDs and composite keys are checked before inserts, and any conflict causes the script to exit before writing rows.
+- Existing owner-gated truncation remains the only path that can deliberately clear target tables before import.
+- Marked Goal 4.6 complete and added Goal 4.7 for DB-backed dry-run capture.
+
+Evidence:
+
+- `python3 -m py_compile education-service/scripts/migrate-education-from-legacy.py course-service/scripts/migrate-course-from-legacy.py user-service/scripts/migrate-user-from-legacy.py education-service/scripts/migrate-lesson-records-from-legacy.py` passed on the remote repo.
+- `python3 education-service/scripts/migrate-education-from-legacy.py --help` and `python3 course-service/scripts/migrate-course-from-legacy.py --help` show the dry-run/reporting and truncation-approval flags.
+- Running `--truncate-first` with invalid source/target URLs exits with code 2 for both education and course scripts and refuses before attempting a DB connection.
+- `.env` exists and contains the required key names for education/course/source/target/auth database URLs, but the configured legacy source endpoint at `127.0.0.1:15432` refused connection during DB-backed dry-run execution.
+
+Remaining for Goal 4:
+
+- Capture DB-backed dry-run reports once the legacy source database endpoint is reachable.
+
+Next:
+
+- Goal 4.7: restore or start the legacy source DB endpoint configured at `127.0.0.1:15432`, then run read-only dry-run reports for education, user, course, and lesson-record migrations.

@@ -8,7 +8,7 @@ The previous growth-and-retention plan is superseded for this workstream by the 
 
 **Goal 4 - Data Migration And Reconciliation**
 
-Add idempotency or duplicate guards to migration scripts that still use plain inserts, starting with education and course migrations.
+Capture DB-backed dry-run reports for education, user, course, and lesson-record migrations once the configured legacy source database endpoint is reachable.
 
 ## Roadmap
 

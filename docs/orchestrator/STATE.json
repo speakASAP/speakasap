@@ -1,9 +1,9 @@
 {
-  "cycle": 13,
+  "cycle": 14,
   "last_cycle_at": "2026-06-12T00:00:00.000Z",
   "tasks_active": 1,
   "current_goal": "Goal 4 - Data Migration And Reconciliation",
-  "current_chunk": "4.6 Idempotency and duplicate guards",
+  "current_chunk": "4.7 DB-backed dry-run capture",
   "next_goal": "Goal 4 - Data Migration And Reconciliation",
   "status": "active"
 }
