@@ -1,19 +1,42 @@
-# Tasks: speakasap
+# SpeakASAP Orchestrator Tasks
 
-## Backlog
+This file is the root task index for the SpeakASAP master orchestrator. Detailed goals and chunk status live in `docs/orchestrator/GOALS.md`; runtime state lives in `docs/orchestrator/IMPLEMENTATION_STATE.md`, `docs/orchestrator/STATE.json`, and root `STATE.json`.
 
-None.
+## Active Task
 
-## Completed
-<!-- AI appends here. Never modifies previous entries. -->
-- [x] 2026-04-05 Documentation standard applied
-- [x] 2026-04-13 TASK-48 + AGENT48V: P4-OE PASS (payment wave program validation); `PHASE4_PAYMENT_VALIDATION_REPORT.md`, `PHASE4_PAYMENT_CUTOVER_CHECKLIST.md`
-- [x] 2026-04-14 TASK-62 + AGENT62V: P4-FD PASS (financial migration validation; live SQL reconciliation deferred and tracked)
-- [x] 2026-04-14 TASK-63 + AGENT63V: P4-FE PASS (financial wave meta-validation); `PHASE4_FINANCIAL_VALIDATION_REPORT.md`, `PHASE4_FINANCIAL_CUTOVER_CHECKLIST.md`
-- [x] 2026-04-19 Phase 5 decomposition created: `docs/refactoring/PHASE5_TASK_DECOMPOSITION.md`
-- [x] 2026-04-19 AGENT64 + AGENT64V drafted: `docs/agents/AGENT64_API_GATEWAY_SCAFFOLD.md`, `docs/agents/AGENT64V_API_GATEWAY_SCAFFOLD_VALIDATE.md`
-- [x] 2026-04-19 Gateway route ownership matrix frozen: `docs/refactoring/GATEWAY_ROUTE_OWNERSHIP_MATRIX.md`
-- [x] 2026-04-19 AGENT65 + AGENT65V drafted: `docs/agents/AGENT65_GATEWAY_CONTRACT_DESIGN.md`, `docs/agents/AGENT65V_GATEWAY_CONTRACT_DESIGN_VALIDATE.md`
-- [x] 2026-04-19 TASK-65 artifacts created: `docs/refactoring/GATEWAY_API_CONTRACT.md`, `docs/refactoring/GATEWAY_AUTH_BOUNDARY.md`
-- [x] 2026-04-19 AGENT65V PASS: `P5-GB` cleared for TASK-66
-- [x] 2026-04-19 TASK-66: api-gateway proxy + auth guard + rate limit + `npm run build` in `api-gateway/`
+- Goal 4.12: restore final user/profile pre-apply DB evidence and reaffirm the user-service write gate.
+
+Current gate:
+
+- Treat `/tmp/speakasap-user-dry-run-auth-mapping-v6.json` as the restored final pre-apply evidence for the completed Goal 4.12 user/profile apply.
+- Do not run any future user-service write migration, rerun, rollback execution, or truncation until a fresh no-write report is clean and owner approval is recorded.
+- Do not write user-service rows without `--apply`, `--confirm-write`, `--approval-note`, and `--rollback-plan`.
+- Preserve dry-run reports, apply commands, approval notes, rollback evidence, and post-apply verification in `docs/orchestrator/STATUS.md`.
+
+## Required Task Flow
+
+1. Read `AGENTS.md`, `BUSINESS.md`, `SYSTEM.md`, `docs/orchestrator/MASTER_PROMPT.md`, `docs/orchestrator/IMPLEMENTATION_ORCHESTRATOR.md`, `docs/orchestrator/INTENT.md`, `docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md`, `docs/orchestrator/GOALS.md`, `docs/orchestrator/PLAN.md`, `docs/orchestrator/IMPLEMENTATION_STATE.md`, `docs/orchestrator/STATE.json`, `docs/orchestrator/STATUS.md`, this file, and root `STATE.json`.
+2. Query RAG if reachable; otherwise record repository-evidence fallback in `docs/orchestrator/STATUS.md`.
+3. Select the earliest active or pending chunk unless the owner explicitly redirects.
+4. Restate the preserved business intent, service owner, data owner, auth boundary, storage boundary, and rollback boundary.
+5. Implement only the selected chunk.
+6. Run the documented verification commands or record why they could not run.
+7. Complete the intent-preservation checklist in `docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md`.
+8. Append evidence to `docs/orchestrator/STATUS.md`.
+9. Commit only after the pre-commit intent gate passes.
+
+## Queue
+
+1. Finish Goal 4 data migration and reconciliation gates.
+2. Start Goal 5 lesson recording and private media migration.
+3. Verify Goal 6 gateway, auth, and frontend parity.
+4. Prepare Goal 7 operational cutover readiness.
+5. Execute Goal 8 controlled cutover and legacy decommission only after owner approval.
+
+## Task Rules
+
+- The master orchestrator chooses the next task from state and goals; worker agents do not choose roadmap order.
+- Every task must preserve SpeakASAP intent, service ownership, private data boundaries, and legacy behavior parity.
+- Coding tasks require a scoped execution plan, verification evidence, and a status entry before completion.
+- Migration commits require the `Intent`, `Scope`, `Evidence`, `Verification`, `Approval`, and `Rollback` commit-message block defined in `docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md`.
+- Owner questions are reserved for approval gates, destructive operations, unclear scope, or true blockers.

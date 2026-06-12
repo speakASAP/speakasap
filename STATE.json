@@ -1,20 +1,13 @@
 {
-  "cycle": 50,
-  "priority": 5,
-  "current_step": "verification",
-  "max_attempts": 3,
-  "tasks_active": 0,
-  "last_cycle_at": "2026-05-23T09:13:45.919Z",
-  "target_service": "marketing-microservice",
-  "smoke_test_urls": [
-    "http://marketing-microservice:4600/health"
-  ],
-  "acceptance_criteria": [
-    "implement:checkout"
-  ],
-  "blacklisted_services": [
-    "auth-microservice",
-    "payments-microservice",
-    "database-server"
-  ]
+  "cycle": 19,
+  "last_cycle_at": "2026-06-12T00:00:00.000Z",
+  "orchestrator": "SpeakASAP master implementation orchestrator",
+  "tasks_active": 1,
+  "current_goal": "Goal 4 - Data Migration And Reconciliation",
+  "current_chunk": "4.12 user/profile final evidence restoration and write-gate reaffirmation",
+  "intent_preservation_system": "docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md",
+  "next_goal": "Goal 4 - Data Migration And Reconciliation",
+  "status": "active",
+  "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
+  "next_required_action": "Do not run any future user-service write migration or rerun without fresh no-write DB evidence, rollback artifact, and explicit owner approval; then resume the next gated migration task."
 }

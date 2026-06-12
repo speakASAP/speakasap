@@ -1049,3 +1049,63 @@ Evidence:
 Next:
 
 - Goal 4.13 remains the active migration task: capture final education/course no-write dry-runs before any write-gated apply.
+
+## 2026-06-12 - Goal 4.12 Final Pre-Apply Evidence Restored
+
+Status: done
+
+Changed:
+
+- Restored the final pre-apply DB evidence for the user/profile migration as the authoritative Goal 4.12 pre-write checkpoint.
+- Hardened `user-service/scripts/migrate-user-from-legacy.py` so CLI write-gate checks run before database URL checks or DB driver import.
+- Copied the hardened script to `/home/ssf/Documents/Github/speakasap/user-service/scripts/migrate-user-from-legacy.py` on `alfares`.
+- Reaffirmed that any future user-service write migration, rerun, truncation, rollback execution, or apply against a changed source/target requires fresh explicit owner approval, a current no-write report, an approval note, and rollback artifact.
+
+Evidence:
+
+- RAG retrieval to `docs-rag-microservice.statex-apps.svc.cluster.local:3397` failed with curl exit code `6`, so repository and remote runtime evidence were used.
+- Remote artifacts are present on `alfares`:
+  - `/tmp/speakasap-user-dry-run-auth-mapping-v6.json`
+  - `/tmp/speakasap-user-profile-rollback-apply-v1.sql`
+  - `/tmp/speakasap-user-profile-apply-v1.json`
+  - `/tmp/speakasap-user-dry-run-post-apply-v1.json`
+- Restored final pre-apply report: `/tmp/speakasap-user-dry-run-auth-mapping-v6.json`.
+  - `writes=false`
+  - `dry_run=true`
+  - `auth_mapping_size=214231`
+  - source counts: `auth_user=214231`, `students_student=214189`, `employees_teacher=380`, `employees_manager=3`, `employees_employeeprofile=8`, `employees_teacher_additional_languages=80`
+  - unresolved auth counts for auth users, students, teachers, managers, and employee profiles are all `0`
+  - missing source references are all `0`
+  - source duplicate-key counts are all `0`
+  - target user-service counts were all `0` before apply
+  - target ID conflicts and target auth UUID conflicts were all `0`
+  - replacement scope for `teacher_additional_languages` was `0`
+- Apply evidence remains unchanged:
+  - apply report `/tmp/speakasap-user-profile-apply-v1.json` recorded `writes=true`
+  - approval note in the apply report: `Owner approved user-service write migration from legacy SpeakASAP portal to new user-service on 2026-06-12`
+  - migrated counts: `user_identity_mirror=214231`, `students=214189`, `teachers=380`, `managers=3`, `employee_profiles=8`, `teacher_additional_languages=80`
+  - skipped no-auth counts for imported groups are all `0`
+- Post-apply reconciliation remains unchanged:
+  - `/tmp/speakasap-user-dry-run-post-apply-v1.json` recorded `writes=false`
+  - `auth_mapping_size=214231`
+  - unresolved auth counts remain `0`
+- Local verification:
+  - `python3 -m py_compile user-service/scripts/migrate-user-from-legacy.py` passed
+  - `python3 user-service/scripts/migrate-user-from-legacy.py` exits `2` with default write refusal before DB config
+  - `python3 user-service/scripts/migrate-user-from-legacy.py --apply` exits `2` without `--confirm-write`
+  - `python3 user-service/scripts/migrate-user-from-legacy.py --apply --confirm-write` exits `2` without `--approval-note`
+  - `python3 user-service/scripts/migrate-user-from-legacy.py --apply --confirm-write --approval-note test` exits `2` without `--rollback-plan`
+- Remote verification on `alfares`:
+  - `python3 -m py_compile user-service/scripts/migrate-user-from-legacy.py` passed
+  - default invocation exits `2` with write refusal before DB config
+  - incomplete `--apply` invocations exit `2` without `--confirm-write`, without `--approval-note`, and without `--rollback-plan`
+
+Guardrail:
+
+- No user-service write migration, rollback, truncation, or deployment was run in this restoration step.
+- The existing historical Goal 4.12 apply is not treated as standing approval for future user-service writes.
+- Future user-service applies must use `--apply --confirm-write --approval-note ... --rollback-plan ...` after a fresh owner approval and fresh no-write DB evidence.
+
+Next:
+
+- Resume the current data-migration roadmap only after honoring this gate: any future user-service write action requires explicit owner approval; education/course or lesson-record work remains separately gated by its own final dry-runs and approval evidence.

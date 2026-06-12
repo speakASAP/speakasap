@@ -2,11 +2,11 @@
   "cycle": 19,
   "last_cycle_at": "2026-06-12T00:00:00.000Z",
   "tasks_active": 1,
-  "current_goal": "Goal 5 - Lesson Recording And Private Media Migration",
-  "current_chunk": "5.1 Lesson recording private media migration",
+  "current_goal": "Goal 4 - Data Migration And Reconciliation",
+  "current_chunk": "4.12 user/profile final evidence restoration and write-gate reaffirmation",
   "intent_preservation_system": "docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md",
-  "next_goal": "Goal 5 - Lesson Recording And Private Media Migration",
+  "next_goal": "Goal 4 - Data Migration And Reconciliation",
   "status": "active",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md",
-  "next_required_action": "Implement lesson-recording metadata/private media migration now that target lessons exist."
+  "next_required_action": "Do not run any future user-service write migration or rerun without fresh no-write DB evidence, rollback artifact, and explicit owner approval; then resume the next gated migration task."
 }
