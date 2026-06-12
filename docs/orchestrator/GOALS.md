@@ -88,7 +88,8 @@ Chunks:
 - [x] 4.9 Get owner approval for auth bootstrap duplicate-email and password policy, then implement only inside `auth-microservice`.
 - [x] 4.10 Review auth bootstrap dry-run evidence and implement write-gated apply/rollback path only after explicit write approval.
 - [x] 4.11 Re-run and harden user/profile migration against auth-owned `legacy_identity_mappings`.
-- [ ] 4.12 Review user/profile dry-run evidence and run write-gated user-service apply only after explicit owner approval.
+- [x] 4.12 Review user/profile dry-run evidence and run write-gated user-service apply only after explicit owner approval.
+- [x] 4.13 Standardize education/course write gates and capture final pre-apply dry-runs.
 
 Acceptance criteria:
 
@@ -110,10 +111,15 @@ Acceptance criteria:
 - `docs/orchestrator/AUTH_BOOTSTRAP_APPLY_GATE.md` records the gated apply implementation, rollback SQL path, latest dry-run evidence, and remaining pre-apply steps.
 - Auth bootstrap was applied after explicit owner approval: `214230` legacy users mapped, `214224` auth users created, `192` duplicate-email identities preserved as separate null-email auth users, and the auth deployment health check passed after rollout.
 - User/profile migration now resolves auth UUIDs from `legacy_identity_mappings`; dry-run report `/tmp/speakasap-user-dry-run-auth-mapping-v3.json` showed `auth_mapping_size=214230`, unresolved auth counts `0`, target user-service tables empty, and target conflicts `0`.
+- User/profile migration was applied after the write gate: `/tmp/speakasap-user-profile-apply-v1.json` recorded `writes=true`, `user_identity_mirror=214231`, `students=214189`, `teachers=380`, `managers=3`, `employee_profiles=8`, and `teacher_additional_languages=80`; post-apply dry-run `/tmp/speakasap-user-dry-run-post-apply-v1.json` recorded unresolved auth counts `0`.
+- Education and course migrations now refuse default writes and require `--apply --confirm-write --approval-note ... --rollback-plan ...` before write mode.
+- Course migration was applied with rollback evidence: target counts now match source counts for categories, products, part-payment tables, extra lesson offers, and offers.
+- Education migration was applied with rollback evidence: target counts now match source counts for groups, group-student links, student courses, lessons, and homework.
+- Lesson-record dry-run after education apply shows `missing_target_lessons=0`; remaining issues are legacy media/key reconciliation (`parts_missing_rows=4080`, `orphan_parts=5781`, `legacy_prefix_keys_without_date=25934`, `record_key_date_mismatch=39477`).
 
 ## Goal 5 - Lesson Recording And Private Media Migration
 
-Status: pending
+Status: active
 
 Intent: Lesson recordings must remain private while moving storage references and access behavior.
 

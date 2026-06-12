@@ -2,7 +2,9 @@
 
 ## Execution Rule
 
-Work one goal chunk at a time. Prefer a complete, verifiable chunk over starting multiple migration tracks. The earliest unfinished chunk in `GOALS.md` is the default next target unless the owner explicitly selects another.
+Work one goal chunk at a time. Prefer a complete, verifiable chunk over starting multiple migration tracks. `IMPLEMENTATION_STATE.md` and root `STATE.json` define the default continuation point; if state is missing or inconsistent, the earliest unfinished chunk in `GOALS.md` is the fallback target unless the owner explicitly selects another.
+
+Before committing migration work, complete `docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md`. Commits must carry the preserved intent, goal/chunk scope, evidence, verification, approval status, and rollback plan.
 
 ## Active Goal
 
@@ -363,8 +365,45 @@ Verification:
 - Auth UUID conflicts remain zero before write.
 - No auth users are created or modified by user-service migration.
 
-Status: awaiting owner approval. The user/profile dry-run evidence in `/tmp/speakasap-user-dry-run-auth-mapping-v3.json` was reviewed and is clean. `user-service/scripts/migrate-user-from-legacy.py` now refuses default writes and requires `--apply --confirm-write --approval-note ... --rollback-plan ...` before any write. Apply was not run because this session did not include explicit owner approval for the user-service write migration.
+Status: done. Owner approved the user-service write migration on 2026-06-12. A final pre-apply dry-run caught one newly observed legacy user; the auth-owned catch-up mapped legacy `auth_user.id=314012`, then `/tmp/speakasap-user-dry-run-auth-mapping-v6.json` completed with `auth_mapping_size=214231`, unresolved auth counts `0`, missing references `0`, and target conflicts `0`. Apply report `/tmp/speakasap-user-profile-apply-v1.json` recorded `writes=true`, `214231` identity mirrors, `214189` students, `380` teachers, `3` managers, `8` employee profiles, and `80` teacher language rows with zero skips. Post-apply dry-run `/tmp/speakasap-user-dry-run-post-apply-v1.json` recorded unresolved auth counts `0`.
+
+### Chunk 4.13 - Education/Course Apply Gate Readiness
+
+Deliverables:
+
+- Standardize `education-service/scripts/migrate-education-from-legacy.py` and `course-service/scripts/migrate-course-from-legacy.py` with explicit `--apply`, `--confirm-write`, `--approval-note`, and `--rollback-plan` gates.
+- Verify default invocation refuses writes before database connection.
+- Capture final no-write education/course dry-run reports through a temporary Postgres port-forward.
+- Run education/course write-gated applies only after final reports are reviewed and approval evidence is included.
+
+Verification:
+
+- Scripts compile.
+- Help output lists the write-gate flags.
+- Default and incomplete apply invocations exit before DB connection.
+- Final dry-runs show missing references and target conflicts before any write.
+
+Status: done. Education and course scripts now refuse default writes and require explicit apply gates. Final pre-apply dry-runs showed duplicate counts `0`, missing references `0`, target counts `0`, and target conflicts `0`. Course apply wrote `5` categories, `24` part-payment collections, `71` part-payment options, `238` products, `108` product/payment links, `994` extra lesson offers, and `1900` offers. Education apply wrote `21476` groups, `21655` group-student links, `20125` student courses, `182600` lessons, and `52616` homework rows. Post-apply dry-runs show target counts match source counts.
+
+## Active Goal 5
+
+Goal 5 - Lesson Recording And Private Media Migration.
+
+### Chunk 5.1 - Lesson Recording Target Readiness
+
+Deliverables:
+
+- Re-run lesson-record dry-run after education core apply.
+- Confirm target lessons exist for legacy lesson-record rows.
+- Use remaining issue counts to drive metadata/private media migration implementation.
+
+Verification:
+
+- Lesson-record dry-run reports `missing_target_lessons=0`.
+- Remaining issues are media/key reconciliation issues, not missing education dependencies.
+
+Status: active. Post-education dry-run `/tmp/speakasap-lesson-records-dry-run-post-education-v1.json` reports `missing_target_lessons=0`; remaining issue counts are `parts_missing_rows=4080`, `orphan_parts=5781`, `legacy_prefix_keys_without_date=25934`, and `record_key_date_mismatch=39477`.
 
 ## Next Goal Selection
 
-Continue Goal 4.12 by getting explicit owner approval for the user-service write migration, restoring the `AUTH_DATABASE_URL` connection needed for the final pre-apply check, and then running the write-gated apply command with rollback/report artifacts.
+Continue Goal 5.1 by adding the target lesson-record schema/write-gated metadata migration and keeping object storage private.

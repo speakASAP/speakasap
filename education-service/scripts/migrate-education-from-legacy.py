@@ -9,10 +9,14 @@ Env (speakasap/.env at repo root):
 
 Options:
   --dry-run          — reconciliation report only; no writes
+  --apply            — execute write-gated import; requires --confirm-write, --approval-note, and --rollback-plan
   --check-target     — include target counts/conflict samples in dry run
   --json-report      — print machine-readable dry-run report
   --truncate-first   — delete target education tables (FK-safe order) before import
   --allow-truncate-first — required together with --truncate-first outside dry run
+  --confirm-write    — required with --apply
+  --approval-note    — owner approval evidence; required with --apply
+  --rollback-plan    — path for rollback SQL generated before --apply writes
 """
 from __future__ import annotations
 
@@ -546,9 +550,31 @@ def migrate(src, tgt, truncate: bool) -> None:
     )
 
 
+def write_rollback_plan(path: str, truncate: bool) -> None:
+    note = "Target tables are expected to be empty or conflict-free before apply."
+    if truncate:
+        note = "Apply used --truncate-first; this rollback removes imported rows but cannot restore rows deleted before import."
+    sql = f"""-- SpeakASAP education migration rollback plan
+-- Generated before write-gated apply.
+-- {note}
+-- Review before executing. This removes education rows in FK-safe order.
+
+BEGIN;
+DELETE FROM "education_homework";
+DELETE FROM "education_lesson";
+DELETE FROM "education_studentcourse";
+DELETE FROM "education_group_students";
+DELETE FROM "education_group";
+COMMIT;
+"""
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(sql)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="produce reconciliation report without writes")
+    parser.add_argument("--apply", action="store_true", help="execute write-gated education import")
     parser.add_argument("--check-target", action="store_true", help="include target counts and key conflicts in dry-run")
     parser.add_argument("--json-report", action="store_true", help="print dry-run report as JSON")
     parser.add_argument("--limit", type=int, default=25, help="maximum sample rows per reconciliation bucket")
@@ -558,14 +584,33 @@ def main() -> int:
         action="store_true",
         help="required with --truncate-first outside dry-run",
     )
+    parser.add_argument("--confirm-write", action="store_true", help="required with --apply")
+    parser.add_argument("--approval-note", default="", help="owner approval note required with --apply")
+    parser.add_argument("--rollback-plan", default="", help="write rollback SQL to this path before --apply writes")
     args = parser.parse_args()
 
     src_u = source_url()
     tgt_u = target_url()
+    if args.dry_run and args.apply:
+        log("Refusing to combine --dry-run and --apply")
+        return 2
+    if not args.dry_run and not args.apply:
+        log("Refusing to write by default; use --dry-run for reconciliation or --apply with write gates")
+        return 2
+    if args.apply:
+        if not args.confirm_write:
+            log("Refusing --apply without --confirm-write")
+            return 2
+        if not args.approval_note.strip():
+            log("Refusing --apply without --approval-note")
+            return 2
+        if not args.rollback_plan.strip():
+            log("Refusing --apply without --rollback-plan")
+            return 2
     if not src_u:
         log("Missing EDUCATION_SOURCE_DATABASE_URL or SOURCE_DATABASE_URL")
         return 1
-    if not args.dry_run and args.truncate_first and not args.allow_truncate_first:
+    if args.apply and args.truncate_first and not args.allow_truncate_first:
         log("Refusing --truncate-first without --allow-truncate-first")
         return 2
 
@@ -594,6 +639,9 @@ def main() -> int:
         try:
             if not args.truncate_first and not guard_no_target_conflicts(src, tgt, max(args.limit, 1)):
                 return 2
+            write_rollback_plan(args.rollback_plan, args.truncate_first)
+            log(f"rollback plan written: {args.rollback_plan}")
+            log(f"write approval noted: {args.approval_note}")
             migrate(src, tgt, args.truncate_first)
         finally:
             tgt.close()

@@ -779,3 +779,273 @@ python3 user-service/scripts/migrate-user-from-legacy.py \
 Next:
 
 - Get explicit owner approval for the user-service write migration, restore the auth DB connection for the final pre-apply dry run, then run the gated apply and capture post-apply counts.
+
+## 2026-06-12 - Goal 4.12 User/Profile Write Migration Applied
+
+Status: done
+
+Changed:
+
+- Owner explicitly approved the user-service write migration from the legacy SpeakASAP portal to the new `user-service`.
+- Preserved the intended two-copy migration state: legacy portal Postgres remains the legacy/reference copy, and `user-service` now owns a migrated profile-domain copy. Auth identities remain owned by `auth-microservice`.
+- Hardened `auth-microservice/scripts/bootstrap-speakasap-legacy-users.ts` so catch-up apply skips existing `legacy_identity_mappings` by legacy user ID before creating auth users.
+- Ran a targeted auth-owned catch-up for one newly observed legacy user that appeared after the earlier auth bootstrap.
+- Ran the write-gated `user-service/scripts/migrate-user-from-legacy.py --apply` with `--confirm-write`, owner approval note, rollback SQL path, and JSON report.
+
+Evidence:
+
+- Final pre-apply user dry-run before auth catch-up: `/tmp/speakasap-user-dry-run-auth-mapping-v5.json`.
+  - Found one newly observed unmapped legacy identity: `auth_user.id=314012`, student `215047`.
+- Narrow auth check for legacy user `314012`:
+  - active end-user
+  - `same_normalized_email_count=1`
+  - `existing_mapping_count=0`
+- Auth catch-up direct verification:
+  - `legacy_identity_mappings` has one row for `legacyUserId=314012`
+  - catch-up mapping status: `created`
+  - total SpeakASAP legacy auth mappings: `214231`
+- Final pre-apply user dry-run after auth catch-up: `/tmp/speakasap-user-dry-run-auth-mapping-v6.json`.
+  - `writes=false`
+  - `auth_mapping_size=214231`
+  - unresolved auth counts for auth users, students, teachers, managers, and employee profiles are all `0`
+  - missing source references are all `0`
+  - target user-service tables were still empty
+  - target ID conflicts and target auth UUID conflicts were all `0`
+- User-service apply artifacts:
+  - apply report: `/tmp/speakasap-user-profile-apply-v1.json`
+  - rollback SQL: `/tmp/speakasap-user-profile-rollback-apply-v1.sql`
+- User-service apply report:
+  - `writes=true`
+  - `user_identity_mirror=214231`, skipped `0`
+  - `students=214189`, skipped `0`
+  - `teachers=380`, skipped `0`
+  - `managers=3`, skipped `0`
+  - `employee_profiles=8`, skipped `0`
+  - `teacher_additional_languages=80`
+  - elapsed time `81.9s`
+- Direct post-apply DB counts:
+  - `user_identity_mirror=214231`
+  - `students=214189`
+  - `teachers=380`
+  - `managers=3`
+  - `employee_profiles=8`
+  - `teacher_additional_languages=80`
+- Post-apply no-write dry-run: `/tmp/speakasap-user-dry-run-post-apply-v1.json`.
+  - `writes=false`
+  - `auth_mapping_size=214231`
+  - unresolved auth counts remain `0`
+- Runtime check:
+  - `kubectl exec -n statex-apps deploy/speakasap-user -- ... /health` returned `{"status":"ok"}`.
+
+Guardrail:
+
+- No legacy portal rows were deleted or mutated.
+- No user-service truncation was used.
+- The user-service migration did not create or mutate auth users; the one required auth catch-up was performed through the auth-owned bootstrap path.
+- A temporary Kubernetes port-forward was used for DB access and was closed after each command.
+
+Next:
+
+- Goal 4.13: finish education/course apply-gate readiness and capture final pre-apply dry-run reports before any education or course data writes.
+
+## 2026-06-12 - Goal 4.12 User/Profile Apply And Post-Apply Reconciliation
+
+Status: done
+
+Changed:
+
+- Completed the write-gated user-service legacy user/profile import on `alfares`.
+- Captured rollback SQL before apply at `/tmp/speakasap-user-profile-rollback-apply-v1.sql`.
+- Captured apply evidence at `/tmp/speakasap-user-profile-apply-v1.json`.
+- Captured post-apply no-write reconciliation at `/tmp/speakasap-user-dry-run-post-apply-v1.json`.
+- Hardened `education-service/scripts/migrate-education-from-legacy.py` and `course-service/scripts/migrate-course-from-legacy.py` so both refuse default writes and require `--apply`, `--confirm-write`, `--approval-note`, and `--rollback-plan`.
+- Marked Goal 4.12 complete and moved the active chunk to Goal 4.13 education/course apply-gate readiness.
+
+Evidence:
+
+- RAG retrieval was attempted from the local session and failed with curl exit code 6, so repository and remote runtime evidence were used.
+- User-service apply report:
+  - `writes=true`
+  - approval note recorded in the report: `Owner approved user-service write migration from legacy SpeakASAP portal to new user-service on 2026-06-12`
+  - `user_identity_mirror=214231`
+  - `students=214189`
+  - `teachers=380`
+  - `managers=3`
+  - `employee_profiles=8`
+  - `teacher_additional_languages=80`
+  - skipped auth counts for all imported groups are `0`
+- Post-apply dry-run report:
+  - `writes=false`
+  - `auth_mapping_size=214231`
+  - unresolved auth counts for auth users, students, teachers, managers, and employee profiles are all `0`
+  - target counts match the apply report counts
+  - target ID/auth conflict counts now equal imported row counts, which is expected for an idempotent post-apply reconciliation.
+- Education/course script verification passed on `alfares`:
+  - `python3 -m py_compile education-service/scripts/migrate-education-from-legacy.py course-service/scripts/migrate-course-from-legacy.py`
+  - both `--help` outputs show `--apply`, `--confirm-write`, `--approval-note`, and `--rollback-plan`
+  - default invocation exits with code `2` and refuses writes before database connection
+  - incomplete `--apply` exits with code `2` and refuses before database connection without `--confirm-write`.
+
+Guardrail:
+
+- No education-service or course-service data writes were run in this step.
+- The user-service rollback SQL is available but was not executed because post-apply reconciliation is consistent.
+- Lesson-recording/private media migration remains pending until education core data is loaded and reconciled.
+
+Next:
+
+- Goal 4.13: run final no-write dry-runs for education and course through a temporary Postgres port-forward, then run their write-gated applies only with matching approval evidence and rollback artifacts.
+
+## 2026-06-12 - Goal 4.13 Course/Education Apply And Lesson-Record Unblocker
+
+Status: done
+
+Changed:
+
+- Ran final no-write pre-apply dry-runs for course and education migrations.
+- Ran write-gated course migration apply with rollback artifact `/tmp/speakasap-course-rollback-apply-v1.sql`.
+- Ran write-gated education migration apply with rollback artifact `/tmp/speakasap-education-rollback-apply-v1.sql`.
+- Captured post-apply no-write reconciliation reports:
+  - `/tmp/speakasap-course-dry-run-post-apply-v1.json`
+  - `/tmp/speakasap-education-dry-run-post-apply-v1.json`
+- Re-ran lesson-record dry-run after education core data was loaded:
+  - `/tmp/speakasap-lesson-records-dry-run-post-education-v1.json`
+- Marked Goal 4.13 complete and moved active state to Goal 5.
+
+Evidence:
+
+- Pre-apply course dry-run `/tmp/speakasap-course-dry-run-pre-apply-v1.json`:
+  - duplicate counts `0`
+  - missing reference counts `0`
+  - target table counts `0`
+  - target key/pair conflicts `0`
+- Course apply `/tmp/speakasap-course-apply-v1.log` wrote:
+  - `products_category=5`
+  - `products_partpaymentcollection=24`
+  - `products_partpaymentoption=71`
+  - `products_product=238`
+  - `products_product_part_payments=108`
+  - `offers_extralessonsoffer=994`
+  - `offers_offer=1900`
+- Post-apply course dry-run target counts match source counts; target conflicts equal imported rows as expected for an idempotent rerun check.
+- Pre-apply education dry-run `/tmp/speakasap-education-dry-run-pre-apply-v1.json`:
+  - duplicate counts `0`
+  - missing reference counts `0`
+  - target table counts `0`
+  - target key/pair conflicts `0`
+- Education apply `/tmp/speakasap-education-apply-v1.log` wrote:
+  - `education_group=21476`
+  - `education_group_students=21655`
+  - `education_studentcourse=20125`
+  - `education_lesson=182600`
+  - `education_homework=52616`
+  - `education_studentcourse.previous_id` patched rows `1883`
+- Post-apply education dry-run target counts match source counts; target conflicts equal imported rows as expected for an idempotent rerun check.
+- Lesson-record post-education dry-run:
+  - `missing_target_lessons=0`
+  - `bad_parts_json=0`
+  - `duplicate_lesson_records=0`
+  - `missing_source_lesson=0`
+  - remaining media/key issues: `parts_missing_rows=4080`, `orphan_parts=5781`, `legacy_prefix_keys_without_date=25934`, `record_key_date_mismatch=39477`.
+
+Guardrail:
+
+- No legacy DB writes were performed.
+- No object storage writes, deletes, or public recording exposure were performed.
+- Rollback SQL artifacts were generated before course and education applies.
+
+Next:
+
+- Goal 5.1: add the target lesson-record schema/write-gated metadata migration and keep all recording object access private.
+
+## 2026-06-12 - User/Profile Migration Batch Hardening
+
+Status: done
+
+Changed:
+
+- Added `--batch-size` to `user-service/scripts/migrate-user-from-legacy.py`.
+- Default batch size is `10000` rows.
+- Future user/profile applies or idempotent reruns now process the two large write paths in batches:
+  - `auth_user -> user_identity_mirror`
+  - `students_student -> students`
+- Each batch commits independently and logs cumulative migrated/skipped counts.
+
+Evidence:
+
+- No additional user-service write migration was run after this change.
+- Local syntax check passed: `python3 -m py_compile user-service/scripts/migrate-user-from-legacy.py`.
+- Remote syntax check passed on `alfares`.
+- Remote help output shows `--batch-size BATCH_SIZE`.
+- Invalid batch size refuses before database connection: `ERROR: --batch-size must be greater than 0`.
+
+Note:
+
+- The already completed Goal 4.12 apply ran before this owner instruction, so that historical run was not batched. The script is now hardened so future reruns use `10000`-row batches by default.
+
+Next:
+
+- Goal 4.13: use explicit batching for any future education/course data writes where table size or server limits make batching necessary.
+
+## 2026-06-12 - Education/Course Apply Process Observed During Batch Hardening
+
+Status: observed
+
+Changed:
+
+- While hardening user/profile batching, a separate remote education/course apply process was already running on `alfares`.
+- The process was not started by this batching change.
+- It was monitored to completion instead of being interrupted, because it had already written course and education target rows.
+
+Evidence:
+
+- Course apply log: `/tmp/speakasap-course-apply-v1.log`.
+- Course rollback SQL: `/tmp/speakasap-course-rollback-apply-v1.sql`.
+- Education apply log: `/tmp/speakasap-education-apply-v1.log`.
+- Education rollback SQL: `/tmp/speakasap-education-rollback-apply-v1.sql`.
+- Course target counts after process exit:
+  - `products_category=5`
+  - `products_partpaymentcollection=24`
+  - `products_partpaymentoption=71`
+  - `products_product=238`
+  - `products_product_part_payments=108`
+  - `offers_extralessonsoffer=994`
+  - `offers_offer=1900`
+- Education target counts after process exit:
+  - `education_group=21476`
+  - `education_group_students=21655`
+  - `education_studentcourse=20125`
+  - `education_lesson=182600`
+  - `education_homework=52616`
+- No lingering `port-forward`, education migration, or course migration process remained after completion.
+
+Guardrail:
+
+- This observation does not imply that future large migrations should run unbatched. The active owner instruction is to batch large write paths around `10000` rows per batch where server limits matter.
+
+Next:
+
+- Capture post-apply reconciliation for education/course and retrofit batching before any further large write/rerun.
+
+## 2026-06-12 - Intent Preservation System Compliance Refresh
+
+Status: done
+
+Changed:
+
+- Added missing root mandatory-reading files: `BUSINESS.md`, `SYSTEM.md`, `TASKS.md`, and `STATE.json`.
+- Added `docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md` with staged migration checks, implementation prerequisites, write/destructive-action gates, verification gates, rollback expectations, and required commit-message evidence.
+- Updated `AGENTS.md`, `MASTER_PROMPT.md`, `IMPLEMENTATION_ORCHESTRATOR.md`, `IMPLEMENTATION_STATE.md`, `INTENT.md`, `GOALS.md`, `PROMPTS.md`, root `PLAN.md`, `docs/orchestrator/PLAN.md`, root `STATE.json`, and `docs/orchestrator/STATE.json` to make the intent-preservation system part of the required workflow.
+- Preserved the active roadmap state at Goal 4.13: education/course apply-gate readiness remains blocked on final no-write reports and explicit owner approval before writes.
+
+Evidence:
+
+- Local mandatory reading initially failed for root `BUSINESS.md`, `SYSTEM.md`, `TASKS.md`, and `STATE.json`; those files now exist.
+- RAG lookup to `docs-rag-microservice.statex-apps.svc.cluster.local:3397` timed out with curl exit code 28 both sandboxed and with approved network access, so this pass used repository evidence.
+- Reviewed current root and orchestrator docs in this checkout, including `AGENTS.md`, root `PLAN.md`, `docs/orchestrator/MASTER_PROMPT.md`, `IMPLEMENTATION_ORCHESTRATOR.md`, `IMPLEMENTATION_STATE.md`, `INTENT.md`, `GOALS.md`, `PLAN.md`, `STATUS.md`, `PROMPTS.md`, `MIGRATION_EVIDENCE.md`, `SOURCE_TARGET_MAPPING.md`, `OBJECTIVE_COMPLETION_AUDIT.md`, and `AUTH_BOOTSTRAP_APPLY_GATE.md`.
+- No production code, migration write mode, deployment, or database write was changed by this compliance refresh.
+- JSON validation passed for root `STATE.json` and `docs/orchestrator/STATE.json`.
+
+Next:
+
+- Goal 4.13 remains the active migration task: capture final education/course no-write dry-runs before any write-gated apply.

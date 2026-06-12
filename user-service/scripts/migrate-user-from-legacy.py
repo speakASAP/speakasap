@@ -13,6 +13,7 @@ Options:
   --check-target     — include target counts/conflict samples in dry run
   --json-report      — print machine-readable dry-run report
   --limit            — maximum sample rows per reconciliation bucket
+  --batch-size       — rows per write batch for large user/profile tables; default 10000
   --truncate-first   — delete target user-domain tables (FK-safe order) before import
   --allow-truncate-first — required together with --truncate-first outside dry run
   --confirm-write    — required with --apply
@@ -36,12 +37,8 @@ import os
 import sys
 import time
 from datetime import datetime, timezone
-try:
-    import psycopg2
-    import psycopg2.extras
-except ImportError:
-    print("Install psycopg2-binary: pip install psycopg2-binary", file=sys.stderr)
-    sys.exit(1)
+
+psycopg2 = None
 
 
 def log(msg: str) -> None:
@@ -49,7 +46,21 @@ def log(msg: str) -> None:
     print(f"{ts} {msg}", flush=True)
 
 
+def ensure_database_driver():
+    global psycopg2
+    if psycopg2 is not None:
+        return
+    try:
+        import psycopg2 as psycopg2_module
+        import psycopg2.extras  # noqa: F401
+    except ImportError:
+        print("Install psycopg2-binary: pip install psycopg2-binary", file=sys.stderr)
+        sys.exit(1)
+    psycopg2 = psycopg2_module
+
+
 def connect(url: str):
+    ensure_database_driver()
     return psycopg2.connect(url, connect_timeout=30)
 
 
@@ -697,7 +708,7 @@ def load_legacy_user_id_to_uuid(auth, log_index: bool = True) -> dict[int, str]:
     return m
 
 
-def migrate_user_mirror(src, tgt, auth_map: dict[int, str]) -> tuple[int, int]:
+def migrate_user_mirror(src, tgt, auth_map: dict[int, str], batch_size: int) -> tuple[int, int]:
     """auth_user rows that resolve to a UUID: upsert user_identity_mirror."""
     sql = """
     SELECT id, first_name, last_name, COALESCE(email,'') AS email, COALESCE(phone,'') AS phone,
@@ -721,34 +732,39 @@ def migrate_user_mirror(src, tgt, auth_map: dict[int, str]) -> tuple[int, int]:
       avatar_storage_key = EXCLUDED.avatar_storage_key,
       updated_at = NOW()
     """
-    s = src.cursor()
+    s = src.cursor(name="migrate_user_mirror_source")
+    s.itersize = batch_size
     s.execute(sql)
-    rows = s.fetchall()
     t = tgt.cursor()
     n = 0
     skipped = 0
-    for r in rows:
-        uid = auth_map.get(int(r[0]))
-        if not uid:
-            skipped += 1
-            continue
-        img = (r[7] or "").strip()
-        t.execute(
-            ins,
-            (
-                uid,
-                int(r[0]),
-                r[1] or "",
-                r[2] or "",
-                r[3] or "",
-                r[4] or "",
-                (r[5] or "ru")[:10],
-                (r[6] or "ru")[:10],
-                img,
-            ),
-        )
-        n += 1
-    tgt.commit()
+    while True:
+        rows = s.fetchmany(batch_size)
+        if not rows:
+            break
+        for r in rows:
+            uid = auth_map.get(int(r[0]))
+            if not uid:
+                skipped += 1
+                continue
+            img = (r[7] or "").strip()
+            t.execute(
+                ins,
+                (
+                    uid,
+                    int(r[0]),
+                    r[1] or "",
+                    r[2] or "",
+                    r[3] or "",
+                    r[4] or "",
+                    (r[5] or "ru")[:10],
+                    (r[6] or "ru")[:10],
+                    img,
+                ),
+            )
+            n += 1
+        tgt.commit()
+        log(f"user_identity_mirror batch committed total_upserted={n} skipped_no_auth={skipped}")
     s.close()
     t.close()
     return n, skipped
@@ -938,7 +954,7 @@ def migrate_teachers(src, tgt, auth_map: dict[int, str]) -> tuple[int, int, int]
     return n, skipped, lang_rows
 
 
-def migrate_students(src, tgt, auth_map: dict[int, str]) -> tuple[int, int]:
+def migrate_students(src, tgt, auth_map: dict[int, str], batch_size: int) -> tuple[int, int]:
     sql = """
     SELECT s.id, s.user_id,
            s.not_loyal, s.spam_bot, s.do_not_contact,
@@ -976,46 +992,51 @@ def migrate_students(src, tgt, auth_map: dict[int, str]) -> tuple[int, int]:
       country = EXCLUDED.country,
       invoice_address = EXCLUDED.invoice_address
     """
-    s = src.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    s = src.cursor(name="migrate_students_source", cursor_factory=psycopg2.extras.RealDictCursor)
+    s.itersize = batch_size
     t = tgt.cursor()
     s.execute(sql)
-    rows = s.fetchall()
     n = 0
     skipped = 0
-    for r in rows:
-        uid = auth_map.get(int(r["user_id"]))
-        if not uid:
-            skipped += 1
-            continue
-        mid = r["manager_id"]
-        if mid is not None:
-            t.execute("SELECT 1 FROM managers WHERE id = %s", (mid,))
-            if t.fetchone() is None:
-                mid = None
-        t.execute(
-            ins,
-            (
-                r["id"],
-                uid,
-                int(r["user_id"]),
-                r["not_loyal"],
-                r["spam_bot"],
-                r["do_not_contact"],
-                r["email_additional"],
-                mid,
-                r["telegram"],
-                r["whatsapp"],
-                r["phone_additional"],
-                r["read_help"],
-                r["motivation"],
-                r["portrait"],
-                r["sales_info"],
-                r["country"],
-                r["invoice_address"],
-            ),
-        )
-        n += 1
-    tgt.commit()
+    while True:
+        rows = s.fetchmany(batch_size)
+        if not rows:
+            break
+        for r in rows:
+            uid = auth_map.get(int(r["user_id"]))
+            if not uid:
+                skipped += 1
+                continue
+            mid = r["manager_id"]
+            if mid is not None:
+                t.execute("SELECT 1 FROM managers WHERE id = %s", (mid,))
+                if t.fetchone() is None:
+                    mid = None
+            t.execute(
+                ins,
+                (
+                    r["id"],
+                    uid,
+                    int(r["user_id"]),
+                    r["not_loyal"],
+                    r["spam_bot"],
+                    r["do_not_contact"],
+                    r["email_additional"],
+                    mid,
+                    r["telegram"],
+                    r["whatsapp"],
+                    r["phone_additional"],
+                    r["read_help"],
+                    r["motivation"],
+                    r["portrait"],
+                    r["sales_info"],
+                    r["country"],
+                    r["invoice_address"],
+                ),
+            )
+            n += 1
+        tgt.commit()
+        log(f"students batch committed total_upserted={n} skipped_no_auth={skipped}")
     s.close()
     t.close()
     if skipped:
@@ -1125,6 +1146,7 @@ def main() -> int:
     ap.add_argument("--check-target", action="store_true", help="include target counts and conflicts in dry run")
     ap.add_argument("--json-report", action="store_true", help="print dry-run report as JSON")
     ap.add_argument("--limit", type=int, default=25, help="maximum sample rows per reconciliation bucket")
+    ap.add_argument("--batch-size", type=int, default=10000, help="rows per write batch for large tables")
     ap.add_argument("--truncate-first", action="store_true", help="delete target user tables before import")
     ap.add_argument(
         "--allow-truncate-first",
@@ -1136,13 +1158,9 @@ def main() -> int:
     ap.add_argument("--rollback-plan", default="", help="write rollback SQL to this path before --apply writes")
     args = ap.parse_args()
 
-    src_url = os.environ.get("SOURCE_DATABASE_URL")
-    tgt_url = os.environ.get("TARGET_DATABASE_URL")
-    auth_url = os.environ.get("AUTH_DATABASE_URL")
-
-    if not src_url:
-        log("ERROR: SOURCE_DATABASE_URL required")
-        return 1
+    if args.batch_size < 1:
+        log("ERROR: --batch-size must be greater than 0")
+        return 2
     if args.dry_run and args.apply:
         log("Refusing to combine --dry-run and --apply")
         return 2
@@ -1162,6 +1180,14 @@ def main() -> int:
     if not args.dry_run and args.truncate_first and not args.allow_truncate_first:
         log("Refusing --truncate-first without --allow-truncate-first")
         return 2
+
+    src_url = os.environ.get("SOURCE_DATABASE_URL")
+    tgt_url = os.environ.get("TARGET_DATABASE_URL")
+    auth_url = os.environ.get("AUTH_DATABASE_URL")
+
+    if not src_url:
+        log("ERROR: SOURCE_DATABASE_URL required")
+        return 1
 
     if not (args.dry_run and args.json_report):
         log("connecting source")
@@ -1207,7 +1233,7 @@ def main() -> int:
         truncate_target(tgt)
 
     t0 = time.time()
-    n_mir, sk_mir = migrate_user_mirror(src, tgt, auth_map)
+    n_mir, sk_mir = migrate_user_mirror(src, tgt, auth_map, args.batch_size)
     log(f"user_identity_mirror upserted={n_mir} skipped_no_auth={sk_mir}")
 
     n_man, sk_man = migrate_managers(src, tgt, auth_map)
@@ -1216,7 +1242,7 @@ def main() -> int:
     n_t, sk_t, n_lang = migrate_teachers(src, tgt, auth_map)
     log(f"teachers upserted={n_t} skipped={sk_t} teacher_additional_languages rows={n_lang}")
 
-    n_s, sk_s = migrate_students(src, tgt, auth_map)
+    n_s, sk_s = migrate_students(src, tgt, auth_map, args.batch_size)
     log(f"students upserted={n_s} skipped={sk_s}")
 
     n_e, sk_e = migrate_employee_profiles(src, tgt, auth_map)

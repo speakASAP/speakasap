@@ -8,7 +8,7 @@ The previous growth-and-retention plan is superseded for this workstream by the 
 
 **Goal 4 - Data Migration And Reconciliation**
 
-Auth bootstrap is applied and deployed in `auth-microservice` with legacy Django PBKDF2 password continuity. User/profile migration resolves target auth UUIDs from auth-owned `legacy_identity_mappings`, has clean no-write dry-run evidence, and now refuses writes unless explicit apply gates are supplied. Continue Goal 4.12 by getting explicit owner approval, restoring the auth DB connection for the final pre-apply check, and then running the write-gated user-service apply.
+Auth bootstrap is applied and deployed in `auth-microservice` with legacy Django PBKDF2 password continuity. User/profile, course, and education core data have been applied with rollback and post-apply reconciliation evidence. Continue Goal 5 by implementing the lesson-recording/private media migration path now that target lessons exist.
 
 ## Roadmap
 
