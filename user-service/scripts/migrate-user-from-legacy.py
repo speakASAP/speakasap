@@ -5,7 +5,7 @@ ETL: speakasap-portal Postgres (legacy) -> speakasap_user_db (user-service Prism
 Env:
   SOURCE_DATABASE_URL — legacy Django DB (read-only recommended)
   TARGET_DATABASE_URL — user-service DATABASE_URL (speakasap_user_db)
-  AUTH_DATABASE_URL   — auth-microservice Postgres (table "users") for email -> UUID mapping
+  AUTH_DATABASE_URL   — auth-microservice Postgres for legacy_identity_mappings -> UUID mapping
 
 Options:
   --dry-run          — reconciliation report only; no writes
@@ -18,8 +18,8 @@ Options:
 Identity:
   Target rows require auth_user_id (UUID) = auth-microservice users.id.
   Legacy portal user id is stored as legacy_portal_user_id (int).
-  Resolution: match auth_user.email (legacy) to users.email (auth DB), case-insensitive.
-  Rows with no match are skipped with timestamped warnings (no placeholder UUIDs).
+  Resolution: match legacy auth_user.id to auth.legacy_identity_mappings.legacyUserId.
+  Rows with no mapping are skipped with timestamped warnings (no placeholder UUIDs).
 
 Table names: legacy Django defaults (students_student, employees_teacher, …).
 Target physical names: see prisma/migrations/*_init_user_tables/migration.sql.
@@ -145,59 +145,54 @@ def duplicate_key_report(
     return count_and_sample(conn, count_sql, sample_sql, limit)
 
 
-def unresolved_auth_report(src, email_map: dict[str, str] | None, limit: int) -> dict[str, object]:
-    if email_map is None:
+def unresolved_auth_report(src, auth_map: dict[int, str] | None, limit: int) -> dict[str, object]:
+    if auth_map is None:
         return {"available": False, "reason": "AUTH_DATABASE_URL not set"}
-    emails = sorted(email_map.keys())
+    legacy_user_ids = sorted(auth_map.keys())
     checks = {
         "auth_user": """
             SELECT u.id, u.email
             FROM auth_user u
-            WHERE COALESCE(trim(u.email), '') = ''
-               OR lower(trim(u.email)) <> ALL(%s)
+            WHERE u.id <> ALL(%s)
         """,
         "students": """
             SELECT s.id, s.user_id, u.email
             FROM students_student s
             JOIN auth_user u ON u.id = s.user_id
-            WHERE COALESCE(trim(u.email), '') = ''
-               OR lower(trim(u.email)) <> ALL(%s)
+            WHERE s.user_id <> ALL(%s)
         """,
         "teachers": """
             SELECT t.id, t.user_id, u.email
             FROM employees_teacher t
             JOIN auth_user u ON u.id = t.user_id
-            WHERE COALESCE(trim(u.email), '') = ''
-               OR lower(trim(u.email)) <> ALL(%s)
+            WHERE t.user_id <> ALL(%s)
         """,
         "managers": """
             SELECT m.id, m.user_id, u.email
             FROM employees_manager m
             JOIN auth_user u ON u.id = m.user_id
-            WHERE COALESCE(trim(u.email), '') = ''
-               OR lower(trim(u.email)) <> ALL(%s)
+            WHERE m.user_id <> ALL(%s)
         """,
         "employee_profiles": """
             SELECT e.id, e.user_id, u.email
             FROM employees_employeeprofile e
             JOIN auth_user u ON u.id = e.user_id
-            WHERE COALESCE(trim(u.email), '') = ''
-               OR lower(trim(u.email)) <> ALL(%s)
+            WHERE e.user_id <> ALL(%s)
         """,
     }
-    report: dict[str, object] = {"available": True, "auth_index_size": len(email_map)}
+    report: dict[str, object] = {"available": True, "auth_mapping_size": len(auth_map)}
     for name, base_sql in checks.items():
         report[name] = count_and_sample(
             src,
             f"SELECT COUNT(*) FROM ({base_sql}) unresolved",
             f"{base_sql} ORDER BY 1 LIMIT %s",
             limit,
-            [emails],
+            [legacy_user_ids],
         )
     return report
 
 
-def source_reconciliation(src, email_map: dict[str, str] | None, limit: int) -> dict[str, object]:
+def source_reconciliation(src, auth_map: dict[int, str] | None, limit: int) -> dict[str, object]:
     return {
         "source_counts": table_counts(src, SOURCE_TABLES),
         "duplicate_keys": {
@@ -370,7 +365,7 @@ def source_reconciliation(src, email_map: dict[str, str] | None, limit: int) -> 
                 limit,
             ),
         },
-        "unresolved_auth": unresolved_auth_report(src, email_map, limit),
+        "unresolved_auth": unresolved_auth_report(src, auth_map, limit),
     }
 
 
@@ -382,14 +377,14 @@ def fetch_int_values(conn, table: str, column: str) -> list[int]:
     return values
 
 
-def fetch_auth_uuids_for_source(src, email_map: dict[str, str] | None, sql: str) -> list[str]:
-    if email_map is None:
+def fetch_auth_uuids_for_source(src, auth_map: dict[int, str] | None, sql: str) -> list[str]:
+    if auth_map is None:
         return []
     cur = src.cursor()
     cur.execute(sql)
     values: list[str] = []
-    for (email,) in cur.fetchall():
-        uid = email_map.get((email or "").strip().lower())
+    for (legacy_user_id,) in cur.fetchall():
+        uid = auth_map.get(int(legacy_user_id))
         if uid:
             values.append(uid)
     cur.close()
@@ -399,41 +394,79 @@ def fetch_auth_uuids_for_source(src, email_map: dict[str, str] | None, sql: str)
 def target_int_conflicts(tgt, table: str, column: str, source_values: list[int], limit: int) -> dict[str, object]:
     if not source_values:
         return {"count": 0, "sample": []}
-    found: list[int] = []
     cur = tgt.cursor()
-    for i in range(0, len(source_values), 1000):
-        chunk = source_values[i : i + 1000]
-        cur.execute(
-            f"SELECT {qname(column)} FROM {qname(table)} WHERE {qname(column)} = ANY(%s)",
-            [chunk],
-        )
-        found.extend(int(row[0]) for row in cur.fetchall())
+    cur.execute("DROP TABLE IF EXISTS tmp_migration_conflict_values")
+    cur.execute("CREATE TEMP TABLE tmp_migration_conflict_values (value integer) ON COMMIT DROP")
+    psycopg2.extras.execute_values(
+        cur,
+        "INSERT INTO tmp_migration_conflict_values (value) VALUES %s",
+        [(int(v),) for v in source_values],
+        page_size=10000,
+    )
+    cur.execute(
+        f"""
+        SELECT COUNT(DISTINCT t.{qname(column)})
+        FROM {qname(table)} t
+        JOIN tmp_migration_conflict_values v ON v.value = t.{qname(column)}
+        """
+    )
+    count = int(cur.fetchone()[0])
+    cur.execute(
+        f"""
+        SELECT DISTINCT t.{qname(column)}
+        FROM {qname(table)} t
+        JOIN tmp_migration_conflict_values v ON v.value = t.{qname(column)}
+        ORDER BY t.{qname(column)}
+        LIMIT %s
+        """,
+        [limit],
+    )
+    sample = [int(row[0]) for row in cur.fetchall()]
+    cur.execute("DROP TABLE IF EXISTS tmp_migration_conflict_values")
     cur.close()
-    found_sorted = sorted(set(found))
-    return {"count": len(found_sorted), "sample": found_sorted[:limit]}
+    return {"count": count, "sample": sample}
 
 
 def target_text_conflicts(tgt, table: str, column: str, source_values: list[str], limit: int) -> dict[str, object]:
     if not source_values:
         return {"count": 0, "sample": []}
-    found: list[str] = []
     cur = tgt.cursor()
-    for i in range(0, len(source_values), 1000):
-        chunk = source_values[i : i + 1000]
-        cur.execute(
-            f"SELECT {qname(column)}::text FROM {qname(table)} WHERE {qname(column)}::text = ANY(%s)",
-            [chunk],
-        )
-        found.extend(str(row[0]) for row in cur.fetchall())
+    cur.execute("DROP TABLE IF EXISTS tmp_migration_conflict_values")
+    cur.execute("CREATE TEMP TABLE tmp_migration_conflict_values (value text) ON COMMIT DROP")
+    psycopg2.extras.execute_values(
+        cur,
+        "INSERT INTO tmp_migration_conflict_values (value) VALUES %s",
+        [(str(v),) for v in source_values],
+        page_size=10000,
+    )
+    cur.execute(
+        f"""
+        SELECT COUNT(DISTINCT t.{qname(column)}::text)
+        FROM {qname(table)} t
+        JOIN tmp_migration_conflict_values v ON v.value = t.{qname(column)}::text
+        """
+    )
+    count = int(cur.fetchone()[0])
+    cur.execute(
+        f"""
+        SELECT DISTINCT t.{qname(column)}::text
+        FROM {qname(table)} t
+        JOIN tmp_migration_conflict_values v ON v.value = t.{qname(column)}::text
+        ORDER BY t.{qname(column)}::text
+        LIMIT %s
+        """,
+        [limit],
+    )
+    sample = [str(row[0]) for row in cur.fetchall()]
+    cur.execute("DROP TABLE IF EXISTS tmp_migration_conflict_values")
     cur.close()
-    found_sorted = sorted(set(found))
-    return {"count": len(found_sorted), "sample": found_sorted[:limit]}
+    return {"count": count, "sample": sample}
 
 
 def target_reconciliation(
     src,
     tgt,
-    email_map: dict[str, str] | None,
+    auth_map: dict[int, str] | None,
     limit: int,
 ) -> dict[str, object]:
     student_ids = fetch_int_values(src, "students_student", "id")
@@ -444,43 +477,39 @@ def target_reconciliation(
 
     mirror_auth_ids = fetch_auth_uuids_for_source(
         src,
-        email_map,
-        "SELECT COALESCE(email, '') FROM auth_user",
+        auth_map,
+        "SELECT id FROM auth_user",
     )
     student_auth_ids = fetch_auth_uuids_for_source(
         src,
-        email_map,
+        auth_map,
         """
-        SELECT COALESCE(u.email, '')
+        SELECT s.user_id
         FROM students_student s
-        JOIN auth_user u ON u.id = s.user_id
         """,
     )
     teacher_auth_ids = fetch_auth_uuids_for_source(
         src,
-        email_map,
+        auth_map,
         """
-        SELECT COALESCE(u.email, '')
+        SELECT t.user_id
         FROM employees_teacher t
-        JOIN auth_user u ON u.id = t.user_id
         """,
     )
     manager_auth_ids = fetch_auth_uuids_for_source(
         src,
-        email_map,
+        auth_map,
         """
-        SELECT COALESCE(u.email, '')
+        SELECT m.user_id
         FROM employees_manager m
-        JOIN auth_user u ON u.id = m.user_id
         """,
     )
     employee_profile_auth_ids = fetch_auth_uuids_for_source(
         src,
-        email_map,
+        auth_map,
         """
-        SELECT COALESCE(u.email, '')
+        SELECT e.user_id
         FROM employees_employeeprofile e
-        JOIN auth_user u ON u.id = e.user_id
         """,
     )
 
@@ -547,17 +576,17 @@ def dry_run_report(
     check_target: bool = False,
     limit: int = 25,
 ) -> dict[str, object]:
-    email_map = load_email_to_uuid(auth, log_index=False) if auth is not None else None
+    auth_map = load_legacy_user_id_to_uuid(auth, log_index=False) if auth is not None else None
     report = {
         "dry_run": True,
         "writes": False,
-        "source": source_reconciliation(src, email_map, limit),
+        "source": source_reconciliation(src, auth_map, limit),
     }
     if check_target:
         if tgt is None:
             report["target"] = {"available": False, "reason": "TARGET_DATABASE_URL not set"}
         else:
-            target = target_reconciliation(src, tgt, email_map, limit)
+            target = target_reconciliation(src, tgt, auth_map, limit)
             target["available"] = True
             report["target"] = target
     return report
@@ -580,9 +609,9 @@ def emit_report(report: dict[str, object], json_report: bool) -> None:
     if not unresolved.get("available"):
         log(f"dry-run unresolved_auth skipped reason={unresolved.get('reason')}")
     else:
-        log(f"dry-run auth_index_size={unresolved.get('auth_index_size')}")
+        log(f"dry-run auth_mapping_size={unresolved.get('auth_mapping_size')}")
         for name, result in unresolved.items():
-            if name in ("available", "auth_index_size"):
+            if name in ("available", "auth_mapping_size"):
                 continue
             log(f"dry-run unresolved_auth {name} count={result['count']} sample={result['sample']}")
     target = report.get("target")
@@ -623,21 +652,28 @@ def truncate_target(tgt) -> None:
     cur.close()
 
 
-def load_email_to_uuid(auth, log_index: bool = True) -> dict[str, str]:
-    """Lowercased trimmed email -> users.id::text."""
+def load_legacy_user_id_to_uuid(auth, log_index: bool = True) -> dict[int, str]:
+    """Legacy speakasap-portal auth_user.id -> auth users.id::text."""
     cur = auth.cursor()
-    cur.execute('SELECT id::text, lower(trim(email)) AS em FROM users WHERE email IS NOT NULL AND trim(email) <> %s', ("",))
-    m: dict[str, str] = {}
-    for uid, em in cur.fetchall():
-        if em:
-            m[em] = uid
+    cur.execute(
+        """
+        SELECT "legacyUserId"::int, "authUserId"::text
+        FROM legacy_identity_mappings
+        WHERE "legacySystem" = %s
+          AND "authUserId" IS NOT NULL
+        """,
+        ("speakasap-portal",),
+    )
+    m: dict[int, str] = {}
+    for legacy_user_id, auth_user_id in cur.fetchall():
+        m[int(legacy_user_id)] = auth_user_id
     cur.close()
     if log_index:
-        log(f"auth users indexed by email: {len(m)}")
+        log(f"auth users indexed by legacy mapping: {len(m)}")
     return m
 
 
-def migrate_user_mirror(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
+def migrate_user_mirror(src, tgt, auth_map: dict[int, str]) -> tuple[int, int]:
     """auth_user rows that resolve to a UUID: upsert user_identity_mirror."""
     sql = """
     SELECT id, first_name, last_name, COALESCE(email,'') AS email, COALESCE(phone,'') AS phone,
@@ -668,7 +704,7 @@ def migrate_user_mirror(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
     n = 0
     skipped = 0
     for r in rows:
-        uid = email_map.get((r[3] or "").strip().lower())
+        uid = auth_map.get(int(r[0]))
         if not uid:
             skipped += 1
             continue
@@ -694,16 +730,14 @@ def migrate_user_mirror(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
     return n, skipped
 
 
-def migrate_managers(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
+def migrate_managers(src, tgt, auth_map: dict[int, str]) -> tuple[int, int]:
     sql = """
     SELECT m.id, m.user_id,
            m.description, COALESCE(m.position,'') AS position, COALESCE(m.contract_name,'') AS contract_name,
            COALESCE(m.passport_number,'') AS passport_number, COALESCE(m.address,'') AS address,
            COALESCE(m.postal_code,'') AS postal_code, COALESCE(m.city,'') AS city,
-           COALESCE(m.address_cz,'') AS address_cz, COALESCE(m.city_cz,'') AS city_cz,
-           lower(trim(COALESCE(u.email,''))) AS lemail
+           COALESCE(m.address_cz,'') AS address_cz, COALESCE(m.city_cz,'') AS city_cz
       FROM employees_manager m
-      JOIN auth_user u ON u.id = m.user_id
     """
     ins = """
     INSERT INTO managers (
@@ -729,10 +763,10 @@ def migrate_managers(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
     n = 0
     skipped = 0
     for r in rows:
-        uid = email_map.get(r["lemail"] or "")
+        uid = auth_map.get(int(r["user_id"]))
         if not uid:
             skipped += 1
-            log(f"skip manager legacy id={r['id']} user_id={r['user_id']} (no auth UUID for email)")
+            log(f"skip manager legacy id={r['id']} user_id={r['user_id']} (no auth UUID for legacy user id)")
             continue
         t.execute(
             ins,
@@ -758,7 +792,7 @@ def migrate_managers(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
     return n, skipped
 
 
-def migrate_teachers(src, tgt, email_map: dict[str, str]) -> tuple[int, int, int]:
+def migrate_teachers(src, tgt, auth_map: dict[int, str]) -> tuple[int, int, int]:
     sql = """
     SELECT t.id, t.user_id,
            t.description, COALESCE(t.position,'') AS position, COALESCE(t.contract_name,'') AS contract_name,
@@ -768,10 +802,8 @@ def migrate_teachers(src, tgt, email_map: dict[str, str]) -> tuple[int, int, int
            COALESCE(lang.code,'') AS language_code,
            t.russian, t.native, t.language_support, t.can_get_students,
            COALESCE(t.coordinator_info,'') AS coordinator_info,
-           t.work_since, t.contract_end,
-           lower(trim(COALESCE(u.email,''))) AS lemail
+           t.work_since, t.contract_end
       FROM employees_teacher t
-      JOIN auth_user u ON u.id = t.user_id
       JOIN language_language lang ON lang.id = t.language_id
     """
     ins = """
@@ -812,10 +844,10 @@ def migrate_teachers(src, tgt, email_map: dict[str, str]) -> tuple[int, int, int
     skipped = 0
     lang_rows = 0
     for r in rows:
-        uid = email_map.get(r["lemail"] or "")
+        uid = auth_map.get(int(r["user_id"]))
         if not uid:
             skipped += 1
-            log(f"skip teacher legacy id={r['id']} user_id={r['user_id']} (no auth UUID for email)")
+            log(f"skip teacher legacy id={r['id']} user_id={r['user_id']} (no auth UUID for legacy user id)")
             continue
         t.execute(
             ins,
@@ -882,7 +914,7 @@ def migrate_teachers(src, tgt, email_map: dict[str, str]) -> tuple[int, int, int
     return n, skipped, lang_rows
 
 
-def migrate_students(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
+def migrate_students(src, tgt, auth_map: dict[int, str]) -> tuple[int, int]:
     sql = """
     SELECT s.id, s.user_id,
            s.not_loyal, s.spam_bot, s.do_not_contact,
@@ -892,10 +924,8 @@ def migrate_students(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
            COALESCE(s.phone_additional,'') AS phone_additional,
            s.read_help, COALESCE(s.motivation,'') AS motivation,
            COALESCE(s.portrait,'') AS portrait, COALESCE(s.sales_info,'') AS sales_info,
-           COALESCE(s.country,'ru') AS country, COALESCE(s.invoice_address,'') AS invoice_address,
-           lower(trim(COALESCE(u.email,''))) AS lemail
+           COALESCE(s.country,'ru') AS country, COALESCE(s.invoice_address,'') AS invoice_address
       FROM students_student s
-      JOIN auth_user u ON u.id = s.user_id
     """
     ins = """
     INSERT INTO students (
@@ -929,7 +959,7 @@ def migrate_students(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
     n = 0
     skipped = 0
     for r in rows:
-        uid = email_map.get(r["lemail"] or "")
+        uid = auth_map.get(int(r["user_id"]))
         if not uid:
             skipped += 1
             continue
@@ -969,13 +999,11 @@ def migrate_students(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
     return n, skipped
 
 
-def migrate_employee_profiles(src, tgt, email_map: dict[str, str]) -> tuple[int, int]:
+def migrate_employee_profiles(src, tgt, auth_map: dict[int, str]) -> tuple[int, int]:
     sql = """
     SELECT e.id, e.user_id,
-           e.additional_info, e.description, e.position,
-           lower(trim(COALESCE(u.email,''))) AS lemail
+           e.additional_info, e.description, e.position
       FROM employees_employeeprofile e
-      JOIN auth_user u ON u.id = e.user_id
     """
     ins = """
     INSERT INTO employee_profiles (
@@ -994,7 +1022,7 @@ def migrate_employee_profiles(src, tgt, email_map: dict[str, str]) -> tuple[int,
     n = 0
     skipped = 0
     for r in rows:
-        uid = email_map.get(r["lemail"] or "")
+        uid = auth_map.get(int(r["user_id"]))
         if not uid:
             skipped += 1
             continue
@@ -1088,32 +1116,32 @@ def main() -> int:
         src.close()
         return 1
     if not auth_url:
-        log("ERROR: AUTH_DATABASE_URL required for import (email -> UUID)")
+        log("ERROR: AUTH_DATABASE_URL required for import (legacy identity mapping -> UUID)")
         src.close()
         return 1
 
     tgt = connect(tgt_url)
     auth = connect(auth_url)
-    email_map = load_email_to_uuid(auth)
+    auth_map = load_legacy_user_id_to_uuid(auth)
     auth.close()
 
     if args.truncate_first:
         truncate_target(tgt)
 
     t0 = time.time()
-    n_mir, sk_mir = migrate_user_mirror(src, tgt, email_map)
+    n_mir, sk_mir = migrate_user_mirror(src, tgt, auth_map)
     log(f"user_identity_mirror upserted={n_mir} skipped_no_auth={sk_mir}")
 
-    n_man, sk_man = migrate_managers(src, tgt, email_map)
+    n_man, sk_man = migrate_managers(src, tgt, auth_map)
     log(f"managers upserted={n_man} skipped={sk_man}")
 
-    n_t, sk_t, n_lang = migrate_teachers(src, tgt, email_map)
+    n_t, sk_t, n_lang = migrate_teachers(src, tgt, auth_map)
     log(f"teachers upserted={n_t} skipped={sk_t} teacher_additional_languages rows={n_lang}")
 
-    n_s, sk_s = migrate_students(src, tgt, email_map)
+    n_s, sk_s = migrate_students(src, tgt, auth_map)
     log(f"students upserted={n_s} skipped={sk_s}")
 
-    n_e, sk_e = migrate_employee_profiles(src, tgt, email_map)
+    n_e, sk_e = migrate_employee_profiles(src, tgt, auth_map)
     log(f"employee_profiles upserted={n_e} skipped={sk_e}")
 
     reset_sequences(tgt)

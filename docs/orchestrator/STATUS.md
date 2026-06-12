@@ -614,40 +614,61 @@ Next:
 
 ## 2026-06-12 - Goal 4.10 Auth Bootstrap Apply Gate Implementation
 
-Status: in progress
+Status: done
 
 Changed:
 
-- Updated `/home/ssf/Documents/Github/auth-microservice/scripts/bootstrap-speakasap-legacy-users.ts` with gated apply mode.
-- Added transaction-backed apply helpers.
-- Added mapping table schema creation inside apply mode.
-- Added reset-only user creation with `password = NULL`.
-- Added duplicate-email handling as `skipped_duplicate_email` mapping rows.
-- Added rollback SQL generation.
+- Implemented the owner-approved Django PBKDF2 password-continuity path in `auth-microservice`.
+- Added legacy password verification fallback to `AuthService.login`.
+- Added first-login upgrade behavior: successful legacy password login writes a bcrypt password through `UsersService.updatePassword` and clears the legacy hash from `legacy_identity_mappings`.
+- Updated `legacy_identity_mappings` with `legacyPasswordHash` and `legacyPasswordMigratedAt`; the hash column is excluded from default TypeORM selects.
+- Updated the auth bootstrap apply path to create duplicate-email legacy identities as separate auth users with `email = NULL`, preserving login via mapping lookup instead of merging users by shared email.
+- Hardened mapping upsert idempotency so reruns do not reintroduce legacy hashes after a completed first-login upgrade.
+- Applied the approved auth bootstrap migration to the auth database.
+- Deployed `auth-microservice` so the runtime login path can verify legacy Django PBKDF2 hashes and upgrade them to bcrypt.
 - Added `docs/orchestrator/AUTH_BOOTSTRAP_APPLY_GATE.md`.
 
 Evidence:
 
-- Safety checks passed:
-  - help output lists dry-run and apply usage;
-  - no-mode execution refuses;
-  - `--apply` without `--confirm-write` refuses;
-  - `--apply --confirm-write` without `--approval-note` refuses.
-- `npm run build` passed in `auth-microservice`.
-- Latest dry-run report: `/tmp/speakasap-auth-bootstrap-dry-run-v3.json`.
-- Rollback SQL plan: `/tmp/speakasap-auth-bootstrap-rollback.sql`.
-- Dry-run summary:
+- Build checks:
+  - `node --check scripts/bootstrap-speakasap-legacy-users.ts` passed.
+  - `npm run build` passed before apply and before deploy.
+- Final no-write dry-run report before apply: `/tmp/speakasap-auth-bootstrap-dry-run-v5.json`.
+- Final rollback SQL artifact before apply: `/tmp/speakasap-auth-bootstrap-rollback-v5.sql`.
+- Final dry-run summary before apply:
   - `writes=false`
-  - planned user writes: `214032`
+  - legacy users: `214230`
+  - target users before apply: `22`
+  - duplicate email groups: `95`
+  - duplicate email rows: `192`
+  - existing target email matches: `6`
+  - create candidates: `214032`
+  - duplicate email candidates: `192`
+  - planned user writes: `214224`
   - planned mapping writes: `214230`
-  - actual users created: `0`
-  - actual mappings upserted: `0`
+- Apply command used `--apply --confirm-write --approval-note "User approved legacy SpeakASAP auth bootstrap with Django PBKDF2 password continuity on 2026-06-12" --password-policy legacy-pbkdf2-upgrade`.
+- Post-apply auth DB verification:
+  - total auth users: `214246`
+  - new `speakasap-portal` source users: `214224`
+  - `speakasap-portal` source users with null primary email: `192`
+  - `speakasap-portal` source users with password set in `users.password`: `0`
+  - legacy mappings: `214230`
+  - mappings with auth user: `214230`
+  - mappings with stored legacy password hash: `214230`
+  - mapping statuses: `created=214032`, `created_duplicate_email=192`, `mapped=6`
+  - unmapped source users: `0`
+- Deployment:
+  - deployed image: `localhost:5000/auth-microservice:b616818-20260612093355`
+  - namespace: `statex-apps`
+  - rollout completed successfully.
+  - final pod health returned `{"success":true,"status":"ok","service":"auth-microservice"}`.
 
 Guardrail:
 
-- Apply mode was implemented but not executed.
-- No auth database writes, deploys, restarts, or user-service write migrations were performed.
+- Password hashes were not printed in reports or status.
+- Legacy hashes are stored only in the auth-owned mapping table and are intended to be cleared per user after first successful legacy password login.
+- User-service write migration was not executed yet.
 
 Next:
 
-- Execute auth bootstrap apply only after confirming the exact write command and approval note, then capture post-apply JSON and rerun user-service dry-run.
+- Goal 4.11: re-run and harden user-service profile migration so it resolves target auth UUIDs from `legacy_identity_mappings` by legacy `auth_user.id`, not email-only matching.

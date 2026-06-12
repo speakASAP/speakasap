@@ -86,7 +86,8 @@ Chunks:
 - [x] 4.7 Capture DB-backed dry-run reports from education, user, course, and lesson-record migrations when the legacy source database endpoint is reachable.
 - [x] 4.8 Resolve auth identity reconciliation/bootstrap prerequisite before any user/profile write migration.
 - [x] 4.9 Get owner approval for auth bootstrap duplicate-email and password policy, then implement only inside `auth-microservice`.
-- [ ] 4.10 Review auth bootstrap dry-run evidence and implement write-gated apply/rollback path only after explicit write approval.
+- [x] 4.10 Review auth bootstrap dry-run evidence and implement write-gated apply/rollback path only after explicit write approval.
+- [ ] 4.11 Re-run and harden user/profile migration against auth-owned `legacy_identity_mappings`.
 
 Acceptance criteria:
 
@@ -106,6 +107,7 @@ Acceptance criteria:
 - `docs/orchestrator/AUTH_BOOTSTRAP_IMPLEMENTATION_PLAN.md` records the post-approval implementation boundary, proposed mapping schema, dry-run script contract, verification sequence, and rollback boundary.
 - `docs/orchestrator/AUTH_BOOTSTRAP_DRY_RUN_REPORT.md` records the auth-owned dry-run implementation, report path, build verification, and `writes=false` evidence.
 - `docs/orchestrator/AUTH_BOOTSTRAP_APPLY_GATE.md` records the gated apply implementation, rollback SQL path, latest dry-run evidence, and remaining pre-apply steps.
+- Auth bootstrap was applied after explicit owner approval: `214230` legacy users mapped, `214224` auth users created, `192` duplicate-email identities preserved as separate null-email auth users, and the auth deployment health check passed after rollout.
 
 ## Goal 5 - Lesson Recording And Private Media Migration
 

@@ -328,8 +328,25 @@ Verification:
 - Backup/rollback commands are recorded before any auth write.
 - Post-apply auth report and user-service dry-run prove unresolved auth counts match the approved skip policy.
 
-Status: in progress. Apply mode and rollback-plan generation are implemented and verified at safety-gate level. The apply command has not been executed, and no auth writes have been performed.
+Status: done. Owner approved the write migration and Django PBKDF2 password-continuity path. The auth bootstrap applied `214230` legacy mappings and created `214224` auth users; `192` duplicate-email identities were preserved as separate null-email auth users. `auth-microservice` was deployed with legacy password verification and first-login bcrypt upgrade support, and the final health check passed.
+
+### Chunk 4.11 - User/Profile Migration Auth Mapping
+
+Deliverables:
+
+- Re-run `user-service/scripts/migrate-user-from-legacy.py` after auth bootstrap.
+- Replace email-only auth resolution with auth-owned `legacy_identity_mappings` lookup by legacy `auth_user.id`.
+- Preserve user-service ownership: profiles reference auth UUIDs but do not create auth identities.
+- Produce a no-write dry-run report showing unresolved auth references after mapping-table resolution.
+
+Verification:
+
+- User-service dry-run completes with `writes=false`.
+- Duplicate-email legacy users resolve to distinct auth UUIDs through mappings.
+- Any remaining unresolved users are listed by source ID and reason before write mode is considered.
+
+Status: next.
 
 ## Next Goal Selection
 
-Continue Goal 4.10 by reviewing the auth dry-run report and implementing the write-gated apply/rollback path only after explicit write approval.
+Continue Goal 4.11 by re-running and hardening the user/profile migration against auth-owned `legacy_identity_mappings`.
