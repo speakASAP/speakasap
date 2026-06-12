@@ -1,6 +1,15 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 *)",
+      "Bash(vault *)",
+      "Bash(VAULT_ADDR=http://127.0.0.1:8200 vault kv *)",
+      "Bash(ssh speakasap *)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "docker"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

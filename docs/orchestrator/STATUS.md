@@ -1627,3 +1627,36 @@ Blockers before Goal 5.5 can be closed:
 Next:
 
 - Continue Goal 5.5 by resolving runtime auth-token fixtures and recording-storage env configuration; keep frontend/gateway cutover, merge execution, object deletion, and legacy retirement blocked until separate approval and evidence exist.
+
+## 2026-06-12 - DocsRAG JWT Runtime Wiring Fixed Across SpeakASAP Services
+
+Current focus:
+
+- Owner-selected operational fix: make DocsRAG usable from SpeakASAP runtime pods after the same JWT_TOKEN issue was fixed for AI, RunLayer, and Leads.
+- Runtime source changes: Kubernetes ExternalSecret manifests only; no application code, schema, data migration, object storage mutation, frontend cutover, or gateway route behavior change.
+
+Source context:
+
+- Queried DocsRAG through the already-fixed Leads runtime pod; retrieval returned HTTP 200.
+- Compared the existing AI/RunLayer/Leads pattern: .env.example documents JWT_TOKEN and ExternalSecret maps secret/prod service property JWT_TOKEN into the Kubernetes secret.
+- Confirmed SpeakASAP root .env.example and k8s/external-secret.yaml already had JWT_TOKEN wiring in the current worktree.
+- Confirmed live SpeakASAP ExternalSecrets already mapped JWT_TOKEN for root and service secrets, but most running pods were old and did not expose JWT_TOKEN in process env.
+- Added durable JWT_TOKEN mapping to service manifests that were missing it: assessment, certification, content, course, financial, notification, payment, salary, and user. Education already had the mapping; api-gateway consumes speakasap-secret.
+
+Validation evidence:
+
+- Before restart, runtime env checks showed JWT_TOKEN missing from speakasap, api-gateway, assessment, certification, content, course, financial, notification, payment, salary, and user; education already reported present.
+- Restarted deployments in statex-apps: speakasap, speakasap-api-gateway, assessment, certification, content, course, education, financial, notification, payment, salary, and user.
+- Final rollout status passed for all 12 SpeakASAP deployments.
+- Final runtime env checks reported JWT_TOKEN present for speakasap, api-gateway, assessment, certification, content, course, education, notification, payment, salary, and user; financial pod was separately checked and reported JWT_TOKEN_PRESENT with PORT=4213.
+- Public health passed: https://speakasap.alfares.cz/health returned {"status":"ok"}.
+- DocsRAG retrieval from deployment/speakasap using Node fetch returned HTTP 200 for query Speak ASAP operational constraints.
+- Sensitive-data handling: token values were never printed or copied; only presence and HTTP status were recorded.
+
+Gate decision:
+
+- DocsRAG credential blocker is resolved for SpeakASAP runtime pods. Future RAG queries should run from an in-cluster runtime pod or other trusted in-cluster client; a plain SSH shell is not expected to expose runtime secrets.
+
+Next:
+
+- Continue Goal 5.5 by resolving safe real role tokens and RECORDS_S3_* runtime configuration before success-path private media smoke or frontend/gateway cutover.

@@ -9,5 +9,7 @@
   "next_goal": "Goal 5 - Lesson Recording And Private Media Migration",
   "status": "active",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
-  "next_required_action": "Resolve safe real paid/unpaid student, assigned/unassigned teacher, and staff tokens plus RECORDS_S3_* runtime configuration, then re-run deployed speakasap-education HTTP smoke for success paths before any frontend/gateway cutover."
+  "next_required_action": "Resolve safe real paid/unpaid student, assigned/unassigned teacher, and staff tokens plus RECORDS_S3_* runtime configuration, then re-run deployed speakasap-education HTTP smoke for success paths before any frontend/gateway cutover.",
+  "docsrag_runtime_jwt": "available",
+  "last_operational_fix": "docsrag-jwt-runtime-wiring-fixed-2026-06-12"
 }

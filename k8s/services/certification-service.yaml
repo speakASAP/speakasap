@@ -148,6 +148,10 @@ spec:
       remoteRef:
         key: secret/prod/speakasap
         property: DB_PASSWORD
+    - secretKey: JWT_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap
+        property: JWT_TOKEN
     - secretKey: DATABASE_URL
       remoteRef:
         key: secret/prod/speakasap/certification

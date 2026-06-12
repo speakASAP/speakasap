@@ -161,3 +161,35 @@ spec:
       remoteRef:
         key: secret/prod/speakasap/education
         property: INTERNAL_API_TOKEN
+    - secretKey: JWT_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap
+        property: JWT_TOKEN
+    - secretKey: RECORDS_S3_ENDPOINT_URL
+      remoteRef:
+        key: secret/prod/speakasap/education
+        property: RECORDS_S3_ENDPOINT_URL
+    - secretKey: RECORDS_S3_BUCKET
+      remoteRef:
+        key: secret/prod/speakasap/education
+        property: RECORDS_S3_BUCKET
+    - secretKey: RECORDS_S3_ACCESS_KEY
+      remoteRef:
+        key: secret/prod/speakasap/education
+        property: RECORDS_S3_ACCESS_KEY
+    - secretKey: RECORDS_S3_SECRET_KEY
+      remoteRef:
+        key: secret/prod/speakasap/education
+        property: RECORDS_S3_SECRET_KEY
+    - secretKey: RECORDS_S3_REGION_NAME
+      remoteRef:
+        key: secret/prod/speakasap/education
+        property: RECORDS_S3_REGION_NAME
+    - secretKey: RECORDS_S3_VERIFY_SSL
+      remoteRef:
+        key: secret/prod/speakasap/education
+        property: RECORDS_S3_VERIFY_SSL
+    - secretKey: RECORDS_S3_HELPER_URL
+      remoteRef:
+        key: secret/prod/speakasap/education
+        property: RECORDS_S3_HELPER_URL
