@@ -166,7 +166,7 @@ def fetch_target_lessons(tgt, lesson_ids: set[str]) -> set[str]:
     chunk_size = 1000
     for idx in range(0, len(ids), chunk_size):
         chunk = ids[idx:idx + chunk_size]
-        cur.execute('SELECT "uuid"::text FROM "education_lesson" WHERE "uuid" = ANY(%s)', (chunk,))
+        cur.execute('SELECT "uuid"::text FROM "education_lesson" WHERE "uuid"::text = ANY(%s)', (chunk,))
         found.update(row[0] for row in cur.fetchall())
     cur.close()
     return found
