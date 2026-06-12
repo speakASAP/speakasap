@@ -8,8 +8,12 @@ Env:
   AUTH_DATABASE_URL   — auth-microservice Postgres (table "users") for email -> UUID mapping
 
 Options:
-  --dry-run          — source row counts + unresolved-auth counts only; no writes
+  --dry-run          — reconciliation report only; no writes
+  --check-target     — include target counts/conflict samples in dry run
+  --json-report      — print machine-readable dry-run report
+  --limit            — maximum sample rows per reconciliation bucket
   --truncate-first   — delete target user-domain tables (FK-safe order) before import
+  --allow-truncate-first — required together with --truncate-first outside dry run
 
 Identity:
   Target rows require auth_user_id (UUID) = auth-microservice users.id.
@@ -23,6 +27,7 @@ Target physical names: see prisma/migrations/*_init_user_tables/migration.sql.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -44,24 +49,561 @@ def connect(url: str):
     return psycopg2.connect(url, connect_timeout=30)
 
 
-def dry_run_counts(src) -> None:
-    tables = [
-        "students_student",
-        "employees_teacher",
-        "employees_teacher_additional_languages",
-        "employees_manager",
-        "employees_employeeprofile",
-        "auth_user",
-    ]
-    cur = src.cursor()
-    for t in tables:
-        try:
-            cur.execute('SELECT COUNT(*) FROM "{}"'.format(t.replace('"', "")))
-            n = cur.fetchone()[0]
-            log(f"dry-run count {t}={n}")
-        except Exception as e:
-            log(f"dry-run count {t} ERROR: {e}")
+SOURCE_TABLES = [
+    "students_student",
+    "employees_teacher",
+    "employees_teacher_additional_languages",
+    "employees_manager",
+    "employees_employeeprofile",
+    "auth_user",
+]
+
+TARGET_TABLES = [
+    "user_identity_mirror",
+    "managers",
+    "teachers",
+    "students",
+    "employee_profiles",
+    "teacher_additional_languages",
+]
+
+
+def json_safe(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value) if value is not None else None
+
+
+def qname(name: str) -> str:
+    return '"' + name.replace('"', "") + '"'
+
+
+def query_count(conn, sql: str, params=None) -> int:
+    cur = conn.cursor()
+    cur.execute(sql, params or [])
+    value = int(cur.fetchone()[0])
     cur.close()
+    return value
+
+
+def sample_query(conn, sql: str, params=None, limit: int = 25) -> list[list[object]]:
+    cur = conn.cursor()
+    cur.execute(sql, list(params or []) + [limit])
+    rows = cur.fetchall()
+    cur.close()
+    return [[json_safe(v) for v in row] for row in rows]
+
+
+def table_counts(conn, tables: list[str]) -> dict[str, int | str]:
+    counts: dict[str, int | str] = {}
+    cur = conn.cursor()
+    for table in tables:
+        try:
+            cur.execute(f'SELECT COUNT(*) FROM "{table}"')
+            counts[table] = int(cur.fetchone()[0])
+        except Exception as e:
+            counts[table] = f"ERROR: {e}"
+    cur.close()
+    return counts
+
+
+def count_and_sample(conn, count_sql: str, sample_sql: str, limit: int, params=None) -> dict[str, object]:
+    return {
+        "count": query_count(conn, count_sql, params),
+        "sample": sample_query(conn, sample_sql, params, limit=limit),
+    }
+
+
+def duplicate_key_report(
+    conn,
+    table: str,
+    columns: list[str],
+    limit: int,
+    where_sql: str = "",
+) -> dict[str, object]:
+    col_sql = ", ".join(qname(c) for c in columns)
+    group_sql = ", ".join(qname(c) for c in columns)
+    where_clause = f"WHERE {where_sql}" if where_sql else ""
+    count_sql = f"""
+        SELECT COUNT(*) FROM (
+          SELECT {col_sql}
+          FROM "{table}"
+          {where_clause}
+          GROUP BY {group_sql}
+          HAVING COUNT(*) > 1
+        ) dup
+    """
+    sample_sql = f"""
+        SELECT {col_sql}, COUNT(*) AS duplicate_count
+        FROM "{table}"
+        {where_clause}
+        GROUP BY {group_sql}
+        HAVING COUNT(*) > 1
+        ORDER BY duplicate_count DESC
+        LIMIT %s
+    """
+    return count_and_sample(conn, count_sql, sample_sql, limit)
+
+
+def unresolved_auth_report(src, email_map: dict[str, str] | None, limit: int) -> dict[str, object]:
+    if email_map is None:
+        return {"available": False, "reason": "AUTH_DATABASE_URL not set"}
+    emails = sorted(email_map.keys())
+    checks = {
+        "auth_user": """
+            SELECT u.id, u.email
+            FROM auth_user u
+            WHERE COALESCE(trim(u.email), '') = ''
+               OR lower(trim(u.email)) <> ALL(%s)
+        """,
+        "students": """
+            SELECT s.id, s.user_id, u.email
+            FROM students_student s
+            JOIN auth_user u ON u.id = s.user_id
+            WHERE COALESCE(trim(u.email), '') = ''
+               OR lower(trim(u.email)) <> ALL(%s)
+        """,
+        "teachers": """
+            SELECT t.id, t.user_id, u.email
+            FROM employees_teacher t
+            JOIN auth_user u ON u.id = t.user_id
+            WHERE COALESCE(trim(u.email), '') = ''
+               OR lower(trim(u.email)) <> ALL(%s)
+        """,
+        "managers": """
+            SELECT m.id, m.user_id, u.email
+            FROM employees_manager m
+            JOIN auth_user u ON u.id = m.user_id
+            WHERE COALESCE(trim(u.email), '') = ''
+               OR lower(trim(u.email)) <> ALL(%s)
+        """,
+        "employee_profiles": """
+            SELECT e.id, e.user_id, u.email
+            FROM employees_employeeprofile e
+            JOIN auth_user u ON u.id = e.user_id
+            WHERE COALESCE(trim(u.email), '') = ''
+               OR lower(trim(u.email)) <> ALL(%s)
+        """,
+    }
+    report: dict[str, object] = {"available": True, "auth_index_size": len(email_map)}
+    for name, base_sql in checks.items():
+        report[name] = count_and_sample(
+            src,
+            f"SELECT COUNT(*) FROM ({base_sql}) unresolved",
+            f"{base_sql} ORDER BY 1 LIMIT %s",
+            limit,
+            [emails],
+        )
+    return report
+
+
+def source_reconciliation(src, email_map: dict[str, str] | None, limit: int) -> dict[str, object]:
+    return {
+        "source_counts": table_counts(src, SOURCE_TABLES),
+        "duplicate_keys": {
+            "auth_user.email": duplicate_key_report(
+                src,
+                "auth_user",
+                ["email"],
+                limit,
+                "email IS NOT NULL AND trim(email) <> ''",
+            ),
+            "students_student.user_id": duplicate_key_report(src, "students_student", ["user_id"], limit),
+            "employees_teacher.user_id": duplicate_key_report(src, "employees_teacher", ["user_id"], limit),
+            "employees_manager.user_id": duplicate_key_report(src, "employees_manager", ["user_id"], limit),
+            "employees_employeeprofile.user_id": duplicate_key_report(
+                src,
+                "employees_employeeprofile",
+                ["user_id"],
+                limit,
+            ),
+            "teacher_additional_languages.pair": duplicate_key_report(
+                src,
+                "employees_teacher_additional_languages",
+                ["teacher_id", "language_id"],
+                limit,
+            ),
+        },
+        "missing_references": {
+            "students_missing_auth_user": count_and_sample(
+                src,
+                """
+                SELECT COUNT(*)
+                FROM students_student s
+                LEFT JOIN auth_user u ON u.id = s.user_id
+                WHERE u.id IS NULL
+                """,
+                """
+                SELECT s.id, s.user_id
+                FROM students_student s
+                LEFT JOIN auth_user u ON u.id = s.user_id
+                WHERE u.id IS NULL
+                ORDER BY s.id
+                LIMIT %s
+                """,
+                limit,
+            ),
+            "students_missing_manager": count_and_sample(
+                src,
+                """
+                SELECT COUNT(*)
+                FROM students_student s
+                LEFT JOIN employees_manager m ON m.id = s.manager_id
+                WHERE s.manager_id IS NOT NULL AND m.id IS NULL
+                """,
+                """
+                SELECT s.id, s.manager_id
+                FROM students_student s
+                LEFT JOIN employees_manager m ON m.id = s.manager_id
+                WHERE s.manager_id IS NOT NULL AND m.id IS NULL
+                ORDER BY s.id
+                LIMIT %s
+                """,
+                limit,
+            ),
+            "teachers_missing_auth_user": count_and_sample(
+                src,
+                """
+                SELECT COUNT(*)
+                FROM employees_teacher t
+                LEFT JOIN auth_user u ON u.id = t.user_id
+                WHERE u.id IS NULL
+                """,
+                """
+                SELECT t.id, t.user_id
+                FROM employees_teacher t
+                LEFT JOIN auth_user u ON u.id = t.user_id
+                WHERE u.id IS NULL
+                ORDER BY t.id
+                LIMIT %s
+                """,
+                limit,
+            ),
+            "teachers_missing_language": count_and_sample(
+                src,
+                """
+                SELECT COUNT(*)
+                FROM employees_teacher t
+                LEFT JOIN language_language l ON l.id = t.language_id
+                WHERE l.id IS NULL
+                """,
+                """
+                SELECT t.id, t.language_id
+                FROM employees_teacher t
+                LEFT JOIN language_language l ON l.id = t.language_id
+                WHERE l.id IS NULL
+                ORDER BY t.id
+                LIMIT %s
+                """,
+                limit,
+            ),
+            "teacher_additional_languages_missing_teacher": count_and_sample(
+                src,
+                """
+                SELECT COUNT(*)
+                FROM employees_teacher_additional_languages rel
+                LEFT JOIN employees_teacher t ON t.id = rel.teacher_id
+                WHERE t.id IS NULL
+                """,
+                """
+                SELECT rel.teacher_id, rel.language_id
+                FROM employees_teacher_additional_languages rel
+                LEFT JOIN employees_teacher t ON t.id = rel.teacher_id
+                WHERE t.id IS NULL
+                ORDER BY rel.teacher_id, rel.language_id
+                LIMIT %s
+                """,
+                limit,
+            ),
+            "teacher_additional_languages_missing_language": count_and_sample(
+                src,
+                """
+                SELECT COUNT(*)
+                FROM employees_teacher_additional_languages rel
+                LEFT JOIN language_language l ON l.id = rel.language_id
+                WHERE l.id IS NULL
+                """,
+                """
+                SELECT rel.teacher_id, rel.language_id
+                FROM employees_teacher_additional_languages rel
+                LEFT JOIN language_language l ON l.id = rel.language_id
+                WHERE l.id IS NULL
+                ORDER BY rel.teacher_id, rel.language_id
+                LIMIT %s
+                """,
+                limit,
+            ),
+            "managers_missing_auth_user": count_and_sample(
+                src,
+                """
+                SELECT COUNT(*)
+                FROM employees_manager m
+                LEFT JOIN auth_user u ON u.id = m.user_id
+                WHERE u.id IS NULL
+                """,
+                """
+                SELECT m.id, m.user_id
+                FROM employees_manager m
+                LEFT JOIN auth_user u ON u.id = m.user_id
+                WHERE u.id IS NULL
+                ORDER BY m.id
+                LIMIT %s
+                """,
+                limit,
+            ),
+            "employee_profiles_missing_auth_user": count_and_sample(
+                src,
+                """
+                SELECT COUNT(*)
+                FROM employees_employeeprofile e
+                LEFT JOIN auth_user u ON u.id = e.user_id
+                WHERE u.id IS NULL
+                """,
+                """
+                SELECT e.id, e.user_id
+                FROM employees_employeeprofile e
+                LEFT JOIN auth_user u ON u.id = e.user_id
+                WHERE u.id IS NULL
+                ORDER BY e.id
+                LIMIT %s
+                """,
+                limit,
+            ),
+        },
+        "unresolved_auth": unresolved_auth_report(src, email_map, limit),
+    }
+
+
+def fetch_int_values(conn, table: str, column: str) -> list[int]:
+    cur = conn.cursor()
+    cur.execute(f"SELECT {qname(column)} FROM {qname(table)} WHERE {qname(column)} IS NOT NULL")
+    values = [int(row[0]) for row in cur.fetchall()]
+    cur.close()
+    return values
+
+
+def fetch_auth_uuids_for_source(src, email_map: dict[str, str] | None, sql: str) -> list[str]:
+    if email_map is None:
+        return []
+    cur = src.cursor()
+    cur.execute(sql)
+    values: list[str] = []
+    for (email,) in cur.fetchall():
+        uid = email_map.get((email or "").strip().lower())
+        if uid:
+            values.append(uid)
+    cur.close()
+    return values
+
+
+def target_int_conflicts(tgt, table: str, column: str, source_values: list[int], limit: int) -> dict[str, object]:
+    if not source_values:
+        return {"count": 0, "sample": []}
+    found: list[int] = []
+    cur = tgt.cursor()
+    for i in range(0, len(source_values), 1000):
+        chunk = source_values[i : i + 1000]
+        cur.execute(
+            f"SELECT {qname(column)} FROM {qname(table)} WHERE {qname(column)} = ANY(%s)",
+            [chunk],
+        )
+        found.extend(int(row[0]) for row in cur.fetchall())
+    cur.close()
+    found_sorted = sorted(set(found))
+    return {"count": len(found_sorted), "sample": found_sorted[:limit]}
+
+
+def target_text_conflicts(tgt, table: str, column: str, source_values: list[str], limit: int) -> dict[str, object]:
+    if not source_values:
+        return {"count": 0, "sample": []}
+    found: list[str] = []
+    cur = tgt.cursor()
+    for i in range(0, len(source_values), 1000):
+        chunk = source_values[i : i + 1000]
+        cur.execute(
+            f"SELECT {qname(column)}::text FROM {qname(table)} WHERE {qname(column)}::text = ANY(%s)",
+            [chunk],
+        )
+        found.extend(str(row[0]) for row in cur.fetchall())
+    cur.close()
+    found_sorted = sorted(set(found))
+    return {"count": len(found_sorted), "sample": found_sorted[:limit]}
+
+
+def target_reconciliation(
+    src,
+    tgt,
+    email_map: dict[str, str] | None,
+    limit: int,
+) -> dict[str, object]:
+    student_ids = fetch_int_values(src, "students_student", "id")
+    teacher_ids = fetch_int_values(src, "employees_teacher", "id")
+    manager_ids = fetch_int_values(src, "employees_manager", "id")
+    employee_profile_ids = fetch_int_values(src, "employees_employeeprofile", "id")
+    legacy_user_ids = fetch_int_values(src, "auth_user", "id")
+
+    mirror_auth_ids = fetch_auth_uuids_for_source(
+        src,
+        email_map,
+        "SELECT COALESCE(email, '') FROM auth_user",
+    )
+    student_auth_ids = fetch_auth_uuids_for_source(
+        src,
+        email_map,
+        """
+        SELECT COALESCE(u.email, '')
+        FROM students_student s
+        JOIN auth_user u ON u.id = s.user_id
+        """,
+    )
+    teacher_auth_ids = fetch_auth_uuids_for_source(
+        src,
+        email_map,
+        """
+        SELECT COALESCE(u.email, '')
+        FROM employees_teacher t
+        JOIN auth_user u ON u.id = t.user_id
+        """,
+    )
+    manager_auth_ids = fetch_auth_uuids_for_source(
+        src,
+        email_map,
+        """
+        SELECT COALESCE(u.email, '')
+        FROM employees_manager m
+        JOIN auth_user u ON u.id = m.user_id
+        """,
+    )
+    employee_profile_auth_ids = fetch_auth_uuids_for_source(
+        src,
+        email_map,
+        """
+        SELECT COALESCE(u.email, '')
+        FROM employees_employeeprofile e
+        JOIN auth_user u ON u.id = e.user_id
+        """,
+    )
+
+    return {
+        "target_counts": table_counts(tgt, TARGET_TABLES),
+        "target_id_conflicts": {
+            "students.id": target_int_conflicts(tgt, "students", "id", student_ids, limit),
+            "teachers.id": target_int_conflicts(tgt, "teachers", "id", teacher_ids, limit),
+            "managers.id": target_int_conflicts(tgt, "managers", "id", manager_ids, limit),
+            "employee_profiles.id": target_int_conflicts(
+                tgt,
+                "employee_profiles",
+                "id",
+                employee_profile_ids,
+                limit,
+            ),
+            "user_identity_mirror.legacy_portal_user_id": target_int_conflicts(
+                tgt,
+                "user_identity_mirror",
+                "legacy_portal_user_id",
+                legacy_user_ids,
+                limit,
+            ),
+        },
+        "target_auth_conflicts": {
+            "user_identity_mirror.auth_user_id": target_text_conflicts(
+                tgt,
+                "user_identity_mirror",
+                "auth_user_id",
+                mirror_auth_ids,
+                limit,
+            ),
+            "students.auth_user_id": target_text_conflicts(tgt, "students", "auth_user_id", student_auth_ids, limit),
+            "teachers.auth_user_id": target_text_conflicts(tgt, "teachers", "auth_user_id", teacher_auth_ids, limit),
+            "managers.auth_user_id": target_text_conflicts(tgt, "managers", "auth_user_id", manager_auth_ids, limit),
+            "employee_profiles.auth_user_id": target_text_conflicts(
+                tgt,
+                "employee_profiles",
+                "auth_user_id",
+                employee_profile_auth_ids,
+                limit,
+            ),
+        },
+        "replacement_scope": {
+            "teacher_additional_languages_existing_total": query_count(
+                tgt,
+                'SELECT COUNT(*) FROM "teacher_additional_languages"',
+            ),
+            "teacher_additional_languages_for_source_teachers": target_int_conflicts(
+                tgt,
+                "teacher_additional_languages",
+                "teacher_id",
+                teacher_ids,
+                limit,
+            ),
+        },
+    }
+
+
+def dry_run_report(
+    src,
+    auth=None,
+    tgt=None,
+    check_target: bool = False,
+    limit: int = 25,
+) -> dict[str, object]:
+    email_map = load_email_to_uuid(auth) if auth is not None else None
+    report = {
+        "dry_run": True,
+        "writes": False,
+        "source": source_reconciliation(src, email_map, limit),
+    }
+    if check_target:
+        if tgt is None:
+            report["target"] = {"available": False, "reason": "TARGET_DATABASE_URL not set"}
+        else:
+            target = target_reconciliation(src, tgt, email_map, limit)
+            target["available"] = True
+            report["target"] = target
+    return report
+
+
+def emit_report(report: dict[str, object], json_report: bool) -> None:
+    if json_report:
+        print(json.dumps(report, indent=2, sort_keys=True), flush=True)
+        return
+    source = report["source"]
+    for table, count in source["source_counts"].items():
+        log(f"dry-run source_count {table}={count}")
+    for group, items in (
+        ("duplicate", source["duplicate_keys"]),
+        ("missing_reference", source["missing_references"]),
+    ):
+        for name, result in items.items():
+            log(f"dry-run {group} {name} count={result['count']} sample={result['sample']}")
+    unresolved = source["unresolved_auth"]
+    if not unresolved.get("available"):
+        log(f"dry-run unresolved_auth skipped reason={unresolved.get('reason')}")
+    else:
+        log(f"dry-run auth_index_size={unresolved.get('auth_index_size')}")
+        for name, result in unresolved.items():
+            if name in ("available", "auth_index_size"):
+                continue
+            log(f"dry-run unresolved_auth {name} count={result['count']} sample={result['sample']}")
+    target = report.get("target")
+    if target:
+        if not target.get("available"):
+            log(f"dry-run target skipped reason={target.get('reason')}")
+            return
+        for table, count in target["target_counts"].items():
+            log(f"dry-run target_count {table}={count}")
+        for group, items in (
+            ("target_id_conflict", target["target_id_conflicts"]),
+            ("target_auth_conflict", target["target_auth_conflicts"]),
+        ):
+            for name, result in items.items():
+                log(f"dry-run {group} {name} count={result['count']} sample={result['sample']}")
+        scope = target["replacement_scope"]
+        log(
+            "dry-run replacement_scope teacher_additional_languages "
+            f"existing_total={scope['teacher_additional_languages_existing_total']} "
+            f"source_teacher_conflicts={scope['teacher_additional_languages_for_source_teachers']}"
+        )
 
 
 def truncate_target(tgt) -> None:
@@ -494,32 +1036,55 @@ def reset_sequences(tgt) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--truncate-first", action="store_true")
+    ap.add_argument("--dry-run", action="store_true", help="produce reconciliation report without writes")
+    ap.add_argument("--check-target", action="store_true", help="include target counts and conflicts in dry run")
+    ap.add_argument("--json-report", action="store_true", help="print dry-run report as JSON")
+    ap.add_argument("--limit", type=int, default=25, help="maximum sample rows per reconciliation bucket")
+    ap.add_argument("--truncate-first", action="store_true", help="delete target user tables before import")
+    ap.add_argument(
+        "--allow-truncate-first",
+        action="store_true",
+        help="required with --truncate-first outside dry-run",
+    )
     args = ap.parse_args()
 
     src_url = os.environ.get("SOURCE_DATABASE_URL")
     tgt_url = os.environ.get("TARGET_DATABASE_URL")
     auth_url = os.environ.get("AUTH_DATABASE_URL")
 
-    if not src_url or not tgt_url:
-        log("ERROR: SOURCE_DATABASE_URL and TARGET_DATABASE_URL required")
+    if not src_url:
+        log("ERROR: SOURCE_DATABASE_URL required")
         return 1
+    if not args.dry_run and args.truncate_first and not args.allow_truncate_first:
+        log("Refusing --truncate-first without --allow-truncate-first")
+        return 2
 
     log("connecting source")
     src = connect(src_url)
     if args.dry_run:
-        dry_run_counts(src)
-        if auth_url:
-            auth = connect(auth_url)
-            em = load_email_to_uuid(auth)
-            auth.close()
-            log(f"dry-run auth index size={len(em)}")
-        else:
-            log("dry-run: AUTH_DATABASE_URL not set (full import will require it)")
-        src.close()
+        auth = connect(auth_url) if auth_url else None
+        tgt = connect(tgt_url) if args.check_target and tgt_url else None
+        try:
+            report = dry_run_report(
+                src,
+                auth=auth,
+                tgt=tgt,
+                check_target=args.check_target,
+                limit=max(args.limit, 1),
+            )
+            emit_report(report, args.json_report)
+        finally:
+            if tgt is not None:
+                tgt.close()
+            if auth is not None:
+                auth.close()
+            src.close()
         return 0
 
+    if not tgt_url:
+        log("ERROR: TARGET_DATABASE_URL required")
+        src.close()
+        return 1
     if not auth_url:
         log("ERROR: AUTH_DATABASE_URL required for import (email -> UUID)")
         src.close()

@@ -1,5 +1,9 @@
 {
-  "cycle": 1,
-  "last_cycle_at": "2026-04-16T02:31:14.027Z",
-  "tasks_active": 0
+  "cycle": 12,
+  "last_cycle_at": "2026-06-12T00:00:00.000Z",
+  "tasks_active": 1,
+  "current_goal": "Goal 4 - Data Migration And Reconciliation",
+  "current_chunk": "4.5 Course migration dry-run hardening",
+  "next_goal": "Goal 4 - Data Migration And Reconciliation",
+  "status": "active"
 }

@@ -1,28 +1,34 @@
-# PLAN: SpeakASAP Platform
+# PLAN: SpeakASAP Refactoring
 
-## Current Phase: Growth & Retention
+## Current Phase: Intent-Preserved Legacy Portal Refactor
 
-The platform is live on Kubernetes. Core services are operational. Focus is on increasing user engagement, course completion rates, and revenue.
+The previous growth-and-retention plan is superseded for this workstream by the owner instruction from 2026-06-12: move/refactor the legacy SpeakASAP portal into the new Alpharis/SpeakASAP platform using the internal intent preservation system before changing implementation code.
 
 ## Active Goal
 
-**Improve SpeakASAP user experience and engagement**
+**Goal 4 - Data Migration And Reconciliation**
 
-Identify and implement the highest-impact improvements to increase user engagement, retention, and revenue. Focus areas:
-- Onboarding flow improvements
-- Notification effectiveness
-- Course discovery and recommendations
-- Payment conversion optimization
+Harden dry-run and reconciliation reports for selected migration scripts. Education and user dry-run hardening are verified; the next target is course migration reporting because lesson and offer context depends on course/product parity.
 
-## Priorities
+## Roadmap
 
-1. Audit current user funnel — where do users drop off?
-2. Improve notification service (push + email) for re-engagement
-3. Course recommendation logic on frontend
-4. Checkout flow friction reduction
+1. Goal 1 - Intent Preservation And Refactor Governance
+2. Goal 2 - Legacy Portal Inventory And Parity Map
+3. Goal 3 - Service Ownership And API Contract Mapping
+4. Goal 4 - Data Migration And Reconciliation
+5. Goal 5 - Lesson Recording And Private Media Migration
+6. Goal 6 - Gateway, Auth, And Frontend Parity
+7. Goal 7 - Operational Cutover Readiness
+8. Goal 8 - Controlled Cutover And Legacy Decommission
 
-## Out of Scope
+## Execution Rule
 
-- New payment provider integrations (payments-microservice owns this)
-- speakasap-portal (legacy Django — read-only reference)
-- auth-microservice changes
+Work one goal chunk at a time. Do not change legacy production behavior, schema, auth, payment, or recording access until the relevant goal has acceptance criteria and verification evidence in `docs/orchestrator/STATUS.md`.
+
+## Out Of Scope Unless Explicitly Approved
+
+- Upgrading the legacy portal runtime from Python 3.4 / Django 1.11.2.
+- Changing payments ownership away from `payments-microservice`.
+- Changing auth ownership away from `auth-microservice`.
+- Making lesson recordings public or bypassing presigned/private access.
+- Destructive migration or legacy data deletion.
