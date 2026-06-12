@@ -10,7 +10,14 @@ export function isStaffUser(user: AuthContextUser | undefined): boolean {
   }
   const roles = user.roles;
   if (Array.isArray(roles)) {
-    return roles.some((r) => typeof r === 'string' && ['staff', 'admin', 'manager'].includes(r.toLowerCase()));
+    return roles.some((r) => {
+      if (typeof r !== 'string') {
+        return false;
+      }
+      const role = r.toLowerCase();
+      const roleName = role.includes(':') ? role.split(':').pop() : role;
+      return ['staff', 'admin', 'manager', 'superadmin'].includes(role) || ['staff', 'admin', 'manager', 'superadmin'].includes(roleName || '');
+    });
   }
   return false;
 }

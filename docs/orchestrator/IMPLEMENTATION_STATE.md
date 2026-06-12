@@ -109,3 +109,5 @@ Do not paste full logs. Keep each session summary short enough to guide the next
 ## Next Action
 
 Continue Goal 5.5 by resolving safe real role tokens and `RECORDS_S3_*` runtime configuration, then re-run deployed HTTP smoke for paid/unpaid student playback, assigned/unassigned teacher, staff, valid 900-second SigV4 presign, authorized commit mismatch, and token download success before any frontend/gateway cutover.
+
+- 2026-06-12: Goal 5.5 runtime smoke continued after DocsRAG JWT runtime fix. Deployed education-service staff access patch for scoped auth roles such as global:superadmin; verifier/build passed; image localhost:5000/speakasap-education:latest rebuilt/pushed and deployment/speakasap-education rolled out. Sanitized smoke report /tmp/speakasap-goal55-runtime-smoke-20260612-v3.json confirms staff presign/commit mismatch/merge/delete paths now authorize correctly while paid tokenized range download still returns 404. Goal 5.5 remains active until private playback object/helper path returns 200/206 without permanent URL exposure.

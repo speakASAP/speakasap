@@ -48,22 +48,29 @@ export class LessonRecordStorageService {
   async streamRecord(recordKey: string, rangeHeader: string | undefined, res: Response): Promise<void> {
     const helperUrl = process.env.RECORDS_S3_HELPER_URL || '';
     const bucket = process.env.RECORDS_S3_BUCKET || '';
-    if (!helperUrl || !bucket) {
+    if (!bucket) {
       throw new ServiceUnavailableException('Private record storage helper is not configured');
     }
-    const helperBase = helperUrl.replace(/\/$/, '').replace(/\/upload$/, '');
+    const isLegacyLocalHelper =
+      !helperUrl ||
+      helperUrl.includes('127.0.0.1') ||
+      helperUrl.includes('localhost');
     for (const key of candidateKeys(recordKey)) {
-      const url = `${helperBase}/download?${new URLSearchParams({ bucket, key }).toString()}`;
+      const fetchUrl = isLegacyLocalHelper
+        ? this.presignGet(key, 900)
+        : `${helperUrl.replace(/\/$/, '').replace(/\/upload$/, '')}/download?${new URLSearchParams({ bucket, key }).toString()}`;
       const headers: Record<string, string> = {};
       if (rangeHeader) {
         headers.Range = rangeHeader;
       }
-      const upstream = await fetch(url, { headers });
+      const upstream = await fetch(fetchUrl, { headers });
       if (!upstream.ok) {
         if ([403, 404].includes(upstream.status)) {
           continue;
         }
-        throw new ServiceUnavailableException('Private record storage helper failed');
+        throw new ServiceUnavailableException(
+          isLegacyLocalHelper ? 'Private record S3 stream failed' : 'Private record storage helper failed',
+        );
       }
       const contentType = upstream.headers.get('content-type') || 'audio/mpeg';
       res.status(upstream.status === 206 ? 206 : 200);
@@ -88,6 +95,13 @@ export class LessonRecordStorageService {
       return;
     }
     throw new NotFoundException('Lesson record object not found');
+  }
+
+  presignGet(key: string, expiresIn = 900): string {
+    const config = this.s3Config();
+    return this.presignS3Url('GET', key, expiresIn, {
+      host: config.host,
+    });
   }
 
   private s3Config(): {

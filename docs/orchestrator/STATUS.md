@@ -1660,3 +1660,44 @@ Gate decision:
 Next:
 
 - Continue Goal 5.5 by resolving safe real role tokens and RECORDS_S3_* runtime configuration before success-path private media smoke or frontend/gateway cutover.
+
+## 2026-06-12 - Goal 5.5 Runtime Smoke Continued After DocsRAG JWT Fix
+
+Current focus:
+
+- Continued SpeakASAP Goal 5.5 on alfares after DocsRAG JWT became available from runtime pods.
+- DocsRAG retrieval from deployment/speakasap returned HTTP 200 using JWT_TOKEN without printing token values.
+- Source/deploy work stayed remote-only in /home/ssf/Documents/Github/speakasap.
+
+Changes deployed:
+
+- Updated education-service staff access detection to accept scoped auth roles such as global:superadmin in addition to staff/admin/manager/superadmin.
+- Updated lesson-record runtime contract verifier to assert the superadmin staff access mapping.
+- Rebuilt and pushed localhost:5000/speakasap-education:latest, then restarted deployment/speakasap-education. Rollout completed successfully.
+
+Validation evidence:
+
+- education-service: node scripts/verify-lesson-record-runtime-contract.js passed.
+- education-service: npm run build passed.
+- Deployed runtime smoke report: /tmp/speakasap-goal55-runtime-smoke-20260612-v3.json.
+- Smoke used short-lived in-memory JWTs signed inside the auth pod; token values and presigned URLs were not printed.
+- Auth validation for the staff candidate returned role global:superadmin, explaining the previous staff authorization mismatch.
+- Staff paths now pass authorization:
+  - staff presign valid: 201 with private SigV4 PUT shape and no permanent URL.
+  - staff commit key mismatch: 400 before object mutation.
+  - staff merge disabled: 503 target merge worker not implemented.
+  - staff delete disabled: 409 deletion disabled until owner-approved object deletion exists.
+- Existing paid/unpaid/teacher checks remained aligned:
+  - no auth and invalid token rejected.
+  - paid student state/playback metadata returned 200 with gateway-download tokenized URL and no permanent URL.
+  - unpaid student playback denied with 403.
+  - assigned teacher presign valid returned 201; unassigned teacher presign denied with 403.
+
+Remaining blocker:
+
+- Paid student tokenized range download returns 404 in the deployed smoke. Earlier diagnostics showed RECORDS_S3_HELPER_URL resolves to localhost in the education pod and no records_s3_helper is running there; the current remote source also contains a dirty storage.service.ts change that attempts localhost-helper fallback via presigned S3 streaming, but the selected existing record object is still not retrievable.
+- Do not close Goal 5.5 until playback download is proven against an owner-approved existing object or a safe uploaded fixture, with no permanent URL exposure.
+
+Next:
+
+- Resolve the private media playback object/helper path for speakasap-education, then rerun /tmp/speakasap_goal55_runtime_smoke.js and record a 200 or 206 tokenized download result before frontend/gateway cutover.

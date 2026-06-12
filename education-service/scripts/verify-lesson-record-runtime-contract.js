@@ -32,6 +32,7 @@ assertIncludes('src/lesson-records/storage.service.ts', 'RECORDS_S3_ACCESS_KEY')
 assertIncludes('src/lesson-records/storage.service.ts', 'courses/records/');
 assertIncludes('src/lesson-records/media-token.service.ts', 'MAX_TTL_SECONDS = 3600');
 assertIncludes('src/lesson-records/media-token.service.ts', "scope: 'playback'");
+assertIncludes('src/shared/staff-access.ts', 'superadmin');
 assertIncludes('prisma/schema.prisma', 'model StudentAccess');
 assertIncludes('prisma/migrations/20260612143000_student_access/migration.sql', 'education_studentaccess');
 
