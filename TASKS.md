@@ -4,13 +4,13 @@ This file is the root task index for the SpeakASAP master orchestrator. Detailed
 
 ## Active Task
 
-- Goal 4.12: restore final user/profile pre-apply DB evidence and reaffirm the user-service write gate.
+- Goal 5.4: get explicit owner approval for lesson-recording schema deploy and metadata apply.
 
 Current gate:
 
-- Treat `/tmp/speakasap-user-dry-run-auth-mapping-v6.json` as the restored final pre-apply evidence for the completed Goal 4.12 user/profile apply.
-- Do not run any future user-service write migration, rerun, rollback execution, or truncation until a fresh no-write report is clean and owner approval is recorded.
-- Do not write user-service rows without `--apply`, `--confirm-write`, `--approval-note`, and `--rollback-plan`.
+- Lesson-record schema and write-gated metadata migration are copied to `alfares`.
+- Remote `prisma:validate`, `npm run build`, script compile/help, and DB-backed no-write report passed.
+- Do not run lesson-record target DB schema deploy or metadata apply until explicit owner approval is recorded.
 - Preserve dry-run reports, apply commands, approval notes, rollback evidence, and post-apply verification in `docs/orchestrator/STATUS.md`.
 
 ## Required Task Flow

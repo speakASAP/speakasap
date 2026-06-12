@@ -402,8 +402,56 @@ Verification:
 - Lesson-record dry-run reports `missing_target_lessons=0`.
 - Remaining issues are media/key reconciliation issues, not missing education dependencies.
 
-Status: active. Post-education dry-run `/tmp/speakasap-lesson-records-dry-run-post-education-v1.json` reports `missing_target_lessons=0`; remaining issue counts are `parts_missing_rows=4080`, `orphan_parts=5781`, `legacy_prefix_keys_without_date=25934`, and `record_key_date_mismatch=39477`.
+Status: done. Post-education dry-run `/tmp/speakasap-lesson-records-dry-run-post-education-v1.json` reports `missing_target_lessons=0`; remaining issue counts are `parts_missing_rows=4080`, `orphan_parts=5781`, `legacy_prefix_keys_without_date=25934`, and `record_key_date_mismatch=39477`.
+
+### Chunk 5.2 - Lesson Recording Metadata Migration Implementation
+
+Deliverables:
+
+- Add target `LessonRecord` and `LessonRecordPart` Prisma schema/migration.
+- Extend `education-service/scripts/migrate-lesson-records-from-legacy.py` with dry-run and write-gated apply modes.
+- Preserve private object keys only; do not read, write, delete, publish, or presign media objects during metadata import.
+- Generate rollback SQL before apply.
+
+Verification:
+
+- Local Python syntax, help, missing-env, and incomplete-apply gate checks pass.
+- Remote Prisma validation/build and DB-backed dry-run remain pending until `alfares` SSH/DNS is restored.
+
+Status: done. Artifacts are copied to `alfares`; remote script compile/help, Prisma validation, build, and no-write DB-backed report passed.
+
+### Chunk 5.3 - Remote Validation And No-Write Report
+
+Deliverables:
+
+- Copy schema/script artifacts to `/home/ssf/Documents/Github/speakasap`.
+- Run remote Prisma validation and education-service build.
+- Run DB-backed no-write lesson-record report after target lessons exist.
+
+Verification:
+
+- `missing_target_lesson=0`.
+- Blocking apply issue counts are zero.
+- Remaining issues are media/key reconciliation issues.
+
+Status: done. Report path: `/tmp/speakasap-lesson-records-dry-run-g5-2.json`.
+
+### Chunk 5.4 - Schema Deploy And Metadata Apply Gate
+
+Deliverables:
+
+- Request explicit owner approval for `cd education-service && npm run prisma:migrate:deploy`.
+- Request explicit owner approval for `education-service/scripts/migrate-lesson-records-from-legacy.py --apply --confirm-write --approval-note ... --rollback-plan ...`.
+- Generate rollback SQL before apply and capture post-apply no-write reconciliation.
+
+Verification:
+
+- Prisma migration deploy succeeds.
+- Apply report records `writes=true` and imported counts.
+- Post-apply dry-run has no target conflicts and keeps media/key issues as reconciliation-only evidence.
+
+Status: pending explicit write approval.
 
 ## Next Goal Selection
 
-Continue Goal 5.1 by adding the target lesson-record schema/write-gated metadata migration and keeping object storage private.
+Continue Goal 5.4 by requesting explicit owner approval for schema deploy and metadata apply; do not run target DB writes without that approval.

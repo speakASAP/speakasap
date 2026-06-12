@@ -117,6 +117,7 @@ Acceptance criteria:
 - Course migration was applied with rollback evidence: target counts now match source counts for categories, products, part-payment tables, extra lesson offers, and offers.
 - Education migration was applied with rollback evidence: target counts now match source counts for groups, group-student links, student courses, lessons, and homework.
 - Lesson-record dry-run after education apply shows `missing_target_lessons=0`; remaining issues are legacy media/key reconciliation (`parts_missing_rows=4080`, `orphan_parts=5781`, `legacy_prefix_keys_without_date=25934`, `record_key_date_mismatch=39477`).
+- Local implementation now adds `LessonRecord`/`LessonRecordPart` schema and a write-gated metadata migration that stores private object keys only; no object storage access or target DB write has run.
 
 ## Goal 5 - Lesson Recording And Private Media Migration
 
@@ -126,10 +127,12 @@ Intent: Lesson recordings must remain private while moving storage references an
 
 Chunks:
 
-- Inventory legacy recording models, MinIO/S3 settings, and presigned URL usage.
-- Define target object key/reference model.
-- Verify delete, merge, playback, and download behaviors.
-- Add runtime checks for private access and failure modes.
+- [x] 5.1 Confirm lesson-record target readiness after core education apply.
+- [x] 5.2 Add target lesson-record schema and write-gated metadata/private key-reference migration.
+- [x] 5.3 Run remote Prisma validation/build and capture fresh DB-backed no-write report.
+- [ ] 5.4 Run write-gated lesson-record metadata apply only after explicit owner approval.
+- [ ] Verify delete, merge, playback, and download behaviors.
+- [ ] Add runtime checks for private access and failure modes.
 
 Acceptance criteria:
 

@@ -1154,3 +1154,99 @@ Guardrail:
 Next:
 
 - Resume the current data-migration roadmap only after honoring this gate: any future user-service write action requires explicit owner approval; education/course or lesson-record work remains separately gated by its own final dry-runs and approval evidence.
+
+## 2026-06-12 - Goal 5.2 Lesson Recording Metadata Migration Implementation
+
+Status: implemented locally; remote apply/deploy not run
+
+Changed:
+
+- Added `education-service/prisma/schema.prisma` coverage for `LessonRecord` and `LessonRecordPart`.
+- Added Prisma migration `education-service/prisma/migrations/20260612120000_lesson_record_metadata/migration.sql`.
+- Replaced `education-service/scripts/migrate-lesson-records-from-legacy.py` with a dual-mode migration:
+  - `--dry-run` remains no-write reconciliation.
+  - `--apply` requires `--confirm-write`, `--approval-note`, and `--rollback-plan`.
+  - apply mode refuses if target lesson-record tables are missing.
+  - writes are idempotent upserts by preserved legacy UUIDs.
+  - rollback SQL is generated before writes.
+  - metadata/key references are migrated only; object storage is not read, written, deleted, or made public.
+
+Evidence:
+
+- RAG lookup to `docs-rag-microservice.statex-apps.svc.cluster.local:3397` failed with curl exit code `6`, so repository evidence was used.
+- Local verification passed:
+  - `python3 -m py_compile education-service/scripts/migrate-lesson-records-from-legacy.py`
+  - `python3 education-service/scripts/migrate-lesson-records-from-legacy.py --help`
+  - `python3 education-service/scripts/migrate-lesson-records-from-legacy.py --apply` exits `2` before DB access and reports missing write-gate flags.
+  - `python3 education-service/scripts/migrate-lesson-records-from-legacy.py --dry-run` exits `1` before DB access and reports missing source DB URL.
+- Private media boundary:
+  - the schema stores `record` and `part_file` object keys only;
+  - no public URL, bucket credential, object copy, object delete, or presigned access behavior was added;
+  - old-prefix and key-date mismatches remain reconciliation issues and are not rewritten by the metadata import.
+- Blocking apply issues are separated from non-blocking media/key reconciliation:
+  - missing target lessons, duplicate lesson records, target UUID/lesson conflicts, bad parts JSON, and multi-record part references block apply;
+  - orphan part rows, missing part rows, old-prefix keys, and key-date mismatches remain reported as reconciliation evidence.
+
+Remote blocker:
+
+- Copying the changed artifacts to `alfares` failed because the local SSH config currently resolves `alfares` to `alfares.local`, and DNS lookup for `alfares.local` fails in this session.
+- Remote Prisma validation, `npm run build`, DB-backed dry-run, and any write-gated apply were not run.
+
+Approval / rollback:
+
+- No production or target database write was run.
+- Future apply still requires a fresh DB-backed no-write report, Prisma migration deploy, explicit owner approval for the exact apply command, and a rollback SQL path.
+
+Next:
+
+- Restore remote `alfares` connectivity, copy the local artifacts, run `education-service` Prisma validation/build, deploy the schema migration, capture a fresh no-write lesson-record report, then request explicit approval before any `--apply`.
+
+## 2026-06-12 - Goal 5.3 Lesson Recording Remote Validation
+
+Status: remote validation and no-write report complete; schema deploy/apply still approval-gated
+
+Changed:
+
+- Copied the local lesson-record schema, migration SQL, and migration script to `/home/ssf/Documents/Github/speakasap` on `alfares`.
+- Used direct IPv6 link-local SSH with `HostKeyAlias=alfares.local` because the plain `alfares` alias intermittently failed resolving `alfares.local`.
+- Ran remote validation and no-write reconciliation only.
+
+Evidence:
+
+- Remote validation passed:
+  - `python3 -m py_compile education-service/scripts/migrate-lesson-records-from-legacy.py`
+  - `python3 education-service/scripts/migrate-lesson-records-from-legacy.py --help`
+  - `cd education-service && npm run prisma:validate`
+  - `cd education-service && npm run build`
+- Target DB access required a temporary Kubernetes port-forward to `svc/db-server-postgres` in namespace `statex-apps`; the port-forward was closed after the command.
+- Fresh no-write report: `/tmp/speakasap-lesson-records-dry-run-g5-2.json`.
+- Dry-run summary:
+  - `source_lesson_records=101184`
+  - `source_lesson_record_parts=58234`
+  - `records_ready=96729`
+  - `records_processing=1414`
+  - `records_unavailable=2332`
+  - `records_none=2`
+  - `records_inconsistent=4787`
+  - `missing_target_lesson=0`
+  - `parts_missing_rows=4080`
+  - `parts_orphan_rows=5781`
+  - `keys_canonical=71919`
+  - `keys_old_prefix_legacy=25934`
+  - `keys_empty=3042`
+  - `keys_other=289`
+  - `would_upsert_lesson_records=101184`
+  - `would_upsert_lesson_record_parts=52453`
+  - blocking issue counts are zero for bad JSON, missing source lesson, missing target lesson, duplicate lesson records, and multi-record part references.
+  - remaining non-blocking reconciliation issues: `legacy_prefix_keys_without_date=25934`, `orphan_parts=5781`, `parts_missing_rows=4080`, `record_key_date_mismatch=39477`.
+
+Approval / rollback:
+
+- No Prisma migration deploy, target schema write, metadata apply, object storage write, or deployment was run.
+- Next write step requires explicit owner approval for:
+  - `cd education-service && npm run prisma:migrate:deploy`
+  - `education-service/scripts/migrate-lesson-records-from-legacy.py --apply --confirm-write --approval-note ... --rollback-plan ...`
+
+Next:
+
+- Request explicit owner approval for the target DB schema migration and the lesson-record metadata apply command, with rollback path recorded before apply.
