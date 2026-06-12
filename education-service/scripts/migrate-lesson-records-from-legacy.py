@@ -121,7 +121,13 @@ def state_for(record_key: str, processed: bool, unavailable: str, parts: list[st
     return "inconsistent"
 
 
-def fetch_source_records(src, limit: int) -> list[dict[str, Any]]:
+def sample(values: list[Any], limit: int) -> list[Any]:
+    if limit <= 0:
+        return values
+    return values[:limit]
+
+
+def fetch_source_records(src, source_limit: int) -> list[dict[str, Any]]:
     sql = """
         SELECT
           lr.uuid::text AS uuid,
@@ -137,9 +143,9 @@ def fetch_source_records(src, limit: int) -> list[dict[str, Any]]:
         LEFT JOIN education_lesson l ON l.uuid = lr.lesson_id
         ORDER BY lr.created, lr.uuid
     """
-    if limit > 0:
+    if source_limit > 0:
         sql += " LIMIT %s"
-        params: tuple[Any, ...] = (limit,)
+        params: tuple[Any, ...] = (source_limit,)
     else:
         params = ()
     cur = src.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -173,7 +179,7 @@ def fetch_target_lessons(tgt, lesson_ids: set[str]) -> set[str]:
 
 
 def build_report(src, tgt, args) -> dict[str, Any]:
-    records = fetch_source_records(src, args.limit)
+    records = fetch_source_records(src, args.source_limit)
     parts_by_uuid = fetch_source_parts(src)
     target_lessons = fetch_target_lessons(tgt, {r["lesson_id"] for r in records if r.get("lesson_id")},) if tgt else set()
     check_target = tgt is not None
@@ -271,13 +277,15 @@ def build_report(src, tgt, args) -> dict[str, Any]:
     report = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "mode": "dry-run",
-        "limit": args.limit or None,
+        "sampleLimit": args.limit or None,
+        "sourceLimit": args.source_limit or None,
         "checkTarget": check_target,
         "counts": dict(sorted(counts.items())),
-        "issues": {key: values for key, values in sorted(issues.items())},
-        "wouldInsertLessonRecords": sorted(set(would_insert_records)),
-        "wouldInsertLessonRecordParts": sorted(set(would_insert_parts)),
-        "wouldUpdateExisting": sorted(set(would_update_existing)),
+        "issues": {key: sample(values, args.limit) for key, values in sorted(issues.items())},
+        "issueCounts": {key: len(values) for key, values in sorted(issues.items())},
+        "wouldInsertLessonRecords": sample(sorted(set(would_insert_records)), args.limit),
+        "wouldInsertLessonRecordParts": sample(sorted(set(would_insert_parts)), args.limit),
+        "wouldUpdateExisting": sample(sorted(set(would_update_existing)), args.limit),
         "notes": [
             "Read-only report; no source or target writes were performed.",
             "Object storage existence is not checked by this script version.",
@@ -315,7 +323,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Read-only mode. This is the only supported mode.")
     parser.add_argument("--check-target", action="store_true", help="Verify source lesson IDs exist in target education_lesson.")
-    parser.add_argument("--limit", type=int, default=0, help="Limit source lesson records to inspect.")
+    parser.add_argument("--limit", type=int, default=0, help="Limit sample arrays in the report; counts still inspect all source records.")
+    parser.add_argument("--source-limit", type=int, default=0, help="Debug-only cap for source lesson records. Do not use for migration evidence.")
     parser.add_argument("--json-report", default="", help="Write full JSON report to this path.")
     args = parser.parse_args()
 
