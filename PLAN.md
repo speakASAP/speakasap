@@ -8,7 +8,7 @@ The previous growth-and-retention plan is superseded for this workstream by the 
 
 **Goal 4 - Data Migration And Reconciliation**
 
-Get owner approval for auth bootstrap policy before any user/profile write migration. DB-backed dry-run reports are captured, and Goal 4.8 found that auth bootstrap must be owned by `auth-microservice`.
+Review auth bootstrap dry-run evidence and prepare the write-gated apply/rollback path. Auth-owned dry-run code exists in `auth-microservice`; no auth writes have been executed.
 
 ## Roadmap
 

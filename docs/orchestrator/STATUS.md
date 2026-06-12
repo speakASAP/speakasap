@@ -571,3 +571,83 @@ Result:
 Next:
 
 - Continue the roadmap by getting owner approval for the auth bootstrap policy before any auth-microservice implementation or user/profile write migration.
+
+## 2026-06-12 - Goal 4.9 Auth Bootstrap Dry-Run Implementation
+
+Status: done
+
+Changed:
+
+- Owner approved the documented direction and continuing development.
+- Added auth-owned dry-run script in `/home/ssf/Documents/Github/auth-microservice/scripts/bootstrap-speakasap-legacy-users.ts`.
+- Added auth-owned mapping entity in `/home/ssf/Documents/Github/auth-microservice/src/users/entities/legacy-identity-mapping.entity.ts`.
+- Registered the mapping entity in `/home/ssf/Documents/Github/auth-microservice/shared/database/database.module.ts`.
+- Added `docs/orchestrator/AUTH_BOOTSTRAP_DRY_RUN_REPORT.md`.
+- Marked Goal 4.9 complete and advanced active state to Goal 4.10.
+
+Evidence:
+
+- Safety checks passed:
+  - script help prints expected usage;
+  - running without `--dry-run` refuses;
+  - running with `--dry-run --apply` refuses apply mode.
+- `npm run build` passed in `auth-microservice`.
+- Dry-run report path: `/tmp/speakasap-auth-bootstrap-dry-run.json`.
+- Dry-run result:
+  - `writes=false`
+  - legacy users: `214230`
+  - target auth users: `22`
+  - existing target email matches: `6`
+  - create candidates: `214032`
+  - duplicate email candidates: `192`
+  - blank email skips: `0`
+  - planned user writes: `0`
+  - planned mapping writes: `0`
+
+Guardrail:
+
+- No auth database writes, service restarts, deployments, or user-service write migrations were performed.
+
+Next:
+
+- Goal 4.10: review the auth dry-run report and implement apply mode only behind explicit write approval, confirmation flag, transaction, and rollback evidence.
+
+## 2026-06-12 - Goal 4.10 Auth Bootstrap Apply Gate Implementation
+
+Status: in progress
+
+Changed:
+
+- Updated `/home/ssf/Documents/Github/auth-microservice/scripts/bootstrap-speakasap-legacy-users.ts` with gated apply mode.
+- Added transaction-backed apply helpers.
+- Added mapping table schema creation inside apply mode.
+- Added reset-only user creation with `password = NULL`.
+- Added duplicate-email handling as `skipped_duplicate_email` mapping rows.
+- Added rollback SQL generation.
+- Added `docs/orchestrator/AUTH_BOOTSTRAP_APPLY_GATE.md`.
+
+Evidence:
+
+- Safety checks passed:
+  - help output lists dry-run and apply usage;
+  - no-mode execution refuses;
+  - `--apply` without `--confirm-write` refuses;
+  - `--apply --confirm-write` without `--approval-note` refuses.
+- `npm run build` passed in `auth-microservice`.
+- Latest dry-run report: `/tmp/speakasap-auth-bootstrap-dry-run-v3.json`.
+- Rollback SQL plan: `/tmp/speakasap-auth-bootstrap-rollback.sql`.
+- Dry-run summary:
+  - `writes=false`
+  - planned user writes: `214032`
+  - planned mapping writes: `214230`
+  - actual users created: `0`
+  - actual mappings upserted: `0`
+
+Guardrail:
+
+- Apply mode was implemented but not executed.
+- No auth database writes, deploys, restarts, or user-service write migrations were performed.
+
+Next:
+
+- Execute auth bootstrap apply only after confirming the exact write command and approval note, then capture post-apply JSON and rerun user-service dry-run.

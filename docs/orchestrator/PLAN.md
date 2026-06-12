@@ -311,8 +311,25 @@ Verification:
 - No direct DB write to auth `users` table is performed by AI outside an approved auth-service migration path.
 - User-service dry run shows unresolved auth counts match the approved skip policy.
 
-Status: pending. `AUTH_BOOTSTRAP_OWNER_DECISION.md` records the approval request, recommended policy, alternatives, and duplicate-email aggregate evidence. `AUTH_BOOTSTRAP_IMPLEMENTATION_PLAN.md` records the proposed auth-microservice implementation sequence after approval.
+Status: done. Owner approved continuing development. Auth-owned dry-run script and mapping entity were implemented inside `auth-microservice`; `AUTH_BOOTSTRAP_DRY_RUN_REPORT.md` records build and dry-run evidence with `writes=false`.
+
+### Chunk 4.10 - Auth Bootstrap Apply Gate
+
+Deliverables:
+
+- Review `/tmp/speakasap-auth-bootstrap-dry-run.json` and confirm duplicate-email handling for `192` duplicate candidates.
+- Implement apply mode only with explicit write approval, confirmation flag, transaction, and rollback evidence.
+- Keep `password = NULL` / reset-only policy unless owner explicitly requests Django PBKDF2 compatibility.
+- Re-run user-service dry-run after auth bootstrap writes are approved and executed.
+
+Verification:
+
+- Apply mode refuses without explicit write approval and confirmation flag.
+- Backup/rollback commands are recorded before any auth write.
+- Post-apply auth report and user-service dry-run prove unresolved auth counts match the approved skip policy.
+
+Status: in progress. Apply mode and rollback-plan generation are implemented and verified at safety-gate level. The apply command has not been executed, and no auth writes have been performed.
 
 ## Next Goal Selection
 
-Continue Goal 4.9 by getting owner approval for the auth bootstrap password and duplicate-email policy before any write-mode migration.
+Continue Goal 4.10 by reviewing the auth dry-run report and implementing the write-gated apply/rollback path only after explicit write approval.

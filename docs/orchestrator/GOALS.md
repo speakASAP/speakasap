@@ -85,7 +85,8 @@ Chunks:
 - [x] 4.6 Add idempotency keys or duplicate guards where migration can be rerun.
 - [x] 4.7 Capture DB-backed dry-run reports from education, user, course, and lesson-record migrations when the legacy source database endpoint is reachable.
 - [x] 4.8 Resolve auth identity reconciliation/bootstrap prerequisite before any user/profile write migration.
-- [ ] 4.9 Get owner approval for auth bootstrap duplicate-email and password policy, then implement only inside `auth-microservice`.
+- [x] 4.9 Get owner approval for auth bootstrap duplicate-email and password policy, then implement only inside `auth-microservice`.
+- [ ] 4.10 Review auth bootstrap dry-run evidence and implement write-gated apply/rollback path only after explicit write approval.
 
 Acceptance criteria:
 
@@ -103,6 +104,8 @@ Acceptance criteria:
 - `docs/orchestrator/AUTH_IDENTITY_RECONCILIATION.md` records the Goal 4.8 decision: auth bootstrap is required, email-only mapping is unsafe, and no user-service write migration may run before owner-approved auth-owned mapping exists.
 - `docs/orchestrator/AUTH_BOOTSTRAP_OWNER_DECISION.md` records the Goal 4.9 approval request and recommended auth-owned mapping/password policy.
 - `docs/orchestrator/AUTH_BOOTSTRAP_IMPLEMENTATION_PLAN.md` records the post-approval implementation boundary, proposed mapping schema, dry-run script contract, verification sequence, and rollback boundary.
+- `docs/orchestrator/AUTH_BOOTSTRAP_DRY_RUN_REPORT.md` records the auth-owned dry-run implementation, report path, build verification, and `writes=false` evidence.
+- `docs/orchestrator/AUTH_BOOTSTRAP_APPLY_GATE.md` records the gated apply implementation, rollback SQL path, latest dry-run evidence, and remaining pre-apply steps.
 
 ## Goal 5 - Lesson Recording And Private Media Migration
 
