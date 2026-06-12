@@ -1060,7 +1060,8 @@ def main() -> int:
         log("Refusing --truncate-first without --allow-truncate-first")
         return 2
 
-    log("connecting source")
+    if not (args.dry_run and args.json_report):
+        log("connecting source")
     src = connect(src_url)
     if args.dry_run:
         auth = connect(auth_url) if auth_url else None
