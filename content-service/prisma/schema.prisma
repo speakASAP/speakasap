@@ -19,6 +19,7 @@ model Language {
   grammarCourse   GrammarCourse?
   phoneticsCourse PhoneticsCourse?
   songsCourse     SongsCourse?
+  sevenCourses    SevenCourse[]
   words           Word[]
 
   @@index([order])
@@ -96,6 +97,62 @@ model SongsLesson {
   course SongsCourse @relation(fields: [courseId], references: [id])
 
   @@index([courseId, order])
+}
+
+model SevenCourse {
+  id                Int      @id @default(autoincrement())
+  legacyId          Int      @unique
+  title             String   @db.VarChar(255)
+  materialLanguage  String   @db.VarChar(2) @default("ru")
+  metaKeywords      String?  @db.Text
+  metaDescription   String?  @db.Text
+  languageId        Int
+  language          Language @relation(fields: [languageId], references: [id])
+  appPackage        String?  @db.VarChar(255)
+  materialsChanged  DateTime @db.Date
+  metadata          Json     @default("{}")
+  lessons           SevenLesson[]
+
+  @@unique([languageId, materialLanguage])
+  @@index([materialLanguage])
+}
+
+model SevenLesson {
+  id              Int      @id @default(autoincrement())
+  legacyId        Int      @unique
+  title           String   @db.VarChar(255)
+  courseId        Int
+  order           Int
+  prefix          String?  @db.VarChar(255)
+  template        String   @db.VarChar(255)
+  bodyHtml        String   @default("") @db.Text
+  metaKeywords    String?  @db.Text
+  metaDescription String?  @db.Text
+  metadata        Json     @default("{}")
+
+  course    SevenCourse @relation(fields: [courseId], references: [id])
+  exercises SevenExercise[]
+
+  @@unique([courseId, order])
+  @@index([courseId, order])
+}
+
+model SevenExercise {
+  id             Int     @id @default(autoincrement())
+  lessonId       Int
+  order          Int
+  title          String  @db.VarChar(255)
+  legacyKey      String  @unique @db.VarChar(512)
+  exerciseTemplate String @db.VarChar(255)
+  answerTemplate   String? @db.VarChar(255)
+  exerciseHtml   String  @default("") @db.Text
+  answerHtml     String? @db.Text
+  metadata       Json    @default("{}")
+
+  lesson SevenLesson @relation(fields: [lessonId], references: [id])
+
+  @@unique([lessonId, order])
+  @@index([lessonId, order])
 }
 
 model Word {

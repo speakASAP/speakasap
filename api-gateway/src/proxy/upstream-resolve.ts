@@ -39,6 +39,7 @@ const ROUTES: { prefix: string; envKey: string }[] = [
   { prefix: '/api/v1/lessons', envKey: 'EDUCATION_SERVICE_URL' },
   { prefix: '/api/v1/groups', envKey: 'EDUCATION_SERVICE_URL' },
 
+  { prefix: '/api/v1/seven', envKey: 'CONTENT_SERVICE_URL' },
   { prefix: '/api/v1/dictionary', envKey: 'CONTENT_SERVICE_URL' },
   { prefix: '/api/v1/songs', envKey: 'CONTENT_SERVICE_URL' },
   { prefix: '/api/v1/phonetics', envKey: 'CONTENT_SERVICE_URL' },

@@ -1,20 +1,171 @@
 {
-  "cycle": 24,
-  "last_cycle_at": "2026-06-13T05:12:30.000Z",
-  "orchestrator": "SpeakASAP master implementation orchestrator",
-  "tasks_active": 1,
-  "current_goal": "Goal 6 - Gateway, Auth, And Frontend Parity",
-  "current_chunk": "6.2 frontend lesson-recording routes implemented and smoke verified",
-  "intent_preservation_system": "docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md",
-  "next_goal": "Goal 6 - Gateway, Auth, And Frontend Parity",
-  "status": "active",
-  "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
-  "next_required_action": "Continue Goal 6 with authorized frontend parity checks when fresh learner/teacher/staff JWTs are available, or broaden protected frontend route parity cases.",
+  "activeChunk": "10.3 owner-approved content base/seven schema migration, then DB-backed no-write report rerun",
+  "activeGoal": "Goal 10 - Seven-Lesson Course Frontend Migration",
+  "current_chunk": "10.3 owner-approved content-service base schema readiness, seven schema migration, then no-write report rerun",
+  "current_goal": "Goal 10 - Seven-Lesson Course Frontend Migration",
+  "cycle": 28,
   "docsrag_runtime_jwt": "available",
-  "last_operational_fix": "docsrag-jwt-runtime-wiring-fixed-2026-06-12",
-  "last_runtime_smoke": "/tmp/speakasap-goal55-gateway-smoke-20260613-v5.json",
+  "intent_preservation_system": "docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md",
+  "lastUpdated": "2026-06-13",
+  "last_controlled_cutover": "/tmp/speakasap-goal8-cutover-smoke.json",
+  "last_controlled_cutover_doc": "docs/orchestrator/GOAL_8_CONTROLLED_CUTOVER.md",
+  "last_cutover_monitoring": "/tmp/speakasap-goal8-cutover-monitoring.json",
+  "last_cutover_readiness_doc": "docs/orchestrator/GOAL_7_CUTOVER_READINESS.md",
+  "last_cycle_at": "2026-06-13T13:50:00.000Z",
   "last_deploy": "education sha256:776f5086ccf2d578f4de84ac34b7bde7a051890ac0c26287471e78842d6371f1; api-gateway sha256:d5568fd64226473d7474089030104bb3161b8d2803993ded799e530db3ac9763",
   "last_fixture_restoration": "owner-approved legacy portal example.mp3 uploaded to paid lesson-record key 2018/07/10/lesson_7d870263-bdcb-4bba-b25e-1f6b40402411.mp3",
+  "last_frontend_authorized_parity": "/tmp/speakasap-goal63-frontend-parity-browser-report.json",
   "last_frontend_path_check": "speakasap-frontend deployed: image sha256:97b3d7069530433ee65b165e5f0c33ba31acd79525939a5b4296d9973f3d35e8; ingress /health and /api -> speakasap-api-gateway:4210, / -> speakasap-frontend:4211; root 200 Next.js, health 200 gateway, /api/v1/lessons 401 gateway auth.",
-  "last_frontend_route_check": "learner/teacher lesson-recording dynamic routes deployed: image sha256:d1c0c00fb01cf82a1355b72dc8ddedc5c2aec0c1d1cd910fadf68937e09ef402; public dynamic routes 200; protected gateway API 401; browser QA desktop and mobile passed with dummy-token auth checks."
+  "last_frontend_route_check": "learner/teacher lesson-recording dynamic routes deployed: image sha256:d1c0c00fb01cf82a1355b72dc8ddedc5c2aec0c1d1cd910fadf68937e09ef402; public dynamic routes 200; protected gateway API 401; browser QA desktop and mobile passed with dummy-token auth checks.",
+  "last_operational_fix": "docsrag-jwt-runtime-wiring-fixed-2026-06-12",
+  "last_operational_readiness": "/tmp/speakasap-goal7-operational-readiness.json",
+  "last_runtime_smoke": "/tmp/speakasap-goal55-gateway-smoke-20260613-v5.json",
+  "last_salary_goal_doc": "docs/orchestrator/SALARY_MIGRATION_GOAL.md",
+  "last_seven_app_promo_parity": {
+    "approval_gate": "schema migration and data apply still require explicit owner approval",
+    "change": "Legacy app promo block added to seven course and lesson frontend routes",
+    "evidence": [
+      "frontend/app/components/seven-app-promo.tsx renders legacy app promo copy when appPackage exists",
+      "frontend course and lesson seven routes import and render SevenAppPromo",
+      "cd frontend && npm run build passed with dynamic seven routes"
+    ],
+    "goal": "Goal 10 seven lesson frontend/content migration",
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "writes": false
+  },
+  "last_seven_app_promo_rendered_qa": {
+    "approval_gate": "schema migration and data apply still require explicit owner approval",
+    "change": "No-write Browser QA verified seven app promo render and interactions",
+    "evidence": [
+      "/en/seven app promo heading includes real course title and Android/iOS links",
+      "/en/seven/1 app promo, PDF href, answer disclosure, and typography checks passed",
+      "console warnings/errors empty; framework overlay false",
+      "/tmp/speakasap-seven-app-promo-course.png",
+      "/tmp/speakasap-seven-app-promo-lesson.png"
+    ],
+    "goal": "Goal 10 seven lesson frontend/content migration",
+    "mobileViewport": "not available in Browser runtime; deferred to post-data/deploy QA",
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "writes": false
+  },
+  "last_seven_app_url_metadata": {
+    "approval_gate": "schema migration and data apply still require explicit owner approval",
+    "change": "Legacy Android/iOS app URLs migrated into seven course metadata and consumed by app promo",
+    "evidence": [
+      "/tmp/speakasap-seven-dry-run-v12.json writes=false payload 19/136/429",
+      "legacyAppUrls android=18 ios=17 courseRowsWithAndroidUrl=18 courseRowsWithIosUrl=17",
+      "frontend build passed with dynamic seven routes"
+    ],
+    "goal": "Goal 10 seven lesson frontend/content migration",
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "writes": false
+  },
+  "last_seven_apply_gate": "gated apply path refuses without --confirm-write/--approval-note/--rollback-plan; no schema migration or data apply has run",
+  "last_seven_content_base_schema_approval_packet": {
+    "approval_gate": "pending content-service schema migrations require explicit owner approval; seven data apply remains unapproved",
+    "change": "Content base schema approval packet prepared",
+    "evidence": [
+      "docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md",
+      "content-service prisma validate passed",
+      "content-service build passed",
+      "approval packet scoped to schema readiness only; seven data apply remains unapproved"
+    ],
+    "goal": "Goal 10 seven lesson frontend/content migration",
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "writes": false
+  },
+  "last_seven_dry_run": "/tmp/speakasap-seven-dry-run-v14.json",
+  "last_seven_frontend_build": "frontend npm run build passed after reading indicator, PDF link, and promo parity updates",
+  "last_seven_frontend_plan": "docs/orchestrator/SEVEN_LESSON_FRONTEND_MIGRATION_PLAN.md",
+  "last_seven_frontend_preview_qa": "/tmp/speakasap-seven-course-preview.png and /tmp/speakasap-seven-lesson-preview.png; mock gateway Browser QA passed without writes/deploy",
+  "last_seven_full_planned_match_counts": {
+    "approval_gate": "schema migration and data apply still require explicit owner approval",
+    "change": "Target reconciliation now counts full planned ID/key matches separately from samples",
+    "evidence": [
+      "/tmp/speakasap-seven-dry-run-v13.json writes=false payload 19/136/429",
+      "/tmp/speakasap-seven-dry-run-target-v13.json writes=false target.checked=true planned IDs/keys 19/136/429",
+      "expected missing SevenCourse/SevenLesson/SevenExercise before schema migration",
+      "temporary port-forward 15437 stopped"
+    ],
+    "goal": "Goal 10 seven lesson frontend/content migration",
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "writes": false
+  },
+  "last_seven_language_case_metadata": "legacyLanguageCaseGent populated for all 19 seven courses; missing genitive cases []",
+  "last_seven_media_contract": "content-service seven lesson payloads include pdfHref; frontend prefers API pdfHref with fallback; content-service and frontend builds passed",
+  "last_seven_navigation_contract": "content-service seven lesson detail includes previousLesson/nextLesson; frontend prefers API navigation with fallback; content-service and frontend builds passed",
+  "last_seven_next_metadata": {
+    "approval_gate": "schema migration and data apply still require explicit owner approval",
+    "change": "Next metadata generation added for seven course and lesson routes",
+    "evidence": [
+      "frontend/app/[languageCode]/seven/page.tsx generateMetadata uses course SEO fields",
+      "frontend/app/[languageCode]/seven/[order]/page.tsx generateMetadata uses lesson/course SEO fields",
+      "cd frontend && npm run build passed with dynamic seven routes"
+    ],
+    "goal": "Goal 10 seven lesson frontend/content migration",
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "writes": false
+  },
+  "last_seven_ordering_audit": "legacy seven.xml has 8 rows for en/de/cn but no duplicate course/order values; importer exercise order parses lessonNexM numerically",
+  "last_seven_reconciliation_hardening": "payload batch marker seven-content-legacy-20260613 added; target planned ID/key reconciliation added; no writes run",
+  "last_seven_schema_approval_packet": {
+    "approval_gate": "schema migration and data apply still require explicit owner approval",
+    "change": "Schema migration approval packet prepared",
+    "evidence": [
+      "docs/orchestrator/SEVEN_SCHEMA_MIGRATION_APPROVAL.md",
+      "content-service prisma validate passed",
+      "content-service build passed",
+      "approval packet scoped to schema-only migration and post-schema no-write reconciliation"
+    ],
+    "goal": "Goal 10 seven lesson frontend/content migration",
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "writes": false
+  },
+  "last_seven_structured_media_refs": {
+    "approval_gate": "schema migration and data apply still require explicit owner approval",
+    "change": "Structured mediaRefs added to seven migration payload and API/frontend types",
+    "evidence": [
+      "/tmp/speakasap-seven-dry-run-v11.json writes=false payload 19/136/429",
+      "migrationMediaRefs lessonRowsWithRefs=136 exerciseRowsWithRefs=408 uniqueRefs=1104",
+      "content-service build passed",
+      "frontend build passed with dynamic seven routes"
+    ],
+    "goal": "Goal 10 seven lesson frontend/content migration",
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "writes": false
+  },
+  "last_seven_target_base_schema_readiness": {
+    "approval_gate": "base content schema readiness and seven schema migration require explicit owner approval; seven data apply remains unapproved",
+    "change": "Target base content schema readiness blocker discovered and documented",
+    "evidence": [
+      "/tmp/speakasap-seven-dry-run-target-v14.json writes=false TARGET_LANGUAGE_TABLE_UNAVAILABLE",
+      "target public tables [] and _prisma_migrations absent",
+      "Seven schema FK to Language would fail before base schema readiness",
+      "docs/orchestrator/SEVEN_SCHEMA_MIGRATION_APPROVAL.md updated"
+    ],
+    "goal": "Goal 10 seven lesson frontend/content migration",
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "writes": false
+  },
+  "last_seven_target_dry_run": "/tmp/speakasap-seven-dry-run-target-v14.json",
+  "last_seven_target_reconciliation_v12": {
+    "approval_gate": "schema migration and data apply still require explicit owner approval",
+    "change": "Fresh DB-backed no-write reconciliation for v12 seven payload",
+    "evidence": [
+      "/tmp/speakasap-seven-dry-run-target-v12.json writes=false payload 19/136/429",
+      "target.checked=true planned IDs/keys 19/136/429",
+      "legacyAppUrls 18 Android / 17 iOS; media refs 136 lesson rows / 408 exercise rows / 1104 unique",
+      "expected missing SevenCourse/SevenLesson/SevenExercise before schema migration"
+    ],
+    "goal": "Goal 10 seven lesson frontend/content migration",
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "writes": false
+  },
+  "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
+  "next_goal": "Goal 10 - Seven-Lesson Course Frontend Migration",
+  "next_required_action": "Get explicit owner approval using docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md, then apply pending content-service schema migrations and rerun DB-backed no-write seven reconciliation before any seven data apply.",
+  "orchestrator": "SpeakASAP master implementation orchestrator",
+  "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
+  "status": "active",
+  "tasks_active": 1
 }

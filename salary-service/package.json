@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; export DATABASE_URL=\"${SALARY_DATABASE_URL:-${DATABASE_URL}}\"; exec npx prisma migrate deploy'",
     "prisma:validate": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; export DATABASE_URL=\"${SALARY_DATABASE_URL:-${DATABASE_URL}}\"; exec npx prisma validate'",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "salary:cli": "tsx scripts/salary-cli.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.10",

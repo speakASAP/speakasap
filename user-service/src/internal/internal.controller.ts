@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { InternalTokenGuard } from '../auth/internal-token.guard';
 import { ManagersService } from '../managers/managers.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,6 +6,22 @@ import { StudentsService } from '../students/students.service';
 import { TeachersService } from '../teachers/teachers.service';
 
 const MAX_BATCH = 30;
+
+
+function parseCsvInts(raw: string | undefined): number[] {
+  if (!raw || !raw.trim()) {
+    return [];
+  }
+  const out: number[] = [];
+  for (const part of raw.split(',')) {
+    const value = Number(part.trim());
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new BadRequestException('legacyPortalUserIds must be positive integers');
+    }
+    out.push(value);
+  }
+  return [...new Set(out)];
+}
 
 @Controller('internal')
 @UseGuards(InternalTokenGuard)
@@ -52,6 +68,28 @@ export class InternalController {
       throw new BadRequestException(`At most ${MAX_BATCH} items`);
     }
     return this.students.upsertBatchFromInternal(items);
+  }
+
+
+
+  @Get('teachers/legacy-user-map')
+  async teacherLegacyUserMap(
+    @Query('legacyPortalUserIds') legacyPortalUserIds?: string,
+  ): Promise<{ items: { teacherId: number; legacyPortalUserId: number }[] }> {
+    const ids = parseCsvInts(legacyPortalUserIds);
+    if (ids.length > 1000) {
+      throw new BadRequestException('At most 1000 legacyPortalUserIds');
+    }
+    const rows = await this.prisma.teacher.findMany({
+      where: ids.length ? { legacyPortalUserId: { in: ids } } : { legacyPortalUserId: { not: null } },
+      select: { id: true, legacyPortalUserId: true },
+      orderBy: { id: 'asc' },
+    });
+    return {
+      items: rows
+        .filter((row): row is { id: number; legacyPortalUserId: number } => row.legacyPortalUserId !== null)
+        .map((row) => ({ teacherId: row.id, legacyPortalUserId: row.legacyPortalUserId })),
+    };
   }
 
   @Post('teachers/upsert-by-auth-user')

@@ -121,7 +121,7 @@ Acceptance criteria:
 
 ## Goal 5 - Lesson Recording And Private Media Migration
 
-Status: active
+Status: done
 
 Intent: Lesson recordings must remain private while moving storage references and access behavior.
 
@@ -131,8 +131,8 @@ Chunks:
 - [x] 5.2 Add target lesson-record schema and write-gated metadata/private key-reference migration.
 - [x] 5.3 Run remote Prisma validation/build and capture fresh DB-backed no-write report.
 - [x] 5.4 Run write-gated lesson-record metadata apply only after explicit owner approval.
-- [ ] 5.5 Verify delete, merge, playback, and download behaviors.
-- [ ] Add runtime checks for private access and failure modes.
+- [x] 5.5 Verify delete, merge, playback, and download behaviors.
+- [x] Add runtime checks for private access and failure modes.
 
 Acceptance criteria:
 
@@ -143,16 +143,16 @@ Acceptance criteria:
 
 ## Goal 6 - Gateway, Auth, And Frontend Parity
 
-Status: pending
+Status: done
 
 Intent: Users should reach migrated behavior through the new frontend and API gateway with role-appropriate access.
 
 Chunks:
 
-- Verify api-gateway proxy/auth guard behavior.
-- Implement or verify frontend routes for selected migrated workflows.
-- Add unauthorized/authorized checks for protected routes.
-- Compare legacy and new responses for selected parity cases.
+- [x] 6.1 Verify api-gateway proxy/auth guard behavior.
+- [x] 6.2 Implement and verify frontend routes for selected migrated lesson-recording workflows.
+- [x] 6.3 Add unauthorized and authorized checks for protected lesson-recording routes.
+- [x] 6.4 Compare selected learner/teacher/staff parity cases against migrated gateway/runtime evidence.
 
 Acceptance criteria:
 
@@ -163,16 +163,16 @@ Acceptance criteria:
 
 ## Goal 7 - Operational Cutover Readiness
 
-Status: pending
+Status: done
 
 Intent: Cutover must be observable, reversible, and aligned with Kubernetes operations.
 
 Chunks:
 
-- Verify K8s manifests, secrets, health checks, logging, and smoke URLs for affected services.
-- Add cutover checklist with DNS/nginx/ingress, rollback, database, object storage, and cache steps.
-- Confirm Prisma OpenSSL 3.x runtime settings remain intact.
-- Define smoke tests for the migrated workflows.
+- [x] 7.1 Verify K8s manifests, secrets, health checks, logging, and smoke URLs for affected services.
+- [x] 7.2 Add cutover checklist with DNS/nginx/ingress, rollback, database, object storage, and cache steps.
+- [x] 7.3 Confirm Prisma OpenSSL 3.x runtime settings remain intact.
+- [x] 7.4 Define smoke tests for the migrated workflows.
 
 Acceptance criteria:
 
@@ -183,16 +183,16 @@ Acceptance criteria:
 
 ## Goal 8 - Controlled Cutover And Legacy Decommission
 
-Status: pending
+Status: done
 
 Intent: Legacy traffic and data should be retired only after verified parity and owner approval.
 
 Chunks:
 
-- Execute owner-approved cutover plan.
-- Monitor last-hour logs and workflow smoke tests.
-- Keep rollback path available for the agreed window.
-- Decommission or freeze legacy paths only after evidence is clean.
+- [x] 8.1 Execute owner-approved controlled cutover validation plan.
+- [x] 8.2 Monitor last-hour logs and workflow smoke tests.
+- [x] 8.3 Keep rollback path available for the agreed window.
+- [x] 8.4 Owner selected legacy retention as fallback/reference; no freeze/decommission executed.
 
 Acceptance criteria:
 
@@ -200,3 +200,53 @@ Acceptance criteria:
 - Smoke tests pass after cutover.
 - Logs are checked for WARNING, ERROR, EXCEPTION classes relevant to migrated workflows.
 - Legacy shutdown/freeze is documented and reversible until the rollback window closes.
+
+## Goal 9 - Salary And Recording-Duration Payroll Migration
+
+Status: pending
+
+Intent: Move salary workflows into the new platform while preserving legacy teacher payroll behavior that depends on lesson-recording duration, and keep payment execution behind the approved payments boundary.
+
+Chunks:
+
+- [ ] 9.1 Inventory legacy salary behavior and source-to-target mapping for salary profiles, salary expenses, lesson salary expenses, support bonuses, contracts, and payout-related data.
+- [ ] 9.2 Define the education-service internal salary aggregate contract based on finished lessons and recording-derived duration.
+- [ ] 9.3 Harden salary migration dry-run/reconciliation reporting before any write mode.
+- [ ] 9.4 Implement recording-duration parity support without exposing private recording objects.
+- [ ] 9.5 Implement salary calculation parity for hourly rates, fixed salary, lower/upper duration bounds, and monthly totals.
+- [ ] 9.6 Add write gates, rollback evidence, and payment-boundary approval gates before any salary apply or payout action.
+
+Acceptance criteria:
+
+- Legacy lesson-recording fallback remains available until a later owner-approved retirement window.
+- Recording-derived salary hours match legacy rules for selected parity cases, including demo/no-record/record-unavailable/95%-threshold/cap/quantize behavior.
+- Dry-run reports include source counts, target counts, duplicates, orphan profiles, orphan lesson references, missing auth/user/teacher mappings, and source/target sample IDs.
+- `salary-service` consumes education aggregates through a documented internal contract and does not read private recording objects directly.
+- Real payout execution does not bypass `payments-microservice` and requires explicit owner approval.
+- No salary write, payout creation, payment execution, destructive operation, or legacy retirement runs without explicit owner approval and rollback evidence.
+
+## Goal 10 - Seven-Lesson Course Frontend Migration
+
+Status: active
+
+Intent: Move the legacy public seven-lesson course frontend and course content into the new SpeakASAP platform while preserving the learner-visible text style and keeping private progress, assessments, payments, and legacy retirement behind explicit later gates.
+
+Chunks:
+
+- [x] 10.0 Create the goal-driven migration plan and launch read-only sub-agents for legacy and target discovery.
+- [x] 10.1 Add content-service seven-course schema and public API contract without writing migrated data.
+- [x] 10.2 Add dry-run-first legacy seven content importer with reconciliation and rollback report output.
+- [ ] 10.3 Run DB-backed no-write report for all seven-course lessons/templates/exercises and resolve blocking gaps.
+- [ ] 10.4 Apply seven content migration only after explicit owner approval and rollback SQL generation.
+- [x] 10.5 Build Next.js public course and lesson frontend using gateway-only data and preserved legacy typography.
+- [ ] 10.6 Verify visual parity on desktop/mobile and deploy only after build, smoke, and rollback evidence.
+
+Acceptance criteria:
+
+- Legacy course/lesson order, titles, body HTML, exercises, answer templates, media references, and app material references are inventoried and reconciled.
+- Target content data is service-owned by `content-service` and is reachable only through the API gateway from the frontend.
+- On-screen lesson text preserves legacy readability: font family intent, font sizes, line-height, text color, heading styles, justified/hyphenated text, tables, and exercise controls.
+- Dry-run reports include source counts, target counts, missing templates/assets, duplicates, source IDs, target IDs, and write status.
+- No target DB write, deployment, destructive operation, or legacy route retirement runs without explicit owner approval and rollback evidence.
+- Legacy `speakasap-portal` remains fallback/reference until a later cutover goal.
+

@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AuthClientModule } from './auth-client/auth-client.module';
 import { GroupsModule } from './groups/groups.module';
 import { HomeworksModule } from './homeworks/homeworks.module';
+import { InternalSalaryModule } from './internal-salary/internal-salary.module';
 import { LessonRecordsModule } from './lesson-records/lesson-records.module';
 import { LessonsModule } from './lessons/lessons.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -19,6 +20,7 @@ import { AppService } from './app.service';
     LessonsModule,
     LessonRecordsModule,
     HomeworksModule,
+    InternalSalaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -6,11 +6,12 @@ import { PhoneticsModule } from './phonetics/phonetics.module';
 import { DictionaryModule } from './dictionary/dictionary.module';
 import { SongsModule } from './songs/songs.module';
 import { LanguagesModule } from './languages/languages.module';
+import { SevenModule } from './seven/seven.module';
 import { RequestContextMiddleware } from './shared/request-context.middleware';
 import { SharedModule } from './shared/shared.module';
 
 @Module({
-  imports: [SharedModule, GrammarModule, PhoneticsModule, DictionaryModule, SongsModule, LanguagesModule],
+  imports: [SharedModule, GrammarModule, PhoneticsModule, DictionaryModule, SongsModule, LanguagesModule, SevenModule],
   controllers: [AppController],
   providers: [AppService],
 })

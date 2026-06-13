@@ -26,6 +26,10 @@ export class GatewayAuthGuard implements CanActivate {
       return true;
     }
 
+    if ((pathname === '/api/v1/seven' || pathname.startsWith('/api/v1/seven/')) && req.method === 'GET') {
+      return true;
+    }
+
     if (pathname.startsWith('/api/v1/internal')) {
       const expected = process.env.GATEWAY_INTERNAL_API_TOKEN;
       const raw = req.headers['x-internal-token'];

@@ -24,3 +24,491 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@font-face {
+  font-family: "PT Mono";
+  src: url("/fonts/PT-Mono.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Open Sans Legacy";
+  src: url("/fonts/Open-Sans.ttf") format("truetype");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+.seven-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+  color: #424242;
+  font-family: "Open Sans Legacy", "Open Sans", Arial, Helvetica, sans-serif;
+  padding: 24px 12px 48px;
+}
+
+.seven-shell {
+  max-width: 996px;
+  margin: 0 auto;
+}
+
+.seven-shell--narrow {
+  max-width: 900px;
+}
+
+.seven-card,
+.seven-empty,
+.seven-lesson-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
+}
+
+.seven-course-header {
+  margin: 0 auto 28px;
+  max-width: 605px;
+  padding: 12px 24px 4px;
+  text-align: left;
+}
+
+.seven-course-header h1 {
+  margin: 0;
+  color: #212121;
+  font-family: "Open Sans Legacy", "Open Sans", Arial, Helvetica, sans-serif;
+  font-size: 44px;
+  font-weight: 100;
+  line-height: 1.2;
+}
+
+.seven-course-header p {
+  margin: 34px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.seven-lessons-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.seven-lesson-card {
+  display: flex;
+  min-height: 190px;
+  flex-direction: column;
+  padding: 22px;
+}
+
+.seven-lesson-card h2 {
+  margin: 0;
+  color: #2c96ff;
+  font-family: "PT Mono", monospace;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.seven-lesson-card p {
+  margin: 14px 0 22px;
+  flex: 1;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.seven-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d6d6d6;
+  border-radius: 2px;
+  background: #fff;
+  color: #424242;
+  font-family: "Open Sans Legacy", "Open Sans", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 16px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.seven-button:hover {
+  background: #fafafa;
+}
+
+.seven-button--orange {
+  border-color: #fb8c00;
+  background: #fb8c00;
+  color: #fff;
+}
+
+.seven-button--orange:hover {
+  background: #ef7f00;
+}
+
+.seven-lesson-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+  color: #757575;
+  font-size: 14px;
+}
+
+.seven-lesson-nav a {
+  color: #2c96ff;
+  text-decoration: none;
+}
+
+.seven-lesson-heading {
+  margin-bottom: 22px;
+}
+
+.seven-lesson-heading p {
+  margin: 8px 0 0;
+  color: #424242;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.hyphenate {
+  text-align: justify;
+}
+
+.lesson__content {
+  color: #424242;
+  padding: 12px;
+}
+
+.lesson__content--seven {
+  padding: 4.2%;
+}
+
+.lesson__content h1 {
+  margin: 8px 0 18px;
+  color: #2c96ff;
+  font-family: "PT Mono", monospace;
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.lesson__content h1:first-child {
+  margin-top: 0;
+}
+
+.lesson__content h2,
+.seven-exercises > h2 {
+  color: #feb600;
+  font-family: "PT Mono", monospace;
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.lesson__content h3 {
+  color: #424242;
+  font-family: "PT Mono", monospace;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.lesson__content h4 {
+  color: #424242;
+  font-family: "PT Mono", monospace;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.lesson__content p,
+.lesson__content li,
+.lesson__content ol,
+.lesson__content ul {
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.lesson__content table {
+  width: 100%;
+  margin-bottom: 18px;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 3px;
+}
+
+.lesson__content table td,
+.lesson__content table th {
+  padding: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  vertical-align: top;
+}
+
+.lesson__content .table-striped tbody tr:nth-child(odd) {
+  background: #fcfcfc;
+}
+
+.lesson__content .table-bordered {
+  border: 1px solid #f0f0f0;
+  border-radius: 2px;
+}
+
+.course-image img,
+.lesson__content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.course-image__title {
+  font-size: small !important;
+  font-style: italic !important;
+  text-align: center !important;
+}
+
+.seven-exercises {
+  margin-top: 18px;
+  padding: 28px;
+}
+
+.exercises__block {
+  border-top: 1px solid #eeeeee;
+  padding: 18px 0;
+}
+
+.exercises__block h2 {
+  margin: 24px 0 16px;
+  color: #424242;
+  font-family: "PT Mono", monospace;
+  font-size: 18px;
+  font-weight: 400;
+  text-align: left;
+}
+
+.exercises__title {
+  cursor: pointer;
+  color: #424242;
+  font-family: "PT Mono", monospace;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.4;
+  list-style: none;
+}
+
+.exercises__title::-webkit-details-marker,
+.exercises__answer summary::-webkit-details-marker {
+  display: none;
+}
+
+.exercises__body {
+  margin-top: 16px;
+}
+
+.exercises__answer {
+  margin-top: 18px;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  padding: 14px;
+}
+
+.exercises__answer summary {
+  cursor: pointer;
+  color: #2c96ff;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.exercises__count {
+  margin-top: 14px;
+  color: #757575;
+  font-size: 14px;
+  text-align: right;
+}
+
+.seven-bottom-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.seven-empty {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 32px;
+  text-align: left;
+}
+
+.seven-empty h1 {
+  margin: 0 0 14px;
+  color: #2c96ff;
+  font-family: "PT Mono", monospace;
+  font-size: 32px;
+  font-weight: 400;
+}
+
+.seven-empty p {
+  margin: 0 0 20px;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+
+.seven-reading-indicator {
+  position: fixed;
+  z-index: 30;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: rgba(224, 224, 224, 0.9);
+}
+
+.seven-reading-indicator__bar {
+  height: 100%;
+  background: #2c96ff;
+  transition: width 120ms linear;
+}
+
+.download-pdf {
+  display: flex;
+  justify-content: center;
+  margin: 18px 0 20px;
+}
+
+.button-download-pdf {
+  min-width: 156px;
+}
+
+
+.seven-app-promo {
+  margin: 22px 0 26px;
+  padding: 34px 24px;
+  background: #fff;
+  color: #424242;
+}
+
+.seven-app-promo__content {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+.seven-app-promo h2 {
+  margin: 0 0 18px;
+  color: #424242;
+  font-family: "Open Sans Legacy", "Open Sans", Arial, Helvetica, sans-serif;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.seven-app-promo ul {
+  margin: 0;
+  padding-left: 22px;
+  font-size: 16px;
+  line-height: 30px;
+}
+
+.seven-app-promo__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.seven-button--green {
+  background: #41b34d;
+  color: #fff;
+}
+
+.seven-button--green:hover {
+  background: #32943c;
+}
+
+.seven-course-promo {
+  margin: 22px 0 0;
+  padding: 26px 24px 30px;
+  background: #fff;
+  border-top: 4px solid #2c96ff;
+  color: #424242;
+  text-align: center;
+}
+
+.seven-course-promo h2 {
+  margin: 0 auto 18px;
+  max-width: 720px;
+  color: #212121;
+  font-family: "Open Sans Legacy", "Open Sans", Arial, Helvetica, sans-serif;
+  font-size: 34px;
+  font-weight: 100;
+  line-height: 1.25;
+}
+
+.seven-course-promo p {
+  margin: 0 auto;
+  max-width: 680px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+@media (min-width: 576px) {
+  .lesson__content--seven p,
+  .lesson__content--seven ol,
+  .lesson__content--seven ul,
+  .lesson__content--seven .mdl-radio__label,
+  .lesson__content--seven table td,
+  .lesson__content--seven table th {
+    font-size: 16px;
+    line-height: 30px;
+  }
+}
+
+@media (max-width: 720px) {
+  .seven-page {
+    padding: 12px 8px 32px;
+  }
+
+  .seven-course-header {
+    padding: 8px 12px 0;
+  }
+
+  .seven-course-header h1 {
+    font-size: 36px;
+  }
+
+  .seven-course-header p {
+    margin-top: 28px;
+    font-size: 16px;
+  }
+
+  .seven-lessons-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .seven-lesson-card {
+    min-height: 0;
+  }
+
+  .seven-exercises {
+    padding: 20px;
+  }
+
+  .seven-bottom-nav {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

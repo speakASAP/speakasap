@@ -1,4 +1,179 @@
+
+## 2026-06-13 - Goal 10 Seven Write-Gated Apply Path
+
+Status: apply path implemented and verified in no-write mode; no schema migration, data apply, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Changed:
+
+- Extended `content-service/scripts/migrate-seven-from-legacy.py` from dry-run-only to a write-gated importer.
+- Apply mode now requires `--apply --confirm-write --approval-note ... --rollback-plan ...`.
+- Apply mode generates rollback SQL before writes and refuses to run when dry-run blocking issues exist.
+- Added static rendering for common legacy Django tags: `title`, `audio`, `video`, `url`, `load`, and `hg/endhg`, so migrated HTML is closer to legacy learner-visible output and does not expose common template syntax.
+
+Verification:
+
+- `python3 -m py_compile content-service/scripts/migrate-seven-from-legacy.py` passed.
+- `content-service/scripts/migrate-seven-from-legacy.py --help` showed the write gates.
+- `content-service/scripts/migrate-seven-from-legacy.py --apply` refused before any connection/write with `ERROR: --apply requires --confirm-write` and exit status `2`.
+- `/tmp/speakasap-seven-dry-run-v2.json` recorded `writes=false`, `applySupported=true`, source counts `sevenCourses=19`, `sevenLessons=136`, and migration payload `courses=19`, `lessons=136`, `exercises=429`.
+- `/tmp/speakasap-seven-dry-run-target-v5.json` used the runtime `speakasap-content-secret` database URL through a temporary port-forward and recorded `writes=false`, target checked, no blocking issues, and target `SevenCourse`, `SevenLesson`, and `SevenExercise` tables missing before schema migration.
+
+Boundaries:
+
+- No content-service schema migration was applied.
+- No seven content data was written.
+- No frontend/content/gateway deployment was run.
+- No legacy route was retired.
+- Legacy `speakasap-portal` remains the behavior/style reference and fallback.
+
+Next:
+
+- Get owner approval to apply only `content-service/prisma/migrations/20260613110000_seven_content/migration.sql`, then rerun the DB-backed no-write seven report before any data apply approval is considered.
+
+
+## 2026-06-13 - Goal 10 Seven Schema/API, Dry-Run Importer, And Frontend Routes
+
+Status: partial implementation complete; no DB write, deployment, object mutation, destructive operation, or legacy route retirement ran.
+
+Changed:
+
+- Added content-service Prisma models `SevenCourse`, `SevenLesson`, and `SevenExercise`, plus migration SQL `content-service/prisma/migrations/20260613110000_seven_content/migration.sql`.
+- Added content-service `seven` module with public read endpoints for courses, lessons, and lesson details.
+- Added api-gateway upstream route `/api/v1/seven -> CONTENT_SERVICE_URL`.
+- Added a narrow anonymous gateway exception for `GET /api/v1/seven...`; non-GET API requests still require bearer auth.
+- Added `content-service/scripts/migrate-seven-from-legacy.py`, a dry-run-first inventory/reconciliation report; apply mode is intentionally blocked.
+- Added frontend public routes `/<languageCode>/seven` and `/<languageCode>/seven/<order>`, gateway-only data loading in `frontend/lib/seven.ts`, and legacy typography CSS/font assets for `PT Mono` and `Open Sans`.
+
+Verification:
+
+- `cd content-service && npm run prisma:validate` passed.
+- `cd content-service && npm run build` passed.
+- `cd api-gateway && npm run build` passed.
+- `python3 -m py_compile content-service/scripts/migrate-seven-from-legacy.py` passed.
+- `cd frontend && npm run build` passed; Next listed dynamic routes `/(languageCode)/seven` and `/(languageCode)/seven/[order]`.
+
+Dry-run evidence:
+
+- `/tmp/speakasap-seven-dry-run-v1.json`: `writes=false`, `sevenCourses=19`, `sevenLessons=136`, no blocking issues.
+- `/tmp/speakasap-seven-dry-run-target-v4.json`: used the runtime `speakasap-content-secret` database URL through temporary port-forward; `writes=false`, `sevenCourses=19`, `sevenLessons=136`, no blocking issues, `warnings=4`, and target `SevenCourse`, `SevenLesson`, and `SevenExercise` tables do not exist yet.
+- Template inventory from the report: `lessonRowsWithExistingTemplate=136`, `exerciseHtmlFiles=429`, `answerHtmlFiles=428`, `missingLessonTemplates=0`.
+- Expected warnings include non-7 row courses: English `8`, German `8`, Chinese `8`, plus missing media root in the checkout. This confirms the importer must not truncate all languages to exactly seven DB rows.
+
+Intent / ownership:
+
+- Public seven-course content is owned by `content-service`; frontend calls through `api-gateway`.
+- `course-service` remains owner for paid products/offers; `education-service` remains owner for private progress/access; `seven_test` remains later assessment/certification scope.
+- Legacy `speakasap-portal` remains the behavior/style reference and fallback.
+
+Next:
+
+- Get owner approval to apply only the content-service seven schema migration, then rerun DB-backed no-write report before any seven content data apply.
+
+
+## 2026-06-13 - Goal 10 Seven-Lesson Frontend Migration Plan
+
+Status: active planning; no DB write, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Owner request:
+
+- Migrate only the old `speakasap-portal` seven-lesson course frontend/content into the new `speakasap` server/platform.
+- Move all data for the seven lessons to the new server/database.
+- Preserve the learner-visible text style because it is intentionally readable for the audience.
+
+Changed:
+
+- Added `docs/orchestrator/SEVEN_LESSON_FRONTEND_MIGRATION_PLAN.md`.
+- Added Goal 10 to `docs/orchestrator/GOALS.md`.
+- Updated `TASKS.md`, `docs/orchestrator/IMPLEMENTATION_STATE.md`, `docs/orchestrator/STATE.json`, and root `STATE.json` to make Goal 10 active and pause Goal 9 without reverting existing salary changes.
+
+Evidence:
+
+- RAG was unavailable in the remote shell because `JWT_TOKEN` was not set, so this planning pass used repository evidence.
+- Legacy `seven` evidence includes `seven/models.py`, `seven/urls.py`, `seven/api_views.py`, `portal/fixtures/seven.xml`, `seven/templates/seven/*`, `speakasap_site/templates/site/seven/base.html`, `speakasap_site/templates/site/seven/index.html`, `speakasap_site/static/css/speakasap.css`, `speakasap_site/static/css/site.css`, and `speakasap_site/static/scss/_seven.scss`.
+- Target evidence includes `content-service/prisma/schema.prisma`, `content-service/src/grammar/*`, `frontend/app/*`, `frontend/lib/api-client.ts`, and `api-gateway/src/proxy/upstream-resolve.ts`.
+- Read-only sub-agents completed legacy seven discovery and target platform discovery.
+
+Intent / ownership:
+
+- Public seven-course content belongs in `content-service`; frontend must call through `api-gateway`.
+- `course-service` remains owner for paid products/offers, `education-service` for private progress/access, and assessment/certification for final tests.
+- Legacy portal remains the behavior/style reference and fallback.
+
+Next:
+
+- Goal 10.1: implement the content-service seven-course schema/API contract without writing migrated data, then run build/static validation.
+
 # SpeakASAP Orchestrator Status
+
+## 2026-06-13 - Salary Migration Apply To Kubernetes DB
+
+Status: done; salary data stored in the existing Kubernetes-backed `speakasap_salary_db` through a temporary Postgres port-forward.
+
+Owner approval:
+
+- User instructed: "Use existing database on the SpikaSub, which is running on the Kubernetes, and use the SpikaSub database to store it." This was treated as approval to apply salary migration data to the existing SpeakASAP Kubernetes salary database after a clean no-write report.
+
+Commands and reports:
+
+- Temporary DB path: `kubectl -n statex-apps port-forward svc/db-server-postgres 15434:5432` on `alfares`.
+- Pre-apply no-write report: `/tmp/speakasap-salary-dry-run-k8s-v1.json`.
+- Apply report: `/tmp/speakasap-salary-apply-k8s-v1.json`.
+- Rollback SQL: `/tmp/speakasap-salary-rollback-k8s-v1.sql`.
+- Post-apply no-write report: `/tmp/speakasap-salary-post-apply-k8s-v1.json`.
+
+Evidence:
+
+- Pre-apply target counts were empty: salary profiles `0`, salary expenses `0`, employee contracts `0`, calculation runs `0`, payout runs `0`.
+- Pre-apply conflicts were empty for legacy profile IDs, legacy expense IDs, and legacy contract IDs.
+- Apply completed with `load_complete`; no payout, deployment, or payment-service disbursement was run.
+- Applied target counts from post-apply dry-run: `salary_profiles=386`, `salary_expenses=103983`, `employee_contracts=632`, `calculation_runs=0`, `payout_runs=0`.
+- Legacy source counts in the report: `salaryProfiles=386`, `salaryExpenseBaseRows=105321`, `lessonSalaryExpenseRows=99820`, `supportBonusRows=179`, `employeeContracts=632`, `expensesUserWithoutProfile=1338`, `lessonExpenseMissingLesson=0`, `courseSingleLessonSalaryRows=24152`, `courseGroupLessonSalaryRows=1250`.
+- Expected skips/gaps remain: `1338` salary expenses without a salary profile were not imported; `SalaryProfile.authUserId` remains null for imported profiles; lesson salary rows keep `lessonUuid` null until education-service backfill/aggregate parity is completed.
+
+Validation:
+
+- Post-apply dry-run completed with `writes=false`.
+- Post-apply conflicts now list imported legacy IDs, which is expected evidence that rerun/apply would duplicate existing imported rows unless handled by idempotent skip/update logic.
+
+Next:
+
+- Deploy the new user-service/education-service salary aggregate endpoints when approved, then reconcile salary calculation lines against the migrated salary expenses and education aggregates before any payout run.
+
+## 2026-06-13 - Salary Migration Implementation Hardening
+
+Status: partial; code implemented, runtime DB-backed salary dry-run blocked by target DB reachability.
+
+Changed:
+
+- Added `user-service` internal `GET /api/v1/internal/teachers/legacy-user-map` to map legacy portal user IDs to legacy teacher IDs for cross-service salary aggregation.
+- Added `education-service` internal `GET /api/v1/internal/salary/period-aggregates` guarded by `X-Internal-Token`.
+- Added education salary aggregate module/service and wired it into `education-service/src/app.module.ts`.
+- Hardened `salary-service/scripts/migrate-salary-data.ts` with `--json-report`, `--apply`, `--confirm-write`, `--approval-note`, and `--rollback-plan` gates; legacy `--load` is now treated as write mode and requires the same gates.
+- Copied/updated `docs/orchestrator/SALARY_MIGRATION_INVENTORY.md` in the authoritative remote checkout.
+
+Intent and ownership:
+
+- Preserves legacy teacher salary behavior as a gated migration path.
+- `salary-service` remains salary owner; `education-service` supplies lesson aggregates; `user-service` supplies teacher identity mapping; payment execution remains outside scope and still requires owner approval through the payment boundary.
+- No salary load, payout, deployment, DB write, or payment action was run.
+
+Verification:
+
+- `cd user-service && npm run build` passed.
+- `cd education-service && npm run build` passed.
+- `cd salary-service && npm run build` passed.
+- `cd salary-service && npm run migrate:salary-data -- --help` passed and showed the new dry-run/apply gate usage.
+- `cd salary-service && npm run migrate:salary-data -- --apply` failed before DB setup with the expected write-gate error.
+- Read-only DB-backed salary dry-run command `cd salary-service && npm run migrate:salary-data -- --dry-run --json-report /tmp/speakasap-salary-dry-run-implementation-v1.json` reached the legacy DB and reported source counts, then failed when target Prisma could not reach `db-server-postgres:5432` from the remote shell.
+
+Evidence:
+
+- Legacy source counts observed before the target DB failure: `salaryProfiles=386`, `salaryExpenseBaseRows=105321`, `lessonSalaryExpenseRows=99820`, `supportBonusRows=179`, `employeeContracts=632`, `expensesUserWithoutProfile=1338`, `lessonExpenseMissingLesson=0`, `courseSingleLessonSalaryRows=24152`, `courseGroupLessonSalaryRows=1250`.
+- Target DB blocker: `PrismaClientInitializationError: Can't reach database server at db-server-postgres:5432`.
+
+Next:
+
+- Provide a reachable target salary database connection or port-forward for the remote shell, then rerun the no-write salary JSON report before any apply approval is considered.
 
 ## 2026-06-12 - Goal 1.1 Intent Preservation Pack
 
@@ -1932,3 +2107,817 @@ Next:
 
 - Continue Goal 6 with authorized frontend parity checks when fresh learner/teacher/staff JWTs are available, or move to broader protected route parity cases if owner provides test credentials.
 
+
+## 2026-06-13 - Goal 6.3 Authorized Frontend Lesson-Recording Parity Checks
+
+Status: done for authorized learner/teacher/staff frontend parity checks
+
+Current focus:
+
+- Ran authorized rendered frontend checks for migrated lesson-recording workflows after fresh short-lived JWTs were generated inside the auth runtime.
+- Work stayed remote-only against `/home/ssf/Documents/Github/speakasap`; no local Documents source edits were made.
+- DocsRAG retrieval from deployment/speakasap returned HTTP 200 for the Goal 6.3 context query; token values were not printed.
+
+Validation evidence:
+
+- Sanitized browser report: `/tmp/speakasap-goal63-frontend-parity-browser-report.json`.
+- Redacted screenshots: `/tmp/speakasap-goal63-learner-paid-state.png`, `/tmp/speakasap-goal63-learner-unpaid-denied.png`, `/tmp/speakasap-goal63-teacher-unassigned-denied.png`.
+- Browser route identity/nonblank checks passed for:
+  - `https://speakasap.alfares.cz/learner/lessons/7d870263-bdcb-4bba-b25e-1f6b40402411/record`
+  - `https://speakasap.alfares.cz/learner/lessons/852c4cdd-9c44-47e4-b57f-e101ae9f3f0a/record`
+  - `https://speakasap.alfares.cz/teacher/lessons/7d870263-bdcb-4bba-b25e-1f6b40402411/record`
+- Console warning/error count was `0`; no framework overlay was present.
+- Paid learner state returned `200` with `state=ready` and no permanent URL.
+- Paid learner playback returned `200`, `mode=gateway-download`, `method=GET`, `expiresIn=3600`, and a scoped tokenized URL; sanitized range verification returned `206 audio/mpeg` for 32 bytes.
+- Unpaid learner playback returned `403 FORBIDDEN` with `Lesson record access denied`.
+- Assigned teacher presign returned `201`, `method=PUT`, `expiresIn=900`, private key prefix `2018/07/10`, MinIO host, and SigV4 signature present.
+- Unassigned teacher presign returned `403 FORBIDDEN` with `Assigned teacher or staff access required`.
+- Staff presign returned `201`, `method=PUT`, `expiresIn=900`, private key prefix `2018/07/10`, MinIO host, and SigV4 signature present.
+- Report and screenshots are sanitized: JWT values, scoped media tokens, and signed URLs are omitted or redacted.
+
+Boundaries:
+
+- No code changes, deployment, database write, object-storage mutation, upload PUT, commit, merge, delete, rollback execution, legacy retirement, payment change, or notification delivery change was performed.
+- Frontend calls stayed gateway-first; private media remained behind scoped tokenized gateway download or short-lived SigV4 PUT presign.
+
+Gate decision:
+
+- Goal 6 authorized frontend parity for the migrated lesson-recording workflow is complete for the selected learner, teacher, and staff cases.
+- Cutover is not approved by this check; Goal 7 still needs operational cutover readiness, rollback/runbook, manifests/secrets/health/logging review, and owner approval before any legacy traffic retirement.
+
+Next:
+
+- Start Goal 7 operational cutover readiness: verify Kubernetes manifests, secrets, health checks, logging, smoke URLs, and rollback/cutover runbook for the lesson-recording path before any cutover approval.
+
+
+## 2026-06-13 - Goal 7.1 Operational Cutover Readiness
+
+Status: done for readiness evidence and runbook; cutover not approved or executed
+
+Current focus:
+
+- Prepared operational cutover readiness for the migrated lesson-recording workflow.
+- Work stayed remote-only in `/home/ssf/Documents/Github/speakasap`.
+- DocsRAG retrieval from deployment/speakasap returned HTTP 200 for the Goal 7.1 context query; token values were not printed.
+
+Changed:
+
+- Added `docs/orchestrator/GOAL_7_CUTOVER_READINESS.md` with scope, ownership boundaries, live evidence, public smoke URLs, secret/runtime checks, logging/events, cutover checklist, post-cutover smoke list, rollback commands, and approval gate.
+
+Validation evidence:
+
+- Operational report: `/tmp/speakasap-goal7-operational-readiness.json`.
+- Affected deployments rolled out successfully: `speakasap-frontend`, `speakasap-api-gateway`, and `speakasap-education`.
+- Current pods are `1/1 Running` with `0` restarts for the affected deployments.
+- Current image digests:
+  - frontend `sha256:d1c0c00fb01cf82a1355b72dc8ddedc5c2aec0c1d1cd910fadf68937e09ef402`
+  - api-gateway `sha256:d5568fd64226473d7474089030104bb3161b8d2803993ded799e530db3ac9763`
+  - education `sha256:776f5086ccf2d578f4de84ac34b7bde7a051890ac0c26287471e78842d6371f1`
+- Ingress routing verified: `/health` and `/api` route to `speakasap-api-gateway:4210`; `/` routes to `speakasap-frontend:4211`.
+- ExternalSecrets `speakasap-education-secret` and `speakasap-secret` are `SecretSynced=True`; required key names are present without printing values.
+- Public smoke results:
+  - `/` -> `200 text/html; charset=utf-8`
+  - `/health` -> `200 application/json; charset=utf-8`
+  - protected record API without bearer -> `401 application/json; charset=utf-8`
+  - learner record route -> `200 text/html; charset=utf-8`
+  - teacher record route -> `200 text/html; charset=utf-8`
+- Sampled logs from frontend, api-gateway, and education had `0` warning/error/exception/fatal matches.
+- Runtime OpenSSL versions are 3.x: frontend `3.5.5`, api-gateway `3.5.5`, education `3.5.4`.
+- SpeakASAP-specific events show normal frontend rollout activity plus one transient readiness probe failure on an old frontend pod during replacement; current affected pods are ready.
+
+Boundaries:
+
+- No cutover, legacy retirement, DNS change, deployment, database write, object-storage mutation, upload PUT, commit, merge, delete, rollback execution, payment change, or notification delivery change was performed.
+- Cutover remains blocked until owner approval records exact traffic/legacy-route change, rollback window, monitoring commands, acceptance smoke list, date, and approver.
+
+Gate decision:
+
+- Goal 7 operational cutover readiness is complete for the selected lesson-recording workflow.
+- Goal 8 controlled cutover and legacy decommission is owner-approval gated.
+
+Next:
+
+- Request explicit owner approval for the exact Goal 8 cutover action, rollback window, monitoring plan, and acceptance smoke list before changing traffic or retiring legacy routes.
+
+
+## 2026-06-13 - Goal 8.1 Controlled Cutover Validation
+
+Status: done for controlled cutover validation; legacy freeze/decommission not executed
+
+Approval:
+
+- Owner approved continuation in the Codex thread on 2026-06-13: `You have my approval. Continue.`
+- Approval was applied to the Goal 8 controlled cutover validation for the already-routed migrated lesson-recording workflow on `https://speakasap.alfares.cz`.
+- No approval was inferred for destructive operations, object deletion, migration reruns, legacy shutdown, DNS change, or irreversible decommission.
+
+Changed:
+
+- Added `docs/orchestrator/GOAL_8_CONTROLLED_CUTOVER.md` with approval record, cutover action, smoke evidence, monitoring evidence, rollback availability, and legacy freeze/decommission gate.
+
+Validation evidence:
+
+- Cutover smoke report: `/tmp/speakasap-goal8-cutover-smoke.json`.
+- Cutover monitoring report: `/tmp/speakasap-goal8-cutover-monitoring.json`.
+- Public smoke after approval:
+  - root -> `200 text/html; charset=utf-8`
+  - health -> `200 application/json; charset=utf-8`
+  - learner route -> `200 text/html; charset=utf-8`
+  - teacher route -> `200 text/html; charset=utf-8`
+- Authenticated workflow smoke used fresh short-lived JWTs generated inside the auth runtime; token values were not printed.
+- Workflow smoke passed expected statuses: no-auth state `401`, paid learner state `200`, paid learner playback `200`, tokenized range download `206`, unpaid playback denial `403`, assigned teacher presign `201`, unassigned teacher presign `403`, staff presign `201`, delete without confirmation `400`.
+- No checked response exposed a permanent public recording URL.
+- Affected deployments remained rolled out: `speakasap-frontend`, `speakasap-api-gateway`, and `speakasap-education`.
+- Current affected pods remained `1/1 Running` with `0` restarts.
+- Last-hour log scan for warning/error/exception/fatal terms returned `0` matches for frontend, api-gateway, and education.
+
+Boundaries:
+
+- No traffic change was required because ingress already routed the migrated frontend/gateway path.
+- No deployment, database write, object-storage mutation, upload PUT, commit, merge, delete, rollback execution, legacy route freeze, DNS change, payment change, or notification delivery change was performed.
+- Legacy portal remains available as rollback/reference.
+
+Gate decision:
+
+- Controlled cutover validation for the migrated lesson-recording workflow is clean.
+- Goal 8 remains active for a separate owner-selected legacy freeze/decommission target because no exact legacy route, DNS target, nginx rule, feature flag, or repository path was named for freeze.
+
+Next:
+
+- Select the exact reversible legacy freeze/decommission target for lesson recordings, or close the migration wave with legacy retained as rollback/reference until a later owner-approved retirement window.
+
+
+## 2026-06-13 - Goal 8 Legacy Fallback Decision And Goal 9 Salary Migration Setup
+
+Status: Goal 8 closed with legacy retained as fallback; Goal 9 salary migration created
+
+Owner direction:
+
+- Keep the legacy lesson-recording path available as fallback/reference if the new service is not running or a migrated workflow regresses.
+- Start the next migration target: salary, because teacher salary/payments depend on lesson-recording duration once a lesson is recorded and saved.
+
+Legacy salary evidence reviewed:
+
+- `speakasap-portal/education/lesson_records/models.py`: `LessonRecord.get_record_length()` reads MP3 duration through `mutagen.mp3.MP3` from local or storage-backed file.
+- `speakasap-portal/expenses/salary/utils.py`: `get_record_length_in_hours()` implements demo/no-record/record-unavailable fallback, 95% full-lesson threshold, scheduled-duration cap, and quantization; `get_real_lessons_duration()` sums recording-derived hours for finished lessons.
+- `speakasap-portal/expenses/signals/handlers.py`: lesson finish creates `LessonSalaryExpense`; lesson-record update calls `check_lesson_expense()` to sync salary quantity.
+- `speakasap-portal/expenses/tasks.py`: monthly `calculate_salary()` creates salary rows from real recording-derived duration, hourly rates, fixed salary, and lower/upper work-duration bounds.
+- `speakasap-portal/expenses/management/commands/add_lessons_to_expenses.py`: monthly/teacher backfill updates missing or stale lesson salary expenses.
+- `speakasap-portal/administrator/views/salary.py`: admin salary list/detail views aggregate teacher/other profiles, totals, subtotals, and expected vs real lesson duration.
+- `speakasap-portal/expenses/tests/test_common.py`: legacy tests show finished lessons create salary expenses; example MP3 changes qty from `0` to `0.01`; only finished lessons are included by backfill/check commands.
+
+Target evidence reviewed:
+
+- `salary-service/prisma/schema.prisma` already has salary profiles, salary expenses, calculation runs, payout runs, and payout lines.
+- `salary-service/scripts/migrate-salary-data.ts` already reads legacy salary profiles/expenses and has dry-run/load modes, but needs updated reconciliation gates for recording-duration parity and payment safety.
+- `salary-service/src/calculation-runs/calculation-runs.service.ts` already depends on `EducationClientService.fetchPeriodAggregates()`.
+- `salary-service/src/deps/education-client.service.ts` expects `/api/v1/internal/salary/period-aggregates`, but education-service does not yet expose it.
+- `education-service` migrated lesson records store private object keys/state, but `LessonRecordsService.getState()` still returns `durationSeconds: null` and no persisted MP3 duration exists yet.
+
+Changed:
+
+- Added `docs/orchestrator/SALARY_MIGRATION_GOAL.md`.
+- Updated roadmap/state to make Goal 9 the active migration target.
+- Goal 8 remains complete for controlled cutover validation with legacy retained as fallback/reference; no freeze/decommission was executed.
+
+Boundaries:
+
+- No code changes, database writes, salary calculations, payout creation, payment execution, object-storage mutation, deployment, rollback, or legacy retirement were performed.
+- Future salary work must stay dry-run/reconciliation-first and cannot bypass `payments-microservice` for real payouts.
+
+Next:
+
+- Goal 9.1: create `docs/orchestrator/SALARY_MIGRATION_INVENTORY.md` with source-to-target salary mapping, recording-duration payroll parity rules, education aggregate contract, dry-run report format, and verification commands.
+
+## 2026-06-13 - Salary Migration Deploy And CLI
+
+Status: deployed internal salary dependencies and added read-only salary CLI; payout/calculation flows not executed
+
+Approval:
+
+- Owner approved deployment and CLI continuation in the Codex thread on 2026-06-13: `I approve. Go ahead, deploy, and proceed with the next step with the implementation of the CLI.`
+
+Changed:
+
+- Deployed `speakasap-user` with the internal teacher legacy-user mapping endpoint.
+- Deployed `speakasap-education` with the internal salary period aggregate endpoint.
+- Added `salary-service` CLI script `npm run salary:cli -- ...` for read-only target salary database inspection.
+- Updated `docs/orchestrator/SALARY_MIGRATION_INVENTORY.md` with deployed aggregate status and salary CLI verification commands.
+
+Deployment evidence:
+
+- Built and pushed `localhost:5000/speakasap-user:latest` and `localhost:5000/speakasap-education:latest`.
+- Applied `k8s/services/user-service.yaml` and `k8s/services/education-service.yaml` in namespace `statex-apps`.
+- Rollouts completed for deployments `speakasap-user` and `speakasap-education`.
+- Health checks returned `{"status":"ok"}` for both services.
+- Internal salary aggregate smoke returned valid JSON for period `2026-05`; sampled legacy user had warning `no_teacher_mapping_for_requested_legacy_users`.
+
+CLI verification evidence:
+
+- `cd salary-service && npm run salary:cli -- --help` passed.
+- `cd salary-service && npm run build` passed.
+- Against the existing Kubernetes Postgres service through temporary remote port-forward `127.0.0.1:15434`, `npm run salary:cli -- status --json-report /tmp/speakasap-salary-cli-status-v1.json` returned read-only counts: salary profiles `386`, salary expenses `103983`, employee contracts `632`, calculation runs `0`, payout runs `0`, imported lesson expenses `98753`, imported support bonuses `176`.
+- Status warnings are expected for current migration state: all `386` profiles lack `authUserId`, and all `98753` lesson salary expenses lack `lessonUuid`.
+- `npm run salary:cli -- period-summary --period 2026-05 --json-report /tmp/speakasap-salary-cli-period-2026-05-v1.json` returned grouped totals for CZK/EUR generic and lesson rows.
+- Temporary port-forward was stopped and `15434` had no remaining listener.
+
+Boundaries:
+
+- No salary calculation run, payout run, payment-service disbursement, object-storage mutation, source legacy mutation, rollback execution, merge, or destructive cleanup was performed.
+- The CLI is read-only by implementation and only reports existing target salary database state.
+
+Next:
+
+- Implement auth legacy identity mapping resolution for salary profiles, then backfill lesson UUID references for imported lesson salary expenses once the education lesson mapping is available.
+
+## 2026-06-13 - Salary Profile Auth Mapping
+
+Status: done; imported salary profiles now resolve to target auth user IDs
+
+Approval:
+
+- Owner approved continuing the next salary implementation step in the Codex thread on 2026-06-13: `Agree, go ahead.`
+
+Changed:
+
+- Enhanced `salary-service/scripts/migrate-salary-data.ts` to load `legacy_portal_user_id -> auth_user_id` from `user-service.user_identity_mirror` using `USER_DATABASE_URL`.
+- Future profile imports now set `SalaryProfile.authUserId` when a migrated user identity mirror exists.
+- Added `--auth-map-only` write mode so existing salary profiles can be updated without creating salary expenses, employee contracts, calculation runs, payout runs, or payment disbursements.
+- Added auth-specific rollback SQL generation that only nulls `salary_profiles.auth_user_id` for imported salary profiles.
+- Updated `docs/orchestrator/SALARY_MIGRATION_INVENTORY.md` to close the salary profile auth mapping gap.
+
+Verification evidence:
+
+- RAG retrieval was skipped because `JWT_TOKEN` was unavailable in the remote shell; repository evidence was used instead.
+- `cd salary-service && npm run build` passed after implementation.
+- `cd salary-service && npm run migrate:salary-data -- --help` passed and showed `--auth-map-only`.
+- Dry-run report `/tmp/speakasap-salary-auth-map-dry-run-v1.json` resolved `386/386` salary profile legacy users from `user_identity_mirror`, with `profiles_missing_auth_uuid.count=0`.
+- First auth-only apply attempt wrote `/tmp/speakasap-salary-auth-map-apply-v1.json` but stopped before writes because the auth rollback helper was missing; no `profile_auth_users_updated` log occurred.
+- Second auth-only apply report `/tmp/speakasap-salary-auth-map-apply-v2.json` completed with `authProfilesUpdated=386`.
+- Auth rollback SQL: `/tmp/speakasap-salary-auth-map-rollback-v1.sql`; it only sets imported salary profile `auth_user_id` values back to null.
+- Post-apply read-only CLI report `/tmp/speakasap-salary-cli-status-after-auth-map-v1.json` returned `profilesWithoutAuth=0`, `salaryProfiles=386`, `salaryExpenses=103983`, `employeeContracts=632`, `calculationRuns=0`, and `payoutRuns=0`.
+- Temporary Postgres port-forward was stopped; remote `15434` had no remaining listener.
+
+Boundaries:
+
+- No salary calculation run, payout run, payment-service disbursement, salary expense creation, employee contract creation, legacy source mutation, object-storage mutation, deployment, rollback execution, or destructive cleanup was performed.
+- Remaining migration warning is expected: `98753` imported lesson salary expenses still have null `lessonUuid` until education lesson UUID backfill is implemented.
+
+Next:
+
+- Implement salary lesson UUID backfill by mapping legacy lesson salary expense lesson IDs to target education lesson UUIDs, then rerun read-only reconciliation before any salary calculation or payout flow.
+
+
+## 2026-06-13 - Goal 10.1 Worker 10.1 Seven Content Schema/API Contract
+
+Status: implemented and statically verified; no data migration write, deployment, frontend change, object mutation, or legacy route retirement ran.
+
+Changed by Worker 10.1:
+
+- Added content-service Prisma schema models for SevenCourse, SevenLesson, and SevenExercise with legacy course/lesson IDs, language relation, material language, metadata, app package, materialsChanged-derived API version support, rendered lesson/exercise/answer HTML fields, and duplicate guards.
+- Added content-service public read module under content-service/src/seven for /api/v1/seven/courses, /api/v1/seven/courses/:languageCode, /api/v1/seven/courses/:languageCode/lessons, and /api/v1/seven/courses/:languageCode/lessons/:order.
+- Wired SevenModule into content-service AppModule.
+- Added api-gateway upstream routing for /api/v1/seven to CONTENT_SERVICE_URL.
+
+Evidence:
+
+- RAG was unavailable in the remote shell because JWT_TOKEN was not set; implementation used repository evidence from the mandatory Goal 10 docs plus legacy seven models/API/views/serializers and existing content-service grammar/languages patterns.
+- docs/orchestrator/IMPLEMENTATION_ORCHESTRATOR.md and docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md are referenced by task docs but absent in this remote checkout, so the available intent rules were followed from MASTER_PROMPT.md, INTENT.md, GOALS.md, PLAN.md, TASKS.md, and STATE.json.
+- cd content-service && npm run prisma:validate passed.
+- cd content-service && npm run prisma:generate passed.
+- cd content-service && npm run build passed.
+- cd api-gateway && npm run build passed.
+
+Notes:
+
+- Gateway upstream routing now resolves /api/v1/seven to content-service, but api-gateway/src/proxy/gateway-auth.guard.ts still requires bearer auth for general /api/v1 routes. Anonymous gateway access for public seven content remains a separate gateway-auth ownership decision unless the master assigns that file.
+- An untracked content-service/prisma/migrations/20260613110000_seven_content/migration.sql directory is present in the shared worktree and matches the seven schema, but Worker 10.1 did not run prisma migrate and did not remove shared untracked work.
+
+Next:
+
+- Goal 10.2: add the dry-run-first legacy seven content importer and reconciliation report without target DB writes.
+
+## 2026-06-13 - Goal 10 Seven Schema/Importer Audit
+
+Status: implemented and verified through no-write evidence; approval gate remains before schema/data writes.
+
+Changed:
+
+- Audited legacy `seven.xml` lesson order assumptions before any schema migration.
+- Confirmed `en`, `de`, and `cn` have 8 legacy rows, but no duplicate `(course, order)` values; source order is compatible with the new `SevenLesson(courseId, order)` unique key.
+- Updated `content-service/scripts/migrate-seven-from-legacy.py` so exercise files are ordered by parsed lesson/exercise numbers instead of lexicographic filename order.
+
+Verification evidence:
+
+- Numeric order helper returned `(12, 3, lesson12ex3.html)` and `(1, 10, lesson1ex10.html)` for sample filenames.
+- `python3 -m py_compile content-service/scripts/migrate-seven-from-legacy.py` passed.
+- `/tmp/speakasap-seven-dry-run-v6.json` recorded `writes=false`, payload `courses=19`, `lessons=136`, `exercises=429`, no blocking issues, and 4 expected warnings: media root absent from checkout plus 8-row course warnings for `en`, `de`, and `cn`.
+- `content-service/scripts/migrate-seven-from-legacy.py --apply` refused with status `2` because `--confirm-write` was missing; no DB action was attempted.
+- `cd content-service && npm run prisma:validate` passed.
+- `cd content-service && npm run build` passed.
+- `cd api-gateway && npm run build` passed.
+- `cd frontend && npm run build` passed and included dynamic routes `/[languageCode]/seven` and `/[languageCode]/seven/[order]`.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Reconciliation Hardening
+
+Status: implemented and verified through no-write evidence; approval gate remains before schema/data writes.
+
+Changed:
+
+- Added migration batch marker `seven-content-legacy-20260613` to course, lesson, and exercise payload metadata.
+- Added the same batch note to generated rollback SQL.
+- Strengthened DB-backed target reconciliation so reports include planned legacy course ID, lesson ID, and exercise key counts, and target ID samples once the seven tables exist.
+
+Verification evidence:
+
+- `/tmp/speakasap-seven-dry-run-v7.json` recorded `writes=false`, payload `courses=19`, `lessons=136`, `exercises=429`, no blocking issues, and 4 expected warnings.
+- Sample payload metadata verified batch marker on one course, one lesson, and one exercise.
+- `/tmp/speakasap-seven-dry-run-target-v8.json` recorded `writes=false`, `target.checked=true`, planned counts `19/136/429`, and expected missing-table errors for `SevenCourse`, `SevenLesson`, and `SevenExercise` before schema migration.
+- `content-service/scripts/migrate-seven-from-legacy.py --apply` refused with status `2` because `--confirm-write` was missing; no DB action was attempted.
+- `python3 -m py_compile content-service/scripts/migrate-seven-from-legacy.py` passed.
+- `cd content-service && npm run prisma:validate` passed.
+- `cd content-service && npm run build` passed.
+- `cd frontend && npm run build` passed and retained dynamic routes `/[languageCode]/seven` and `/[languageCode]/seven/[order]`.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Temporary Postgres port-forward for the read-only target check was stopped.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Frontend Preview Parity
+
+Status: implemented and Browser-verified against a no-write mock gateway; production visual gate remains open until data apply/deploy.
+
+Changed:
+
+- Added frontend/app/components/seven-reading-indicator.tsx for lesson reading progress.
+- Added seven promo/PDF helpers in frontend/lib/seven.ts.
+- Updated seven course and lesson pages to reuse promo copy, show the lesson PDF link, render a lesson-page course promo block, and include the reading indicator.
+- Added CSS for the reading indicator, PDF link area, and lesson-page promo block while preserving legacy typography colors and sizing.
+
+Verification evidence:
+
+- cd frontend && npm run build passed and retained dynamic routes /[languageCode]/seven and /[languageCode]/seven/[order].
+- In-app Browser QA used temporary mock gateway 127.0.0.1:4310 and temporary Next preview 127.0.0.1:4311; no target DB, deployment, or object storage writes were run.
+- Course page /en/seven rendered two lesson cards, grammar-safe promo text, header font Open Sans Legacy 44px/52.8px, promo text 18px/27.9px/700, no framework overlay, and zero console warnings/errors.
+- Lesson page /en/seven/1 rendered PDF link /media/pdf/en/lesson1.pdf, paragraph style 16px/30px/rgb(66, 66, 66), heading style PT Mono 32px/40px/rgb(44, 150, 255), answer disclosure opened, reading indicator reached width: 100% after scroll, no framework overlay, and zero console warnings/errors.
+- Screenshots: /tmp/speakasap-seven-course-preview.png and /tmp/speakasap-seven-lesson-preview.png.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Temporary mock gateway, Next preview, and SSH port-forward processes were stopped after QA.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply. Full desktop/mobile production visual QA remains after real data apply and deployment.
+
+## 2026-06-13 - Goal 10 Seven Media Contract
+
+Status: implemented and statically verified; approval gate remains before schema/data writes.
+
+Changed:
+
+- Added `pdfHref` to `content-service` seven lesson summary/detail API payloads using the legacy PDF path shape `/media/pdf/<languageCode>/lesson<order>.pdf`.
+- Updated frontend seven lesson types and lesson page to prefer API-provided `pdfHref`, keeping the existing helper as a fallback for mock or older payloads.
+
+Verification evidence:
+
+- `cd content-service && npm run build` passed.
+- `cd frontend && npm run build` passed and retained dynamic routes `/[languageCode]/seven` and `/[languageCode]/seven/[order]`.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Language Case Metadata
+
+Status: implemented and verified through no-write evidence; approval gate remains before schema/data writes.
+
+Changed:
+
+- Added `legacyLanguageCaseGent` to seven course migration metadata so frontend promo text can use migrated content metadata instead of only a frontend fallback map.
+- Completed genitive mappings for all 19 seven course language codes present in legacy `seven.xml`, including legacy codes `se`, `dk`, `sk`, and `ru`.
+- Kept frontend fallback mappings aligned with importer mappings.
+
+Verification evidence:
+
+- `python3 -m py_compile content-service/scripts/migrate-seven-from-legacy.py` passed.
+- `/tmp/speakasap-seven-dry-run-v10.json` recorded `writes=false`, payload `courses=19`, `lessons=136`, `exercises=429`, no blocking issues, and 4 expected warnings.
+- Explicit payload audit printed genitive metadata for all 19 courses and `missing []`.
+- `content-service/scripts/migrate-seven-from-legacy.py --apply` refused with status `2` because `--confirm-write` was missing; no DB action was attempted.
+- `cd frontend && npm run build` passed and retained dynamic routes `/[languageCode]/seven` and `/[languageCode]/seven/[order]`.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Lesson Navigation Contract
+
+Status: implemented and statically verified; approval gate remains before schema/data writes.
+
+Changed:
+
+- Added `previousLesson` and `nextLesson` summary objects to `content-service` seven lesson detail payloads.
+- Updated frontend lesson page navigation to prefer API-provided adjacent lesson summaries, while preserving the computed fallback for mock or older payloads.
+
+Verification evidence:
+
+- `cd content-service && npm run build` passed.
+- `cd frontend && npm run build` passed and retained dynamic routes `/[languageCode]/seven` and `/[languageCode]/seven/[order]`.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Next Metadata Parity
+
+Status: implemented and statically verified; approval gate remains before schema/data writes.
+
+Changed:
+
+- Added Next metadata generation to seven course and seven lesson routes so page title, description, keywords, and Open Graph fields come from migrated course/lesson SEO fields when available.
+- Kept the existing SpeakASAP default description fallback for unavailable or incomplete seven content.
+
+Verification evidence:
+
+- `cd frontend && npm run build` passed and retained dynamic routes `/[languageCode]/seven` and `/[languageCode]/seven/[order]`.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Structured Media References
+
+Status: implemented and verified through no-write evidence; approval gate remains before schema/data writes.
+
+Changed:
+
+- Added structured `mediaRefs` extraction to the seven migration payload metadata for lesson, exercise, and answer HTML after static legacy tag rendering.
+- Added `migrationMediaRefs` summary counts to the dry-run report so media reconciliation can be checked before apply.
+- Added `mediaRefs` to content-service seven lesson/exercise API response types and frontend seven data types, with lesson payloads including the PDF fallback reference.
+
+Verification evidence:
+
+- `python3 -m py_compile content-service/scripts/migrate-seven-from-legacy.py` passed.
+- `cd content-service && npm run build` passed.
+- `cd frontend && npm run build` passed and retained dynamic routes `/[languageCode]/seven` and `/[languageCode]/seven/[order]`.
+- `/tmp/speakasap-seven-dry-run-v11.json` recorded `writes=false`, payload `courses=19`, `lessons=136`, `exercises=429`, `migrationMediaRefs.lessonRowsWithRefs=136`, `migrationMediaRefs.exerciseRowsWithRefs=408`, `migrationMediaRefs.uniqueRefs=1104`, no blocking issues, and 4 expected warnings.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 App Promo Frontend Parity
+
+Status: implemented and statically verified; approval gate remains before schema/data writes.
+
+Changed:
+
+- Added a shared seven app promo component for the legacy visible block: "Полная версия курса ... в бесплатных приложениях для iOS и Android" with the four learner-facing bullet points from the legacy templates.
+- Rendered the app promo on both seven course and seven lesson pages when migrated course data has `appPackage`.
+- Added restrained CSS for the app promo block using the existing seven typography palette and a green action button.
+- Kept iOS URL out of the UI until it is represented by migrated data; the current safe action derives only the Google Play URL from `appPackage`.
+
+Verification evidence:
+
+- `cd frontend && npm run build` passed and retained dynamic routes `/[languageCode]/seven` and `/[languageCode]/seven/[order]`.
+- `rg` confirmed `SevenAppPromo` is wired into `frontend/app/[languageCode]/seven/page.tsx` and `frontend/app/[languageCode]/seven/[order]/page.tsx`.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Legacy App URL Metadata
+
+Status: implemented and verified through no-write evidence; approval gate remains before schema/data writes.
+
+Changed:
+
+- Extended the seven importer to read legacy `Language.ANDROID_URLS` and `Language.IOS_URLS` from `speakasap-portal/language/models.py` via AST and store `legacyAndroidUrl` / `legacyIosUrl` in course metadata.
+- Added `legacyAppUrls` counts to the seven dry-run report so app-link coverage is visible before data apply.
+- Updated frontend app promo links to use migrated legacy app URLs from course metadata, falling back to `appPackage` only for Google Play when metadata is missing.
+
+Verification evidence:
+
+- `python3 -m py_compile content-service/scripts/migrate-seven-from-legacy.py` passed.
+- `/tmp/speakasap-seven-dry-run-v12.json` recorded `writes=false`, payload `courses=19`, `lessons=136`, `exercises=429`, `legacyAppUrls.android=18`, `legacyAppUrls.ios=17`, `courseRowsWithAndroidUrl=18`, `courseRowsWithIosUrl=17`, no blocking issues, and 4 expected warnings.
+- `cd frontend && npm run build` passed and retained dynamic routes `/[languageCode]/seven` and `/[languageCode]/seven/[order]`.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 App Promo Rendered QA
+
+Status: Browser-verified against temporary mock data; approval gate remains before schema/data writes.
+
+Rendered QA environment:
+
+- Temporary mock gateway: remote `127.0.0.1:4320`.
+- Temporary Next preview: remote `127.0.0.1:4321`, forwarded to local `http://127.0.0.1:4321`.
+- Browser plugin path: in-app Browser; desktop viewport width reported as `1280`.
+- Mobile viewport check was attempted but Browser runtime did not expose `setViewportSize`, so mobile app-promo QA remains for the post-data/deploy visual pass.
+
+Verification evidence:
+
+- `/en/seven` rendered the app promo with heading `Полная версия курса «Английский язык за 7 уроков» в бесплатных приложениях для iOS и Android`.
+- `/en/seven` exposed both legacy app links: Google Play `https://play.google.com/store/apps/details?id=ru.ookamikb.speakasapen` and App Store `https://itunes.apple.com/us/app/anglijskij-azyk-za-7-urokov/id1002144129`.
+- `/en/seven/1` retained the app links, PDF href `/media/pdf/en/lesson1.pdf`, and answer disclosure interaction opened successfully.
+- Computed lesson typography remained aligned with legacy evidence: paragraph `16px/30px/rgb(66, 66, 66)` and heading `PT Mono 32px/40px/rgb(44, 150, 255)`.
+- Browser console warning/error logs were empty for course and lesson pages; framework overlay checks were false.
+- Screenshots saved locally outside the repo: `/tmp/speakasap-seven-app-promo-course.png` and `/tmp/speakasap-seven-app-promo-lesson.png`.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Temporary mock gateway, Next preview, and SSH port-forward were used only for no-write QA and must be stopped after validation.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Fresh Target Reconciliation V12
+
+Status: DB-backed no-write reconciliation completed; approval gate remains before schema/data writes.
+
+Changed:
+
+- Re-ran the seven importer with `--check-target` against the Kubernetes-backed content database using the fresh v12 payload that includes structured media refs and legacy Android/iOS app URL metadata.
+- Used a temporary remote Postgres port-forward only for read-only target inspection; it had no remaining listener after the check.
+
+Verification evidence:
+
+- `/tmp/speakasap-seven-dry-run-target-v12.json` recorded `writes=false`, payload `courses=19`, `lessons=136`, `exercises=429`, `blockingIssues=[]`, and 4 expected warnings.
+- The report recorded `legacyAppUrls.android=18`, `legacyAppUrls.ios=17`, `courseRowsWithAndroidUrl=18`, and `courseRowsWithIosUrl=17`.
+- The report recorded `migrationMediaRefs.lessonRowsWithRefs=136`, `migrationMediaRefs.exerciseRowsWithRefs=408`, and `migrationMediaRefs.uniqueRefs=1104`.
+- Target DB was reachable with `target.checked=true` and planned IDs/keys `19/136/429`.
+- Target table errors remain expected before owner-approved schema migration: `SevenCourse`, `SevenLesson`, and `SevenExercise` do not exist yet.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Temporary DB port-forward was stopped/no longer listening after the report.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for applying only the content-service seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Schema Migration Approval Packet
+
+Status: approval packet prepared; no schema migration, data apply, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Changed:
+
+- Added `docs/orchestrator/SEVEN_SCHEMA_MIGRATION_APPROVAL.md` with the exact schema-only approval scope, preserved intent, proposed command, required post-apply no-write reconciliation, rollback SQL for empty seven tables, and explicit approval wording.
+- Bound the approval request to current evidence from `/tmp/speakasap-seven-dry-run-v12.json` and `/tmp/speakasap-seven-dry-run-target-v12.json`.
+
+Verification evidence:
+
+- `cd content-service && npm run prisma:validate` passed.
+- `cd content-service && npm run build` passed.
+- Approval packet confirms the next approval is only for creating empty `SevenCourse`, `SevenLesson`, and `SevenExercise` schema objects and does not approve data apply or deploy.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval using the wording in `docs/orchestrator/SEVEN_SCHEMA_MIGRATION_APPROVAL.md`, then apply only the schema migration and rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Full Planned-Match Reconciliation Counts
+
+Status: implemented and verified in no-write mode; approval gate remains before schema/data writes.
+
+Changed:
+
+- Hardened `content-service/scripts/migrate-seven-from-legacy.py` target reconciliation so planned target matches are counted with full `COUNT(*)` queries, while samples remain limited separately.
+- This prevents post-data reconciliation from reporting only the sample size for `SevenLesson` or `SevenExercise` when more than the sample limit exists.
+
+Verification evidence:
+
+- `python3 -m py_compile content-service/scripts/migrate-seven-from-legacy.py` passed.
+- `/tmp/speakasap-seven-dry-run-v13.json` recorded `writes=false`, payload `courses=19`, `lessons=136`, `exercises=429`, app URL coverage `18/17`, media refs `136/408/1104`, no blocking issues, and 4 expected warnings.
+- `/tmp/speakasap-seven-dry-run-target-v13.json` recorded `writes=false`, target checked, planned IDs/keys `19/136/429`, no blocking issues, and expected missing-table errors for `SevenCourse`, `SevenLesson`, and `SevenExercise` before schema migration.
+- Temporary DB port-forward `15437` was stopped and had no remaining listener.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval using `docs/orchestrator/SEVEN_SCHEMA_MIGRATION_APPROVAL.md`, then apply only the schema migration and rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Target Base Content Schema Readiness
+
+Status: no-write target check found a pre-schema blocker; approval gate updated.
+
+Changed:
+
+- Hardened the seven target dry-run to check `Language` table/code readiness before schema or data apply.
+- Updated `docs/orchestrator/SEVEN_SCHEMA_MIGRATION_APPROVAL.md` with the target base schema finding.
+
+Verification evidence:
+
+- `python3 -m py_compile content-service/scripts/migrate-seven-from-legacy.py` passed.
+- `/tmp/speakasap-seven-dry-run-v14.json` recorded `writes=false`, payload `courses=19`, `lessons=136`, `exercises=429`, no blocking issues, and 4 expected warnings.
+- `/tmp/speakasap-seven-dry-run-target-v14.json` recorded `writes=false`, `target.checked=true`, blocking issue `TARGET_LANGUAGE_TABLE_UNAVAILABLE`, and planned language codes `19`.
+- Read-only information_schema inventory through temporary remote port-forward `15440` returned public tables `[]` and no `_prisma_migrations` table for `speakasap_content_db`.
+- Temporary port-forwards `15439` and `15440` were stopped and had no remaining listeners.
+
+Implication:
+
+- Applying only the seven schema migration would currently fail because `SevenCourse.languageId` references missing table `Language`.
+- The next owner approval must first cover content-service base schema readiness/apply, then seven schema migration, still with no seven data apply or deployment.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval for content-service base schema readiness followed by seven schema migration, then rerun DB-backed no-write reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Content Base Schema Approval Packet
+
+Status: approval packet prepared; no schema migration, data apply, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Changed:
+
+- Added `docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md` documenting why the target content DB needs base schema readiness before seven schema/data work.
+- The packet scopes owner approval to applying pending content-service Prisma migrations for empty schema creation only, then DB-backed no-write seven reconciliation.
+- The packet records rollback boundaries for empty schema objects and keeps seven data apply, deploy, object mutation, and legacy retirement out of scope.
+
+Verification evidence:
+
+- `cd content-service && npm run prisma:validate` passed.
+- `cd content-service && npm run build` passed.
+- Existing no-write target evidence remains `/tmp/speakasap-seven-dry-run-target-v14.json` with `TARGET_LANGUAGE_TABLE_UNAVAILABLE` and public tables `[]` in the content DB.
+
+Boundaries:
+
+- No content-service schema migration, seven data apply, production deployment, object mutation, destructive operation, or legacy route retirement ran.
+- Existing unrelated salary/education/user worktree changes were preserved and not reverted.
+
+Next:
+
+- Request explicit owner approval using `docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md`, then apply pending content-service schema migrations and rerun DB-backed no-write seven reconciliation before any seven data apply.
+
+## 2026-06-13 - Goal 10 Language Seed Readiness For Seven Data Migration
+
+Status: no-write implementation complete; target content DB still awaits owner-approved schema readiness.
+
+Changed:
+
+- Extended `content-service/scripts/migrate-seven-from-legacy.py` to include planned legacy `Language` rows in the seven migration payload.
+- Added write-gated `--include-languages` support so an approved later data apply can seed/update only the 19 language rows required by seven courses before importing `SevenCourse`, `SevenLesson`, and `SevenExercise` rows.
+- Replaced ad hoc YAML regex parsing with PyYAML parsing to preserve Russian language `name` and `speaker` text exactly.
+- Added `docs/orchestrator/SEVEN_DATA_MIGRATION_APPROVAL.md` and updated the schema approval packet to keep schema readiness separate from data apply.
+
+Verification:
+
+- `python3 -m py_compile content-service/scripts/migrate-seven-from-legacy.py` passed.
+- `content-service/scripts/migrate-seven-from-legacy.py --help` shows `--include-languages`.
+- `/tmp/speakasap-seven-dry-run-v16.json` recorded `writes=false`, payload `languages=19`, `courses=19`, `lessons=136`, `exercises=429`, no blocking issues, and corrected language names/speakers.
+- `content-service/scripts/migrate-seven-from-legacy.py --apply` still refuses before any connection/write without `--confirm-write`.
+- `/tmp/speakasap-seven-dry-run-target-v16.json` recorded `writes=false`, `target.checked=true`, payload `19/19/136/429`, and expected blocker `TARGET_LANGUAGE_TABLE_UNAVAILABLE` because the target DB still lacks the base schema.
+
+Boundary:
+
+- No content-service schema migration was applied.
+- No language or seven content rows were written.
+- No frontend/content/gateway deployment, object mutation, media copy, final test migration, private progress migration, paid-product change, destructive operation, or legacy route retirement ran.
+
+Next:
+
+- Get owner approval for `CONTENT_BASE_SCHEMA_APPROVAL.md`, apply pending content-service schema migrations only, rerun DB-backed no-write reconciliation, then request the separate `SEVEN_DATA_MIGRATION_APPROVAL.md` data apply approval if the no-write evidence is clean.
+
+## 2026-06-13 - Goal 10 Seven Media Readiness Inventory
+
+Status: no-write media readiness added; public media serving remains incomplete.
+
+Changed:
+
+- Extended `content-service/scripts/migrate-seven-from-legacy.py` to report all unique media refs, planned PDF refs, counts by kind/prefix, and YouTube refs from rendered legacy video tags.
+- Added `content-service/scripts/check-seven-media-availability.py` for no-write public availability checks of reported media refs.
+- Added `docs/orchestrator/SEVEN_MEDIA_MIGRATION_APPROVAL.md` for the later media copy/routing approval gate.
+
+Verification:
+
+- `python3 -m py_compile content-service/scripts/migrate-seven-from-legacy.py content-service/scripts/check-seven-media-availability.py` passed.
+- `/tmp/speakasap-seven-dry-run-v18.json` recorded `writes=false`, payload `languages=19`, `courses=19`, `lessons=136`, `exercises=429`, media refs `audio=1104`, `pdf=136`, `video=133`, and total unique refs `1373`.
+- `/tmp/speakasap-seven-dry-run-target-v17.json` recorded `writes=false`, `target.checked=true`, payload `19/19/136/429`, media refs `audio=1104`, `pdf=136`, `video=133`, and expected blocker `TARGET_LANGUAGE_TABLE_UNAVAILABLE`.
+- Public sample checks showed current media gap: `/tmp/speakasap-seven-media-check-sample-v18.json` against `https://speakasap.alfares.cz` returned `6/6` missing with HTTP `404`; `/tmp/speakasap-seven-media-check-assets-sample-v18.json` against `https://assets.alfares.cz` also returned `6/6` missing with HTTP `404`.
+- RAG retrieval was attempted first but unavailable in the remote shell because no `JWT_TOKEN` was available from the checked runtime secret path; repository and live route evidence were used.
+
+Boundary:
+
+- No media copy, object mutation, route change, deployment, schema migration, data apply, destructive operation, private media migration, paid-product change, final test migration, or legacy route retirement ran.
+
+Next:
+
+- Keep the immediate gate on `CONTENT_BASE_SCHEMA_APPROVAL.md`; in parallel, locate authoritative legacy `/media/audio` and `/media/pdf` source storage before requesting `SEVEN_MEDIA_MIGRATION_APPROVAL.md`.
+
+
+## 2026-06-13 - Goal 10 Seven Media Source Discovery
+
+Status: read-only source discovery completed; media copy/routing remains approval-gated.
+
+Evidence:
+
+- `https://speakasap.com` was tested as a legacy production source candidate using no-write HEAD checks.
+- `/tmp/speakasap-seven-media-check-legacy-source-v1.json` checked `1240` internal `/media` refs from `/tmp/speakasap-seven-dry-run-v18-final.json`: `1212` returned HTTP `200`, `28` returned HTTP `404`.
+- All `136/136` PDF refs returned HTTP `200`; `1076/1104` audio refs returned HTTP `200`.
+- Missing refs are limited to `media/audio/ru` (`28` refs), including `lesson1..lesson7` mp3/ogg and `lesson*_answer1` mp3/ogg.
+- Direct sample checks returned HTTP `200` for `https://speakasap.com/media/audio/en/lesson1.mp3`, `https://speakasap.com/media/pdf/en/lesson1.pdf`, and `https://speakasap.com/media/audio/cn/lesson1.mp3`.
+- Read-only filesystem searches did not find matching sample source files under `/home/ssf/Documents/Github`, `/srv`, `/mnt`, `/opt`, or `/var/www`; `speakasap-portal/media` remains absent in the checkout.
+
+Boundary:
+
+- No media copy, download/archive creation, object mutation, route change, deployment, schema migration, data apply, destructive operation, private media migration, paid-product change, final test migration, or legacy route retirement ran.
+
+Next:
+
+- Treat `https://speakasap.com` as the current source candidate for approved media migration, but resolve or explicitly document the `media/audio/ru` gap before claiming complete media parity.
+
+
+## 2026-06-13 - Goal 10 Seven Media Copy Manifest
+
+Status: no-write copy manifest prepared; media copy/routing remains approval-gated.
+
+Changed:
+
+- Added `content-service/scripts/prepare-seven-media-manifest.py`, which reads the no-write availability report and emits JSON/CSV copy-review artifacts only.
+- Updated `docs/orchestrator/SEVEN_MEDIA_MIGRATION_APPROVAL.md` with copy manifest evidence and scope.
+
+Verification:
+
+- `python3 -m py_compile content-service/scripts/prepare-seven-media-manifest.py` passed.
+- `/tmp/speakasap-seven-media-copy-manifest-v1.json` was generated from `/tmp/speakasap-seven-media-check-legacy-source-v1.json` and recorded `writes=false`, `1240` total internal refs, `1212` available copy candidates, and `28` missing refs.
+- Available candidates by kind: `audio=1076`, `pdf=136`; missing by kind: `audio=28`; missing by prefix: `media/audio/ru=28`.
+- Available source-header sizes: audio `3229902938` bytes and PDF `11240877` bytes.
+- CSV artifacts: `/tmp/speakasap-seven-media-copy-manifest-v1.csv` and `/tmp/speakasap-seven-media-missing-v1.csv`.
+
+Boundary:
+
+- No media download, media copy, object mutation, route change, deployment, schema migration, data apply, destructive operation, private media migration, paid-product change, final test migration, or legacy route retirement ran.
+
+Next:
+
+- Use `/tmp/speakasap-seven-media-copy-manifest-v1.json` as the candidate list for a future owner-approved media copy/routing step, after deciding how to handle the 28 missing `media/audio/ru` refs.

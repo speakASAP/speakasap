@@ -5,17 +5,27 @@
  *   npm run migrate:salary-data -- --load
  *   npm run migrate:salary-data -- --dry-run --write-docs
  *   (--dry-run wins over --load if both are passed.)
+ *   npm run migrate:salary-data -- --dry-run --lesson-uuid-backfill-only
  *
- * Env (speakasap/.env): SALARY_LEGACY_DATABASE_URL, SALARY_DATABASE_URL (or DATABASE_URL for target).
+ * Env (speakasap/.env): SALARY_LEGACY_DATABASE_URL, SALARY_DATABASE_URL (or DATABASE_URL for target),
+ * USER_DATABASE_URL for auth UUID mapping, EDUCATION_DATABASE_URL for lesson UUID verification.
  */
 import { createHash } from 'node:crypto';
-import { readFileSync, existsSync, appendFileSync } from 'node:fs';
+import {
+  readFileSync,
+  existsSync,
+  appendFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { PrismaClient, Prisma, SalaryExpenseKind } from '@prisma/client';
 import pg from 'pg';
 
 const SPEAKASAP_ROOT = join(process.cwd(), '..');
-const MIGRATION_LOG = join(SPEAKASAP_ROOT, 'docs/refactoring/SALARY_DATA_MIGRATION_LOG.md');
+const MIGRATION_LOG = join(
+  SPEAKASAP_ROOT,
+  'docs/refactoring/SALARY_DATA_MIGRATION_LOG.md',
+);
 
 const NS_DNS = Buffer.from('6ba7b8109dad11d180b400c04fd430c8', 'hex');
 
@@ -106,7 +116,10 @@ function toIntBound(v: unknown): number | null {
   return Math.round(n);
 }
 
-async function legacyTableExists(client: pg.Client, table: string): Promise<boolean> {
+async function legacyTableExists(
+  client: pg.Client,
+  table: string,
+): Promise<boolean> {
   const r = await client.query<{ ok: number }>(
     `SELECT 1 AS ok FROM information_schema.tables
      WHERE table_schema = 'public' AND table_name = $1 LIMIT 1`,
@@ -129,15 +142,37 @@ type LegacyStats = {
   courseGroupLessonSalaryRows: number;
 };
 
-type PeriodRow = { period: string; currency: string; row_count: string; qty_sum: string; amount_sum: string };
+type PeriodRow = {
+  period: string;
+  currency: string;
+  row_count: string;
+  qty_sum: string;
+  amount_sum: string;
+};
+
+type AuthUserMapping = {
+  legacyPortalUserId: number;
+  authUserId: string;
+};
+
+type ImportedLessonExpenseRow = {
+  legacyExpenseId: number;
+  lessonUuid: string | null;
+};
 
 async function collectLegacyStats(
   client: pg.Client,
   flags: { lesson: boolean; support: boolean },
 ): Promise<LegacyStats> {
-  const p = await client.query<{ c: string }>(`SELECT COUNT(*)::text AS c FROM expenses_salaryprofile`);
-  const se = await client.query<{ c: string }>(`SELECT COUNT(*)::text AS c FROM expenses_salaryexpense`);
-  const au = await client.query<{ c: string }>(`SELECT COUNT(*)::text AS c FROM auth_user`);
+  const p = await client.query<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM expenses_salaryprofile`,
+  );
+  const se = await client.query<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM expenses_salaryexpense`,
+  );
+  const au = await client.query<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM auth_user`,
+  );
 
   let lessonC = '0';
   if (flags.lesson) {
@@ -210,6 +245,134 @@ async function collectLegacyStats(
   };
 }
 
+async function loadAuthUserMappings(
+  userDatabaseUrl: string | undefined,
+  legacyPortalUserIds: number[],
+): Promise<Map<number, string>> {
+  const uniqueIds = Array.from(new Set(legacyPortalUserIds)).sort(
+    (a, b) => a - b,
+  );
+  if (!userDatabaseUrl || uniqueIds.length === 0) {
+    return new Map();
+  }
+
+  const client = new pg.Client({
+    connectionString: userDatabaseUrl,
+    statement_timeout: 120000,
+  });
+  await client.connect();
+  try {
+    const result = await client.query<AuthUserMapping>(
+      `SELECT legacy_portal_user_id AS "legacyPortalUserId", auth_user_id::text AS "authUserId"
+       FROM user_identity_mirror
+       WHERE legacy_portal_user_id = ANY($1::int[])
+         AND auth_user_id IS NOT NULL`,
+      [uniqueIds],
+    );
+    return new Map(
+      result.rows.map((row) => [
+        Number(row.legacyPortalUserId),
+        row.authUserId,
+      ]),
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+async function updateSalaryProfileAuthUsers(
+  prisma: PrismaClient,
+  authUserByLegacyUser: Map<number, string>,
+): Promise<number> {
+  let updated = 0;
+  for (const [
+    legacyPortalUserId,
+    authUserId,
+  ] of authUserByLegacyUser.entries()) {
+    const result = await prisma.salaryProfile.updateMany({
+      where: {
+        legacyPortalUserId,
+        OR: [{ authUserId: null }, { authUserId: { not: authUserId } }],
+      },
+      data: { authUserId },
+    });
+    updated += result.count;
+  }
+  return updated;
+}
+
+async function loadExistingEducationLessonUuids(
+  educationDatabaseUrl: string | undefined,
+  lessonUuids: string[],
+): Promise<Set<string> | null> {
+  const uniqueUuids = Array.from(new Set(lessonUuids)).sort();
+  if (!educationDatabaseUrl || uniqueUuids.length === 0) {
+    return null;
+  }
+
+  const client = new pg.Client({
+    connectionString: educationDatabaseUrl,
+    statement_timeout: 120000,
+  });
+  await client.connect();
+  try {
+    const found = new Set<string>();
+    for (let i = 0; i < uniqueUuids.length; i += 5000) {
+      const batch = uniqueUuids.slice(i, i + 5000);
+      const result = await client.query<{ uuid: string }>(
+        `SELECT uuid::text AS uuid
+         FROM education_lesson
+         WHERE uuid = ANY($1::uuid[])`,
+        [batch],
+      );
+      for (const row of result.rows) {
+        found.add(row.uuid);
+      }
+    }
+    return found;
+  } finally {
+    await client.end();
+  }
+}
+
+async function loadImportedLessonExpenses(
+  prisma: PrismaClient,
+): Promise<ImportedLessonExpenseRow[]> {
+  return prisma.$queryRaw<ImportedLessonExpenseRow[]>`
+    SELECT legacy_expense_id AS "legacyExpenseId", lesson_uuid AS "lessonUuid"
+    FROM salary_expenses
+    WHERE kind = 'lesson'::"SalaryExpenseKind"
+      AND legacy_expense_id IS NOT NULL
+    ORDER BY legacy_expense_id
+  `;
+}
+
+async function backfillImportedLessonUuids(
+  prisma: PrismaClient,
+  lessonUuidByLegacyExpenseId: Map<number, string>,
+  rows: ImportedLessonExpenseRow[],
+): Promise<number> {
+  let updated = 0;
+  for (const row of rows) {
+    const desiredLessonUuid = lessonUuidByLegacyExpenseId.get(
+      Number(row.legacyExpenseId),
+    );
+    if (!desiredLessonUuid || row.lessonUuid === desiredLessonUuid) {
+      continue;
+    }
+    const result = await prisma.salaryExpense.updateMany({
+      where: {
+        legacyExpenseId: Number(row.legacyExpenseId),
+        kind: SalaryExpenseKind.lesson,
+        OR: [{ lessonUuid: null }, { lessonUuid: { not: desiredLessonUuid } }],
+      },
+      data: { lessonUuid: desiredLessonUuid },
+    });
+    updated += result.count;
+  }
+  return updated;
+}
+
 async function payrollByPeriod(client: pg.Client): Promise<PeriodRow[]> {
   const r = await client.query<PeriodRow>(
     `SELECT to_char(e.date, 'YYYY-MM') AS period, e.currency,
@@ -230,34 +393,175 @@ function appendMigrationLog(summary: Record<string, unknown>): void {
   log('migration_log_appended', { path: MIGRATION_LOG });
 }
 
+function argValue(args: string[], name: string): string | null {
+  const inline = args.find((a) => a.startsWith(`${name}=`));
+  if (inline) {
+    return inline.slice(name.length + 1);
+  }
+  const idx = args.indexOf(name);
+  if (idx >= 0 && args[idx + 1] && !args[idx + 1]!.startsWith('--')) {
+    return args[idx + 1]!;
+  }
+  return null;
+}
+
+function printHelp(): void {
+  console.log(`Usage:
+  npm run migrate:salary-data -- --dry-run [--json-report /tmp/speakasap-salary-dry-run.json]
+  npm run migrate:salary-data -- --apply --confirm-write --approval-note NOTE --rollback-plan /tmp/speakasap-salary-rollback.sql [--json-report /tmp/speakasap-salary-apply.json]
+  npm run migrate:salary-data -- --apply --auth-map-only --confirm-write --approval-note NOTE --rollback-plan /tmp/speakasap-salary-auth-rollback.sql [--json-report /tmp/speakasap-salary-auth-apply.json]
+  npm run migrate:salary-data -- --dry-run --lesson-uuid-backfill-only [--json-report /tmp/speakasap-salary-lesson-backfill-dry-run.json]
+  npm run migrate:salary-data -- --apply --lesson-uuid-backfill-only --confirm-write --approval-note NOTE --rollback-plan /tmp/speakasap-salary-lesson-backfill-rollback.sql [--json-report /tmp/speakasap-salary-lesson-backfill-apply.json]
+
+Write mode is refused unless --apply, --confirm-write, --approval-note, and --rollback-plan are supplied.
+Legacy --load is treated as write mode and requires the same gates.
+--auth-map-only updates only salary_profiles.auth_user_id from user_identity_mirror.
+--lesson-uuid-backfill-only updates only imported salary_expenses.lesson_uuid from education_lessonsalaryexpense.lesson_id.`);
+}
+
+async function targetCount(
+  prisma: PrismaClient,
+  model:
+    | 'salaryProfile'
+    | 'salaryExpense'
+    | 'employeeContract'
+    | 'calculationRun'
+    | 'payoutRun',
+): Promise<number> {
+  return prisma[model].count();
+}
+
+async function targetIntConflicts(
+  prisma: PrismaClient,
+  table: string,
+  column: string,
+  values: number[],
+): Promise<number[]> {
+  if (!values.length) {
+    return [];
+  }
+  const rows = await prisma.$queryRawUnsafe<{ v: number }[]>(
+    `SELECT "${column}" AS v FROM "${table}" WHERE "${column}" = ANY($1::int[]) ORDER BY "${column}" LIMIT 100`,
+    values,
+  );
+  return rows.map((r) => Number(r.v));
+}
+
+function writeRollbackSql(path: string): void {
+  const sql = `-- Salary migration rollback generated ${ts()}\n-- Deletes only rows with legacy identifiers loaded by the salary migration.\nBEGIN;\nDELETE FROM "payout_lines" WHERE "salary_expense_id" IN (SELECT "id" FROM "salary_expenses" WHERE "legacy_expense_id" IS NOT NULL);\nDELETE FROM "calculation_lines" WHERE "profile_id" IN (SELECT "id" FROM "salary_profiles" WHERE "legacy_profile_id" IS NOT NULL);\nDELETE FROM "salary_expenses" WHERE "legacy_expense_id" IS NOT NULL;\nDELETE FROM "employee_contracts" WHERE "legacy_contract_id" IS NOT NULL;\nDELETE FROM "salary_profiles" WHERE "legacy_profile_id" IS NOT NULL;\nCOMMIT;\n`;
+  writeFileSync(path, sql, 'utf8');
+  log('rollback_sql_written', { path });
+}
+
+function writeAuthMappingRollbackSql(path: string): void {
+  const sql = `-- Salary auth mapping rollback generated ${ts()}
+-- Reverts only auth UUID mapping populated on imported salary profiles.
+BEGIN;
+UPDATE "salary_profiles"
+SET "auth_user_id" = NULL, "updated_at" = NOW()
+WHERE "legacy_profile_id" IS NOT NULL
+  AND "auth_user_id" IS NOT NULL;
+COMMIT;
+`;
+  writeFileSync(path, sql, 'utf8');
+  log('auth_mapping_rollback_sql_written', { path });
+}
+
+function writeLessonUuidBackfillRollbackSql(path: string): void {
+  const sql = `-- Salary lesson UUID backfill rollback generated ${ts()}
+-- Reverts only lesson UUIDs populated on imported legacy lesson salary expenses.
+BEGIN;
+UPDATE "salary_expenses"
+SET "lesson_uuid" = NULL, "updated_at" = NOW()
+WHERE "kind" = 'lesson'::"SalaryExpenseKind"
+  AND "legacy_expense_id" IS NOT NULL
+  AND "lesson_uuid" IS NOT NULL;
+COMMIT;
+`;
+  writeFileSync(path, sql, 'utf8');
+  log('lesson_uuid_backfill_rollback_sql_written', { path });
+}
+
+function writeJson(path: string, value: Record<string, unknown>): void {
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  log('json_report_written', { path });
+}
+
 const BATCH = 400;
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    printHelp();
+    return;
+  }
   const envPath = join(SPEAKASAP_ROOT, '.env');
-  const doLoad = args.includes('--load') && !args.includes('--dry-run');
-  const dryRun = !doLoad;
+  const writeRequested = args.includes('--apply') || args.includes('--load');
+  const dryRun = args.includes('--dry-run') || !writeRequested;
+  const doLoad = writeRequested && !dryRun;
   const writeDocs = args.includes('--write-docs');
+  const authMapOnly = args.includes('--auth-map-only');
+  const lessonUuidBackfillOnly = args.includes('--lesson-uuid-backfill-only');
+  const jsonReportPath = argValue(args, '--json-report');
+  const approvalNote = argValue(args, '--approval-note');
+  const rollbackPlan = argValue(args, '--rollback-plan');
+  const confirmWrite = args.includes('--confirm-write');
+  if (authMapOnly && lessonUuidBackfillOnly) {
+    throw new Error(
+      '--auth-map-only and --lesson-uuid-backfill-only are mutually exclusive.',
+    );
+  }
+  if (doLoad && (!confirmWrite || !approvalNote || !rollbackPlan)) {
+    throw new Error(
+      'Write mode requires --apply --confirm-write --approval-note NOTE --rollback-plan PATH. Legacy --load also requires these gates.',
+    );
+  }
 
   loadEnvFrom(envPath);
 
   const legacyUrl = process.env.SALARY_LEGACY_DATABASE_URL;
   const targetUrl = process.env.SALARY_DATABASE_URL || process.env.DATABASE_URL;
+  const userDatabaseUrl = process.env.USER_DATABASE_URL;
+  const educationDatabaseUrl = process.env.EDUCATION_DATABASE_URL;
   if (!legacyUrl) {
-    throw new Error('SALARY_LEGACY_DATABASE_URL is required (read-only legacy portal DB).');
+    throw new Error(
+      'SALARY_LEGACY_DATABASE_URL is required (read-only legacy portal DB).',
+    );
   }
   if (!targetUrl) {
-    throw new Error('SALARY_DATABASE_URL or DATABASE_URL is required for target DB.');
+    throw new Error(
+      'SALARY_DATABASE_URL or DATABASE_URL is required for target DB.',
+    );
   }
 
-  log('salary_etl_start', { dryRun, load: doLoad, writeDocs });
+  log('salary_etl_start', {
+    dryRun,
+    load: doLoad,
+    writeDocs,
+    authMapOnly,
+    lessonUuidBackfillOnly,
+    jsonReport: jsonReportPath ?? null,
+    approvalNote: approvalNote ?? null,
+    rollbackPlan: rollbackPlan ?? null,
+    userDatabaseMapping: Boolean(userDatabaseUrl),
+    educationLessonVerification: Boolean(educationDatabaseUrl),
+  });
 
-  const legacy = new pg.Client({ connectionString: legacyUrl, statement_timeout: 120000 });
+  const legacy = new pg.Client({
+    connectionString: legacyUrl,
+    statement_timeout: 120000,
+  });
   await legacy.connect();
   log('legacy_connected', { timestamp: ts() });
 
-  const hasLesson = await legacyTableExists(legacy, 'education_lessonsalaryexpense');
-  const hasSupport = await legacyTableExists(legacy, 'expenses_supportbonusexpense');
+  const hasLesson = await legacyTableExists(
+    legacy,
+    'education_lessonsalaryexpense',
+  );
+  const hasSupport = await legacyTableExists(
+    legacy,
+    'expenses_supportbonusexpense',
+  );
   const flags = { lesson: hasLesson, support: hasSupport };
   log('legacy_table_flags', flags as unknown as Record<string, unknown>);
 
@@ -266,7 +570,10 @@ async function main(): Promise<void> {
 
   const t0 = Date.now();
   const periods = await payrollByPeriod(legacy);
-  log('payroll_periods_loaded', { duration_ms: Date.now() - t0, periodRowCount: periods.length });
+  log('payroll_periods_loaded', {
+    duration_ms: Date.now() - t0,
+    periodRowCount: periods.length,
+  });
 
   const profileSql = `SELECT id, user_id, currency, preferable_pm, salary, rate, show_as_teacher, show_as_other,
       bank_account, paypal_account, work_duration_lower_bound, work_duration_upper_bound
@@ -286,7 +593,10 @@ async function main(): Promise<void> {
     work_duration_lower_bound: unknown;
     work_duration_upper_bound: unknown;
   }>(profileSql);
-  log('legacy_profiles_fetched', { count: profilesRes.rows.length, duration_ms: Date.now() - tProfiles });
+  log('legacy_profiles_fetched', {
+    count: profilesRes.rows.length,
+    duration_ms: Date.now() - tProfiles,
+  });
 
   let lessonJoin = '';
   let supportJoin = '';
@@ -344,7 +654,47 @@ async function main(): Promise<void> {
     support_student_id: number | null;
     support_group_id: number | null;
   }>(expenseSql);
-  log('legacy_expenses_fetched', { count: expensesRes.rows.length, duration_ms: Date.now() - tExp });
+  log('legacy_expenses_fetched', {
+    count: expensesRes.rows.length,
+    duration_ms: Date.now() - tExp,
+  });
+
+  const legacyLessonUuidByExpenseId = new Map<number, string>();
+  for (const row of expensesRes.rows) {
+    if (row.kind === 'lesson' && row.lesson_id) {
+      legacyLessonUuidByExpenseId.set(row.id, String(row.lesson_id));
+    }
+  }
+  const allLegacyLessonUuids = Array.from(legacyLessonUuidByExpenseId.values());
+  const existingEducationLessonUuids = await loadExistingEducationLessonUuids(
+    educationDatabaseUrl,
+    allLegacyLessonUuids,
+  );
+  const missingEducationLessonUuids = existingEducationLessonUuids
+    ? allLegacyLessonUuids.filter(
+        (uuid) => !existingEducationLessonUuids.has(uuid),
+      )
+    : [];
+  const lessonUuidByExpenseId = new Map<number, string>();
+  for (const [
+    legacyExpenseId,
+    lessonUuid,
+  ] of legacyLessonUuidByExpenseId.entries()) {
+    if (
+      !existingEducationLessonUuids ||
+      existingEducationLessonUuids.has(lessonUuid)
+    ) {
+      lessonUuidByExpenseId.set(legacyExpenseId, lessonUuid);
+    }
+  }
+  log('legacy_lesson_salary_mappings_loaded', {
+    count: legacyLessonUuidByExpenseId.size,
+    educationVerification: educationDatabaseUrl
+      ? 'configured'
+      : 'not_configured',
+    targetLessonUuidsFound: existingEducationLessonUuids?.size ?? null,
+    missingTargetLessonUuids: missingEducationLessonUuids.length,
+  });
 
   const contractsRes = await legacy.query<{
     id: number;
@@ -363,6 +713,16 @@ async function main(): Promise<void> {
   );
   log('legacy_contracts_fetched', { count: contractsRes.rows.length });
 
+  const authUserByLegacyUser = await loadAuthUserMappings(
+    userDatabaseUrl,
+    profilesRes.rows.map((row) => row.user_id),
+  );
+  log('auth_user_mappings_loaded', {
+    requested: new Set(profilesRes.rows.map((row) => row.user_id)).size,
+    resolved: authUserByLegacyUser.size,
+    missing: profilesRes.rows.length - authUserByLegacyUser.size,
+  });
+
   const legacyIdToProfileUuid = new Map<number, string>();
   const userToProfileUuid = new Map<number, string>();
   for (const row of profilesRes.rows) {
@@ -371,32 +731,38 @@ async function main(): Promise<void> {
     userToProfileUuid.set(row.user_id, id);
   }
 
-  const profilePayload: Prisma.SalaryProfileCreateManyInput[] = profilesRes.rows.map((row) => ({
-    id: legacyIdToProfileUuid.get(row.id)!,
-    legacyProfileId: row.id,
-    legacyPortalUserId: row.user_id,
-    authUserId: null,
-    currency: normCurrency(row.currency),
-    preferablePm: normPm(row.preferable_pm),
-    salary: decStr(row.salary),
-    rate: decStr(row.rate),
-    showAsTeacher: row.show_as_teacher,
-    showAsOther: row.show_as_other,
-    bankAccount: row.bank_account?.trim() ? row.bank_account : null,
-    paypalAccount: row.paypal_account?.trim() ? row.paypal_account : null,
-    workDurationLowerBound: toIntBound(row.work_duration_lower_bound),
-    workDurationUpperBound: toIntBound(row.work_duration_upper_bound),
-  }));
+  const profilePayload: Prisma.SalaryProfileCreateManyInput[] =
+    profilesRes.rows.map((row) => ({
+      id: legacyIdToProfileUuid.get(row.id)!,
+      legacyProfileId: row.id,
+      legacyPortalUserId: row.user_id,
+      authUserId: authUserByLegacyUser.get(row.user_id) ?? null,
+      currency: normCurrency(row.currency),
+      preferablePm: normPm(row.preferable_pm),
+      salary: decStr(row.salary),
+      rate: decStr(row.rate),
+      showAsTeacher: row.show_as_teacher,
+      showAsOther: row.show_as_other,
+      bankAccount: row.bank_account?.trim() ? row.bank_account : null,
+      paypalAccount: row.paypal_account?.trim() ? row.paypal_account : null,
+      workDurationLowerBound: toIntBound(row.work_duration_lower_bound),
+      workDurationUpperBound: toIntBound(row.work_duration_upper_bound),
+    }));
 
   const legacyContractIdToUuid = new Map<number, string>();
   for (const row of contractsRes.rows) {
-    legacyContractIdToUuid.set(row.id, uuidV5(`speakasap:salary:contract:${row.id}`));
+    legacyContractIdToUuid.set(
+      row.id,
+      uuidV5(`speakasap:salary:contract:${row.id}`),
+    );
   }
 
   const mainContracts = contractsRes.rows.filter((r) => r.main_id == null);
   const subContracts = contractsRes.rows.filter((r) => r.main_id != null);
 
-  const buildContractPayload = (row: (typeof contractsRes.rows)[0]): Prisma.EmployeeContractCreateManyInput => {
+  const buildContractPayload = (
+    row: (typeof contractsRes.rows)[0],
+  ): Prisma.EmployeeContractCreateManyInput => {
     const doc = row.document?.trim();
     return {
       id: legacyContractIdToUuid.get(row.id)!,
@@ -417,7 +783,9 @@ async function main(): Promise<void> {
   const subPayload = subContracts.map((row) => {
     const base = buildContractPayload(row);
     const parentUuid =
-      row.main_id != null ? legacyContractIdToUuid.get(row.main_id) ?? null : null;
+      row.main_id != null
+        ? (legacyContractIdToUuid.get(row.main_id) ?? null)
+        : null;
     return {
       ...base,
       mainContractId: parentUuid,
@@ -449,71 +817,327 @@ async function main(): Promise<void> {
       comment: row.comment?.trim() ? row.comment.trim() : '',
       currency: normCurrency(row.currency),
       kind,
-      lessonUuid: null,
+      lessonUuid:
+        kind === SalaryExpenseKind.lesson
+          ? (lessonUuidByExpenseId.get(row.id) ?? null)
+          : null,
       legacyStudentId: row.support_student_id,
       legacyStudentGroupId: row.support_group_id,
     });
   }
 
-  const summary = {
+  process.env.DATABASE_URL = targetUrl;
+  const prisma = new PrismaClient();
+  log('target_prisma_connected', { timestamp: ts(), readOnly: dryRun });
+
+  const profileIds = profilesRes.rows.map((row) => row.id);
+  const expenseIds = expensesRes.rows.map((row) => row.id);
+  const contractIds = contractsRes.rows.map((row) => row.id);
+  const [
+    targetSalaryProfiles,
+    targetSalaryExpenses,
+    targetEmployeeContracts,
+    targetCalculationRuns,
+    targetPayoutRuns,
+    targetProfileConflicts,
+    targetExpenseConflicts,
+    targetContractConflicts,
+    importedLessonExpenseRows,
+  ] = await Promise.all([
+    targetCount(prisma, 'salaryProfile'),
+    targetCount(prisma, 'salaryExpense'),
+    targetCount(prisma, 'employeeContract'),
+    targetCount(prisma, 'calculationRun'),
+    targetCount(prisma, 'payoutRun'),
+    targetIntConflicts(
+      prisma,
+      'salary_profiles',
+      'legacy_profile_id',
+      profileIds,
+    ),
+    targetIntConflicts(
+      prisma,
+      'salary_expenses',
+      'legacy_expense_id',
+      expenseIds,
+    ),
+    targetIntConflicts(
+      prisma,
+      'employee_contracts',
+      'legacy_contract_id',
+      contractIds,
+    ),
+    loadImportedLessonExpenses(prisma),
+  ]);
+
+  const lessonBackfillCandidates = importedLessonExpenseRows.filter((row) => {
+    const desiredLessonUuid = lessonUuidByExpenseId.get(
+      Number(row.legacyExpenseId),
+    );
+    return Boolean(desiredLessonUuid && row.lessonUuid !== desiredLessonUuid);
+  });
+  const importedLessonRowsMissingLegacyMapping =
+    importedLessonExpenseRows.filter(
+      (row) => !legacyLessonUuidByExpenseId.has(Number(row.legacyExpenseId)),
+    );
+
+  const report = {
+    domain: 'salary',
+    generated_at: ts(),
+    writes: doLoad,
     dryRun,
     load: doLoad,
-    stats,
-    transform: {
-      salaryProfiles: profilePayload.length,
-      salaryExpenses: expensePayload.length,
-      employeeContracts: mainPayload.length + subPayload.length,
-      expensesSkippedNoProfile,
-      payrollPeriodRows: periods.length,
-      payrollPeriodSample: periods.slice(0, 72),
+    authMapOnly,
+    lessonUuidBackfillOnly,
+    source: {
+      salary_profiles: stats.salaryProfiles,
+      salary_expenses: stats.salaryExpenseBaseRows,
+      lesson_salary_expenses: stats.lessonSalaryExpenseRows,
+      support_bonus_expenses: stats.supportBonusRows,
+      employee_contracts: stats.employeeContracts,
+      course_single_lesson_salary_rows: stats.courseSingleLessonSalaryRows,
+      course_group_lesson_salary_rows: stats.courseGroupLessonSalaryRows,
+    },
+    target: {
+      salary_profiles_existing: targetSalaryProfiles,
+      salary_expenses_existing: targetSalaryExpenses,
+      employee_contracts_existing: targetEmployeeContracts,
+      calculation_runs_existing: targetCalculationRuns,
+      payout_runs_existing: targetPayoutRuns,
+    },
+    would_write: {
+      salary_profiles: profilePayload.length,
+      salary_expenses: expensePayload.length,
+      employee_contracts: mainPayload.length + subPayload.length,
+    },
+    mapping: {
+      profiles_missing_auth_uuid: {
+        count: profilePayload.filter((profile) => !profile.authUserId).length,
+        sample_legacy_profile_ids: profilesRes.rows
+          .filter((row) => !authUserByLegacyUser.has(row.user_id))
+          .slice(0, 50)
+          .map((row) => row.id),
+      },
+      profiles_auth_uuid_resolved: {
+        count: profilePayload.filter((profile) => Boolean(profile.authUserId))
+          .length,
+        sample_legacy_profile_ids: profilesRes.rows
+          .filter((row) => authUserByLegacyUser.has(row.user_id))
+          .slice(0, 50)
+          .map((row) => row.id),
+      },
+      expenses_without_profile: {
+        count: expensesSkippedNoProfile,
+        sample_legacy_expense_ids: [],
+      },
+      lesson_expenses_missing_target_lesson: {
+        count: stats.lessonExpenseMissingLesson,
+        sample_legacy_expense_ids: [],
+      },
+      lesson_uuid_backfill: {
+        source_lesson_salary_mappings: legacyLessonUuidByExpenseId.size,
+        source_lesson_salary_mappings_verified_in_education:
+          lessonUuidByExpenseId.size,
+        education_verification: educationDatabaseUrl
+          ? 'configured'
+          : 'not_configured',
+        missing_target_lesson_uuid: {
+          count: missingEducationLessonUuids.length,
+          sample_lesson_uuids: missingEducationLessonUuids.slice(0, 50),
+        },
+        imported_lesson_expenses_existing: importedLessonExpenseRows.length,
+        imported_lesson_expenses_without_legacy_mapping: {
+          count: importedLessonRowsMissingLegacyMapping.length,
+          sample_legacy_expense_ids: importedLessonRowsMissingLegacyMapping
+            .slice(0, 50)
+            .map((row) => row.legacyExpenseId),
+        },
+        imported_lesson_expenses_with_null_lesson_uuid:
+          importedLessonExpenseRows.filter((row) => row.lessonUuid === null)
+            .length,
+        imported_lesson_expenses_with_lesson_uuid:
+          importedLessonExpenseRows.filter((row) => row.lessonUuid !== null)
+            .length,
+        would_update_imported_lesson_expenses: {
+          count: lessonBackfillCandidates.length,
+          sample_legacy_expense_ids: lessonBackfillCandidates
+            .slice(0, 50)
+            .map((row) => row.legacyExpenseId),
+        },
+        future_import_payload_lesson_uuid_count: expensePayload.filter(
+          (expense) =>
+            expense.kind === SalaryExpenseKind.lesson &&
+            Boolean(expense.lessonUuid),
+        ).length,
+      },
+      contracts_missing_parent: {
+        count: subContracts.filter(
+          (row) =>
+            row.main_id != null && !legacyContractIdToUuid.has(row.main_id),
+        ).length,
+        sample_legacy_contract_ids: subContracts
+          .filter(
+            (row) =>
+              row.main_id != null && !legacyContractIdToUuid.has(row.main_id),
+          )
+          .slice(0, 50)
+          .map((row) => row.id),
+      },
+    },
+    conflicts: {
+      duplicate_legacy_profile_ids: [],
+      duplicate_legacy_expense_ids: [],
+      duplicate_legacy_contract_ids: [],
+      target_legacy_profile_id_conflicts: targetProfileConflicts,
+      target_legacy_expense_id_conflicts: targetExpenseConflicts,
+      target_legacy_contract_id_conflicts: targetContractConflicts,
+    },
+    user_identity_mapping: {
+      source: userDatabaseUrl ? 'user_identity_mirror' : 'not_configured',
+      requested_legacy_user_ids: new Set(
+        profilesRes.rows.map((row) => row.user_id),
+      ).size,
+      resolved_auth_user_ids: authUserByLegacyUser.size,
+      missing_legacy_user_ids: profilesRes.rows
+        .filter((row) => !authUserByLegacyUser.has(row.user_id))
+        .slice(0, 50)
+        .map((row) => row.user_id),
+    },
+    period_reconciliation: periods.slice(0, 240).map((row) => ({
+      period: row.period,
+      currency: row.currency,
+      legacy_row_count: Number(row.row_count),
+      target_row_count: null,
+      legacy_qty_sum: row.qty_sum,
+      target_qty_sum: null,
+      legacy_amount_sum: row.amount_sum,
+      target_amount_sum: null,
+    })),
+    approval: {
+      required_for_apply: true,
+      approval_note: approvalNote,
+      rollback_plan: rollbackPlan,
     },
     legacyTableFlags: flags,
-    note:
-      'Lesson rows keep lessonUuid null until education-service backfill; see SALARY_DATA_MAPPING.md. Historical courses_* lesson expense tables are counted only — not merged into this ETL.',
+    note: 'Lesson salary expenses now resolve lessonUuid from education_lessonsalaryexpense.lesson_id; --lesson-uuid-backfill-only updates already imported rows behind the write gate. Historical courses_* lesson expense tables are counted only, not merged into this ETL.',
   };
 
-  log('transform_summary', summary as unknown as Record<string, unknown>);
+  log('transform_summary', report as unknown as Record<string, unknown>);
 
   if (writeDocs) {
-    appendMigrationLog(summary);
+    appendMigrationLog(report);
+  }
+  if (jsonReportPath) {
+    writeJson(jsonReportPath, report);
   }
 
   if (!doLoad) {
     log('dry_run_complete_no_writes', {});
+    await prisma.$disconnect();
     await legacy.end();
     return;
   }
 
-  process.env.DATABASE_URL = targetUrl;
-  const prisma = new PrismaClient();
-  log('target_prisma_connected', { timestamp: ts() });
+  if (rollbackPlan) {
+    if (authMapOnly) {
+      writeAuthMappingRollbackSql(rollbackPlan);
+    } else if (lessonUuidBackfillOnly) {
+      writeLessonUuidBackfillRollbackSql(rollbackPlan);
+    } else {
+      writeRollbackSql(rollbackPlan);
+    }
+  }
 
   const tLoad = Date.now();
+  const authProfilesUpdated = await updateSalaryProfileAuthUsers(
+    prisma,
+    authUserByLegacyUser,
+  );
+  log('profile_auth_users_updated', { count: authProfilesUpdated });
+  if (authMapOnly) {
+    log('auth_map_only_complete', {
+      duration_ms: Date.now() - tLoad,
+      approvalNote,
+      rollbackPlan,
+      authProfilesUpdated,
+    });
+    await prisma.$disconnect();
+    await legacy.end();
+    return;
+  }
+
+  if (lessonUuidBackfillOnly) {
+    const lessonUuidBackfilled = await backfillImportedLessonUuids(
+      prisma,
+      lessonUuidByExpenseId,
+      importedLessonExpenseRows,
+    );
+    log('lesson_uuid_backfill_only_complete', {
+      duration_ms: Date.now() - tLoad,
+      approvalNote,
+      rollbackPlan,
+      lessonUuidBackfilled,
+      candidates: lessonBackfillCandidates.length,
+      educationVerification: educationDatabaseUrl
+        ? 'configured'
+        : 'not_configured',
+      missingTargetLessonUuids: missingEducationLessonUuids.length,
+    });
+    await prisma.$disconnect();
+    await legacy.end();
+    return;
+  }
+
   for (let i = 0; i < profilePayload.length; i += BATCH) {
     const chunk = profilePayload.slice(i, i + BATCH);
-    await prisma.salaryProfile.createMany({ data: chunk, skipDuplicates: true });
+    await prisma.salaryProfile.createMany({
+      data: chunk,
+      skipDuplicates: true,
+    });
     log('profiles_batch_written', { at: i, batch: chunk.length });
   }
 
   for (let i = 0; i < mainPayload.length; i += BATCH) {
     const chunk = mainPayload.slice(i, i + BATCH);
-    await prisma.employeeContract.createMany({ data: chunk, skipDuplicates: true });
+    await prisma.employeeContract.createMany({
+      data: chunk,
+      skipDuplicates: true,
+    });
     log('contracts_main_batch_written', { at: i, batch: chunk.length });
   }
 
   for (let i = 0; i < subPayload.length; i += BATCH) {
     const chunk = subPayload.slice(i, i + BATCH);
-    await prisma.employeeContract.createMany({ data: chunk, skipDuplicates: true });
+    await prisma.employeeContract.createMany({
+      data: chunk,
+      skipDuplicates: true,
+    });
     log('contracts_sub_batch_written', { at: i, batch: chunk.length });
   }
 
   for (let i = 0; i < expensePayload.length; i += BATCH) {
     const chunk = expensePayload.slice(i, i + BATCH);
-    await prisma.salaryExpense.createMany({ data: chunk, skipDuplicates: true });
+    await prisma.salaryExpense.createMany({
+      data: chunk,
+      skipDuplicates: true,
+    });
     log('expenses_batch_written', { at: i, batch: chunk.length });
   }
 
-  log('load_complete', { duration_ms: Date.now() - tLoad });
+  const authProfilesUpdatedAfterInsert = await updateSalaryProfileAuthUsers(
+    prisma,
+    authUserByLegacyUser,
+  );
+  log('profile_auth_users_updated_after_insert', {
+    count: authProfilesUpdatedAfterInsert,
+  });
+  log('load_complete', {
+    duration_ms: Date.now() - tLoad,
+    approvalNote,
+    rollbackPlan,
+    authProfilesUpdated,
+    authProfilesUpdatedAfterInsert,
+  });
   await prisma.$disconnect();
   await legacy.end();
 }
