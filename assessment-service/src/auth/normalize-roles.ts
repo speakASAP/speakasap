@@ -1,13 +1,35 @@
 import type { AuthRole, ValidatedUser } from './auth.types';
 
-/** Auth-microservice returns scope-prefixed role strings (e.g. `global:superadmin`). */
-function stripAuthScopePrefix(role: string): string {
-  const x = role.toLowerCase().trim();
-  const idx = x.indexOf(':');
-  if (idx <= 0) {
-    return x;
+const GLOBAL_STAFF_ROLE_MAP: Record<string, string> = {
+  'global:superadmin': 'superadmin',
+  'global:platform_admin': 'admin',
+};
+
+const SPEAKASAP_ROLE_PREFIX = 'app:speakasap:';
+
+function isRoleName(role: string | undefined): role is string {
+  return Boolean(role);
+}
+
+/**
+ * Keep legacy unscoped local roles, but only map Auth scoped roles that are
+ * explicitly valid for SpeakASAP. Internal-service scopes are not user roles.
+ */
+function normalizeAuthRole(role: string): string | undefined {
+  const normalized = role.toLowerCase().trim();
+  if (!normalized) {
+    return undefined;
   }
-  return x.slice(idx + 1);
+  if (!normalized.includes(':')) {
+    return normalized;
+  }
+  if (GLOBAL_STAFF_ROLE_MAP[normalized]) {
+    return GLOBAL_STAFF_ROLE_MAP[normalized];
+  }
+  if (normalized.startsWith(SPEAKASAP_ROLE_PREFIX)) {
+    return normalized.slice(SPEAKASAP_ROLE_PREFIX.length);
+  }
+  return undefined;
 }
 
 export function normalizeRoleNames(user: ValidatedUser | undefined): string[] {
@@ -17,10 +39,10 @@ export function normalizeRoleNames(user: ValidatedUser | undefined): string[] {
   }
   if (typeof raw[0] === 'string') {
     return (raw as string[])
-      .map((r) => stripAuthScopePrefix(r))
-      .filter(Boolean);
+      .map((r) => normalizeAuthRole(r))
+      .filter(isRoleName);
   }
   return (raw as AuthRole[])
-    .map((r) => stripAuthScopePrefix(r?.name || ''))
-    .filter(Boolean);
+    .map((r) => normalizeAuthRole(r?.name || ''))
+    .filter(isRoleName);
 }
