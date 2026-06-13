@@ -4,7 +4,7 @@ This file is the root task index for the SpeakASAP master orchestrator. Detailed
 
 ## Active Task
 
-- Goal 6.2: implement or verify frontend routes for selected migrated workflows through the API gateway.
+- Goal 6.3: run authorized frontend parity checks for migrated lesson-recording workflows when fresh learner/teacher/staff JWTs are available.
 
 Current gate:
 
@@ -36,6 +36,7 @@ Frontend deployment path discovery:
 - Root Dockerfile and live deployment/speakasap image currently serve api-gateway, not the Next frontend; GET / returns Express JSON 404.
 - No frontend Dockerfile, speakasap-frontend deployment/service, or frontend deploy script exists yet in this repository.
 - Frontend deployment path is now implemented: `speakasap-frontend` serves `/`, while `/health` and `/api` remain routed to `speakasap-api-gateway`; build, rollout, and smoke evidence are recorded in `docs/orchestrator/FRONTEND_DEPLOYMENT_PATH.md`.
+- Frontend lesson-recording routes are now implemented and deployed for learner/teacher state, playback, range, and teacher presign checks through the gateway. Rendered browser QA with dummy-token protected-route checks is recorded in `docs/orchestrator/FRONTEND_ROUTE_VERIFICATION.md`.
 
 ## Required Task Flow
 

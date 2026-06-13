@@ -10,6 +10,14 @@ export type GatewayRequest = {
   headers?: Record<string, string>;
 };
 
+function gatewayUrl(baseUrl: string, path: string): string {
+  if (/^https?:\/\//.test(path)) {
+    return path;
+  }
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${baseUrl}${normalizedPath}`;
+}
+
 export async function callGateway(request: GatewayRequest): Promise<{
   ok: boolean;
   status: number;
@@ -35,7 +43,7 @@ export async function callGateway(request: GatewayRequest): Promise<{
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${baseUrl}${request.path}`, {
+  const response = await fetch(gatewayUrl(baseUrl, request.path), {
     method: request.method ?? "GET",
     headers,
     body: request.body === undefined ? undefined : JSON.stringify(request.body),

@@ -1895,4 +1895,40 @@ Boundaries:
 Next:
 
 - Continue Goal 6 by implementing or verifying frontend routes for selected migrated workflows, starting with lesson-recording playback/upload UX against the gateway contracts.
+## 2026-06-13 - Goal 6.2 Frontend Routes For Lesson Recording
+
+Status: done for unauthenticated/dummy-token route implementation and rendered verification
+
+Changed:
+
+- Added shared `LessonRecordWorkspace` client component for learner/teacher lesson-recording route checks.
+- Added `/learner/lessons/[lessonUuid]/record` and `/teacher/lessons/[lessonUuid]/record`.
+- Updated `/learner` and `/teacher` shell pages to open the dynamic lesson-record route for a supplied lesson UUID.
+- Hardened `frontend/lib/api-client.ts` so gateway calls normalize relative paths and tolerate absolute scoped URLs.
+- Removed direct clickable merge/delete behavior from the route UI; destructive actions are explicitly excluded from frontend verification controls.
+- Fixed mobile horizontal overflow found during browser QA.
+- Updated `scripts/deploy-frontend.sh` with retrying smoke checks because immediate Cloudflare/root smoke can transiently return `502` during endpoint propagation.
+- Added `docs/orchestrator/FRONTEND_ROUTE_VERIFICATION.md`.
+
+Evidence:
+
+- RAG query failed with curl exit code 6, so repository/runtime evidence was used.
+- `cd frontend && npm run build` passed and listed dynamic routes `/learner/lessons/[lessonUuid]/record` and `/teacher/lessons/[lessonUuid]/record`.
+- Final deployed frontend image digest: `sha256:d1c0c00fb01cf82a1355b72dc8ddedc5c2aec0c1d1cd910fadf68937e09ef402`.
+- Final frontend pod `speakasap-frontend-868bcd6458-zwh5l` was `1/1 Running`, restarts `0`; logs showed Next.js ready.
+- Delayed public smoke after rollout returned `HTTP/2 200` for `/`, `/learner/lessons/test-lesson/record`, and `/teacher/lessons/test-lesson/record`.
+- Protected gateway smoke returned `HTTP/2 401` for `/api/v1/lessons/test-lesson/record`.
+- Browser QA desktop learner route: page identity matched, rendered nonblank, console errors/warnings empty, missing-token validation appeared, and dummy-token gateway state check returned `401 Invalid token`.
+- Browser QA desktop teacher route: page identity matched, rendered nonblank, console errors/warnings empty, upload presign control rendered, destructive-action exclusion note rendered, and dummy-token presign returned `401 Invalid token`.
+- Browser QA mobile `390x844`: initial horizontal clipping was found and fixed; recheck rendered without clipping and with no console errors/warnings.
+
+Boundaries:
+
+- No real user token was used in browser QA.
+- No database writes, object-storage mutation, upload, commit, merge, delete, rollback execution, legacy retirement, or payment/notification ownership change was performed.
+- Frontend still calls the API gateway only; education-service remains behind `speakasap-api-gateway`.
+
+Next:
+
+- Continue Goal 6 with authorized frontend parity checks when fresh learner/teacher/staff JWTs are available, or move to broader protected route parity cases if owner provides test credentials.
 
