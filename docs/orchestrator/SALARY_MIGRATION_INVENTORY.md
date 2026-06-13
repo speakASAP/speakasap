@@ -462,7 +462,7 @@ Do not run a salary apply/load until all are true:
 - `/api/v1/internal/salary/period-aggregates` is deployed and smoke-tested, but sampled user coverage still needs a legacy user with a known migrated teacher mapping.
 - Target education aggregate uses a documented 60-minute non-demo / 30-minute demo fallback because migrated target lesson rows do not yet persist legacy scheduled duration or MP3 duration seconds.
 - `SalaryProfile.authUserId` is populated for all 386 imported salary profiles; future reruns still depend on `USER_DATABASE_URL` / `user_identity_mirror` availability.
-- Existing salary ETL leaves lesson `SalaryExpense.lessonUuid` null.
+- Salary ETL now supports dry-run/apply-gated lesson `SalaryExpense.lessonUuid` backfill from `education_lessonsalaryexpense.lesson_id`; DB-backed backfill report still needs reachable target salary/education DB endpoints before any apply.
 - Salary ETL has explicit apply gates, JSON reports, and rollback SQL generation; future reruns still need owner approval and reconciliation review.
 - Teacher self-service salary stubs are not yet mapped to a target route.
 - Salary notification parity for `teacher/salary_ready` is not yet mapped to `notification-service`.
@@ -472,6 +472,7 @@ Do not run a salary apply/load until all are true:
 
 The next salary migration chunk should be documentation-to-code hardening only:
 
-1. Backfill salary lesson `lessonUuid` once target lesson UUID mapping is available.
-2. Compare education aggregate totals against legacy recording-duration parity cases before enabling salary calculation runs or payout flows.
-3. Map teacher self-service salary stubs and salary-ready notifications to target services.
+1. Restore reachable target salary/education DB connectivity and run `--dry-run --lesson-uuid-backfill-only --json-report /tmp/speakasap-salary-lesson-uuid-backfill-dry-run-v1.json`.
+2. Request explicit owner approval before any `--apply --lesson-uuid-backfill-only` write, using the dry-run report and generated rollback SQL path.
+3. Compare education aggregate totals against legacy recording-duration parity cases before enabling salary calculation runs or payout flows.
+4. Map teacher self-service salary stubs and salary-ready notifications to target services.

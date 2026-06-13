@@ -1,3 +1,35 @@
+## 2026-06-13 - Salary Lesson UUID Backfill Implementation
+
+Status: code implementation complete; DB-backed backfill report blocked by target DB connectivity; no salary writes ran.
+
+Changed:
+
+- Enhanced `salary-service/scripts/migrate-salary-data.ts` with `--lesson-uuid-backfill-only` mode.
+- The migration now derives imported lesson salary expense mappings from the existing joined `education_lessonsalaryexpense.lesson_id` data and can populate `SalaryExpense.lessonUuid` for future full imports.
+- Added dry-run report fields for lesson UUID backfill: source mappings, education verification status, missing target lesson UUID samples, imported lesson rows with/without UUIDs, and candidate update samples.
+- Added write-gated apply behavior that updates only existing imported `salary_expenses.lesson_uuid` rows when `--apply --lesson-uuid-backfill-only --confirm-write --approval-note ... --rollback-plan ...` is supplied.
+- Added rollback SQL generation for the lesson UUID backfill-only mode.
+- Updated `docs/orchestrator/SALARY_MIGRATION_INVENTORY.md` to mark code support present and keep DB-backed report/apply as the next gated step.
+
+Evidence:
+
+- RAG lookup from the local session failed with curl exit code `6`, so repository and remote evidence were used.
+- Reviewed remote salary migration code and schema in `/home/ssf/Documents/Github/speakasap/salary-service` and education lesson schema in `education-service/prisma/schema.prisma`.
+- `cd salary-service && npm run build` passed after the change.
+- `cd salary-service && npm run migrate:salary-data -- --help` shows `--lesson-uuid-backfill-only` dry-run and apply commands.
+- `cd salary-service && npm run migrate:salary-data -- --apply --lesson-uuid-backfill-only --confirm-write --approval-note test` refused before any DB write because `--rollback-plan` was absent.
+- DB-backed dry-run attempts were no-write but blocked before report creation: with all DB URLs rewritten to `127.0.0.1:15434`, education verification failed with `ECONNREFUSED`; without rewriting `EDUCATION_DATABASE_URL`, cluster DNS failed with `EAI_AGAIN db-server-postgres`. `ss -ltn | grep 15434` showed no active listener on `alfares`.
+
+Boundaries:
+
+- No salary profile, salary expense, employee contract, calculation run, payout run, payment, education, or legacy data write was run.
+- No payout/disbursement, deployment, destructive action, or legacy retirement ran.
+- Existing unrelated remote worktree changes were preserved and not reverted.
+
+Next:
+
+- Restore target salary/education DB connectivity on `alfares`, run the no-write `--dry-run --lesson-uuid-backfill-only --json-report /tmp/speakasap-salary-lesson-uuid-backfill-dry-run-v1.json`, then request explicit owner approval before any backfill apply.
+
 
 ## 2026-06-13 - Goal 10 Seven Write-Gated Apply Path
 
