@@ -29,6 +29,7 @@ SPEAKASAP_SERVICES=(
   speakasap-salary
   speakasap-financial
   speakasap-api-gateway
+  speakasap-frontend
 )
 
 preflight_service_health() {

@@ -18,10 +18,24 @@ spec:
     - host: speakasap.alfares.cz
       http:
         paths:
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: speakasap-api-gateway
+                port:
+                  number: 4210
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: speakasap-api-gateway
+                port:
+                  number: 4210
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: speakasap
+                name: speakasap-frontend
                 port:
-                  number: 3000
+                  number: 4211

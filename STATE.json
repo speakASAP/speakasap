@@ -4,16 +4,16 @@
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "tasks_active": 1,
   "current_goal": "Goal 6 - Gateway, Auth, And Frontend Parity",
-  "current_chunk": "6.1 frontend deployment path discovery - source found, deploy path missing",
+  "current_chunk": "6.1 frontend deployment path implemented and smoke verified",
   "intent_preservation_system": "docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md",
   "next_goal": "Goal 6 - Gateway, Auth, And Frontend Parity",
   "status": "active",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
-  "next_required_action": "Implement the missing SpeakASAP frontend deployment path before cutover: frontend Dockerfile, Kubernetes deployment/service or root image strategy, ingress routing decision, deploy command, and smoke evidence.",
+  "next_required_action": "Continue Goal 6 by implementing or verifying frontend routes for selected migrated workflows through the API gateway.",
   "docsrag_runtime_jwt": "available",
   "last_operational_fix": "docsrag-jwt-runtime-wiring-fixed-2026-06-12",
   "last_runtime_smoke": "/tmp/speakasap-goal55-gateway-smoke-20260613-v5.json",
   "last_deploy": "education sha256:776f5086ccf2d578f4de84ac34b7bde7a051890ac0c26287471e78842d6371f1; api-gateway sha256:d5568fd64226473d7474089030104bb3161b8d2803993ded799e530db3ac9763",
   "last_fixture_restoration": "owner-approved legacy portal example.mp3 uploaded to paid lesson-record key 2018/07/10/lesson_7d870263-bdcb-4bba-b25e-1f6b40402411.mp3",
-  "last_frontend_path_check": "source=/home/ssf/Documents/Github/speakasap/frontend; public route=speakasap ingress to deployment/speakasap; deploy path missing"
+  "last_frontend_path_check": "speakasap-frontend deployed: image sha256:97b3d7069530433ee65b165e5f0c33ba31acd79525939a5b4296d9973f3d35e8; ingress /health and /api -> speakasap-api-gateway:4210, / -> speakasap-frontend:4211; root 200 Next.js, health 200 gateway, /api/v1/lessons 401 gateway auth."
 }

@@ -4,7 +4,7 @@ This file is the root task index for the SpeakASAP master orchestrator. Detailed
 
 ## Active Task
 
-- Goal 6.1: implement frontend deployment path before SpeakASAP cutover.
+- Goal 6.2: implement or verify frontend routes for selected migrated workflows through the API gateway.
 
 Current gate:
 
@@ -35,7 +35,7 @@ Frontend deployment path discovery:
 - Public speakasap.alfares.cz currently routes to deployment/speakasap via k8s/ingress.yaml and k8s/service.yaml.
 - Root Dockerfile and live deployment/speakasap image currently serve api-gateway, not the Next frontend; GET / returns Express JSON 404.
 - No frontend Dockerfile, speakasap-frontend deployment/service, or frontend deploy script exists yet in this repository.
-- Cutover requires creating/adapting the frontend deployment path and recording build/rollout/smoke evidence.
+- Frontend deployment path is now implemented: `speakasap-frontend` serves `/`, while `/health` and `/api` remain routed to `speakasap-api-gateway`; build, rollout, and smoke evidence are recorded in `docs/orchestrator/FRONTEND_DEPLOYMENT_PATH.md`.
 
 ## Required Task Flow
 

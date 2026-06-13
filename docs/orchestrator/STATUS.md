@@ -1861,3 +1861,38 @@ Cutover implication:
 Next:
 
 - Implement the missing SpeakASAP frontend deployment path: Dockerfile for frontend, Kubernetes deployment/service and ingress routing decision, deploy script, build/rollout/smoke evidence.
+## 2026-06-13 - Goal 6.1 Frontend Deployment Path Implemented
+
+Status: done for deployment path and smoke evidence
+
+Changed:
+
+- Added `frontend/Dockerfile` for a Next.js standalone production image on port `4211`.
+- Enabled `output: "standalone"` in `frontend/next.config.ts`.
+- Added `k8s/services/frontend.yaml` with `speakasap-frontend` Deployment, Service, and ConfigMap.
+- Updated `k8s/ingress.yaml` to route `/health` and `/api` to `speakasap-api-gateway:4210`, and `/` to `speakasap-frontend:4211`.
+- Added `scripts/deploy-frontend.sh` as the scoped deploy command for build, push, manifest apply, rollout, and smoke checks.
+- Added `speakasap-frontend` to the full-platform rollout list in `scripts/deploy.sh`.
+- Added `docs/orchestrator/FRONTEND_DEPLOYMENT_PATH.md` with routing decision, deploy command, rollback, and smoke evidence.
+
+Evidence:
+
+- RAG query for frontend deployment context failed with curl exit code 6, so repository/runtime evidence was used.
+- `cd frontend && npm run build` passed before deployment.
+- `./scripts/deploy-frontend.sh` built and pushed `localhost:5000/speakasap-frontend:latest` with digest `sha256:97b3d7069530433ee65b165e5f0c33ba31acd79525939a5b4296d9973f3d35e8`.
+- `deployment/speakasap-frontend` rolled out successfully in `statex-apps`; final pod `speakasap-frontend-788dbfc4b5-9s66h` was `1/1 Running` with `0` restarts.
+- Ingress evidence after deploy: `/health -> speakasap-api-gateway:4210`, `/api -> speakasap-api-gateway:4210`, `/ -> speakasap-frontend:4211`.
+- Public smoke: `https://speakasap.alfares.cz/` returned `HTTP/2 200` with `content-type: text/html; charset=utf-8` and `x-powered-by: Next.js`.
+- Gateway health smoke: `https://speakasap.alfares.cz/health` returned `HTTP/2 200` with Express JSON headers.
+- Protected API smoke: `https://speakasap.alfares.cz/api/v1/lessons` returned `HTTP/2 401`, confirming gateway auth remains enforced for protected routes.
+
+Boundaries:
+
+- No database writes, object-storage mutation, lesson-record rerun, rollback execution, legacy retirement, or payment/notification ownership change was performed.
+- Frontend browser API ownership remains gateway-first; service-owned APIs still route through `speakasap-api-gateway`.
+- Docker build reported existing frontend dependency audit findings: `3 vulnerabilities (2 moderate, 1 high)`; remediation is deferred to a dependency/security chunk.
+
+Next:
+
+- Continue Goal 6 by implementing or verifying frontend routes for selected migrated workflows, starting with lesson-recording playback/upload UX against the gateway contracts.
+

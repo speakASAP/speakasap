@@ -118,3 +118,4 @@ Do not paste full logs. Keep each session summary short enough to guide the next
 ## Next Action
 
 Implement the missing SpeakASAP frontend deployment path before cutover: frontend Dockerfile, Kubernetes deployment/service or root image strategy, ingress routing decision, deploy command, and smoke evidence.
+- 2026-06-13: Goal 6.1 frontend deployment path implemented and deployed. Added standalone Next frontend image, `speakasap-frontend` Kubernetes Deployment/Service/ConfigMap, ingress split preserving `/health` and `/api` on `speakasap-api-gateway`, and `scripts/deploy-frontend.sh`. Image digest `sha256:97b3d7069530433ee65b165e5f0c33ba31acd79525939a5b4296d9973f3d35e8`; deployment `1/1` ready with `0` restarts; public root returned Next.js `HTTP/2 200`, gateway health returned `HTTP/2 200`, and protected `/api/v1/lessons` returned gateway `HTTP/2 401`.
