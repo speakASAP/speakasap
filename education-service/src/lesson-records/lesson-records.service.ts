@@ -1,12 +1,11 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import type { LessonRecord } from '@prisma/client';
+import type { LessonRecord, LessonRecordPart } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import type { Response } from 'express';
 import type { AuthContextUser } from '../shared/auth.types';
@@ -18,6 +17,7 @@ import { UserProfilesClient } from './user-profiles.client';
 
 type AccessMode = 'state' | 'playback' | 'teacher-write';
 const MAX_RECORD_SIZE = 60 * 1024 * 1024;
+const MAX_MERGE_SIZE = 240 * 1024 * 1024;
 
 function partsArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map((v) => String(v)).filter(Boolean) : [];
@@ -270,16 +270,120 @@ export class LessonRecordsService {
     return { status: 'ok', lessonRecordUuid: recordUuid };
   }
 
-  async requestMerge(lessonUuid: string, auth: AuthContextUser, bearerToken: string): Promise<never> {
-    const { lesson } = await this.loadLessonAndRecord(lessonUuid);
+  async requestMerge(lessonUuid: string, auth: AuthContextUser, bearerToken: string, body: Record<string, unknown>) {
+    const { lesson, record } = await this.loadLessonAndRecord(lessonUuid);
     await this.assertDomainAccess(lesson, auth, bearerToken, 'teacher-write');
-    throw new ServiceUnavailableException('Target merge worker is not implemented; legacy merge remains authoritative');
+    if (!record) {
+      return { status: 'noop', reason: 'missing_record', lessonUuid };
+    }
+    const state = recordState(record);
+    if (state === 'ready' && record.recordKey) {
+      return { status: 'noop', reason: 'already_ready', lessonUuid, lessonRecordUuid: record.uuid, state, recordKey: 'private' };
+    }
+    const confirmMerge = requiredString(body.confirmMerge ?? body.confirm_merge, 'confirmMerge');
+    if (confirmMerge !== lessonUuid) {
+      throw new BadRequestException('confirmMerge must match lessonUuid');
+    }
+    const parts = await this.loadRecordParts(record.uuid, partsArray(record.parts));
+    if (parts.length === 0) {
+      return { status: 'noop', reason: 'no_parts', lessonUuid, lessonRecordUuid: record.uuid, state };
+    }
+    const partBuffers: Buffer[] = [];
+    const sourceKeys: string[] = [];
+    let totalSize = 0;
+    for (const part of parts) {
+      assertMp3Key(part.partKey);
+      const object = await this.storage.getObjectBuffer(part.partKey);
+      if (object.size <= 0) {
+        throw new BadRequestException('Lesson record part object is empty');
+      }
+      totalSize += object.size;
+      if (totalSize > MAX_MERGE_SIZE) {
+        throw new BadRequestException('Merged lesson record exceeds the maximum supported size');
+      }
+      partBuffers.push(object.buffer);
+      sourceKeys.push(object.key);
+    }
+    const merged = Buffer.concat(partBuffers, totalSize);
+    const outputKey = lessonKey(lesson.uuid, lesson.start, 'record.mp3');
+    await this.storage.putObject(outputKey, merged, 'audio/mpeg');
+    const meta = await this.storage.headObject(outputKey);
+    if (meta.size !== merged.length) {
+      throw new ServiceUnavailableException('Merged lesson record validation failed');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.lessonRecord.update({
+        where: { uuid: record.uuid },
+        data: { recordKey: outputKey, processed: true, recordUnavailable: '', parts: [] },
+      });
+      await tx.lessonRecordPart.deleteMany({ where: { lessonRecordUuid: record.uuid } });
+    });
+    const cleanup = await this.deleteStorageKeys(sourceKeys);
+    return {
+      status: 'merged',
+      lessonUuid,
+      lessonRecordUuid: record.uuid,
+      recordKey: 'private',
+      outputSize: meta.size,
+      partsMerged: parts.length,
+      sourcePartsDeleted: cleanup.deleted.length,
+      sourcePartDeleteFailures: cleanup.failed.length,
+    };
   }
 
-  async deleteRecord(lessonUuid: string, auth: AuthContextUser, bearerToken: string): Promise<never> {
-    const { lesson } = await this.loadLessonAndRecord(lessonUuid);
+  async deleteRecord(lessonUuid: string, auth: AuthContextUser, bearerToken: string, body: Record<string, unknown>) {
+    const { lesson, record } = await this.loadLessonAndRecord(lessonUuid);
     await this.assertDomainAccess(lesson, auth, bearerToken, 'teacher-write');
-    throw new ConflictException('Target record deletion is disabled until owner-approved object deletion exists');
+    if (!record) {
+      return { status: 'noop', reason: 'missing_record', lessonUuid };
+    }
+    const confirmDelete = requiredString(body.confirmDelete ?? body.confirm_delete, 'confirmDelete');
+    if (confirmDelete !== lessonUuid) {
+      throw new BadRequestException('confirmDelete must match lessonUuid');
+    }
+    const parts = await this.loadRecordParts(record.uuid, partsArray(record.parts));
+    const storageKeys = uniqueStrings([record.recordKey, ...parts.map((part) => part.partKey)]);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.lessonRecordPart.deleteMany({ where: { lessonRecordUuid: record.uuid } });
+      await tx.lessonRecord.delete({ where: { uuid: record.uuid } });
+    });
+    const cleanup = await this.deleteStorageKeys(storageKeys);
+    return {
+      status: 'deleted',
+      lessonUuid,
+      lessonRecordUuid: record.uuid,
+      metadataDeleted: true,
+      objectsAttempted: cleanup.attempted.length,
+      objectsDeleted: cleanup.deleted.length,
+      objectDeleteFailures: cleanup.failed.length,
+    };
+  }
+
+  private async loadRecordParts(recordUuid: string, jsonPartIds: string[]): Promise<LessonRecordPart[]> {
+    const directParts = await this.prisma.lessonRecordPart.findMany({
+      where: { lessonRecordUuid: recordUuid },
+      orderBy: [{ createdAt: 'asc' }, { uuid: 'asc' }],
+    });
+    if (directParts.length > 0 || jsonPartIds.length === 0) {
+      return directParts;
+    }
+    return this.prisma.lessonRecordPart.findMany({
+      where: { uuid: { in: jsonPartIds } },
+      orderBy: [{ createdAt: 'asc' }, { uuid: 'asc' }],
+    });
+  }
+
+  private async deleteStorageKeys(keys: string[]) {
+    const attempted: string[] = [];
+    const deleted: string[] = [];
+    const failed: string[] = [];
+    for (const key of uniqueStrings(keys)) {
+      const result = await this.storage.deleteObjectCandidates(key);
+      attempted.push(...result.attempted);
+      deleted.push(...result.deleted);
+      failed.push(...result.failed);
+    }
+    return { attempted, deleted, failed };
   }
 
   private async loadLessonAndRecord(lessonUuid: string) {
@@ -323,6 +427,16 @@ export class LessonRecordsService {
       return;
     }
     throw new ForbiddenException('Lesson record access denied');
+  }
+}
+
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  return Array.from(new Set(values.map((value) => (value || '').trim()).filter(Boolean)));
+}
+
+function assertMp3Key(key: string): void {
+  if (!key.toLowerCase().endsWith('.mp3')) {
+    throw new BadRequestException('Only MP3 lesson record parts can be merged by the target runtime');
   }
 }
 

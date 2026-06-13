@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { Readable } from 'stream';
 import { resolveUpstreamBaseUrl } from './upstream-resolve';
 import { logOperationalFailure } from '../shared/operational-log';
 
@@ -63,8 +64,17 @@ export class ProxyService {
         res.setHeader(key, value);
       });
 
-      const buf = Buffer.from(await upstream.arrayBuffer());
-      res.send(buf);
+      if (!upstream.body) {
+        res.end();
+        return;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        Readable.fromWeb(upstream.body as never)
+          .on('error', reject)
+          .on('end', resolve)
+          .pipe(res);
+      });
     } catch (err) {
       const durationMs = Date.now() - started;
       if ((err as Error).name === 'AbortError') {

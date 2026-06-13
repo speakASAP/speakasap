@@ -60,13 +60,13 @@ export class LessonRecordsController {
 
   @Post('merge')
   @UseGuards(JwtAuthGuard)
-  merge(@Req() req: Request, @Param('lessonUuid') lessonUuid: string) {
-    return this.records.requestMerge(lessonUuid, req.authUser!, bearerToken(req));
+  merge(@Req() req: Request, @Param('lessonUuid') lessonUuid: string, @Body() _body: Record<string, unknown>) {
+    return this.records.requestMerge(lessonUuid, req.authUser!, bearerToken(req), _body);
   }
 
   @Delete()
   @UseGuards(JwtAuthGuard)
-  delete(@Req() req: Request, @Param('lessonUuid') lessonUuid: string) {
-    return this.records.deleteRecord(lessonUuid, req.authUser!, bearerToken(req));
+  delete(@Req() req: Request, @Param('lessonUuid') lessonUuid: string, @Body() _body: Record<string, unknown>) {
+    return this.records.deleteRecord(lessonUuid, req.authUser!, bearerToken(req), _body);
   }
 }

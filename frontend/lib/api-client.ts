@@ -7,25 +7,29 @@ export type GatewayRequest = {
   method?: GatewayMethod;
   token?: string;
   body?: unknown;
+  headers?: Record<string, string>;
 };
 
 export async function callGateway(request: GatewayRequest): Promise<{
   ok: boolean;
   status: number;
   data: unknown;
+  contentType: string;
 }> {
   const baseUrl = getGatewayBaseUrl();
   if (!baseUrl) {
     return {
       ok: false,
       status: 0,
+      contentType: "application/json",
       data: { error: { code: "GATEWAY_NOT_CONFIGURED", message: "NEXT_PUBLIC_API_URL is missing" } },
     };
   }
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const headers: Record<string, string> = { ...(request.headers ?? {}) };
+  if (request.body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
   const token = request.token?.trim() ?? "";
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -38,16 +42,23 @@ export async function callGateway(request: GatewayRequest): Promise<{
     cache: "no-store",
   });
 
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = { raw: await response.text() };
+  const contentType = response.headers.get("content-type") ?? "";
+  const text = await response.text();
+  let payload: unknown = { raw: text };
+  if (contentType.includes("application/json") && text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = { raw: text };
+    }
+  } else if (!text) {
+    payload = { raw: "", contentLength: response.headers.get("content-length") };
   }
 
   return {
     ok: response.ok,
     status: response.status,
+    contentType,
     data: payload,
   };
 }

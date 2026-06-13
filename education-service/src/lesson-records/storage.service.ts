@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHmac, createHash } from 'crypto';
 import type { Response } from 'express';
+import { createWriteStream } from 'fs';
+import { readFile } from 'fs/promises';
 import { Readable } from 'stream';
 
 function cleanKey(key: string): string {
@@ -15,7 +17,7 @@ function candidateKeys(key: string): string[] {
   if (cleaned.startsWith('courses/records/')) {
     return [cleaned, cleaned.slice('courses/records/'.length)];
   }
-  return [cleaned, `courses/records/${cleaned}`];
+  return [cleaned, 'courses/records/' + cleaned];
 }
 
 @Injectable()
@@ -30,19 +32,110 @@ export class LessonRecordStorageService {
   }
 
   async headObject(key: string): Promise<{ etag: string; size: number }> {
-    const config = this.s3Config();
-    const { url, headers } = this.signedS3Request('HEAD', key, {
-      host: config.host,
-      'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-    });
-    const res = await fetch(url, { method: 'HEAD', headers });
+    const res = await this.signedFetch('HEAD', key);
     if (!res.ok) {
-      throw new BadRequestException(`Object metadata check failed for ${key}`);
+      throw new BadRequestException('Object metadata check failed');
     }
     return {
-      etag: (res.headers.get('etag') || '').replace(/"/g, ''),
+      etag: (res.headers.get('etag') || '').replace(/\"/g, ''),
       size: Number(res.headers.get('content-length') || 0),
     };
+  }
+
+
+  async getObjectBuffer(recordKey: string): Promise<{ key: string; buffer: Buffer; size: number }> {
+    for (const key of candidateKeys(recordKey)) {
+      const res = await fetch(this.presignGet(key, 900));
+      if (!res.ok) {
+        if ([403, 404].includes(res.status)) {
+          continue;
+        }
+        throw new ServiceUnavailableException('Private record S3 download failed');
+      }
+      const buffer = Buffer.from(await res.arrayBuffer());
+      return { key, buffer, size: buffer.length };
+    }
+    throw new NotFoundException('Lesson record object not found');
+  }
+
+  async putObject(key: string, body: Buffer, contentType = 'audio/mpeg'): Promise<{ size: number }> {
+    const signed = this.presignPut(key, contentType, 900);
+    const res = await fetch(signed.url, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType },
+      body: new Uint8Array(body),
+    });
+    if (!res.ok) {
+      throw new ServiceUnavailableException('Private record S3 upload failed');
+    }
+    return { size: body.length };
+  }
+
+  async deleteObjectCandidates(recordKey: string): Promise<{ attempted: string[]; deleted: string[]; failed: string[] }> {
+    const attempted: string[] = [];
+    const deleted: string[] = [];
+    const failed: string[] = [];
+    for (const key of candidateKeys(recordKey)) {
+      attempted.push(key);
+      try {
+        await this.deleteObject(key);
+        deleted.push(key);
+      } catch {
+        failed.push(key);
+      }
+    }
+    return { attempted, deleted, failed };
+  }
+
+  async downloadObjectToFile(recordKey: string, filePath: string): Promise<{ key: string; size: number }> {
+    for (const key of candidateKeys(recordKey)) {
+      const res = await fetch(this.presignGet(key, 900));
+      if (!res.ok) {
+        if ([403, 404].includes(res.status)) {
+          continue;
+        }
+        throw new ServiceUnavailableException('Private record S3 download failed');
+      }
+      if (!res.body) {
+        throw new ServiceUnavailableException('Private record S3 download returned no body');
+      }
+      let size = 0;
+      await new Promise<void>((resolve, reject) => {
+        const output = createWriteStream(filePath);
+        Readable.fromWeb(res.body as never)
+          .on('data', (chunk: Buffer) => {
+            size += chunk.length;
+          })
+          .on('error', reject)
+          .pipe(output)
+          .on('error', reject)
+          .on('finish', resolve);
+      });
+      return { key, size };
+    }
+    throw new NotFoundException('Lesson record object not found');
+  }
+
+  async putObjectFromFile(key: string, filePath: string, contentType = 'audio/mpeg'): Promise<{ size: number }> {
+    const body = await readFile(filePath);
+    const signed = this.presignPut(key, contentType, 900);
+    const res = await fetch(signed.url, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType },
+      body: new Uint8Array(body),
+    });
+    if (!res.ok) {
+      throw new ServiceUnavailableException('Private record S3 upload failed');
+    }
+    return { size: body.length };
+  }
+
+  async deleteObject(key: string): Promise<boolean> {
+    const res = await this.signedFetch('DELETE', key);
+    if (res.ok || res.status === 404) {
+      return true;
+    }
+    throw new ServiceUnavailableException('Private record S3 delete failed');
   }
 
   async streamRecord(recordKey: string, rangeHeader: string | undefined, res: Response): Promise<void> {
@@ -58,7 +151,7 @@ export class LessonRecordStorageService {
     for (const key of candidateKeys(recordKey)) {
       const fetchUrl = isLegacyLocalHelper
         ? this.presignGet(key, 900)
-        : `${helperUrl.replace(/\/$/, '').replace(/\/upload$/, '')}/download?${new URLSearchParams({ bucket, key }).toString()}`;
+        : helperUrl.replace(/\/$/, '').replace(/\/upload$/, '') + '/download?' + new URLSearchParams({ bucket, key }).toString();
       const headers: Record<string, string> = {};
       if (rangeHeader) {
         headers.Range = rangeHeader;
@@ -104,6 +197,15 @@ export class LessonRecordStorageService {
     });
   }
 
+  private async signedFetch(method: string, key: string): Promise<globalThis.Response> {
+    const config = this.s3Config();
+    const { url, headers } = this.signedS3Request(method, key, {
+      host: config.host,
+      'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    });
+    return fetch(url, { method, headers });
+  }
+
   private s3Config(): {
     endpoint: URL;
     host: string;
@@ -127,7 +229,7 @@ export class LessonRecordStorageService {
   private objectUrl(key: string): URL {
     const config = this.s3Config();
     const encodedKey = cleanKey(key).split('/').map(encodeURIComponent).join('/');
-    return new URL(`${config.endpoint.pathname.replace(/\/$/, '')}/${config.bucket}/${encodedKey}`, config.endpoint);
+    return new URL(config.endpoint.pathname.replace(/\/$/, '') + '/' + config.bucket + '/' + encodedKey, config.endpoint);
   }
 
   private presignS3Url(method: string, key: string, expiresIn: number, signedHeadersInput: Record<string, string>): string {
@@ -136,7 +238,7 @@ export class LessonRecordStorageService {
     const amzDate = timestamp(now);
     const dateStamp = amzDate.slice(0, 8);
     const url = this.objectUrl(key);
-    const credential = `${config.accessKey}/${dateStamp}/${config.region}/s3/aws4_request`;
+    const credential = config.accessKey + '/' + dateStamp + '/' + config.region + '/s3/aws4_request';
     const signedHeaders = Object.keys(signedHeadersInput).map((h) => h.toLowerCase()).sort();
     url.searchParams.set('X-Amz-Algorithm', 'AWS4-HMAC-SHA256');
     url.searchParams.set('X-Amz-Credential', credential);
@@ -154,7 +256,7 @@ export class LessonRecordStorageService {
     const stringToSign = [
       'AWS4-HMAC-SHA256',
       amzDate,
-      `${dateStamp}/${config.region}/s3/aws4_request`,
+      dateStamp + '/' + config.region + '/s3/aws4_request',
       sha256(canonicalRequest),
     ].join('\n');
     url.searchParams.set('X-Amz-Signature', hmacHex(signingKey(config.secretKey, dateStamp, config.region), stringToSign));
@@ -183,11 +285,11 @@ export class LessonRecordStorageService {
       signedHeaders.join(';'),
       headers['x-amz-content-sha256'] || 'UNSIGNED-PAYLOAD',
     ].join('\n');
-    const scope = `${dateStamp}/${config.region}/s3/aws4_request`;
+    const scope = dateStamp + '/' + config.region + '/s3/aws4_request';
     const stringToSign = ['AWS4-HMAC-SHA256', amzDate, scope, sha256(canonicalRequest)].join('\n');
     const signature = hmacHex(signingKey(config.secretKey, dateStamp, config.region), stringToSign);
     headers.Authorization =
-      `AWS4-HMAC-SHA256 Credential=${config.accessKey}/${scope}, SignedHeaders=${signedHeaders.join(';')}, Signature=${signature}`;
+      'AWS4-HMAC-SHA256 Credential=' + config.accessKey + '/' + scope + ', SignedHeaders=' + signedHeaders.join(';') + ', Signature=' + signature;
     return { url: url.toString(), headers };
   }
 }
@@ -209,20 +311,20 @@ function hmacHex(key: Buffer, value: string): string {
 }
 
 function signingKey(secret: string, dateStamp: string, region: string): Buffer {
-  return hmac(hmac(hmac(hmac(`AWS4${secret}`, dateStamp), region), 's3'), 'aws4_request');
+  return hmac(hmac(hmac(hmac('AWS4' + secret, dateStamp), region), 's3'), 'aws4_request');
 }
 
 function canonicalHeaders(headers: Record<string, string>): string {
   return Object.entries(headers)
     .map(([k, v]) => [k.toLowerCase(), String(v).trim().replace(/\s+/g, ' ')] as const)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, v]) => `${k}:${v}\n`)
+    .map(([k, v]) => k + ':' + v + '\n')
     .join('');
 }
 
 function canonicalQuery(params: URLSearchParams): string {
   return Array.from(params.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v))
     .join('&');
 }

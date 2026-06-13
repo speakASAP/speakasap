@@ -1701,3 +1701,130 @@ Remaining blocker:
 Next:
 
 - Resolve the private media playback object/helper path for speakasap-education, then rerun /tmp/speakasap_goal55_runtime_smoke.js and record a 200 or 206 tokenized download result before frontend/gateway cutover.
+
+## 2026-06-13 - Goal 5.5 Playback Smoke Unblocked
+
+Current focus:
+
+- Continued Goal 5.5 private lesson-record playback verification on alfares.
+- DocsRAG retrieval from deployment/speakasap returned HTTP 200 with runtime JWT_TOKEN; token values were not printed.
+
+Root cause fixed:
+
+- speakasap-education-secret had RECORDS_S3_ACCESS_KEY set to the MinIO root user but RECORDS_S3_SECRET_KEY did not match the MinIO root password.
+- Updated k8s/services/education-service.yaml so RECORDS_S3_SECRET_KEY maps from Vault key secret/prod/minio-microservice, property MINIO_ROOT_PASSWORD.
+- Applied the education manifest, forced ExternalSecret refresh, verified secret fingerprints matched without printing secret values, and restarted deployment/speakasap-education.
+
+Validation evidence:
+
+- New education pod reports the corrected secret fingerprint matching MinIO; no secret value was printed.
+- Direct deployed S3 probe for existing key shape YYYY/MM/DD/lesson_UUID.mp3 returned 206 audio/mpeg, Content-Range: bytes 0-31/11173841.
+- Sanitized deployed smoke report: /tmp/speakasap-goal55-runtime-smoke-20260613-v5.json.
+- v5 smoke used short-lived in-memory JWTs signed inside the auth pod; token values and presigned URLs were not printed.
+- Paid student playback success path now passes:
+  - state: 200 ready.
+  - playback metadata: 200, mode gateway-download, tokenized URL, no permanent URL.
+  - tokenized range download: 206 audio/mpeg, no permanent URL.
+- Access controls still hold:
+  - no auth and invalid token rejected with 401.
+  - unpaid student playback denied with 403.
+  - unassigned teacher presign denied with 403.
+  - assigned teacher presign returns 201 private SigV4 PUT shape.
+  - commit key mismatch returns 400 before mutation.
+  - merge remains disabled with 503; delete remains disabled with 409.
+
+Gate decision:
+
+- Goal 5.5 private playback, paid access, denied access, teacher/staff presign, commit mismatch, merge-disabled, and delete-disabled runtime checks are now validated against deployed services.
+- Frontend/gateway cutover, merge worker execution, object deletion, and legacy retirement remain blocked until owner-selected follow-up scope.
+
+Next:
+
+- Prepare the next owner-approved Goal 5 follow-up: frontend/gateway integration or merge/delete implementation scope, without changing legacy routing yet.
+
+
+## 2026-06-13 - Goal 5 Follow-up Gateway Integration And Merge/Delete Confirmation Gates
+
+Current focus:
+
+- Owner approved merging the Goal 5 follow-up work and proceeding with frontend/gateway integration.
+- Checked the coordinator-maintained Active Agents marker before continuing; AGENTS.md still reports None.
+- Work stayed remote-only in /home/ssf/Documents/Github/speakasap.
+- DocsRAG retrieval from deployment/speakasap returned HTTP 200 for the Goal 5 follow-up query after pod-side JWT expansion was corrected; token values were not printed.
+
+Changes deployed:
+
+- api-gateway now streams proxied upstream bodies instead of buffering media responses, preserving range/media behavior for lesson-record downloads.
+- api-gateway auth guard now allows unauthenticated GET /api/v1/lessons/:lessonUuid/record/download when the scoped media token is present in the query string; other lesson-record routes still require bearer auth.
+- education-service now includes S3 object helpers for merge/delete storage operations and explicit confirmation gates for destructive operations: confirmMerge and confirmDelete must match the lesson UUID before execution.
+- frontend learner and teacher pages now call gateway lesson-record endpoints for state, playback, tokenized range checks, teacher/staff presign, merge, and delete; teacher merge/delete send the explicit confirmation body.
+- Rebuilt and pushed localhost:5000/speakasap-education:latest digest sha256:776f5086ccf2d578f4de84ac34b7bde7a051890ac0c26287471e78842d6371f1.
+- Rebuilt and pushed localhost:5000/speakasap-api-gateway:latest digest sha256:d5568fd64226473d7474089030104bb3161b8d2803993ded799e530db3ac9763.
+- Applied education and api-gateway manifests and restarted deployment/speakasap-education and deployment/speakasap-api-gateway; both rollouts completed successfully.
+
+Validation evidence:
+
+- education-service: npm run test:lesson-records passed.
+- education-service: npm run build passed.
+- api-gateway: npm run build passed.
+- frontend: npm run build passed. No frontend Dockerfile or Kubernetes frontend deploy target was found in this repository, so frontend code is built but not deployed from this repo.
+- Gateway smoke report: /tmp/speakasap-goal55-gateway-smoke-20260613-v2.json.
+- v2 smoke used short-lived in-memory JWTs signed inside the auth pod; token values and presigned URLs were not printed.
+- Gateway smoke passed auth and access-control checks: no auth 401, invalid token 401, paid state/playback 200, unpaid playback 403, unassigned teacher presign 403, teacher/staff presign 201, commit key mismatch 400, delete without confirmDelete 400.
+- Gateway smoke confirms no permanent URL exposure in response summaries.
+
+Important incident and blocker:
+
+- Earlier gateway smoke report /tmp/speakasap-goal55-gateway-smoke-20260613-v1.json used stale delete-disabled expectations after delete had been enabled in the first deployment attempt and deleted the paid fixture metadata/object for lesson 7d870263-bdcb-4bba-b25e-1f6b40402411.
+- The lesson-record metadata was restored by Prisma upsert to uuid 8c0da4cd-5a21-4e8a-bcc9-d137ec80adab and key 2018/07/10/lesson_7d870263-bdcb-4bba-b25e-1f6b40402411.mp3.
+- The object itself is still missing: the post-redeploy gateway range check returns 404 for paid_student_token_download_range, while playback metadata still returns 200 and issues a tokenized URL.
+- No exact source MP3 was found under /home/ssf/Documents/Github, and no replacement audio was fabricated. Restoring the original object or selecting/uploading an owner-approved fixture is required before closing this follow-up.
+
+Gate decision:
+
+- Backend gateway integration and confirmation-gated merge/delete code are deployed.
+- Frontend gateway integration code builds but is not deployed from this repository because no frontend deploy target exists here.
+- Goal 5 cannot be closed after this follow-up until the missing paid fixture object is restored and gateway tokenized range download returns 206 again.
+
+Next:
+
+- Restore the original paid fixture object or provide an owner-approved safe replacement fixture, then rerun gateway smoke and update the evidence before any commit or cutover.
+
+
+Focused fresh-fixture addendum:
+
+- Read-only candidate search found ready lesson d7d708dc-8c89-496f-a5b6-af30ed6db104 with an existing private object; the check read only bytes 0-31.
+- Focused deployed gateway smoke report /tmp/speakasap-goal55-focused-gateway-smoke-20260613-v1.json verified staff playback 200 with gateway-download tokenized URL, gateway range download 206 audio/mpeg with Content-Range bytes 0-31/7407935 and 32 bytes, already-ready merge idempotent noop, and delete without confirmDelete blocked with 400.
+- This focused smoke is the current successful media playback evidence while the older paid fixture object remains missing.
+
+
+## 2026-06-13 - Goal 5 Gateway Smoke Restored After Owner-Approved Fixture Replacement
+
+Current focus:
+
+- Owner approved restoring the missing paid lesson recording with an approved replacement fixture so Goal 5 gateway validation could continue.
+- Checked AGENTS.md before proceeding; Active Agents still reported None.
+
+Restoration:
+
+- Used legacy portal fixture /home/ssf/Documents/Github/speakasap-portal/education/lesson_records/tests/example.mp3 as the owner-approved replacement audio.
+- Uploaded it through the running speakasap-education pod to the original private object key 2018/07/10/lesson_7d870263-bdcb-4bba-b25e-1f6b40402411.mp3, preserving the target lesson-record metadata and gateway URL shape.
+- The custom follow-up HEAD helper returned a generic metadata check failure, so validation used the production gateway playback/download path instead.
+
+Validation evidence:
+
+- Gateway smoke report: /tmp/speakasap-goal55-gateway-smoke-20260613-v5.json.
+- v5 smoke used short-lived in-memory JWTs signed inside the auth pod; token values and presigned URLs were not printed.
+- Paid student state/playback metadata returned 200/200 with gateway-download tokenized URL and no permanent URL.
+- Paid student tokenized range download returned 206 audio/mpeg with 32-byte range body and no permanent URL.
+- Access controls still hold: no auth 401, invalid token 401, unpaid playback 403, unassigned teacher presign 403, teacher/staff presign 201, commit key mismatch 400, already-ready merge noop 201, delete without confirmDelete 400.
+
+Gate decision:
+
+- The prior missing-object blocker is resolved with owner-approved replacement fixture evidence.
+- Backend gateway integration and confirmation-gated merge/delete are deployed and smoke-validated.
+- Frontend gateway integration code builds, but no frontend deployment target exists in this repository.
+
+Next:
+
+- Prepare the intent-preservation commit or locate the frontend deployment path before cutover, keeping confirmed destructive merge/delete usage out of smoke tests unless explicitly scoped.

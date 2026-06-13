@@ -19,7 +19,12 @@ Current gate:
 - Scoped `speakasap-education` deploy completed after owner approval: image digest `sha256:aac37a909b47872e368a733f973d287e00be35136ff10f423c54bd84c3e5350e`, deployment `1/1` ready, restart count `0`, health `ok`.
 - Runtime smoke report `/tmp/speakasap-education-runtime-smoke-g5-5.json` verifies unauthenticated rejection, invalid/mismatched media-token rejection, unrelated-student rejection, and no permanent URL exposure.
 - Service-level deployed-image mock report `/tmp/speakasap-education-service-level-smoke-g5-5.json` verifies presign invalid content type/oversize, 900-second signed PUT shape, commit key/ETag/size mismatch, merge disabled, and delete disabled without DB writes or object mutation.
-- Goal 5.5 remains active because safe paid/unpaid student, assigned/unassigned teacher, and staff tokens are unavailable, and `RECORDS_S3_*` runtime configuration is absent from the education pod.
+- Goal 5.5 deployed smoke `/tmp/speakasap-goal55-runtime-smoke-20260613-v5.json` verifies paid student state/playback, tokenized 206 audio/mpeg range download, unpaid playback denial, unassigned teacher denial, teacher/staff private SigV4 presign, commit mismatch rejection, merge disabled, delete disabled, and no permanent URL exposure.
+
+- Owner approved Goal 5 follow-up merge/delete and frontend/gateway integration; Active Agents marker was checked first and reports None.
+- Confirmation-gated education-service and streaming api-gateway revisions were deployed: education sha256:776f5086ccf2d578f4de84ac34b7bde7a051890ac0c26287471e78842d6371f1, api-gateway sha256:d5568fd64226473d7474089030104bb3161b8d2803993ded799e530db3ac9763.
+- Gateway smoke /tmp/speakasap-goal55-gateway-smoke-20260613-v5.json confirms gateway auth/access controls, paid tokenized 206 audio/mpeg range download, already-ready merge noop 201, and delete without confirmDelete blocked with 400.
+- Owner approved replacement of the missing paid fixture object with legacy portal education/lesson_records/tests/example.mp3; gateway smoke /tmp/speakasap-goal55-gateway-smoke-20260613-v5.json now returns 206 audio/mpeg for tokenized range download and 400 for delete without confirmDelete.
 - Do not run future lesson-record reruns, rollback execution, object-storage mutation, merge execution, frontend/gateway cutover, legacy retirement, or access behavior changes without fresh evidence and explicit approval where applicable.
 - Preserve dry-run reports, apply commands, approval notes, rollback evidence, and post-apply verification in `docs/orchestrator/STATUS.md`.
 

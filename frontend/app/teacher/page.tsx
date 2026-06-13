@@ -3,47 +3,84 @@
 import { useState } from "react";
 import { callGateway } from "@/lib/api-client";
 
-const teacherActions = [
-  { label: "Teacher profiles", path: "/api/v1/teachers" },
-  { label: "Teaching groups", path: "/api/v1/groups" },
-  { label: "Course offers", path: "/api/v1/offers" },
-  { label: "Inbox", path: "/api/v1/in-app" },
-];
+type PlaybackResponse = {
+  access?: { url?: string };
+};
+
+function playbackUrl(data: unknown): string | null {
+  const access = (data as PlaybackResponse | null)?.access;
+  return typeof access?.url === "string" ? access.url : null;
+}
 
 export default function TeacherPage() {
   const [token, setToken] = useState("");
+  const [lessonUuid, setLessonUuid] = useState("");
   const [result, setResult] = useState<string>("No request executed yet.");
 
-  async function run(path: string): Promise<void> {
-    const response = await callGateway({ path, token });
-    setResult(JSON.stringify({ path, status: response.status, ok: response.ok, data: response.data }, null, 2));
+  async function run(path: string, method: "GET" | "POST" | "DELETE" = "GET", body?: unknown): Promise<void> {
+    const response = await callGateway({ path, method, token, body });
+    setResult(JSON.stringify({ path, method, status: response.status, ok: response.ok, data: response.data }, null, 2));
   }
+
+  async function runRangeDownload(): Promise<void> {
+    const playbackPath = `/api/v1/lessons/${lessonUuid.trim()}/record/playback`;
+    const playback = await callGateway({ path: playbackPath, token });
+    const url = playbackUrl(playback.data);
+    if (!url) {
+      setResult(JSON.stringify({ path: playbackPath, status: playback.status, ok: playback.ok, data: playback.data }, null, 2));
+      return;
+    }
+    const response = await callGateway({ path: url, token, headers: { Range: "bytes=0-31" } });
+    setResult(JSON.stringify({ path: url, status: response.status, ok: response.ok, contentType: response.contentType, data: response.data }, null, 2));
+  }
+
+  const basePath = `/api/v1/lessons/${lessonUuid.trim()}/record`;
 
   return (
     <main className="mx-auto w-full max-w-4xl px-6 py-10">
       <h1 className="text-2xl font-semibold">Teacher Portal</h1>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-        Initial TASK-71 flows mapped to gateway routes for teacher use-cases.
-      </p>
-      <label className="mt-6 block text-sm font-medium">
-        Bearer token
-        <input
-          className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
-          value={token}
-          onChange={(event) => setToken(event.target.value)}
-          placeholder="Paste JWT token"
-        />
-      </label>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <label className="block text-sm font-medium">
+          Bearer token
+          <input
+            className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+            value={token}
+            onChange={(event) => setToken(event.target.value)}
+            placeholder="Paste JWT token"
+          />
+        </label>
+        <label className="block text-sm font-medium">
+          Lesson UUID
+          <input
+            className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+            value={lessonUuid}
+            onChange={(event) => setLessonUuid(event.target.value)}
+            placeholder="Recorded lesson UUID"
+          />
+        </label>
+      </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        {teacherActions.map((action) => (
-          <button
-            key={action.path}
-            onClick={() => run(action.path)}
-            className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900"
-          >
-            {action.label}
-          </button>
-        ))}
+        <button onClick={() => run(basePath)} className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">
+          Record state
+        </button>
+        <button onClick={() => run(`${basePath}/playback`)} className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">
+          Playback token
+        </button>
+        <button onClick={runRangeDownload} className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">
+          Range check
+        </button>
+        <button
+          onClick={() => run(`${basePath}/presign`, "POST", { filename: "record.mp3", contentType: "audio/mpeg", kind: "lesson", size: 12 })}
+          className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900"
+        >
+          Presign
+        </button>
+        <button onClick={() => run(`${basePath}/merge`, "POST", { confirmMerge: lessonUuid.trim() })} className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">
+          Merge
+        </button>
+        <button onClick={() => run(basePath, "DELETE", { confirmDelete: lessonUuid.trim() })} className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">
+          Delete
+        </button>
       </div>
       <pre className="mt-6 overflow-auto rounded-xl border bg-zinc-50 p-4 text-xs dark:bg-zinc-950">{result}</pre>
     </main>

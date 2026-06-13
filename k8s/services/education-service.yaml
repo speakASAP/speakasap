@@ -179,8 +179,8 @@ spec:
         property: RECORDS_S3_ACCESS_KEY
     - secretKey: RECORDS_S3_SECRET_KEY
       remoteRef:
-        key: secret/prod/speakasap/education
-        property: RECORDS_S3_SECRET_KEY
+        key: secret/prod/minio-microservice
+        property: MINIO_ROOT_PASSWORD
     - secretKey: RECORDS_S3_REGION_NAME
       remoteRef:
         key: secret/prod/speakasap/education
