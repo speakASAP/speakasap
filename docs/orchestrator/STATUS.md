@@ -1828,3 +1828,36 @@ Gate decision:
 Next:
 
 - Prepare the intent-preservation commit or locate the frontend deployment path before cutover, keeping confirmed destructive merge/delete usage out of smoke tests unless explicitly scoped.
+
+
+## 2026-06-13 - Goal 6 Frontend Deployment Path Discovery
+
+Current focus:
+
+- Owner requested locating the frontend deployment path before cutover and clarified it should be in the same remote/server context.
+- Checked AGENTS.md before discovery; Active Agents reported None.
+- Discovery was read-only against /home/ssf/Documents/Github/speakasap, sibling deployment examples, and Kubernetes state.
+- DocsRAG retrieval from deployment/speakasap returned HTTP 200 for the frontend deployment path query; token values were not printed.
+
+Located source and live route:
+
+- Frontend source path exists in this repository: /home/ssf/Documents/Github/speakasap/frontend.
+- The frontend is a Next.js app with package scripts dev/build/start in frontend/package.json.
+- Public host speakasap.alfares.cz routes through ingress speakasap to service speakasap port 3000.
+- The live root deployment is deployment/speakasap in namespace statex-apps using image localhost:5000/speakasap:latest.
+
+Deployment gap:
+
+- Root Dockerfile currently builds api-gateway from api-gateway/package*.json and api-gateway/src, not frontend/.
+- The running speakasap pod contains an api-gateway package and returns Express JSON 404 for GET /; it is not serving the Next frontend.
+- No speakasap-frontend deployment, service, ingress, frontend Dockerfile, or deploy-frontend script exists in the SpeakASAP repository.
+- Sibling repositories show the expected pattern for frontend deployment: a dedicated frontend image, deployment, service, and deploy script. SpeakASAP has not implemented that path yet.
+
+Cutover implication:
+
+- The frontend deployment path is only partially present: source is /home/ssf/Documents/Github/speakasap/frontend, and the public route currently points at deployment/speakasap, but that deployment image is not the frontend.
+- Before cutover, create or adapt a frontend deployment path for the Next app, then decide whether speakasap.alfares.cz should route directly to a frontend service or whether the root speakasap image should be rebuilt to contain the frontend.
+
+Next:
+
+- Implement the missing SpeakASAP frontend deployment path: Dockerfile for frontend, Kubernetes deployment/service and ingress routing decision, deploy script, build/rollout/smoke evidence.

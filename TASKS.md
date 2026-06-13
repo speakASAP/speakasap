@@ -4,7 +4,7 @@ This file is the root task index for the SpeakASAP master orchestrator. Detailed
 
 ## Active Task
 
-- Goal 5.5: verify runtime private access, playback/download, merge, delete, and failure modes for migrated lesson recordings.
+- Goal 6.1: implement frontend deployment path before SpeakASAP cutover.
 
 Current gate:
 
@@ -27,6 +27,15 @@ Current gate:
 - Owner approved replacement of the missing paid fixture object with legacy portal education/lesson_records/tests/example.mp3; gateway smoke /tmp/speakasap-goal55-gateway-smoke-20260613-v5.json now returns 206 audio/mpeg for tokenized range download and 400 for delete without confirmDelete.
 - Do not run future lesson-record reruns, rollback execution, object-storage mutation, merge execution, frontend/gateway cutover, legacy retirement, or access behavior changes without fresh evidence and explicit approval where applicable.
 - Preserve dry-run reports, apply commands, approval notes, rollback evidence, and post-apply verification in `docs/orchestrator/STATUS.md`.
+
+
+Frontend deployment path discovery:
+
+- Source exists at /home/ssf/Documents/Github/speakasap/frontend.
+- Public speakasap.alfares.cz currently routes to deployment/speakasap via k8s/ingress.yaml and k8s/service.yaml.
+- Root Dockerfile and live deployment/speakasap image currently serve api-gateway, not the Next frontend; GET / returns Express JSON 404.
+- No frontend Dockerfile, speakasap-frontend deployment/service, or frontend deploy script exists yet in this repository.
+- Cutover requires creating/adapting the frontend deployment path and recording build/rollout/smoke evidence.
 
 ## Required Task Flow
 

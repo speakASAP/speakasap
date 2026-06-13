@@ -112,6 +112,9 @@ Do not paste full logs. Keep each session summary short enough to guide the next
 
 - 2026-06-13: Owner approved replacing the missing paid lesson-record object with legacy portal fixture education/lesson_records/tests/example.mp3. Uploaded the fixture through the education pod to key 2018/07/10/lesson_7d870263-bdcb-4bba-b25e-1f6b40402411.mp3. Gateway smoke /tmp/speakasap-goal55-gateway-smoke-20260613-v5.json now confirms paid tokenized range download returns 206 audio/mpeg, access denials still hold, and delete without confirmDelete returns 400. Goal 5 gateway follow-up backend validation is restored; frontend code builds but deployment target is not present in this repo.
 
+
+- 2026-06-13: Goal 6 frontend deployment path discovery completed read-only. Frontend source is in /home/ssf/Documents/Github/speakasap/frontend, but no frontend Dockerfile, speakasap-frontend Kubernetes deployment/service, or deploy-frontend script exists. Public speakasap.alfares.cz ingress currently routes to deployment/speakasap image localhost:5000/speakasap:latest, whose root Dockerfile builds api-gateway and whose live pod returns Express JSON 404 for /. Cutover requires creating/adapting a real Next frontend deployment path before routing traffic.
+
 ## Next Action
 
-Prepare the intent-preservation commit for the deployed backend/frontend gateway integration, or locate the frontend deployment path before cutover. Keep confirmed destructive merge/delete actions out of smoke tests unless explicitly scoped.
+Implement the missing SpeakASAP frontend deployment path before cutover: frontend Dockerfile, Kubernetes deployment/service or root image strategy, ingress routing decision, deploy command, and smoke evidence.
