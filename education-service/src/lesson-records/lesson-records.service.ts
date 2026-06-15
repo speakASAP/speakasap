@@ -18,6 +18,7 @@ import { UserProfilesClient } from './user-profiles.client';
 type AccessMode = 'state' | 'playback' | 'teacher-write';
 const MAX_RECORD_SIZE = 60 * 1024 * 1024;
 const MAX_MERGE_SIZE = 240 * 1024 * 1024;
+const MAX_RECORD_DURATION_SECONDS = 6 * 60 * 60;
 
 function partsArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map((v) => String(v)).filter(Boolean) : [];
@@ -56,7 +57,7 @@ export class LessonRecordsService {
       recordUnavailable: record?.recordUnavailable ?? '',
       recordKey: record?.recordKey ? 'private' : null,
       playbackUrl: state === 'ready' ? `/api/v1/lessons/${lessonUuid}/record/playback` : null,
-      durationSeconds: null,
+      durationSeconds: record?.durationSeconds ?? null,
       updatedAt: record?.updatedAt?.toISOString() ?? null,
     };
   }
@@ -144,6 +145,7 @@ export class LessonRecordsService {
       throw new BadRequestException('items or recordUnavailable is required');
     }
     const expectedItems = [];
+    const bodyDurationSeconds = optionalDurationSeconds(body.durationSeconds ?? body.duration_seconds, 'durationSeconds');
     for (const raw of items) {
       if (!raw || typeof raw !== 'object') {
         throw new BadRequestException('each item must be an object');
@@ -154,6 +156,7 @@ export class LessonRecordsService {
       const filename = typeof item.filename === 'string' && item.filename.trim() ? item.filename.trim() : 'record.mp3';
       const size = Number(item.size);
       const etag = typeof item.etag === 'string' ? item.etag.replace(/"/g, '').trim() : '';
+      const durationSeconds = optionalDurationSeconds(item.durationSeconds ?? item.duration_seconds, 'item durationSeconds');
       if (!Number.isInteger(size) || size < 0 || size > MAX_RECORD_SIZE) {
         throw new BadRequestException('item size is invalid');
       }
@@ -162,14 +165,14 @@ export class LessonRecordsService {
         if (key !== expectedKey) {
           throw new BadRequestException('lesson key mismatch');
         }
-        expectedItems.push({ kind, key, size, etag, partUuid: null });
+        expectedItems.push({ kind, key, size, etag, partUuid: null, durationSeconds });
       } else if (kind === 'part') {
         const partUuid = requiredString(item.partUuid ?? item.part_uuid, 'partUuid');
         const expectedKey = partKey(partUuid, lesson.start, filename);
         if (key !== expectedKey) {
           throw new BadRequestException('part key mismatch');
         }
-        expectedItems.push({ kind, key, size, etag, partUuid });
+        expectedItems.push({ kind, key, size, etag, partUuid, durationSeconds });
       } else {
         throw new BadRequestException('kind must be lesson or part');
       }
@@ -187,6 +190,7 @@ export class LessonRecordsService {
     const recordUuid = existing?.uuid ?? randomUUID();
     const lessonItems = expectedItems.filter((i) => i.kind === 'lesson');
     const partItems = expectedItems.filter((i) => i.kind === 'part');
+    const recordDurationSeconds = bodyDurationSeconds ?? lessonItems[0]?.durationSeconds ?? summedDurationSeconds(partItems);
     await this.prisma.$transaction(async (tx) => {
       await tx.lesson.update({
         where: { uuid: lesson.uuid },
@@ -208,12 +212,14 @@ export class LessonRecordsService {
             recordKey: lessonItems[0].key,
             processed: true,
             recordUnavailable: '',
+            durationSeconds: recordDurationSeconds,
             parts: [],
           },
           update: {
             recordKey: lessonItems[0].key,
             processed: true,
             recordUnavailable: '',
+            durationSeconds: recordDurationSeconds,
             parts: [],
           },
         });
@@ -227,12 +233,14 @@ export class LessonRecordsService {
             recordKey: null,
             processed: false,
             recordUnavailable: '',
+            durationSeconds: recordDurationSeconds,
             parts: partItems.map((i) => i.partUuid),
           },
           update: {
             recordKey: null,
             processed: false,
             recordUnavailable: '',
+            durationSeconds: recordDurationSeconds,
             parts: partItems.map((i) => i.partUuid),
           },
         });
@@ -255,19 +263,21 @@ export class LessonRecordsService {
             recordKey: null,
             processed: true,
             recordUnavailable,
+            durationSeconds: null,
             parts: [],
           },
           update: {
             recordKey: null,
             processed: true,
             recordUnavailable,
+            durationSeconds: null,
             parts: [],
           },
         });
         await tx.lessonRecordPart.deleteMany({ where: { lessonRecordUuid: recordUuid } });
       }
     });
-    return { status: 'ok', lessonRecordUuid: recordUuid };
+    return { status: 'ok', lessonRecordUuid: recordUuid, durationSeconds: recordDurationSeconds };
   }
 
   async requestMerge(lessonUuid: string, auth: AuthContextUser, bearerToken: string, body: Record<string, unknown>) {
@@ -284,6 +294,7 @@ export class LessonRecordsService {
     if (confirmMerge !== lessonUuid) {
       throw new BadRequestException('confirmMerge must match lessonUuid');
     }
+    const mergedDurationSeconds = optionalDurationSeconds(body.durationSeconds ?? body.duration_seconds, 'durationSeconds');
     const parts = await this.loadRecordParts(record.uuid, partsArray(record.parts));
     if (parts.length === 0) {
       return { status: 'noop', reason: 'no_parts', lessonUuid, lessonRecordUuid: record.uuid, state };
@@ -314,7 +325,13 @@ export class LessonRecordsService {
     await this.prisma.$transaction(async (tx) => {
       await tx.lessonRecord.update({
         where: { uuid: record.uuid },
-        data: { recordKey: outputKey, processed: true, recordUnavailable: '', parts: [] },
+        data: {
+          recordKey: outputKey,
+          processed: true,
+          recordUnavailable: '',
+          durationSeconds: mergedDurationSeconds ?? record.durationSeconds,
+          parts: [],
+        },
       });
       await tx.lessonRecordPart.deleteMany({ where: { lessonRecordUuid: record.uuid } });
     });
@@ -328,6 +345,7 @@ export class LessonRecordsService {
       partsMerged: parts.length,
       sourcePartsDeleted: cleanup.deleted.length,
       sourcePartDeleteFailures: cleanup.failed.length,
+      durationSeconds: mergedDurationSeconds ?? record.durationSeconds,
     };
   }
 
@@ -456,6 +474,24 @@ function optionalInteger(value: unknown): number | null {
     throw new BadRequestException('studentId must be an integer');
   }
   return n;
+}
+
+function optionalDurationSeconds(value: unknown, name: string): number | null {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0 || n > MAX_RECORD_DURATION_SECONDS) {
+    throw new BadRequestException(`${name} must be an integer between 0 and ${MAX_RECORD_DURATION_SECONDS}`);
+  }
+  return n;
+}
+
+function summedDurationSeconds(items: Array<{ durationSeconds: number | null }>): number | null {
+  if (!items.length || items.some((item) => item.durationSeconds === null)) {
+    return null;
+  }
+  return items.reduce((total, item) => total + (item.durationSeconds ?? 0), 0);
 }
 
 function datePrefix(start: Date | null): string {

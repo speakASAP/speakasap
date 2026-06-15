@@ -274,6 +274,63 @@ def media_prefix(ref: str) -> str:
     return 'external' if '://' in ref else 'other'
 
 
+INLINE_EVENT_RE = re.compile(r"\son[a-zA-Z]+\s*=")
+JAVASCRIPT_URL_RE = re.compile(r"javascript\s*:", re.IGNORECASE)
+
+
+def html_issue_counts(source: str | None) -> dict[str, int]:
+    value = source or ''
+    return {
+        'djangoBlocks': len(re.findall(r'{%|%}|{{|}}', value)),
+        'scriptTags': len(re.findall(r'<\s*/?\s*script\b', value, flags=re.IGNORECASE)),
+        'formTags': len(re.findall(r'<\s*/?\s*form\b', value, flags=re.IGNORECASE)),
+        'inlineEventHandlers': len(INLINE_EVENT_RE.findall(value)),
+        'javascriptUrls': len(JAVASCRIPT_URL_RE.findall(value)),
+    }
+
+
+def summarize_html_safety(lesson_rows: list[dict[str, Any]], exercise_rows: list[dict[str, Any]], sample_limit: int) -> dict[str, Any]:
+    totals: Counter[str] = Counter()
+    samples: list[dict[str, Any]] = []
+
+    def add_sample(kind: str, row: dict[str, Any], field: str, counts: dict[str, int]) -> None:
+        if len(samples) >= sample_limit:
+            return
+        samples.append({
+            'kind': kind,
+            'field': field,
+            'legacyId': row.get('legacyId'),
+            'legacyKey': row.get('legacyKey'),
+            'languageCode': row.get('languageCode'),
+            'order': row.get('order'),
+            'template': row.get('template') or row.get('exerciseTemplate'),
+            'counts': {k: v for k, v in counts.items() if v},
+        })
+
+    for row in lesson_rows:
+        counts = html_issue_counts(row.get('bodyHtml'))
+        totals.update(counts)
+        if any(counts.values()):
+            add_sample('lesson', row, 'bodyHtml', counts)
+    for row in exercise_rows:
+        exercise_counts = html_issue_counts(row.get('exerciseHtml'))
+        totals.update(exercise_counts)
+        if any(exercise_counts.values()):
+            add_sample('exercise', row, 'exerciseHtml', exercise_counts)
+        answer_counts = html_issue_counts(row.get('answerHtml'))
+        totals.update(answer_counts)
+        if any(answer_counts.values()):
+            add_sample('answer', row, 'answerHtml', answer_counts)
+
+    issue_keys = ['djangoBlocks', 'scriptTags', 'formTags', 'inlineEventHandlers', 'javascriptUrls']
+    return {
+        'checkedHtmlFragments': len(lesson_rows) + len(exercise_rows) + sum(1 for row in exercise_rows if row.get('answerHtml')),
+        'issueCounts': {key: int(totals.get(key, 0)) for key in issue_keys},
+        'samples': samples,
+        'ok': all(int(totals.get(key, 0)) == 0 for key in issue_keys),
+    }
+
+
 def summarize_migration_media_refs(lesson_rows: list[dict[str, Any]], exercise_rows: list[dict[str, Any]]) -> dict[str, Any]:
     lesson_refs = [ref for row in lesson_rows for ref in row['metadata'].get('mediaRefs', [])]
     exercise_refs = [
@@ -463,13 +520,22 @@ def resolve_token(token: str, lesson: SevenLesson, language: LegacyLanguage) -> 
     return token
 
 
+def tag_kwarg(args: list[str], name: str) -> str | None:
+    prefix = name + '='
+    for arg in args:
+        if arg.startswith(prefix):
+            return arg[len(prefix):].strip('\"\'')
+    return None
+
+
 def render_audio_tag(args: list[str], lesson: SevenLesson, language: LegacyLanguage) -> str:
     if not args:
         return ''
     filename = resolve_token(args[0], lesson, language)
-    title = resolve_token(args[2] if len(args) > 2 else args[1] if len(args) > 1 else 'Прослушайте аудио урок', lesson, language)
-    src_mp3 = f'/media/audio/{language.code}/{filename}.mp3'
-    src_ogg = f'/media/audio/{language.code}/{filename}.ogg'
+    title = resolve_token(args[2] if len(args) > 2 and '=' not in args[2] else args[1] if len(args) > 1 else 'Прослушайте аудио урок', lesson, language)
+    audio_language_code = tag_kwarg(args, 'ml') or language.code
+    src_mp3 = f'/media/audio/{audio_language_code}/{filename}.mp3'
+    src_ogg = f'/media/audio/{audio_language_code}/{filename}.ogg'
     return (
         '<p class="audio-block">'
         f'<a class="js-download-audio mdl-button mdl-js-button mdl-button--fab audio-block__button mdl-button--mini-fab" href="{html.escape(src_mp3)}">'
@@ -1003,6 +1069,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             'exercises': len(exercise_rows),
         },
         'migrationMediaRefs': summarize_migration_media_refs(lesson_rows, exercise_rows),
+        'htmlSafety': summarize_html_safety(lesson_rows, exercise_rows, args.limit),
         'legacyRoot': str(legacy_root),
         'legacyEvidence': {
             'sevenFixture': str(fixture),
@@ -1038,6 +1105,12 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         report['blockingIssues'].append({'code': 'MISSING_LANGUAGE_MAPPING', 'languageIds': missing_languages})
     if missing_lessons:
         report['blockingIssues'].append({'code': 'MISSING_LESSON_TEMPLATES', 'count': missing_lessons})
+    if not report['htmlSafety']['ok']:
+        report['blockingIssues'].append({
+            'code': 'RENDERED_HTML_SAFETY_ISSUES',
+            'issueCounts': report['htmlSafety']['issueCounts'],
+            'sample': report['htmlSafety']['samples'][: args.limit],
+        })
     if args.check_target and report['target'].get('languageReadiness', {}).get('error'):
         report['blockingIssues'].append({
             'code': 'TARGET_LANGUAGE_TABLE_UNAVAILABLE',
@@ -1122,7 +1195,7 @@ def main() -> int:
         courses, lessons = parse_seven_fixture(legacy_root / 'portal' / 'fixtures' / 'seven.xml')
         languages = parse_language_fixture(legacy_root / 'portal' / 'fixtures' / 'languages.yaml')
         language_rows, course_rows, lesson_rows, exercise_rows, payload_warnings = build_migration_payload(courses, lessons, languages, legacy_root)
-        write_rollback_sql(args.rollback_plan, course_rows, lesson_rows, exercise_rows, args.approval_note)
+        write_rollback_sql(args.rollback_plan, language_rows, course_rows, lesson_rows, exercise_rows, args.approval_note, args.include_languages)
         conn = connect_target(url)
         try:
             result = execute_apply(conn, language_rows, course_rows, lesson_rows, exercise_rows, args.include_languages)

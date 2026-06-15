@@ -203,23 +203,28 @@ Acceptance criteria:
 
 ## Goal 9 - Salary And Recording-Duration Payroll Migration
 
-Status: pending
+Status: active
 
 Intent: Move salary workflows into the new platform while preserving legacy teacher payroll behavior that depends on lesson-recording duration, and keep payment execution behind the approved payments boundary.
 
 Chunks:
 
-- [ ] 9.1 Inventory legacy salary behavior and source-to-target mapping for salary profiles, salary expenses, lesson salary expenses, support bonuses, contracts, and payout-related data.
-- [ ] 9.2 Define the education-service internal salary aggregate contract based on finished lessons and recording-derived duration.
-- [ ] 9.3 Harden salary migration dry-run/reconciliation reporting before any write mode.
-- [ ] 9.4 Implement recording-duration parity support without exposing private recording objects.
-- [ ] 9.5 Implement salary calculation parity for hourly rates, fixed salary, lower/upper duration bounds, and monthly totals.
-- [ ] 9.6 Add write gates, rollback evidence, and payment-boundary approval gates before any salary apply or payout action.
+- [x] 9.1 Inventory legacy salary behavior and source-to-target mapping for salary profiles, salary expenses, lesson salary expenses, support bonuses, contracts, and payout-related data.
+- [x] 9.2 Define the education-service internal salary aggregate contract based on finished lessons and recording-derived duration.
+- [x] 9.3 Harden salary migration dry-run/reconciliation reporting before any write mode.
+- [x] 9.4 Implement recording-duration parity support without exposing private recording objects.
+- [x] 9.5 Implement targeted demo salary parity and isolate remaining missing-duration, short-record, and teacher-mapping rows before enabling salary calculation runs.
+- [ ] 9.6 Add write gates, rollback evidence, deploy/rerun evidence, and payment-boundary approval gates before any broader salary calculation or payout action.
+
+Progress notes:
+
+- Goal 9.5 is complete at scoped-smoke level: no-write readiness and short-record reconciliation isolated blockers, historical imported lesson salary quantities are preserved for the May 2026 preview, and owner-approved draft run `6576ac90-526e-47c6-8755-9631a4fb3149` created 14 draft lines with no payout or payment disbursement.
+- Goal 9.6 remains active: the education-service fixed five-minute salary duration source change is verified by build/contract tests but is not deployed; runtime readiness and calculation preview must be rerun after owner-approved deploy before broader calculation enablement.
 
 Acceptance criteria:
 
 - Legacy lesson-recording fallback remains available until a later owner-approved retirement window.
-- Recording-derived salary hours match legacy rules for selected parity cases, including demo/no-record/record-unavailable/95%-threshold/cap/quantize behavior.
+- Recording-derived salary hours match legacy rules for selected parity cases, including demo/no-record/record-unavailable/fixed-five-minute-tolerance/cap/quantize behavior.
 - Dry-run reports include source counts, target counts, duplicates, orphan profiles, orphan lesson references, missing auth/user/teacher mappings, and source/target sample IDs.
 - `salary-service` consumes education aggregates through a documented internal contract and does not read private recording objects directly.
 - Real payout execution does not bypass `payments-microservice` and requires explicit owner approval.
@@ -227,7 +232,7 @@ Acceptance criteria:
 
 ## Goal 10 - Seven-Lesson Course Frontend Migration
 
-Status: active
+Status: paused
 
 Intent: Move the legacy public seven-lesson course frontend and course content into the new SpeakASAP platform while preserving the learner-visible text style and keeping private progress, assessments, payments, and legacy retirement behind explicit later gates.
 
@@ -249,4 +254,3 @@ Acceptance criteria:
 - Dry-run reports include source counts, target counts, missing templates/assets, duplicates, source IDs, target IDs, and write status.
 - No target DB write, deployment, destructive operation, or legacy route retirement runs without explicit owner approval and rollback evidence.
 - Legacy `speakasap-portal` remains fallback/reference until a later cutover goal.
-

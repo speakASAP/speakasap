@@ -21,26 +21,22 @@ Before this data apply can be approved:
 - `CONTENT_BASE_SCHEMA_APPROVAL.md` must be approved and completed.
 - A post-schema DB-backed no-write report must show `Language`, `SevenCourse`, `SevenLesson`, and `SevenExercise` are queryable.
 - The importer report must still show `writes=false`, planned payload `languages=19`, `courses=19`, `lessons=136`, `exercises=429`, and no source blocking issues.
+- `/tmp/speakasap-seven-data-apply-contract-v10.json` must remain `writes=false`, `ok=true`, with write gates, rollback scope, language include handling, and idempotent upsert contract verified.
 - If `Language` rows are missing, approval must explicitly allow `--include-languages` so the importer can seed/update only the 19 legacy language rows required by seven courses.
 
 ## Proposed Command
 
-Run on `alfares` from `/home/ssf/Documents/Github/speakasap` only after explicit owner approval and only with a fresh DB-backed no-write report:
+Run on `alfares` from `/home/ssf/Documents/Github/speakasap` only after explicit owner approval and only with a fresh passing DB-backed post-schema no-write report:
 
 ```bash
 cd /home/ssf/Documents/Github/speakasap
-kubectl -n statex-apps port-forward svc/db-server-postgres 15442:5432
+SEVEN_DATA_APPROVAL_TEXT='Approved to run the seven content data apply against the Kubernetes content database with `--include-languages`, importing only the 19 language rows, 19 seven courses, 136 seven lessons, and 429 seven exercises from the legacy portal evidence. No deployment, object mutation, media copy, final test migration, private progress migration, paid-product change, or legacy route retirement is approved.' \
+SCHEMA_RECONCILIATION_REPORT=/tmp/speakasap-seven-post-schema-reconciliation-v1.json \
+ROLLBACK_PLAN=/tmp/speakasap-seven-content-rollback-v1.sql \
+  scripts/apply-seven-data-approved.sh --execute
 ```
 
-In a separate remote shell with the port-forward active:
-
-```bash
-cd /home/ssf/Documents/Github/speakasap
-export CONTENT_TARGET_DATABASE_URL="$(kubectl get secret speakasap-content-secret -n statex-apps -o jsonpath='{.data.DATABASE_URL}' | base64 -d | sed 's/@db-server-postgres:5432/@127.0.0.1:15442/')"
-content-service/scripts/migrate-seven-from-legacy.py --check-target --apply --include-languages --confirm-write --approval-note "OWNER_APPROVAL_TEXT" --rollback-plan /tmp/speakasap-seven-content-rollback-v1.sql --json-report /tmp/speakasap-seven-content-apply-v1.json
-```
-
-Stop the temporary port-forward immediately after post-apply verification commands finish.
+The gated data operator refuses to run without `--execute`, an exact `SEVEN_DATA_APPROVAL_TEXT` match, an existing post-schema reconciliation report with `writes=false`, `schemaReady=true`, and `ok=true`, and a rollback SQL path. It opens the temporary port-forward, derives `CONTENT_TARGET_DATABASE_URL` from the Kubernetes content secret, runs `migrate-seven-from-legacy.py --check-target --apply --include-languages --confirm-write`, reruns the post-apply no-write target reconciliation, and writes `/tmp/speakasap-seven-content-apply-execution-v1.json`.
 
 ## Required Post-Apply Verification
 

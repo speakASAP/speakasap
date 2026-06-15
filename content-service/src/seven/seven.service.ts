@@ -209,8 +209,31 @@ function lessonPrefix(prefix: string | null, order: number): string {
   return prefix || "Урок №" + order;
 }
 
+function publicAssetBaseUrl(): string {
+  return (process.env.ASSETS_BASE_URL || "").replace(/\/$/, "");
+}
+
+function publicMediaHref(href: string): string {
+  if (!href.startsWith("/media/")) {
+    return href;
+  }
+  const base = publicAssetBaseUrl();
+  return base ? base + href : href;
+}
+
+function rewriteHtmlMediaRefs(html: string | null): string | null {
+  if (html === null) {
+    return null;
+  }
+  return html.replace(/((?:src|href|data-src|data-src-ogg)=")\/media\/([^"#?\s>]+)((?:[?#][^"]*)?")/g, (_match, prefix: string, path: string, suffix: string) => {
+    return prefix + publicMediaHref("/media/" + path) + suffix;
+  }).replace(/((?:src|href|data-src|data-src-ogg)=')\/media\/([^'#?\s>]+)((?:[?#][^']*)?')/g, (_match, prefix: string, path: string, suffix: string) => {
+    return prefix + publicMediaHref("/media/" + path) + suffix;
+  });
+}
+
 function lessonPdfHref(languageCode: string, order: number): string {
-  return "/media/pdf/" + encodeURIComponent(languageCode) + "/lesson" + order + ".pdf";
+  return publicMediaHref("/media/pdf/" + encodeURIComponent(languageCode) + "/lesson" + order + ".pdf");
 }
 
 function mediaKind(href: string): SevenMediaRef["kind"] {
@@ -225,7 +248,10 @@ function mediaKind(href: string): SevenMediaRef["kind"] {
 function mediaRefsFromMetadata(metadata: JsonObject, fallbackPdfHref?: string): SevenMediaRef[] {
   const refs = Array.isArray(metadata.mediaRefs) ? metadata.mediaRefs.filter((value): value is string => typeof value === "string") : [];
   const withFallback = fallbackPdfHref ? [...refs, fallbackPdfHref] : refs;
-  return Array.from(new Set(withFallback)).map((href) => ({ href, kind: mediaKind(href) }));
+  return Array.from(new Set(withFallback)).map((href) => {
+    const publicHref = publicMediaHref(href);
+    return { href: publicHref, kind: mediaKind(publicHref) };
+  });
 }
 
 function toCourseResponse(course: Prisma.SevenCourseGetPayload<{ include: typeof courseInclude }>): SevenCourseResponse {
@@ -279,7 +305,7 @@ function toLessonDetailResponse(
 ): SevenLessonDetailResponse {
   return {
     ...toLessonSummaryResponse(lesson),
-    bodyHtml: lesson.bodyHtml,
+    bodyHtml: rewriteHtmlMediaRefs(lesson.bodyHtml) ?? "",
     previousLesson: previousLesson ? toLessonSummaryResponse(previousLesson) : null,
     nextLesson: nextLesson ? toLessonSummaryResponse(nextLesson) : null,
     exercises: lesson.exercises.map((exercise) => {
@@ -287,20 +313,20 @@ function toLessonDetailResponse(
       const exerciseMeta = metadata.exercise && typeof metadata.exercise === "object" && !Array.isArray(metadata.exercise) ? metadata.exercise as JsonObject : {};
       const answerMeta = metadata.answer && typeof metadata.answer === "object" && !Array.isArray(metadata.answer) ? metadata.answer as JsonObject : {};
       return {
-      id: exercise.id,
-      order: exercise.order,
-      title: exercise.title,
-      legacyKey: exercise.legacyKey,
-      exerciseTemplate: exercise.exerciseTemplate,
-      answerTemplate: exercise.answerTemplate,
-      exerciseHtml: exercise.exerciseHtml,
-      answerHtml: exercise.answerHtml,
-      mediaRefs: [
-        ...mediaRefsFromMetadata(exerciseMeta),
-        ...mediaRefsFromMetadata(answerMeta),
-      ],
-      metadata,
-    };
+        id: exercise.id,
+        order: exercise.order,
+        title: exercise.title,
+        legacyKey: exercise.legacyKey,
+        exerciseTemplate: exercise.exerciseTemplate,
+        answerTemplate: exercise.answerTemplate,
+        exerciseHtml: rewriteHtmlMediaRefs(exercise.exerciseHtml) ?? "",
+        answerHtml: rewriteHtmlMediaRefs(exercise.answerHtml),
+        mediaRefs: [
+          ...mediaRefsFromMetadata(exerciseMeta),
+          ...mediaRefsFromMetadata(answerMeta),
+        ],
+        metadata,
+      };
     }),
   };
 }

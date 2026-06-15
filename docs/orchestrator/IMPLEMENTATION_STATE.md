@@ -1,6 +1,6 @@
 # SpeakASAP Implementation State
 
-Last updated: 2026-06-13.
+Last updated: 2026-06-14.
 
 ## Orchestrator Command
 
@@ -16,13 +16,13 @@ Continue implementation of this project.
 
 ## Current Status
 
-- Active goal: Goal 10 - Seven-Lesson Course Frontend Migration
-- Active chunk: 10.3 owner-approved content base/seven schema migration, then DB-backed no-write report rerun
+- Active goal: Goal 9 - Salary And Recording-Duration Payroll Migration
+- Active chunk: 9.6 salary calculation review, deploy gate, and payout/payment-boundary gates
 - Active branch: not recorded in this checkout
-- Current wave: Wave 10 - Seven-Lesson Course Frontend Migration
+- Current wave: Wave 9 - Salary And Recording-Duration Payroll Migration
 - Completed goals: Goal 1 Intent Preservation And Refactor Governance; Goal 2 Legacy Portal Inventory And Parity Map; Goal 3 Service Ownership And API Contract Mapping; Goal 4 Data Migration And Reconciliation; Goal 5 Lesson Recording And Private Media Migration; Goal 6 Gateway, Auth, And Frontend Parity; Goal 7 Operational Cutover Readiness; Goal 8 Controlled Cutover Validation With Legacy Retained As Fallback
 - Running worker threads: none
-- Blocked chunks: salary writes, payout creation, payment execution, and destructive operations require dry-run evidence and explicit owner approval
+- Blocked chunks: broader salary calculation enablement is blocked pending owner-approved education-service deploy, no-write salary readiness rerun, and calculation preview rerun; payout flows remain blocked by `SALARY_PAYOUT_FLOWS_ENABLED=true` plus separate payment-boundary approval
 - Approval gates currently active: any future lesson-record rerun, rollback execution, object-storage mutation, public/private access behavior change, or deployment requires fresh evidence and explicit owner approval where applicable; any future user-service write migration/rerun/rollback/truncation requires fresh no-write DB evidence, rollback artifact, and explicit owner approval
 - State source: this file plus `docs/orchestrator/STATE.json` and root `STATE.json`
 - Evidence log: `docs/orchestrator/STATUS.md`
@@ -41,8 +41,8 @@ Continue implementation of this project.
 | Goal 6 - Gateway, Auth, And Frontend Parity | done | Gateway/frontend route checks and authorized learner/teacher/staff parity checks are recorded. |
 | Goal 7 - Operational Cutover Readiness | done | Manifests, secrets, health, logging, OpenSSL runtime, smoke URLs, rollback, and cutover checklist are recorded. |
 | Goal 8 - Controlled Cutover And Legacy Decommission | done | Controlled cutover validation passed; owner selected legacy retention as fallback/reference. |
-| Goal 9 - Salary And Recording-Duration Payroll Migration | paused | Paused by explicit owner redirect to seven-lesson frontend/content migration; existing salary changes are preserved. |
-| Goal 10 - Seven-Lesson Course Frontend Migration | active | Schema/API, public gateway GET exception, frontend routes, API-owned lesson PDF hrefs and previous/next summaries, reading indicator/PDF/promo parity, dry-run importer, all-course genitive metadata, numeric exercise ordering, migration batch metadata, target planned-ID reconciliation, language seed readiness, media readiness inventory, and gated apply/rollback path are implemented. Next gate is owner-approved content DB schema migration before data apply; media source candidate is now identified as https://speakasap.com for 1212/1240 internal refs, with 28 missing media/audio/ru refs requiring resolution before production completion. |
+| Goal 9 - Salary And Recording-Duration Payroll Migration | active | Owner reprioritized salary. Demo salary aggregate counters, readiness blocker samples, calculation-run disabled gate, payout disabled gate, no-write readiness command, and historical imported lesson salary quantity preservation are implemented. Report `/tmp/speakasap-salary-readiness-2026-05.json` recorded `writes=false`, `missingDurationCount=0`, `shortRecordCount=6`, `teacherMappingMissingCount=0`, and `demoPayableLessonCount=1`. Reconciliation report `/tmp/speakasap-salary-short-record-reconciliation-2026-05.json` showed all six short rows have legacy/imported salary expense `qty=1.00`; target duration recalculation would underpay by `0.08` to `0.98` hours. Preview report `/tmp/speakasap-salary-calculation-preview-2026-05.json` showed `14/14` lines use imported lesson salary hours and `6/6` blockers are covered by exact imported `salary_expenses.lesson_uuid`. Owner-approved draft calculation smoke created run `6576ac90-526e-47c6-8755-9631a4fb3149` with 14 lines and rollback `/tmp/speakasap-salary-calculation-run-rollback-2026-05-v1.sql`. Draft review is complete at scoped-smoke level; next gate is owner-approved education-service deploy and no-write readiness/preview rerun. Payout env gate remains separate. |
+| Goal 10 - Seven-Lesson Course Frontend Migration | paused | Paused by explicit owner salary reprioritization. Existing Seven work remains preserved and should not be reverted. |
 
 ## Execution Waves
 
@@ -147,6 +147,29 @@ Risks: Media copy/routing still requires explicit owner approval; 28 media/audio
 Changed files: content-service/scripts/prepare-seven-media-manifest.py; docs/orchestrator/SEVEN_MEDIA_MIGRATION_APPROVAL.md; docs/orchestrator/SEVEN_LESSON_FRONTEND_MIGRATION_PLAN.md; docs/orchestrator/STATUS.md; docs/orchestrator/IMPLEMENTATION_STATE.md
 ```
 
+```text
+Worker Deployment Readiness:
+Goal/chunk: 10.5 seven deployment/cutover readiness
+Write ownership: scripts/check-seven-deployment-smoke.py; docs/orchestrator/SEVEN_DEPLOYMENT_APPROVAL.md; seven plan/status/state docs
+Status: completed no-write implementation
+Summary: Added scoped deployment approval packet and no-write deployed-route smoke checker for seven API/pages/media.
+Validation: py_compile passed; current baseline smoke reports health 200 with seven API 401 and pages/media 404 before deployment/data/media gates.
+Risks: Root scripts/deploy.sh restarts all services and should not be used for this slice without separate approval; browser typography QA remains required after real deploy.
+Changed files: scripts/check-seven-deployment-smoke.py; docs/orchestrator/SEVEN_DEPLOYMENT_APPROVAL.md; docs/orchestrator/SEVEN_LESSON_FRONTEND_MIGRATION_PLAN.md; docs/orchestrator/STATUS.md; docs/orchestrator/IMPLEMENTATION_STATE.md
+```
+
+
+```text
+Worker Rendered HTML Safety:
+Goal/chunk: 10.2 seven importer/frontend safety readiness
+Write ownership: content-service/scripts/migrate-seven-from-legacy.py; seven plan/status/state docs
+Status: completed no-write implementation
+Summary: Added htmlSafety dry-run gate for unresolved Django syntax, scripts, forms, inline handlers, and javascript URLs in rendered lesson/exercise/answer HTML.
+Validation: py_compile passed; /tmp/speakasap-seven-dry-run-v19.json checked 993 fragments with zero issues and no blocking issues.
+Risks: This is static HTML safety evidence; browser QA remains required after real data/deploy.
+Changed files: content-service/scripts/migrate-seven-from-legacy.py; docs/orchestrator/SEVEN_LESSON_FRONTEND_MIGRATION_PLAN.md; docs/orchestrator/STATUS.md; docs/orchestrator/IMPLEMENTATION_STATE.md
+```
+
 ## State Update Rules
 
 At the end of every implementation session, update:
@@ -163,6 +186,34 @@ Do not paste full logs. Keep each session summary short enough to guide the next
 
 ## Recent Evidence Summary
 
+- 2026-06-14: Goal 9 draft salary calculation smoke reviewed and accepted only as scoped evidence: run `6576ac90-526e-47c6-8755-9631a4fb3149`, 14 draft lines, totals EUR 21858 and CZK 29035, no payout run and no payment disbursement. Fresh no-write readiness report `/tmp/speakasap-salary-readiness-2026-05-current-review.json` cleared missing-duration, short-record, and teacher-mapping blockers but still reports readiness false until patched education runtime is deployed. Fixed source salary duration tolerance from the stale 95% expression to the documented fixed five-minute tolerance and added a verifier guard; education lesson-record contract test and build passed. No deploy, rollback, payout, payment, or destructive operation ran.
+
+- 2026-06-13: Goal 9 owner-approved draft calculation smoke completed. Approval packet `docs/orchestrator/SALARY_CALCULATION_RUN_APPROVAL.md`; report `/tmp/speakasap-salary-calculation-run-2026-05-v1.json`; rollback SQL `/tmp/speakasap-salary-calculation-run-rollback-2026-05-v1.sql`; calculation run `6576ac90-526e-47c6-8755-9631a4fb3149` is `draft` with 14 lines and 0 payout runs. Temporary local education service and port-forwards were stopped. No payout/payment/deploy/destructive action ran.
+- 2026-06-13: Goal 9 no-write calculation preview report `/tmp/speakasap-salary-calculation-preview-2026-05.json` recorded `writes=false`, `profiles=14`, `lines=14`, `linesUsingImportedLessonSalary=14`, and `blockerSamplesCoveredByImportedSalaryExpenses=6/6`. No calculation run was created. Calculation and payout env gates remain disabled.
+- 2026-06-13: Goal 9 historical imported salary quantity preservation implemented in `salary-service/src/calculation-runs/calculation-runs.service.ts`. Calculation lines now use imported lesson salary expense `qty` hour sums for historical profile/month rows when present and record both imported and aggregate hour sources in breakdown. Aggregate readiness can clear short-record/missing-duration blockers only when exact blocker lesson UUIDs are covered by imported `salary_expenses.lesson_uuid`; teacher mapping and dependency warnings remain hard blockers. `cd salary-service && npm run build` passed. No calculation/payout/write/deploy ran.
+- 2026-06-13: Goal 9 short-record reconciliation report `/tmp/speakasap-salary-short-record-reconciliation-2026-05.json` recorded `writes=false`. All six short-record blockers have legacy lesson salary expenses and imported target salary expenses with `qty=1.00`. Current target aggregate duration recalculation would pay `0.02` to `0.92` hours, under legacy/imported qty by `0.08` to `0.98` hours. The remaining gate is a historical parity policy/implementation: calculation previews/runs must preserve imported historical lesson salary quantities, or the owner must explicitly approve recomputing historical salary from MP3 duration.
+- 2026-06-13: Goal 9 salary gate resumed by explicit owner request. Education salary aggregates now expose demo unpaid/payable counters plus readiness metadata and blocker samples for missing duration, short recordings, and missing teacher mappings. Salary calculation run creation now requires `SALARY_CALCULATION_RUNS_ENABLED=true` and clean aggregate readiness; payout create/commit now require `SALARY_PAYOUT_FLOWS_ENABLED=true`. `salary-service` and `education-service` builds passed. No-write readiness report `/tmp/speakasap-salary-readiness-2026-05.json` used a temporary local education-service process and port-forwards, recorded `writes=false`, and isolated `0` missing-duration rows, `6` short-record rows, `0` missing teacher mappings, and one payable demo lesson. Temporary ports were closed.
+- 2026-06-13: Goal 10 operator refusal gate added. `scripts/check-seven-operator-refusal.py` runs schema/data/media/deployment operators without `--execute` and verifies code 2, approval usage text, and no external-action output. `/tmp/speakasap-seven-operator-refusal-v1.json` and `/tmp/speakasap-seven-no-write-suite-v17.json` are no-write ok. No schema/data/media-copy/deploy/browser production action ran.
+- 2026-06-13: Goal 10 runtime evidence chain auditor added. `scripts/check-seven-runtime-evidence.py` aggregates schema/data/media/deploy/smoke/visual execution artifacts into one final no-write completion gate. `/tmp/speakasap-seven-runtime-evidence-v1.json` is ok and complete=false with runtime artifacts missing as expected; `/tmp/speakasap-seven-no-write-suite-v17.json` is no-write ok. Completion now requires `runtimeEvidenceChainComplete`. No schema/data/media-copy/deploy/browser production action ran.
+- 2026-06-13: Goal 10 post-deploy visual QA gate added. `scripts/check-seven-postdeploy-visual-qa.js` will run Playwright desktop/mobile rendered checks for course and lesson pages after deployment; `scripts/check-seven-visual-qa-contract.py` verifies the QA script without browser/network. `/tmp/speakasap-seven-visual-qa-contract-v1.json` and `/tmp/speakasap-seven-no-write-suite-v17.json` are no-write ok; completion now also requires `postDeployVisualQaPassed`. No schema/data/media-copy/deploy/browser production action ran.
+- 2026-06-13: Goal 10 gated deployment operator script added. `scripts/deploy-seven-approved.sh` refuses without `--execute`, exact `SEVEN_DEPLOY_APPROVAL_TEXT`, and ok schema/data/media execution reports; it builds/pushes only content, api-gateway, and frontend images, applies only scoped manifests plus ingress, restarts/status-checks only scoped deployments, runs smoke, and writes an execution report. `/tmp/speakasap-seven-deployment-readiness-v3.json` and `/tmp/speakasap-seven-no-write-suite-v17.json` are no-write ok; completion remains pending runtime gates. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 gated media copy operator script added. `scripts/copy-seven-media-approved.sh` refuses without `--execute`, exact `SEVEN_MEDIA_APPROVAL_TEXT`, manifest v3 with 1212 available/0 missing refs, and explicit `MEDIA_TARGET_ROOT`; it copies only audio/PDF `media/...` keys and runs post-copy availability. `/tmp/speakasap-seven-media-approval-contract-v2.json` and `/tmp/speakasap-seven-no-write-suite-v17.json` are no-write ok; completion remains pending runtime gates. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 gated data apply operator script added. `scripts/apply-seven-data-approved.sh` refuses without `--execute`, exact `SEVEN_DATA_APPROVAL_TEXT`, a passing schema reconciliation report, and rollback SQL path; it runs the importer with `--check-target --apply --include-languages --confirm-write`, then post-apply no-write reconciliation and an execution report. `/tmp/speakasap-seven-data-apply-contract-v10.json` and `/tmp/speakasap-seven-no-write-suite-v17.json` are no-write ok; completion remains pending runtime gates. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 schema operator execution report contract added. After a future approved schema-only run, `scripts/apply-seven-schema-approved.sh` writes `/tmp/speakasap-seven-schema-apply-execution-v1.json` with approval hash, migration log, target/reconciliation reports, schema/data readiness, and false flags for later approvals. `/tmp/speakasap-seven-schema-migration-plan-v9.json` and `/tmp/speakasap-seven-no-write-suite-v17.json` are no-write ok; completion remains pending runtime gates. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 gated schema operator script added. `scripts/apply-seven-schema-approved.sh` is executable, refuses without `--execute` and exact `SEVEN_SCHEMA_APPROVAL_TEXT`, runs direct Prisma migrate deploy from the Kubernetes secret-derived content DB URL, and immediately runs post-schema no-write reconciliation. `/tmp/speakasap-seven-schema-migration-plan-v9.json` reports `operatorScriptContractSafe=true`; `/tmp/speakasap-seven-no-write-suite-v17.json` remains no-write ok and incomplete only for runtime gates. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 fresh baseline no-write suite passed. `/tmp/speakasap-seven-schema-migration-plan-v9.json` reports `writes=false`, `ok=true`, `approvalEvidenceReferencesCurrent=true`; `/tmp/speakasap-seven-no-write-suite-v17.json` reports `writes=false`, `network=false`, `database=false`, `deployment=false`, `ok=true`, `complete=false`. Remaining completion gaps are runtime-only: schema reconciliation, data readiness, deployed smoke, and cutover. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 fresh target DB baseline confirmed the schema gate remains pending. `/tmp/speakasap-seven-dry-run-target-fresh-v1.json` reports `writes=false`, `target.checked=true`, `TARGET_LANGUAGE_TABLE_UNAVAILABLE`; `/tmp/speakasap-seven-post-schema-reconciliation-fresh-v1.json` reports `writes=false`, `ok=false`, `schemaReady=false`, `dataReady=false`, with planned counts still matching. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 schema approval packet freshness gate passed. `/tmp/speakasap-seven-schema-migration-plan-v9.json` reports `writes=false`, `ok=true`, `approvalEvidenceReferencesCurrent=true`, and the active schema-only approval packet now points to current post-schema baseline plus schema-plan v4+/no-write-suite v3+ evidence. `/tmp/speakasap-seven-no-write-suite-v17.json` reports `writes=false`, `network=false`, `database=false`, `deployment=false`, `ok=true`, `complete=false`; only runtime gates remain missing. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 readiness checker now requires post-schema reconciliation for data approval. `/tmp/speakasap-seven-apply-readiness-v7.json` reports `writes=false`, `ok=true`, `complete=false`, schema gate ready, post-schema reconciliation not ready, data approval not ready, media source ready, and deploy not ready. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 post-schema reconciliation checker added. `/tmp/speakasap-seven-post-schema-reconciliation-fresh-v1.json` reports `writes=false`, `ok=false`, `schemaReady=false` against current pre-schema target, as expected; planned counts still match. After schema approval/apply, rerun target dry-run and this checker before data approval. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 completion audit checker added. `/tmp/speakasap-seven-goal-completion-audit-v1.json` reports `writes=false`, `ok=false`, `complete=false`; proven pieces include frontend routes, content API, typography contract, intent docs, approval packets, schema approval readiness, and media source readiness; missing pieces are schema applied/reconciled, data readiness, deployed smoke, and cutover readiness. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 consolidated no-write validation passed. content-service build, api-gateway build, frontend build, Python compile for seven scripts, schema-plan/data-contract/typography/readiness reports, and `git diff --check` all passed. `/tmp/speakasap-seven-apply-readiness-v6.json` remains `complete=false` because schema/data/deploy are not applied. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 data apply rollback contract hardened. Fixed importer rollback call to pass language scope and added `/tmp/speakasap-seven-data-apply-contract-v2.json`, which reports `writes=false`, `ok=true`, write gates present, rollback/upsert scope present, payload counts match, and language-scope signatures correct. `/tmp/speakasap-seven-apply-readiness-v6.json` now requires this contract and keeps schema approval ready while data remains not ready until post-schema DB reconciliation. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 schema migration plan verifier added. `/tmp/speakasap-seven-schema-migration-plan-v2.json` reports `writes=false`, `ok=true`, expected init/seven migrations present, schema scopes ok, and required Prisma models/relations present. `/tmp/speakasap-seven-apply-readiness-v5.json` now requires this report and keeps schema approval ready while data remains not ready until post-schema DB reconciliation. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 readiness checker extended with media source/copy-manifest gate. `/tmp/speakasap-seven-apply-readiness-v4.json` reports `writes=false`, `ok=true`, `complete=false`, schema gate ready, data/deploy gates not ready, and media source gate ready with availability checked `1212`, missing `0`, manifest total `1212`, available `1212`, missing refs `0`. No schema/data/media-copy/deploy action ran.
+- 2026-06-13: Goal 10 typography preservation contract checker added. `/tmp/speakasap-seven-typography-contract-v2.json` reports `writes=false`, `ok=true`, font files present, CSS contract ok, and required frontend route snippets present for course/lesson pages, reading indicator, PDF link, and legacy lesson wrapper. No schema/data/media/deploy action ran.
+- 2026-06-13: Goal 10 readiness checker hardened with approval-packet consistency validation. `/tmp/speakasap-seven-apply-readiness-v2.json` reports `ok=true`, `complete=false`, `approvalDocsConsistent=true`, active schema approval text present, superseded schema doc marked, stale seven-only schema approval wording absent, schema gate ready, and data gate not ready until post-schema DB reconciliation. No schema/data/media/deploy action ran.
+- 2026-06-13: Goal 10 intent-preservation evidence restored. `docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md` and `docs/orchestrator/SEVEN_INTENT_PRESERVATION_EVIDENCE.md` now record the seven-course legacy evidence, style-preservation intent, ownership boundaries, no-write evidence, approval status, rollback expectations, and commit-message block. No schema/data/media/deploy/legacy-retirement action ran; next gate remains explicit schema-only approval.
 - 2026-06-12: Intent-preservation compliance refreshed. Root `BUSINESS.md`, `SYSTEM.md`, `TASKS.md`, and `STATE.json` are present; `docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md` defines staged context, ownership, approval, verification, rollback, and commit-message gates. RAG lookup timed out, so repository evidence was used and recorded in `STATUS.md`.
 - 2026-06-12: Goal 5.2 local implementation added lesson-record Prisma schema/migration and a write-gated metadata migration script. Local syntax/help/gate checks passed. No object storage access or target DB write was run. Remote copy/validation is blocked because `alfares` resolves to `alfares.local`, which does not resolve from this session.
 - 2026-06-12: Goal 5.3 remote validation completed. Artifacts were copied to `alfares` through direct IPv6 link-local SSH after alias DNS proved intermittent. Remote `prisma:validate`, `npm run build`, script compile/help, and DB-backed no-write report passed. `/tmp/speakasap-lesson-records-dry-run-g5-2.json` reports `missing_target_lesson=0`, `would_upsert_lesson_records=101184`, `would_upsert_lesson_record_parts=52453`, and only non-blocking media/key reconciliation issues remain. No target DB write was run.
@@ -283,3 +334,145 @@ Create `docs/orchestrator/SALARY_MIGRATION_INVENTORY.md` with legacy salary beha
 - Added `docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md` to make the new approval gate explicit: apply pending content-service schema migrations for base readiness and seven schema only, then rerun DB-backed no-write seven reconciliation.
 - Verification: `cd content-service && npm run prisma:validate` and `cd content-service && npm run build` passed.
 - Boundary: no schema migration, data apply, deploy, object mutation, destructive command, or legacy route retirement ran.
+## 2026-06-13 - Goal 10 Seven Contract And Smoke Hardening
+
+Status: no-write contract hardening completed; no schema migration, seven data apply, media copy, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Changed:
+
+- Spawned read-only sub-agent Huygens to validate current seven frontend/API/gateway contracts on alfares; it made no edits and reported rollout risks around media routing, deployed gateway auth, partial API failure handling, and legacy 8-row courses.
+- Hardened scripts/check-seven-deployment-smoke.py so the no-write deployment smoke now checks API payload shape, lesson body presence, PDF/media refs, absence of unresolved legacy template syntax, and frontend page markers: seven-page, seven-lessons-grid, seven-page--lesson, lesson__content--seven, and lesson-wrapper.
+- Hardened frontend/lib/seven.ts to settle course, lessons, and lesson-detail API calls independently. A neighbor-list or metadata failure no longer discards successfully fetched lesson content.
+- Verified legacy preservation for non-7 row courses: legacy speakasap_site/templates/site/seven/index.html renders course.get_lessons without a hard limit, and fixtures show EN course 1, DE course 4, and CN course 18 have 8 visible rows. The target should preserve those rows rather than truncate to exactly seven DB rows.
+
+Verification:
+
+- cd frontend && npm run build passed after the frontend/lib/seven.ts hardening and still lists dynamic routes /[languageCode]/seven and /[languageCode]/seven/[order].
+- python3 -m py_compile scripts/check-seven-deployment-smoke.py passed.
+- Current production baseline remains expected-failing before deploy/data/media: /tmp/speakasap-seven-deployment-smoke-current-v2.json recorded writes=false, health 200, seven APIs 401, seven pages 404, PDF/audio 404, and explicit failed assertions for API/page/media contracts.
+- Legacy fixture evidence for the 8-row courses was printed from portal/fixtures/seven.xml: EN order 8 7 Keys to study English, DE split lesson 1 into parts 1/2 plus lessons 2-7, and CN order 8 Чтение и аудирование на китайском языке.
+
+Boundary:
+
+- No target DB schema or data write ran.
+- No media copy or static route change ran.
+- No Kubernetes deploy or rollout restart ran.
+- Legacy portal remains the behavior/style fallback.
+
+Next:
+
+- Approval is still required for the schema-only content DB migration from docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md; after that, rerun DB-backed no-write reconciliation and keep media/deploy approvals separate.
+## 2026-06-13 - Goal 10 Seven Assets Base Media Contract
+
+Status: code contract aligned with existing platform assets host; no schema migration, seven data apply, media copy, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Changed:
+
+- Aligned seven public media URLs with the existing new-platform ASSETS_BASE_URL contract already used by content-service language icon responses and Kubernetes service config.
+- Updated content-service/src/seven/seven.service.ts so pdfHref, mediaRefs, and /media/... links inside lesson/exercise/answer HTML are rewritten at response time to ASSETS_BASE_URL + /media/... when ASSETS_BASE_URL is configured. Without the env var, the API keeps the legacy relative /media/... shape.
+- Updated scripts/check-seven-deployment-smoke.py with --assets-base-url defaulting to https://assets.alfares.cz, so deployment smoke validates the same public media base that content-service will emit.
+
+Verification:
+
+- cd content-service && npm run build passed.
+- python3 -m py_compile scripts/check-seven-deployment-smoke.py passed.
+- /tmp/speakasap-seven-deployment-smoke-current-v3.json recorded writes=false, assetsBaseUrl=https://assets.alfares.cz, expected PDF href https://assets.alfares.cz/media/pdf/en/lesson1.pdf, and current expected failures before rollout/media copy: seven APIs 401, pages 404, PDF/audio 404.
+
+Boundary:
+
+- No files were copied to assets.alfares.cz.
+- No /media route, ingress, or object storage mutation ran.
+- No target DB schema/data write or Kubernetes deploy ran.
+
+Next:
+
+- Keep schema-only approval first. Media approval later should copy the approved manifest to the asset host path that serves https://assets.alfares.cz/media/..., then rerun the smoke checker against the same assets base.
+## 2026-06-13 - Goal 10 Seven Assets Contract Checker
+
+Status: no-write verifier added for seven media URL mapping; no schema migration, seven data apply, media copy, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Changed:
+
+- Added content-service/scripts/check-seven-assets-contract.py to validate the dry-run media refs against the chosen ASSETS_BASE_URL public URL contract without network calls or data writes.
+- The checker verifies that legacy /media/... refs map to the asset host while preserving /media path suffixes, external video refs remain external, duplicate mapping does not occur, and the planned PDF count matches PDF refs in the migration report.
+- Normalized indentation in content-service/src/seven/seven.service.ts around exercise response serialization after the media rewrite change.
+
+Verification:
+
+- python3 -m py_compile content-service/scripts/check-seven-assets-contract.py passed.
+- content-service/scripts/check-seven-assets-contract.py --input-report /tmp/speakasap-seven-dry-run-v19.json --assets-base-url https://assets.alfares.cz --json-report /tmp/speakasap-seven-assets-contract-v1.json passed with ok=true.
+- /tmp/speakasap-seven-assets-contract-v1.json counted refs=1373, internalRefs=1240, externalRefs=133, audio=1104, pdf=136, video=133, plannedPdfRefCount=136, failed assertions=[]; sample mapping /media/audio/cn/lesson1.mp3 -> https://assets.alfares.cz/media/audio/cn/lesson1.mp3.
+
+Boundary:
+
+- This proves URL mapping only. It does not prove asset availability; copy/availability remains blocked on separate media approval.
+- No target DB schema/data write or Kubernetes deploy ran.
+
+Next:
+
+- After schema-only approval and DB-backed no-write reconciliation, keep using /tmp/speakasap-seven-assets-contract-v1.json plus the availability checker as media-copy acceptance evidence.
+## 2026-06-13 - Goal 10 Seven Apply Readiness Aggregator
+
+Status: no-write readiness aggregator added; no schema migration, seven data apply, media copy, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Changed:
+
+- Added content-service/scripts/check-seven-apply-readiness.py to aggregate dry-run, assets-contract, deployment-smoke, and approval-packet evidence into one gate report.
+- The checker reports separate source, assets, schema, data, and deploy gates so owner approval can be scoped to the next safe action instead of implying full cutover readiness.
+
+Verification:
+
+- python3 -m py_compile content-service/scripts/check-seven-apply-readiness.py passed.
+- /tmp/speakasap-seven-apply-readiness-v1.json was generated from dry-run v19, assets-contract v1, and deployment-smoke current v3.
+- Readiness v1 recorded ok=true for owner schema approval readiness and complete=false for the full migration. Schema gate: approvalDocsPresent=true, sourceDryRunReady=true, assetsContractReady=true, readyForOwnerSchemaApproval=true. Data gate: targetChecked=false, readyForOwnerDataApproval=false. Next action: get explicit schema-only approval, apply content-service schema migrations, then rerun DB-backed no-write reconciliation.
+
+Boundary:
+
+- The readiness checker does not connect to the DB, call the network, copy media, or deploy. It only aggregates existing no-write evidence.
+- The goal remains incomplete until schema/data/media/deploy are applied with separate approvals and production smoke/browser QA passes.
+
+Next:
+
+- Use /tmp/speakasap-seven-apply-readiness-v1.json as the current evidence that the next valid owner decision is CONTENT_BASE_SCHEMA_APPROVAL.md only.
+- 2026-06-13: Goal 10 completion audit hardened no-write. `/tmp/speakasap-seven-goal-completion-audit-v9.json` reports explicit contract gates passing for frontend route, content API, gateway public access, data apply, media approval, deployment readiness, and typography; remaining missing gates are schema reconciliation, data readiness, deployment smoke, and cutover readiness. No schema/data/media/deploy action ran.
+- 2026-06-13: Goal 10 no-write validation suite added. `/tmp/speakasap-seven-no-write-suite-v1.json` reports `writes=false`, `network=false`, `database=false`, `deployment=false`, `ok=true`, and `complete=false`; remaining runtime gates are schema reconciliation, data readiness, deployment smoke, and cutover readiness. No schema/data/media/deploy action ran.
+- 2026-06-13: Goal 10 fresh build and suite validation passed. content-service, api-gateway, and frontend builds passed; frontend build listed dynamic seven routes; `/tmp/speakasap-seven-no-write-suite-v2.json` reports `ok=true`, `complete=false`, and no DB/network/deployment action. Remaining runtime gates are schema reconciliation, data readiness, deployment smoke, and cutover readiness.
+
+### 2026-06-13 - Goal 10 Runtime Approval Sequence
+
+- Added canonical runtime approval runbook `docs/orchestrator/SEVEN_RUNTIME_APPROVAL_SEQUENCE.md` and no-write checker `scripts/check-seven-approval-sequence.py`.
+- Wired the checker into `scripts/check-seven-no-write-suite.py`; suite v18 is the next evidence target.
+- Boundary: no target DB/schema/data/media/deploy/route/rollback action ran; next real action remains owner-approved schema-only gate.
+
+### 2026-06-13 - Goal 10 Next-Gate Preflight
+
+- Added no-write checker `scripts/check-seven-next-gate.py` to report the next requestable runtime gate from readiness, approval sequence, and runtime evidence artifacts.
+- Wired the checker into `scripts/check-seven-no-write-suite.py`; suite v19 is the next evidence target.
+- Boundary: no target DB/schema/data/media/deploy/route/rollback action ran; next real action remains owner-approved schema-only gate.
+
+### 2026-06-13 - Goal 10 Schema Approval Evidence Freshness
+
+- Updated active schema approval packet to reference current next-gate v1 and no-write suite v19 evidence instead of stale suite v7 evidence.
+- Hardened `content-service/scripts/check-seven-schema-migration-plan.py` to require next-gate schema requestability and no-write suite v19+ references in the approval packet.
+- Boundary: no target DB/schema/data/media/deploy/route/rollback action ran; next real action remains owner-approved schema-only gate.
+
+### 2026-06-13 - Goal 10 Intent Commit Readiness Gate
+
+- Added no-write checker `scripts/check-seven-intent-commit-readiness.py` for seven intent evidence and required migration commit block completeness.
+- Wired the checker into `scripts/check-seven-no-write-suite.py`; suite v21 is the next evidence target.
+- Boundary: no target DB/schema/data/media/deploy/route/rollback action ran; next real action remains owner-approved schema-only gate.
+
+### 2026-06-13 - Goal 10 Worker Evidence Gate
+
+- Added no-write checker `scripts/check-seven-worker-evidence.py` for recorded Anscombe/McClintock/Huygens read-only worker evidence and boundaries.
+- Wired the checker into `scripts/check-seven-no-write-suite.py`; suite v22 is the next evidence target.
+- Boundary: no target DB/schema/data/media/deploy/route/rollback action ran; next real action remains owner-approved schema-only gate.
+
+
+### 2026-06-13 - Goal 10 Schema And Data Gates Executed
+
+- Applied content-service schema migrations and recorded `/tmp/speakasap-seven-schema-apply-execution-v1.json`.
+- Applied seven public content data with `--include-languages`; rollback SQL is `/tmp/speakasap-seven-content-rollback-v1.sql`.
+- Post-apply reconciliation `/tmp/speakasap-seven-content-post-apply-v1.json` shows planned matches 19 courses, 136 lessons, and 429 exercises with no blocking issues.
+- Runtime evidence after data remains complete=false until media, deploy, smoke, and visual QA gates run.
+- Boundary: no media copy/object mutation, deployment, public cutover, rollback, or legacy route retirement ran.

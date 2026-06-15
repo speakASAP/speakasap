@@ -7,6 +7,8 @@
     "build": "prisma generate && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "test:lesson-records": "node scripts/verify-lesson-record-runtime-contract.js",
+    "backfill:lesson-record-durations": "node scripts/backfill-lesson-record-durations.js",
+    "repair:lesson-record-keys": "node scripts/repair-lesson-record-keys.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; export DATABASE_URL=\"${EDUCATION_TARGET_DATABASE_URL:-${EDUCATION_DATABASE_URL:-$DATABASE_URL}}\"; exec npx prisma migrate deploy'",
     "prisma:validate": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; export DATABASE_URL=\"${EDUCATION_TARGET_DATABASE_URL:-${EDUCATION_DATABASE_URL:-$DATABASE_URL}}\"; exec npx prisma validate'",

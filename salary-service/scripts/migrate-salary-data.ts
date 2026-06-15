@@ -353,22 +353,41 @@ async function backfillImportedLessonUuids(
   rows: ImportedLessonExpenseRow[],
 ): Promise<number> {
   let updated = 0;
-  for (const row of rows) {
-    const desiredLessonUuid = lessonUuidByLegacyExpenseId.get(
-      Number(row.legacyExpenseId),
+  const candidates = rows
+    .map((row) => ({
+      legacyExpenseId: Number(row.legacyExpenseId),
+      lessonUuid: lessonUuidByLegacyExpenseId.get(Number(row.legacyExpenseId)),
+      currentLessonUuid: row.lessonUuid,
+    }))
+    .filter(
+      (row) => row.lessonUuid && row.currentLessonUuid !== row.lessonUuid,
     );
-    if (!desiredLessonUuid || row.lessonUuid === desiredLessonUuid) {
-      continue;
-    }
-    const result = await prisma.salaryExpense.updateMany({
-      where: {
-        legacyExpenseId: Number(row.legacyExpenseId),
-        kind: SalaryExpenseKind.lesson,
-        OR: [{ lessonUuid: null }, { lessonUuid: { not: desiredLessonUuid } }],
-      },
-      data: { lessonUuid: desiredLessonUuid },
+
+  for (let i = 0; i < candidates.length; i += BATCH) {
+    const batch = candidates.slice(i, i + BATCH);
+    const valuesSql = batch
+      .map((_, idx) => `($${idx * 2 + 1}::int, $${idx * 2 + 2}::text)`)
+      .join(', ');
+    const params = batch.flatMap((row) => [
+      row.legacyExpenseId,
+      row.lessonUuid!,
+    ]);
+    const result = await prisma.$executeRawUnsafe(
+      `UPDATE salary_expenses AS se
+       SET lesson_uuid = v.lesson_uuid,
+           updated_at = NOW()
+       FROM (VALUES ${valuesSql}) AS v(legacy_expense_id, lesson_uuid)
+       WHERE se.legacy_expense_id = v.legacy_expense_id
+         AND se.kind = 'lesson'::"SalaryExpenseKind"
+         AND (se.lesson_uuid IS NULL OR se.lesson_uuid <> v.lesson_uuid)`,
+      ...params,
+    );
+    updated += result;
+    log('lesson_uuid_backfill_batch_written', {
+      at: i,
+      batch: batch.length,
+      updated: result,
     });
-    updated += result.count;
   }
   return updated;
 }

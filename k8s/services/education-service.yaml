@@ -165,6 +165,10 @@ spec:
       remoteRef:
         key: secret/prod/speakasap
         property: JWT_TOKEN
+    - secretKey: LESSON_RECORD_MEDIA_TOKEN_SECRET
+      remoteRef:
+        key: secret/prod/speakasap/education
+        property: LESSON_RECORD_MEDIA_TOKEN_SECRET
     - secretKey: RECORDS_S3_ENDPOINT_URL
       remoteRef:
         key: secret/prod/speakasap/education

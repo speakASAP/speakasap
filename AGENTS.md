@@ -23,6 +23,15 @@ SpeakASAP is being refactored from the legacy Django portal into the new Alphari
 Query the RAG service first when it is reachable, then verify against repository files:
 
 ```bash
+kubectl -n statex-apps exec deployment/speakasap -- sh -c 'curl -s -X POST http://docs-rag-microservice:3397/retrieval/agent-context \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data "$1"' -- '{"query": "YOUR QUESTION HERE", "maxTokens": 3000}'
+```
+
+From inside the cluster or a shell that already has cluster DNS and `JWT_TOKEN`, the direct service URL also works:
+
+```bash
 curl -s -X POST http://docs-rag-microservice.statex-apps.svc.cluster.local:3397/retrieval/agent-context \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
@@ -78,3 +87,11 @@ For owner-facing updates, state the current goal, what was changed or verified, 
 ## Active Agents
 <!-- Coordinator-maintained -->
 None.
+
+## Company Cross-Agent Standard
+
+This repository also follows `AGENT_OPERATIONS.md`, which points all AI agents to the company cross-agent automation model: readiness scanner, bounded worker agent, worker monitor, and integration validator. Use the validation-debt ledger for known out-of-scope validation failures and preserve the Intent Preservation chain.
+
+## Central Instruction Source
+
+Shared agent rules now live in `/home/ssf/.codex/AGENTS.md` and `/home/ssf/.ai-agent-standards/CROSS_AGENT_AUTOMATION_STANDARD.md`. Keep this file for repository-specific constraints only; do not duplicate shared operating rules here.

@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import { CalculationRunStatus, Prisma } from '@prisma/client';
+import { CalculationRunStatus, Prisma, SalaryExpenseKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { EducationClientService } from '../deps/education-client.service';
+import { EducationClientService, PeriodAggregateResult } from '../deps/education-client.service';
 import {
   decodeCursor,
   encodeCursor,
@@ -12,6 +12,14 @@ import { idempotencyReplayException, salaryHttpException } from '../shared/salar
 import { IdempotencyService, requestBodyHash } from '../idempotency/idempotency.service';
 
 const PERIOD_RE = /^\d{4}-\d{2}$/;
+const CALCULATION_RUNS_ENABLED_ENV = 'SALARY_CALCULATION_RUNS_ENABLED';
+
+type ImportedLessonSalaryTotal = {
+  legacyPortalUserId: number;
+  lessonExpenseCount: number;
+  qtyHours: number;
+  lessonUuids: Set<string>;
+};
 
 function mergeCursor(
   base: Prisma.CalculationRunWhereInput,
@@ -41,6 +49,13 @@ export class CalculationRunsService {
     body: { period: string; profileIds?: number[]; rulesVersion: string },
     idempotencyKey?: string,
   ) {
+    if (process.env[CALCULATION_RUNS_ENABLED_ENV] !== 'true') {
+      throw salaryHttpException(
+        HttpStatus.PRECONDITION_FAILED,
+        'SALARY_CALCULATION_RUNS_DISABLED',
+        `${CALCULATION_RUNS_ENABLED_ENV}=true is required after salary parity blockers are isolated`,
+      );
+    }
     if (!PERIOD_RE.test(body.period)) {
       throw salaryHttpException(HttpStatus.BAD_REQUEST, 'VALIDATION_FAILED', 'period must be YYYY-MM');
     }
@@ -74,9 +89,9 @@ export class CalculationRunsService {
       process.env.EDUCATION_SERVICE_INTERNAL_TOKEN ||
       process.env.INTERNAL_API_TOKEN ||
       '';
-    let agg: Map<number, import('../deps/education-client.service').PeriodAggregateItem>;
+    let aggregateResult: PeriodAggregateResult;
     try {
-      agg = await this.education.fetchPeriodAggregates(
+      aggregateResult = await this.education.fetchPeriodAggregates(
         body.period,
         profiles.map((p) => p.legacyPortalUserId),
         internal,
@@ -88,6 +103,12 @@ export class CalculationRunsService {
         'education-service unavailable',
       );
     }
+    const importedLessonSalaryTotals = await this.loadImportedLessonSalaryTotals(
+      body.period,
+      profiles.map((p) => p.legacyPortalUserId),
+    );
+    assertSalaryAggregateReady(aggregateResult, importedLessonSalaryTotals);
+    const agg = aggregateResult.items;
 
     const run = await this.prisma.calculationRun.create({
       data: {
@@ -98,7 +119,9 @@ export class CalculationRunsService {
         lines: {
           create: profiles.map((p) => {
             const a = agg.get(p.legacyPortalUserId);
-            const hours = a ? a.totalMinutes / 60 : 0;
+            const importedLessonSalary = importedLessonSalaryTotals.get(p.legacyPortalUserId);
+            const aggregateHours = a ? a.totalMinutes / 60 : 0;
+            const hours = importedLessonSalary?.qtyHours ?? aggregateHours;
             const fromRate = Number(p.rate.toString()) * hours;
             const fromSalary = Number(p.salary.toString());
             const amount = (fromSalary + fromRate).toFixed(2);
@@ -110,7 +133,26 @@ export class CalculationRunsService {
               breakdown: {
                 period: body.period,
                 finishedLessonCount: a?.finishedLessonCount ?? 0,
+                paidLessonCount: a?.paidLessonCount ?? 0,
+                demoLessonCount: a?.demoLessonCount ?? 0,
+                demoUnpaidLessonCount: a?.demoUnpaidLessonCount ?? 0,
+                demoPayableLessonCount: a?.demoPayableLessonCount ?? 0,
+                scheduledMinutes: a?.scheduledMinutes ?? 0,
+                payableMinutes: a?.payableMinutes ?? 0,
                 totalMinutes: a?.totalMinutes ?? 0,
+                recordedMinutes: a?.recordedMinutes ?? 0,
+                recordUnavailableCount: a?.recordUnavailableCount ?? 0,
+                missingRecordCount: a?.missingRecordCount ?? 0,
+                missingDurationCount: a?.missingDurationCount ?? 0,
+                shortRecordCount: a?.shortRecordCount ?? 0,
+                fallbackPaidLessonCount: a?.fallbackPaidLessonCount ?? 0,
+                aggregateWarnings: a?.warnings ?? [],
+                lessonSalaryHoursSource: importedLessonSalary
+                  ? 'imported_legacy_lesson_salary_expenses'
+                  : 'education_recording_aggregate',
+                importedLessonSalaryExpenseCount: importedLessonSalary?.lessonExpenseCount ?? 0,
+                importedLessonSalaryQtyHours: importedLessonSalary?.qtyHours ?? null,
+                aggregateLessonSalaryQtyHours: aggregateHours,
                 monthlySalaryComponent: fromSalary,
                 hourlyComponent: fromRate,
               },
@@ -221,4 +263,111 @@ export class CalculationRunsService {
     });
     return { calculationRunId: runId, status: 'finalized' as const };
   }
+
+  private async loadImportedLessonSalaryTotals(
+    period: string,
+    legacyPortalUserIds: number[],
+  ): Promise<Map<number, ImportedLessonSalaryTotal>> {
+    if (!legacyPortalUserIds.length) {
+      return new Map();
+    }
+    const { start, end } = periodBounds(period);
+    const rows = await this.prisma.salaryExpense.findMany({
+      where: {
+        legacyPortalUserId: { in: legacyPortalUserIds },
+        kind: SalaryExpenseKind.lesson,
+        date: { gte: start, lt: end },
+      },
+      select: {
+        legacyPortalUserId: true,
+        lessonUuid: true,
+        qty: true,
+      },
+    });
+    const totals = new Map<number, ImportedLessonSalaryTotal>();
+    for (const row of rows) {
+      let total = totals.get(row.legacyPortalUserId);
+      if (!total) {
+        total = {
+          legacyPortalUserId: row.legacyPortalUserId,
+          lessonExpenseCount: 0,
+          qtyHours: 0,
+          lessonUuids: new Set<string>(),
+        };
+        totals.set(row.legacyPortalUserId, total);
+      }
+      total.lessonExpenseCount += 1;
+      total.qtyHours += Number(row.qty.toString());
+      if (row.lessonUuid) {
+        total.lessonUuids.add(row.lessonUuid);
+      }
+    }
+    return totals;
+  }
+}
+
+function assertSalaryAggregateReady(
+  result: PeriodAggregateResult,
+  importedLessonSalaryTotals: Map<number, ImportedLessonSalaryTotal>,
+): void {
+  const readiness = result.readiness;
+  const missingDurationCount = readiness.missingDurationCount ?? 0;
+  const shortRecordCount = readiness.shortRecordCount ?? 0;
+  const teacherMappingMissingCount = readiness.teacherMappingMissingCount ?? 0;
+  const dependencyWarnings = result.warnings.length;
+  const importedCoveredBlockers = result.blockerSamples.filter(
+    (sample) =>
+      (sample.reason === 'short_record_duration' ||
+      sample.reason === 'lesson_record_duration_seconds_missing') &&
+      sample.legacyPortalUserId !== null &&
+      sample.legacyPortalUserId !== undefined &&
+      Boolean(
+        sample.lessonUuid &&
+          importedLessonSalaryTotals
+            .get(sample.legacyPortalUserId)
+            ?.lessonUuids.has(sample.lessonUuid),
+      ),
+  ).length;
+  const importedCoverableBlockers = result.blockerSamples.filter(
+    (sample) =>
+      sample.reason === 'short_record_duration' ||
+      sample.reason === 'lesson_record_duration_seconds_missing',
+  ).length;
+  const durationBlockersCoveredByImports =
+    missingDurationCount + shortRecordCount > 0 &&
+    teacherMappingMissingCount === 0 &&
+    importedCoverableBlockers === missingDurationCount + shortRecordCount &&
+    importedCoveredBlockers === importedCoverableBlockers;
+  if (
+    (readiness.salaryCalculationReady === false && !durationBlockersCoveredByImports) ||
+    ((missingDurationCount > 0 || shortRecordCount > 0) && !durationBlockersCoveredByImports) ||
+    teacherMappingMissingCount > 0 ||
+    dependencyWarnings > 0
+  ) {
+    throw salaryHttpException(
+      HttpStatus.PRECONDITION_FAILED,
+      'SALARY_PARITY_BLOCKERS_PRESENT',
+      'Salary calculation runs are blocked until missing-duration, short-record, and teacher-mapping rows are isolated and reconciled',
+      {
+        readiness,
+        blockerSamples: result.blockerSamples.slice(0, 50),
+        importedLessonSalaryCoverage: {
+          importedCoverableBlockers,
+          importedCoveredBlockers,
+          durationBlockersCoveredByImports,
+        },
+        warnings: result.warnings,
+      },
+    );
+  }
+}
+
+function periodBounds(period: string): { start: Date; end: Date } {
+  const [yearRaw, monthRaw] = period.split('-');
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  return {
+    start: new Date(Date.UTC(year, month - 1, 1, 0, 0, 0)),
+    end: new Date(Date.UTC(year, month, 1, 0, 0, 0)),
+  };
 }

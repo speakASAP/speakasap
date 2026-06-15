@@ -4,7 +4,46 @@ import { Injectable, Logger } from '@nestjs/common';
 export type PeriodAggregateItem = {
   legacyPortalUserId: number;
   finishedLessonCount: number;
+  paidLessonCount?: number;
+  demoLessonCount?: number;
+  demoUnpaidLessonCount?: number;
+  demoPayableLessonCount?: number;
+  scheduledMinutes?: number;
+  payableMinutes?: number;
   totalMinutes: number;
+  recordedMinutes?: number;
+  recordUnavailableCount?: number;
+  missingRecordCount?: number;
+  missingDurationCount?: number;
+  shortRecordCount?: number;
+  fallbackPaidLessonCount?: number;
+  warnings?: string[];
+};
+
+export type SalaryAggregateReadiness = {
+  salaryCalculationReady?: boolean;
+  missingDurationCount?: number;
+  shortRecordCount?: number;
+  teacherMappingMissingCount?: number;
+  missingTeacherMappingLegacyUserIds?: number[];
+};
+
+export type SalaryAggregateBlockerSample = {
+  lessonUuid?: string;
+  teacherId?: number | null;
+  legacyPortalUserId?: number | null;
+  reason: string;
+  lessonStart?: string | null;
+  scheduledMinutes?: number;
+  durationSeconds?: number | null;
+  isDemo?: boolean;
+};
+
+export type PeriodAggregateResult = {
+  items: Map<number, PeriodAggregateItem>;
+  readiness: SalaryAggregateReadiness;
+  blockerSamples: SalaryAggregateBlockerSample[];
+  warnings: string[];
 };
 
 @Injectable()
@@ -15,11 +54,11 @@ export class EducationClientService {
     period: string,
     legacyPortalUserIds: number[],
     internalToken: string,
-  ): Promise<Map<number, PeriodAggregateItem>> {
+  ): Promise<PeriodAggregateResult> {
     const base = process.env.EDUCATION_SERVICE_URL?.replace(/\/$/, '');
     if (!base) {
       this.logger.warn('EDUCATION_SERVICE_URL unset; period aggregates empty');
-      return new Map();
+      return emptyResult('EDUCATION_SERVICE_URL unset');
     }
     const url = new URL(`${base}/api/v1/internal/salary/period-aggregates`);
     url.searchParams.set('period', period);
@@ -41,7 +80,7 @@ export class EducationClientService {
         this.logger.warn(
           `education period-aggregates not implemented status=${res.status} duration_ms=${durationMs}`,
         );
-        return new Map();
+        return emptyResult(`education_http_${res.status}`);
       }
       if (!res.ok) {
         this.logger.error(
@@ -49,13 +88,25 @@ export class EducationClientService {
         );
         throw new Error(`education_http_${res.status}`);
       }
-      const body = (await res.json()) as { items?: PeriodAggregateItem[] };
+      const body = (await res.json()) as {
+        items?: PeriodAggregateItem[];
+        meta?: {
+          readiness?: SalaryAggregateReadiness;
+          blockerSamples?: SalaryAggregateBlockerSample[];
+          warnings?: string[];
+        };
+      };
       const map = new Map<number, PeriodAggregateItem>();
       for (const it of body.items ?? []) {
         map.set(it.legacyPortalUserId, it);
       }
       this.logger.log(`education period-aggregates ok duration_ms=${durationMs} count=${map.size}`);
-      return map;
+      return {
+        items: map,
+        readiness: body.meta?.readiness ?? {},
+        blockerSamples: body.meta?.blockerSamples ?? [],
+        warnings: body.meta?.warnings ?? [],
+      };
     } catch (e) {
       const durationMs = Date.now() - started;
       this.logger.error(
@@ -66,4 +117,13 @@ export class EducationClientService {
       clearTimeout(timer);
     }
   }
+}
+
+function emptyResult(warning: string): PeriodAggregateResult {
+  return {
+    items: new Map(),
+    readiness: { salaryCalculationReady: false },
+    blockerSamples: [],
+    warnings: [warning],
+  };
 }

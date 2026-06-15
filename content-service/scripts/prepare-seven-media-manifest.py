@@ -49,12 +49,41 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--json-report', required=True, help='output manifest JSON path; use - for stdout')
     parser.add_argument('--csv-report', help='optional output CSV path for available refs')
     parser.add_argument('--missing-csv-report', help='optional output CSV path for missing refs')
+    parser.add_argument('--resolver-report', help='optional JSON from check-seven-missing-media-sources.py')
     return parser.parse_args()
 
 
 def load_report(path: str) -> dict[str, Any]:
     with open(path, encoding='utf-8') as handle:
         return json.load(handle)
+
+
+def load_resolved_overrides(path: str | None) -> dict[str, dict[str, Any]]:
+    if not path:
+        return {}
+    report = load_report(path)
+    overrides: dict[str, dict[str, Any]] = {}
+    for item in report.get('refs', []):
+        ref = item.get('ref')
+        matches = item.get('matches') or []
+        if not ref or not matches:
+            continue
+        match = matches[0]
+        overrides[str(ref)] = {
+            'ref': str(ref),
+            'kind': media_kind(str(ref)),
+            'prefix': media_prefix(str(ref)),
+            'sourceUrl': match.get('url'),
+            'targetKey': target_key(str(ref)),
+            'status': match.get('status'),
+            'contentType': match.get('contentType'),
+            'contentLength': int(match['contentLength']) if str(match.get('contentLength') or '').isdigit() else None,
+            'ok': True,
+            'error': None,
+            'sourceOverride': True,
+            'sourceStrategy': match.get('strategy'),
+        }
+    return overrides
 
 
 def row_from_result(item: dict[str, Any]) -> dict[str, Any]:
@@ -86,8 +115,10 @@ def main() -> int:
     args = parse_args()
     source = load_report(args.availability_report)
     rows = [row_from_result(item) for item in source.get('results', [])]
+    resolved_overrides = load_resolved_overrides(args.resolver_report)
     available = [row for row in rows if row['ok']]
-    missing = [row for row in rows if not row['ok']]
+    available.extend(override for ref, override in sorted(resolved_overrides.items()) if ref in {row['ref'] for row in rows if not row['ok']})
+    missing = [row for row in rows if not row['ok'] and row['ref'] not in resolved_overrides]
     available_by_kind = Counter(row['kind'] for row in available)
     missing_by_kind = Counter(row['kind'] for row in missing)
     missing_by_prefix = Counter(row['prefix'] for row in missing)
@@ -100,6 +131,7 @@ def main() -> int:
         'generatedAt': now_iso(),
         'writes': False,
         'sourceAvailabilityReport': args.availability_report,
+        'sourceResolverReport': args.resolver_report,
         'sourceBaseUrl': source.get('baseUrl'),
         'inputReport': source.get('inputReport'),
         'summary': {
@@ -110,6 +142,7 @@ def main() -> int:
             'missingByKind': dict(sorted(missing_by_kind.items())),
             'missingByPrefix': dict(missing_by_prefix.most_common()),
             'availableBytesByKind': dict(sorted(available_bytes_by_kind.items())),
+            'sourceOverrideRefs': len(resolved_overrides),
         },
         'available': available,
         'missing': missing,
@@ -121,6 +154,7 @@ def main() -> int:
                 'This manifest is no-write evidence only.',
                 'Copy only rows with ok=true and only after explicit owner approval.',
                 'Missing refs require source resolution or documented fallback before claiming complete media parity.',
+                'Rows with sourceOverride=true preserve the original target key while copying from the resolved source URL.',
             ],
         },
     }

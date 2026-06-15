@@ -107,7 +107,7 @@ Apply/deploy gates:
 
 ## Immediate Next Chunk
 
-Goal 10.3: after owner approval, apply only the content-service seven schema migration, then rerun DB-backed no-write seven report before any content data apply.
+Goal 10.3: after owner approval using `docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md`, apply pending content-service Prisma migrations for base schema readiness plus seven schema creation, then rerun DB-backed no-write seven report before any content data apply.
 
 ## Implementation Progress 2026-06-13
 
@@ -128,7 +128,7 @@ Verification evidence:
 
 Next approval gate:
 
-- Apply only `content-service/prisma/migrations/20260613110000_seven_content/migration.sql` after owner approval, then rerun DB-backed no-write report before any content data apply.
+- Use only `docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md` for the active schema approval. Apply pending content-service Prisma migrations for base schema readiness plus seven schema creation, then rerun DB-backed no-write report before any content data apply.
 
 ## Write-Gated Apply Path 2026-06-13
 
@@ -147,7 +147,7 @@ Verification evidence:
 - `/tmp/speakasap-seven-dry-run-v2.json` recorded `writes=false`, `applySupported=true`, and migration payload counts `courses=19`, `lessons=136`, `exercises=429`.
 - `/tmp/speakasap-seven-dry-run-target-v5.json` recorded `writes=false`, target checked through the runtime `speakasap-content-secret` database URL and temporary port-forward, and target seven tables still missing before schema migration.
 
-Next approval gate remains unchanged: apply only the content-service seven schema migration after explicit owner approval, rerun no-write report, then request separate owner approval for data apply.
+Next approval gate remains unchanged: use `docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md` for content-service base schema readiness plus seven schema creation after explicit owner approval, rerun no-write report, then request separate owner approval for data apply.
 
 ## Reconciliation Hardening 2026-06-13
 
@@ -183,6 +183,7 @@ Preview QA evidence:
 Remaining visual gate:
 
 - Full Goal 10.6 remains open until real migrated content is applied, services are deployed, and desktop/mobile QA runs against the production route with actual seven-course data.
+- Static typography contract is now covered by `scripts/check-seven-typography-contract.py`; `/tmp/speakasap-seven-typography-contract-v2.json` passed with font files, legacy CSS declarations, and route markers verified.
 
 
 ## Language Seed Readiness 2026-06-13
@@ -243,3 +244,124 @@ Implemented without writes:
 - Missing refs remain only under `media/audio/ru`.
 
 Boundary: no media download, media copy, object mutation, route change, deployment, schema migration, data apply, destructive operation, or legacy route retirement ran.
+
+## Deployment Readiness 2026-06-13
+
+Implemented without deployment:
+
+- Added `scripts/check-seven-deployment-smoke.py`, a no-write smoke checker for health, seven API routes, seven pages, and PDF/audio sample availability.
+- Added `docs/orchestrator/SEVEN_DEPLOYMENT_APPROVAL.md` with scoped deployment/rollback requirements for `speakasap-content`, `speakasap-api-gateway`, and `speakasap-frontend` only.
+- Current baseline smoke `/tmp/speakasap-seven-deployment-smoke-current-v1.json` shows expected pre-deploy failures: health `200`, seven API `401`, seven pages/media `404`.
+
+Boundary: no image build, push, deployment, route change, schema migration, data apply, media copy, object mutation, destructive operation, or legacy route retirement ran.
+
+
+## Rendered HTML Safety 2026-06-13
+
+Implemented without writes:
+
+- Extended `content-service/scripts/migrate-seven-from-legacy.py` dry-run reports with `htmlSafety` checks across rendered lesson, exercise, and answer HTML.
+- The report now blocks apply if rendered HTML contains unresolved Django delimiters, `<script>` tags, `<form>` tags, inline event handlers, or `javascript:` URLs.
+- `/tmp/speakasap-seven-dry-run-v19.json` checked `993` rendered HTML fragments and reported zero issues for all tracked categories.
+
+Boundary: no schema migration, data apply, deployment, media copy, route change, object mutation, destructive operation, or legacy route retirement ran.
+## 2026-06-13 - Goal 10 Seven Contract And Smoke Hardening
+
+Status: no-write contract hardening completed; no schema migration, seven data apply, media copy, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Changed:
+
+- Spawned read-only sub-agent Huygens to validate current seven frontend/API/gateway contracts on alfares; it made no edits and reported rollout risks around media routing, deployed gateway auth, partial API failure handling, and legacy 8-row courses.
+- Hardened scripts/check-seven-deployment-smoke.py so the no-write deployment smoke now checks API payload shape, lesson body presence, PDF/media refs, absence of unresolved legacy template syntax, and frontend page markers: seven-page, seven-lessons-grid, seven-page--lesson, lesson__content--seven, and lesson-wrapper.
+- Hardened frontend/lib/seven.ts to settle course, lessons, and lesson-detail API calls independently. A neighbor-list or metadata failure no longer discards successfully fetched lesson content.
+- Verified legacy preservation for non-7 row courses: legacy speakasap_site/templates/site/seven/index.html renders course.get_lessons without a hard limit, and fixtures show EN course 1, DE course 4, and CN course 18 have 8 visible rows. The target should preserve those rows rather than truncate to exactly seven DB rows.
+
+Verification:
+
+- cd frontend && npm run build passed after the frontend/lib/seven.ts hardening and still lists dynamic routes /[languageCode]/seven and /[languageCode]/seven/[order].
+- python3 -m py_compile scripts/check-seven-deployment-smoke.py passed.
+- Current production baseline remains expected-failing before deploy/data/media: /tmp/speakasap-seven-deployment-smoke-current-v2.json recorded writes=false, health 200, seven APIs 401, seven pages 404, PDF/audio 404, and explicit failed assertions for API/page/media contracts.
+- Legacy fixture evidence for the 8-row courses was printed from portal/fixtures/seven.xml: EN order 8 7 Keys to study English, DE split lesson 1 into parts 1/2 plus lessons 2-7, and CN order 8 Чтение и аудирование на китайском языке.
+
+Boundary:
+
+- No target DB schema or data write ran.
+- No media copy or static route change ran.
+- No Kubernetes deploy or rollout restart ran.
+- Legacy portal remains the behavior/style fallback.
+
+Next:
+
+- Approval is still required for the schema-only content DB migration from docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md; after that, rerun DB-backed no-write reconciliation and keep media/deploy approvals separate.
+## 2026-06-13 - Goal 10 Seven Assets Base Media Contract
+
+Status: code contract aligned with existing platform assets host; no schema migration, seven data apply, media copy, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Changed:
+
+- Aligned seven public media URLs with the existing new-platform ASSETS_BASE_URL contract already used by content-service language icon responses and Kubernetes service config.
+- Updated content-service/src/seven/seven.service.ts so pdfHref, mediaRefs, and /media/... links inside lesson/exercise/answer HTML are rewritten at response time to ASSETS_BASE_URL + /media/... when ASSETS_BASE_URL is configured. Without the env var, the API keeps the legacy relative /media/... shape.
+- Updated scripts/check-seven-deployment-smoke.py with --assets-base-url defaulting to https://assets.alfares.cz, so deployment smoke validates the same public media base that content-service will emit.
+
+Verification:
+
+- cd content-service && npm run build passed.
+- python3 -m py_compile scripts/check-seven-deployment-smoke.py passed.
+- /tmp/speakasap-seven-deployment-smoke-current-v3.json recorded writes=false, assetsBaseUrl=https://assets.alfares.cz, expected PDF href https://assets.alfares.cz/media/pdf/en/lesson1.pdf, and current expected failures before rollout/media copy: seven APIs 401, pages 404, PDF/audio 404.
+
+Boundary:
+
+- No files were copied to assets.alfares.cz.
+- No /media route, ingress, or object storage mutation ran.
+- No target DB schema/data write or Kubernetes deploy ran.
+
+Next:
+
+- Keep schema-only approval first. Media approval later should copy the approved manifest to the asset host path that serves https://assets.alfares.cz/media/..., then rerun the smoke checker against the same assets base.
+## 2026-06-13 - Goal 10 Seven Assets Contract Checker
+
+Status: no-write verifier added for seven media URL mapping; no schema migration, seven data apply, media copy, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Changed:
+
+- Added content-service/scripts/check-seven-assets-contract.py to validate the dry-run media refs against the chosen ASSETS_BASE_URL public URL contract without network calls or data writes.
+- The checker verifies that legacy /media/... refs map to the asset host while preserving /media path suffixes, external video refs remain external, duplicate mapping does not occur, and the planned PDF count matches PDF refs in the migration report.
+- Normalized indentation in content-service/src/seven/seven.service.ts around exercise response serialization after the media rewrite change.
+
+Verification:
+
+- python3 -m py_compile content-service/scripts/check-seven-assets-contract.py passed.
+- content-service/scripts/check-seven-assets-contract.py --input-report /tmp/speakasap-seven-dry-run-v19.json --assets-base-url https://assets.alfares.cz --json-report /tmp/speakasap-seven-assets-contract-v1.json passed with ok=true.
+- /tmp/speakasap-seven-assets-contract-v1.json counted refs=1373, internalRefs=1240, externalRefs=133, audio=1104, pdf=136, video=133, plannedPdfRefCount=136, failed assertions=[]; sample mapping /media/audio/cn/lesson1.mp3 -> https://assets.alfares.cz/media/audio/cn/lesson1.mp3.
+
+Boundary:
+
+- This proves URL mapping only. It does not prove asset availability; copy/availability remains blocked on separate media approval.
+- No target DB schema/data write or Kubernetes deploy ran.
+
+Next:
+
+- After schema-only approval and DB-backed no-write reconciliation, keep using /tmp/speakasap-seven-assets-contract-v1.json plus the availability checker as media-copy acceptance evidence.
+## 2026-06-13 - Goal 10 Seven Apply Readiness Aggregator
+
+Status: no-write readiness aggregator added; no schema migration, seven data apply, media copy, deployment, object mutation, destructive operation, or legacy retirement ran.
+
+Changed:
+
+- Added content-service/scripts/check-seven-apply-readiness.py to aggregate dry-run, assets-contract, deployment-smoke, and approval-packet evidence into one gate report.
+- The checker reports separate source, assets, schema, data, and deploy gates so owner approval can be scoped to the next safe action instead of implying full cutover readiness.
+
+Verification:
+
+- python3 -m py_compile content-service/scripts/check-seven-apply-readiness.py passed.
+- /tmp/speakasap-seven-apply-readiness-v1.json was generated from dry-run v19, assets-contract v1, and deployment-smoke current v3.
+- Readiness v1 recorded ok=true for owner schema approval readiness and complete=false for the full migration. Schema gate: approvalDocsPresent=true, sourceDryRunReady=true, assetsContractReady=true, readyForOwnerSchemaApproval=true. Data gate: targetChecked=false, readyForOwnerDataApproval=false. Next action: get explicit schema-only approval, apply content-service schema migrations, then rerun DB-backed no-write reconciliation.
+
+Boundary:
+
+- The readiness checker does not connect to the DB, call the network, copy media, or deploy. It only aggregates existing no-write evidence.
+- The goal remains incomplete until schema/data/media/deploy are applied with separate approvals and production smoke/browser QA passes.
+
+Next:
+
+- Use /tmp/speakasap-seven-apply-readiness-v1.json as the current evidence that the next valid owner decision is CONTENT_BASE_SCHEMA_APPROVAL.md only.

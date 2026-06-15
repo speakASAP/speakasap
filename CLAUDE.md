@@ -9,10 +9,10 @@
 **Query the RAG before reading source files** — saves 2000-5000 tokens per answer.
 
 ```bash
-kubectl -n statex-apps exec deployment/speakasap -- curl -s -X POST http://docs-rag-microservice:3397/retrieval/agent-context \
+kubectl -n statex-apps exec deployment/speakasap -- sh -c 'curl -s -X POST http://docs-rag-microservice:3397/retrieval/agent-context \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $(cat ~/.claude/rag-token)" \
-  -d '{"query": "YOUR QUESTION HERE", "maxTokens": 3000}'
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  --data "$1"' -- '{"query": "YOUR QUESTION HERE", "maxTokens": 3000}'
 ```
 
 
@@ -37,3 +37,7 @@ kubectl -n statex-apps exec deployment/speakasap -- curl -s -X POST http://docs-
 | notifications-microservice:3368 | Student emails |
 
 **Ops**: `kubectl logs -n statex-apps -l app=speakasap -f` · `kubectl rollout restart deployment/speakasap -n statex-apps` · `./scripts/deploy.sh`
+
+## Central Instruction Source
+
+Shared agent rules now live in `/home/ssf/.claude/CLAUDE.md`, `/home/ssf/Documents/Github/CLAUDE.md`, `/home/ssf/.codex/AGENTS.md`, and `/home/ssf/.ai-agent-standards/CROSS_AGENT_AUTOMATION_STANDARD.md`. Keep this file for repository-specific Claude constraints only; do not duplicate shared operating rules here.

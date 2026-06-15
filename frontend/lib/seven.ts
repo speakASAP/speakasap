@@ -99,6 +99,8 @@ const LANGUAGE_GENITIVE_BY_CODE: Record<string, string> = {
   ja: 'японского',
 };
 
+type Settled<T> = { ok: true; value: T } | { ok: false; error: string };
+
 function stringFromMetadata(metadata: Record<string, unknown>, key: string): string | null {
   const value = metadata[key];
   return typeof value === 'string' && value.trim() ? value : null;
@@ -140,39 +142,45 @@ async function gatewayJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function settle<T>(promise: Promise<T>): Promise<Settled<T>> {
+  try {
+    return { ok: true, value: await promise };
+  } catch (caught) {
+    return { ok: false, error: caught instanceof Error ? caught.message : 'Seven course data is not available' };
+  }
+}
+
+function firstError(...results: Settled<unknown>[]): string | null {
+  return results.find((result) => !result.ok)?.error ?? null;
+}
+
 export async function getSevenCoursePageData(languageCode: string): Promise<SevenCoursePageData> {
   const code = encodeURIComponent(languageCode);
-  try {
-    const [course, lessons] = await Promise.all([
-      gatewayJson<SevenCourse>(`/api/v1/seven/courses/${code}`),
-      gatewayJson<SevenLessonSummary[]>(`/api/v1/seven/courses/${code}/lessons`),
-    ]);
-    return { course, lessons, error: null };
-  } catch (caught) {
-    return {
-      course: null,
-      lessons: [],
-      error: caught instanceof Error ? caught.message : 'Seven course data is not available',
-    };
-  }
+  const [course, lessons] = await Promise.all([
+    settle(gatewayJson<SevenCourse>(`/api/v1/seven/courses/${code}`)),
+    settle(gatewayJson<SevenLessonSummary[]>(`/api/v1/seven/courses/${code}/lessons`)),
+  ]);
+
+  return {
+    course: course.ok ? course.value : null,
+    lessons: lessons.ok ? lessons.value : [],
+    error: firstError(course, lessons),
+  };
 }
 
 export async function getSevenLessonPageData(languageCode: string, order: string): Promise<SevenLessonPageData> {
   const code = encodeURIComponent(languageCode);
   const lessonOrder = encodeURIComponent(order);
-  try {
-    const [course, lessons, lesson] = await Promise.all([
-      gatewayJson<SevenCourse>(`/api/v1/seven/courses/${code}`),
-      gatewayJson<SevenLessonSummary[]>(`/api/v1/seven/courses/${code}/lessons`),
-      gatewayJson<SevenLessonDetail>(`/api/v1/seven/courses/${code}/lessons/${lessonOrder}`),
-    ]);
-    return { course, lessons, lesson, error: null };
-  } catch (caught) {
-    return {
-      course: null,
-      lessons: [],
-      lesson: null,
-      error: caught instanceof Error ? caught.message : 'Seven lesson data is not available',
-    };
-  }
+  const [course, lessons, lesson] = await Promise.all([
+    settle(gatewayJson<SevenCourse>(`/api/v1/seven/courses/${code}`)),
+    settle(gatewayJson<SevenLessonSummary[]>(`/api/v1/seven/courses/${code}/lessons`)),
+    settle(gatewayJson<SevenLessonDetail>(`/api/v1/seven/courses/${code}/lessons/${lessonOrder}`)),
+  ]);
+
+  return {
+    course: course.ok ? course.value : null,
+    lessons: lessons.ok ? lessons.value : [],
+    lesson: lesson.ok ? lesson.value : null,
+    error: firstError(lesson, course, lessons),
+  };
 }

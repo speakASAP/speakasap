@@ -4,6 +4,22 @@ Date: 2026-06-13
 
 Status: inventory and contract plan only. No target salary data write, payout, payment disbursement, deployment, or legacy data mutation is approved by this document.
 
+## 2026-06-13 Targeted Readiness Gate
+
+Implementation now fails closed before salary calculation or payout enablement:
+
+- `education-service` salary aggregates report demo unpaid/payable counters so demo lessons preserve the legacy rule: demo lessons without payable recording evidence remain unpaid, while demo lessons with recording duration use the same duration/tolerance/cap path as other lessons.
+- Aggregate metadata now includes `readiness` and bounded `blockerSamples` for the remaining rows that must be reconciled:
+  - missing `LessonRecord.durationSeconds`;
+  - short recordings that need salary parity review;
+  - requested legacy users without target teacher mapping.
+- `salary-service` refuses calculation creation unless `SALARY_CALCULATION_RUNS_ENABLED=true` and aggregate readiness has no missing-duration, short-record, teacher-mapping, or dependency-warning blockers.
+- `salary-service` refuses payout creation and payout commit unless `SALARY_PAYOUT_FLOWS_ENABLED=true`.
+- `salary-service/scripts/check-salary-readiness.ts` produces a no-write JSON report for a period and exits nonzero when blockers remain.
+- `salary-service` calculation code preserves imported historical lesson salary quantities: when imported lesson salary expenses exist for a profile/month, calculation lines use the stored imported `qty` hour sum instead of recomputing those historical lesson hours from recording duration. This is required by the 2026-05 short-record reconciliation evidence, where all six short-record blockers had legacy/imported `qty=1.00` and duration recalculation would underpay.
+
+No salary calculation run, payout run, payment/disbursement, salary row write, education row write, legacy row write, deployment, destructive operation, or legacy retirement is approved by this gate.
+
 ## Preserved Intent
 
 Salary migration must preserve the legacy teacher/staff pay workflow while keeping private employee, teacher, lesson, student, and payout data inside the correct service boundaries. Legacy `speakasap-portal` remains the behavior reference until salary-service parity is verified.
@@ -91,7 +107,7 @@ Legacy pay duration is calculated by `expenses.salary.utils.get_record_length_in
 - Demo course lessons are unpaid when no recording-duration rule applies.
 - If no lesson record exists, the fallback quantity is `1` for non-demo lessons and `0` for demo lessons.
 - If the lesson record is marked unavailable, quantity falls back to `1`.
-- If recording duration is more than 95% of scheduled lesson duration, pay the full scheduled duration.
+- If recording duration is within five minutes of scheduled lesson duration, pay the full scheduled duration.
 - Otherwise pay the minimum of recorded hours and scheduled lesson duration.
 - Final quantity is quantized by the existing legacy number helper.
 
@@ -166,7 +182,7 @@ Target evidence:
 | --- | --- | --- | --- | --- |
 | `expenses_salaryprofile` | `SalaryProfile` / `salary_profiles` | Deterministic UUID from `speakasap:salary:profile:<legacy id>`; preserve `legacy_profile_id` and `legacy_portal_user_id`. | Current ETL resolves `authUserId` from `user-service.user_identity_mirror`, which is populated from `auth-microservice.legacy_identity_mappings` during user migration. The 2026-06-13 auth-map-only run populated all imported salary profiles. Decimal salary/rate and display flags are preserved. | Count source/target profiles, missing auth mappings, duplicate legacy IDs, profiles without target user mirror. |
 | `expenses_expense` + `expenses_salaryexpense` | `SalaryExpense` / `salary_expenses` | Deterministic UUID from `speakasap:salary:expense:<expense id>`; preserve `legacy_expense_id` and `legacy_portal_user_id`. | Maps base fields `date`, `price`, `qty`, `comment`, `currency`. Requires profile lookup by legacy user. Rows without salary profile are skipped and reported. | Count source/target expenses, skipped no-profile rows, duplicate `legacy_expense_id`, totals by month/currency. |
-| `education_lessonsalaryexpense` | `SalaryExpense.kind = lesson` | Same salary expense UUID; `lesson_uuid` should be populated by education aggregate/backfill contract. | Existing ETL classifies kind but leaves `lessonUuid = null`. Final parity requires target lesson UUID and duration evidence. | Count lesson salary rows, missing target lessons, lesson rows with null `lesson_uuid`, totals by teacher/month versus education aggregate. |
+| `education_lessonsalaryexpense` | `SalaryExpense.kind = lesson` | Same salary expense UUID; `lesson_uuid` should be populated by education aggregate/backfill contract. | Existing ETL classifies kind and the 2026-06-13 approved lesson UUID backfill populated imported lesson salary expense `lesson_uuid` values. Final parity depends on target lesson record `duration_seconds` for recording-derived salary minutes. | Count lesson salary rows, missing target lessons, lesson rows with null `lesson_uuid`, totals by teacher/month versus education aggregate. |
 | `expenses_supportbonusexpense` | `SalaryExpense.kind = support_bonus` | Same salary expense UUID. | Preserve `legacy_student_id` and `legacy_student_group_id`; target student/group UUID resolution can remain deferred if salary only needs legacy traceability. | Count support rows, missing profile rows, missing student/group warnings. |
 | `employees_employeecontract` | `EmployeeContract` / `employee_contracts` | Deterministic UUID from `speakasap:salary:contract:<legacy id>`; preserve `legacy_contract_id`. | Load main contracts before subcontracts; preserve `main_id` relation, dates, `verified`, `contract_uid`, and document storage key. | Count contracts, missing user/profile mappings, missing parent contracts, document key null/non-null totals. |
 | Legacy salary calculation task output | `CalculationRun` + `CalculationLine` | New UUIDs per run/line; period `YYYY-MM`; idempotency key required for API creation. | Target calculation currently uses monthly fixed salary plus `rate * education.totalMinutes/60`. It depends on education aggregate and should carry rules version. | Compare line count and amount by profile/currency against legacy monthly dry-run totals. |
@@ -181,7 +197,7 @@ GET /api/v1/internal/salary/period-aggregates?period=YYYY-MM&legacyPortalUserIds
 Header: X-Internal-Token: <internal token>
 ```
 
-Current status: `education-service` has a deployed read-only implementation for `internal/salary/period-aggregates`, and `user-service` has a deployed internal teacher legacy-user mapping endpoint. Runtime smoke on 2026-06-13 returned valid JSON for the education aggregate endpoint. Final salary calculation parity is still limited because target lesson duration seconds are not yet persisted.
+Current status: `education-service` has a read-only implementation for `internal/salary/period-aggregates`, and `user-service` has a deployed internal teacher legacy-user mapping endpoint. Runtime smoke on 2026-06-13 returned valid JSON for the education aggregate endpoint. On 2026-06-13, target code/schema support was added for lesson record `duration_seconds` and the salary aggregate rule was changed to record-duration minutes with a fixed five-minute full-lesson tolerance. Existing migrated records still need trusted duration values before aggregate parity can be proven.
 
 ### Request
 
@@ -219,13 +235,13 @@ Headers:
   ],
   "meta": {
     "source": "education-service",
-    "rulesVersion": "legacy-salary-duration-v1",
+    "rulesVersion": "salary-duration-v3-record-length-5min-tolerance",
     "generatedAt": "2026-06-13T00:00:00.000Z"
   }
 }
 ```
 
-Compatibility note: salary-service currently reads only `legacyPortalUserId`, `finishedLessonCount`, and `totalMinutes`. The richer fields above are required for reconciliation and for proving parity with legacy demo, missing-record, unavailable-record, 95%-duration, and capped-duration rules.
+Compatibility note: salary-service currently reads only `legacyPortalUserId`, `finishedLessonCount`, and `totalMinutes`. The richer fields above are required for reconciliation and for proving parity with legacy demo, missing-record, unavailable-record, five-minute-tolerance, and capped-duration rules.
 
 ### Education Aggregate Rules
 
@@ -234,8 +250,8 @@ For each finished lesson in the period:
 - Include only lessons whose teacher maps to one of the requested legacy portal user IDs.
 - Use target migrated lesson start date to assign the period.
 - Preserve legacy demo behavior: demo lessons without payable recording evidence count as `0`.
-- Use migrated lesson record duration when available.
-- If record duration is more than 95% of scheduled lesson duration, payable duration is full scheduled duration.
+- Use target lesson record `duration_seconds` when available.
+- If record duration is within five minutes of scheduled lesson duration, payable duration is full scheduled duration.
 - If no record exists for a non-demo lesson, fallback payable duration is `1` hour unless owner approves a changed policy.
 - If record is marked unavailable, fallback payable duration is `1` hour.
 - Cap payable duration at scheduled lesson duration.
@@ -460,9 +476,9 @@ Do not run a salary apply/load until all are true:
 ## Open Gaps
 
 - `/api/v1/internal/salary/period-aggregates` is deployed and smoke-tested, but sampled user coverage still needs a legacy user with a known migrated teacher mapping.
-- Target education aggregate uses a documented 60-minute non-demo / 30-minute demo fallback because migrated target lesson rows do not yet persist legacy scheduled duration or MP3 duration seconds.
+- Target education aggregate now has schema/code support for `duration_seconds`. Salary-period media metadata repair and duration backfill were applied on 2026-06-13: `/tmp/speakasap-lesson-record-key-repair-apply-v1.json` updated `835` record keys, and `/tmp/speakasap-lesson-record-duration-salary-period-apply-v1.json` updated `2420` duration rows for `2025-07` through `2026-06`. Remaining salary-period gap: `13` records still have missing media objects.
 - `SalaryProfile.authUserId` is populated for all 386 imported salary profiles; future reruns still depend on `USER_DATABASE_URL` / `user_identity_mirror` availability.
-- Salary ETL now supports dry-run/apply-gated lesson `SalaryExpense.lessonUuid` backfill from `education_lessonsalaryexpense.lesson_id`; DB-backed backfill report still needs reachable target salary/education DB endpoints before any apply.
+- Salary ETL lesson `SalaryExpense.lessonUuid` backfill was applied with owner approval: post-apply report `/tmp/speakasap-salary-lesson-uuid-backfill-post-apply-v1.json` recorded `98753` imported lesson expenses with lesson UUID, `0` nulls, and `0` remaining updates.
 - Salary ETL has explicit apply gates, JSON reports, and rollback SQL generation; future reruns still need owner approval and reconciliation review.
 - Teacher self-service salary stubs are not yet mapped to a target route.
 - Salary notification parity for `teacher/salary_ready` is not yet mapped to `notification-service`.
@@ -472,7 +488,9 @@ Do not run a salary apply/load until all are true:
 
 The next salary migration chunk should be documentation-to-code hardening only:
 
-1. Restore reachable target salary/education DB connectivity and run `--dry-run --lesson-uuid-backfill-only --json-report /tmp/speakasap-salary-lesson-uuid-backfill-dry-run-v1.json`.
-2. Request explicit owner approval before any `--apply --lesson-uuid-backfill-only` write, using the dry-run report and generated rollback SQL path.
-3. Compare education aggregate totals against legacy recording-duration parity cases before enabling salary calculation runs or payout flows.
-4. Map teacher self-service salary stubs and salary-ready notifications to target services.
+1. Rerun salary aggregate parity with target `duration_seconds`, then isolate the 13 remaining salary-period records with missing media and decide recovery versus approved fallback before enabling salary calculation runs or payout flows.
+2. Map teacher self-service salary stubs and salary-ready notifications to target services.
+
+### 2026-06-13 Duration Parity Rerun
+
+Read-only parity report `/tmp/speakasap-salary-duration-parity-2025-07_2026-06-v2.json` compared imported lesson salary rows against target education lesson records using `salary-duration-v3-record-length-5min-tolerance` for `2025-07` through `2026-06`. All `2687` imported lesson salary rows had populated lesson UUIDs and matched target education lessons. Full parity remains open: `215` row minute mismatches, `105` aggregate mismatches, `286` missing-duration fallback rows, and `1` teacher mapping mismatch remain. The five-minute tolerance correction reduced row mismatches from `300` to `215`; remaining blockers are demo zero-pay rows, missing measured duration/media, materially short recordings, and the single no-teacher target lesson.

@@ -108,6 +108,7 @@ model LessonRecord {
   recordKey         String?            @map("record") @db.Text
   processed         Boolean            @default(false)
   recordUnavailable String             @default("") @map("record_unavailable") @db.Text
+  durationSeconds   Int?               @map("duration_seconds")
   parts             Json               @default("[]")
   createdAt         DateTime           @default(now()) @map("created")
   updatedAt         DateTime           @updatedAt @map("updated")

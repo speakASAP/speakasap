@@ -1,12 +1,12 @@
 {
-  "activeChunk": "10.3 owner-approved content base/seven schema migration, then DB-backed no-write report rerun",
-  "activeGoal": "Goal 10 - Seven-Lesson Course Frontend Migration",
-  "current_chunk": "10.3 owner-approved content-service base schema readiness, seven schema migration, then no-write report rerun",
-  "current_goal": "Goal 10 - Seven-Lesson Course Frontend Migration",
+  "activeChunk": "9.6 salary calculation review, deploy gate, and payout/payment-boundary gates",
+  "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
+  "current_chunk": "9.6 salary calculation review, deploy gate, and payout/payment-boundary gates",
+  "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
   "intent_preservation_system": "docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md",
-  "lastUpdated": "2026-06-13",
+  "lastUpdated": "2026-06-14",
   "last_controlled_cutover": "/tmp/speakasap-goal8-cutover-smoke.json",
   "last_controlled_cutover_doc": "docs/orchestrator/GOAL_8_CONTROLLED_CUTOVER.md",
   "last_cutover_monitoring": "/tmp/speakasap-goal8-cutover-monitoring.json",
@@ -162,10 +162,133 @@
     "writes": false
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
-  "next_goal": "Goal 10 - Seven-Lesson Course Frontend Migration",
-  "next_required_action": "Get explicit owner approval using docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md, then apply pending content-service schema migrations and rerun DB-backed no-write seven reconciliation before any seven data apply.",
+  "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
+  "next_required_action": "Request owner approval for a scoped education-service deploy/rollout carrying the fixed five-minute salary duration rule, then rerun no-write salary readiness and calculation preview for 2026-05. Keep payout flows disabled pending separate payment-boundary approval.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
-  "tasks_active": 1
+  "tasks_active": 1,
+  "last_salary_gate": {
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "goal": "Goal 9 salary recording-duration payroll migration",
+    "writes": false,
+    "change": "Demo salary aggregate counters, readiness blocker samples, calculation-run disabled gate, payout disabled gate, and no-write readiness command implemented.",
+    "verification": [
+      "salary-service npm run build passed",
+      "education-service npm run build passed",
+      "git diff --check passed",
+      "check-salary-readiness invalid period validation passed"
+    ],
+    "blocker": "Draft calculation smoke completed; review report or rollback. Payouts remain separately gated."
+  },
+  "last_salary_readiness_report": {
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "report": "/tmp/speakasap-salary-readiness-2026-05.json",
+    "writes": false,
+    "period": "2026-05",
+    "readiness": {
+      "salaryCalculationReady": false,
+      "missingDurationCount": 0,
+      "shortRecordCount": 6,
+      "teacherMappingMissingCount": 0,
+      "missingTeacherMappingLegacyUserIds": []
+    },
+    "demo": {
+      "demoLessonCount": 1,
+      "demoUnpaidLessonCount": 0,
+      "demoPayableLessonCount": 1
+    },
+    "blockers": [
+      "d3e59e96-d010-4040-baae-0518e3838dce",
+      "7355b9de-dbdd-4089-ac8e-ac862b512a64",
+      "a0508fd4-5195-40eb-9eb7-49daa2348dd7",
+      "9169ce77-4167-48e6-bb11-d1579964b11a",
+      "9630fdfc-2c57-4c08-822f-ba85ed339527",
+      "4668280d-468c-49a4-b135-91bfbc15fb16"
+    ]
+  },
+  "last_salary_short_record_reconciliation": {
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "report": "/tmp/speakasap-salary-short-record-reconciliation-2026-05.json",
+    "writes": false,
+    "period": "2026-05",
+    "summary": {
+      "rows": 6,
+      "missingLegacySalaryExpense": 0,
+      "legacyQtyMatchesCurrentTargetHours": 0,
+      "importedQtyHours": "1.0000 for all six",
+      "currentTargetUnderpayHoursRange": "0.08..0.98"
+    },
+    "conclusion": "Historical imported salary expense qty must be preserved for short-record rows, or owner approval is required to recompute historical salary from MP3 duration."
+  },
+  "last_salary_historical_quantity_preservation": {
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "file": "salary-service/src/calculation-runs/calculation-runs.service.ts",
+    "writes": false,
+    "change": "Calculation lines use imported lesson salary expense qty hour sums for historical profile/month rows when present; short/missing-duration blockers can clear only when exact blocker lesson UUIDs are covered by imported salary_expenses.lesson_uuid.",
+    "verification": "cd salary-service && npm run build passed",
+    "gates": "SALARY_CALCULATION_RUNS_ENABLED and SALARY_PAYOUT_FLOWS_ENABLED remain disabled by default"
+  },
+  "last_salary_calculation_preview": {
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "report": "/tmp/speakasap-salary-calculation-preview-2026-05.json",
+    "writes": false,
+    "period": "2026-05",
+    "summary": {
+      "profiles": 14,
+      "lines": 14,
+      "linesUsingImportedLessonSalary": 14,
+      "blockerSamples": 6,
+      "blockerSamplesCoveredByImportedSalaryExpenses": 6,
+      "calculationRunCreated": false
+    },
+    "gates": "Calculation and payout env gates remain disabled"
+  },
+  "last_salary_draft_calculation_smoke": {
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "approval": "docs/orchestrator/SALARY_CALCULATION_RUN_APPROVAL.md",
+    "report": "/tmp/speakasap-salary-calculation-run-2026-05-v1.json",
+    "rollback": "/tmp/speakasap-salary-calculation-run-rollback-2026-05-v1.sql",
+    "writes": true,
+    "period": "2026-05",
+    "calculationRunId": "6576ac90-526e-47c6-8755-9631a4fb3149",
+    "status": "draft",
+    "lineCount": 14,
+    "payoutRunCount": 0,
+    "paymentDisbursementCreated": false
+  },
+  "last_lesson_record_token_hardening": {
+    "timestamp": "2026-06-13T00:00:00+02:00",
+    "goal": "Goal 5.5 lesson recording private media runtime",
+    "writes": false,
+    "change": "Malformed media-token payloads now return controlled UnauthorizedException and education-service ExternalSecret includes LESSON_RECORD_MEDIA_TOKEN_SECRET.",
+    "verification": [
+      "cd education-service && npm run test:lesson-records passed on alfares",
+      "cd education-service && npm run build passed on alfares"
+    ],
+    "gates": "Deployment/runtime smoke, object-storage mutation, merge/delete, cutover, salary writes, and payout flows remain approval-gated."
+  },
+  "last_salary_draft_review": {
+    "timestamp": "2026-06-14T00:00:00+02:00",
+    "report": "/tmp/speakasap-salary-calculation-run-2026-05-v1.json",
+    "rollback": "/tmp/speakasap-salary-calculation-run-rollback-2026-05-v1.sql",
+    "draftRunId": "6576ac90-526e-47c6-8755-9631a4fb3149",
+    "status": "accepted_as_scoped_smoke_only",
+    "lineCount": 14,
+    "payoutRunCreated": false,
+    "paymentDisbursementCreated": false,
+    "totals": {
+      "EUR": 21858,
+      "CZK": 29035
+    }
+  },
+  "last_salary_fixed_tolerance_guard": {
+    "timestamp": "2026-06-14T00:00:00+02:00",
+    "file": "education-service/src/internal-salary/internal-salary.service.ts",
+    "verification": [
+      "cd education-service && npm run test:lesson-records passed",
+      "cd education-service && npm run build passed"
+    ],
+    "deployment": "not run; owner approval required"
+  }
 }

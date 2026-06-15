@@ -24,6 +24,25 @@ function fromB64url(input: string): string {
   return Buffer.from(normalized, 'base64').toString('utf8');
 }
 
+function parsePayload(encoded: string): LessonRecordMediaTokenPayload {
+  try {
+    const payload = JSON.parse(fromB64url(encoded)) as Partial<LessonRecordMediaTokenPayload>;
+    if (
+      !payload ||
+      typeof payload.lessonUuid !== 'string' ||
+      typeof payload.recordUuid !== 'string' ||
+      payload.scope !== 'playback' ||
+      typeof payload.userId !== 'string' ||
+      typeof payload.exp !== 'number'
+    ) {
+      throw new Error('invalid payload shape');
+    }
+    return payload as LessonRecordMediaTokenPayload;
+  } catch {
+    throw new UnauthorizedException('Invalid media token');
+  }
+}
+
 @Injectable()
 export class LessonRecordMediaTokenService {
   private secret(): string {
@@ -68,7 +87,7 @@ export class LessonRecordMediaTokenService {
     if (actualBuf.length !== expectedBuf.length || !timingSafeEqual(actualBuf, expectedBuf)) {
       throw new UnauthorizedException('Invalid media token');
     }
-    const payload = JSON.parse(fromB64url(encoded)) as LessonRecordMediaTokenPayload;
+    const payload = parsePayload(encoded);
     if (payload.lessonUuid !== lessonUuid || payload.scope !== scope) {
       throw new UnauthorizedException('Invalid media token scope');
     }

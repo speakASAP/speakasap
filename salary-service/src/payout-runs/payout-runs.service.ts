@@ -20,6 +20,8 @@ function minorFromDecimal(amount: string, _currency: string): number {
   return Math.round(Number(amount) * 100);
 }
 
+const PAYOUT_FLOWS_ENABLED_ENV = 'SALARY_PAYOUT_FLOWS_ENABLED';
+
 function mergeCursor(
   base: Prisma.PayoutRunWhereInput,
   cur: { t: string; id: string } | null,
@@ -50,6 +52,7 @@ export class PayoutRunsService {
   }
 
   async create(body: { calculationRunId: string }, idempotencyKey?: string) {
+    assertPayoutFlowsEnabled();
     const route = 'POST /api/v1/payout-runs';
     const hash = requestBodyHash(body);
     if (idempotencyKey) {
@@ -164,6 +167,7 @@ export class PayoutRunsService {
   }
 
   async commit(payoutRunId: string, idempotencyKey: string | undefined) {
+    assertPayoutFlowsEnabled();
     if (!idempotencyKey?.trim()) {
       throw salaryHttpException(
         HttpStatus.BAD_REQUEST,
@@ -291,5 +295,15 @@ export class PayoutRunsService {
     };
     await this.idempotency.store(key, route, hash, 200, body);
     return body;
+  }
+}
+
+function assertPayoutFlowsEnabled(): void {
+  if (process.env[PAYOUT_FLOWS_ENABLED_ENV] !== 'true') {
+    throw salaryHttpException(
+      HttpStatus.PRECONDITION_FAILED,
+      'SALARY_PAYOUT_FLOWS_DISABLED',
+      `${PAYOUT_FLOWS_ENABLED_ENV}=true is required after salary calculation parity is approved`,
+    );
   }
 }
