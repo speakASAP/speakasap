@@ -1,3 +1,18 @@
+# Claude Instructions
+
+Shared rules live here:
+
+- Claude profile: `/home/ssf/.claude/CLAUDE.md`
+- Shared ecosystem instructions: `/home/ssf/Documents/Github/CLAUDE.md`
+- Codex profile: `/home/ssf/.codex/AGENTS.md`
+- Cross-agent standard: `/home/ssf/.ai-agent-standards/CROSS_AGENT_AUTOMATION_STANDARD.md`
+- Repository operations: `AGENT_OPERATIONS.md`
+
+Read those first, then follow the repository-specific notes below and the current planning/status files.
+
+
+## Repository-Specific Notes
+
 # CLAUDE.md (speakasap)
 
 → Ecosystem: [../shared/CLAUDE.md](../shared/CLAUDE.md) | Reading order: `BUSINESS.md` → `SYSTEM.md` → `AGENTS.md` → `TASKS.md` → `STATE.json`
@@ -14,7 +29,6 @@ kubectl -n statex-apps exec deployment/speakasap -- sh -c 'curl -s -X POST http:
   -H "Authorization: Bearer $JWT_TOKEN" \
   --data "$1"' -- '{"query": "YOUR QUESTION HERE", "maxTokens": 3000}'
 ```
-
 
 ---
 
@@ -37,7 +51,3 @@ kubectl -n statex-apps exec deployment/speakasap -- sh -c 'curl -s -X POST http:
 | notifications-microservice:3368 | Student emails |
 
 **Ops**: `kubectl logs -n statex-apps -l app=speakasap -f` · `kubectl rollout restart deployment/speakasap -n statex-apps` · `./scripts/deploy.sh`
-
-## Central Instruction Source
-
-Shared agent rules now live in `/home/ssf/.claude/CLAUDE.md`, `/home/ssf/Documents/Github/CLAUDE.md`, `/home/ssf/.codex/AGENTS.md`, and `/home/ssf/.ai-agent-standards/CROSS_AGENT_AUTOMATION_STANDARD.md`. Keep this file for repository-specific Claude constraints only; do not duplicate shared operating rules here.
