@@ -5005,3 +5005,22 @@ Evidence:
 
 Boundary:
 - No deployment, image push, rollout, production page browser QA, data/media rollback, destructive cleanup, or legacy route retirement ran in this external smoke audit.
+
+## 2026-06-17 - Goal 9.6 V2 Draft Calculation Review
+
+Status: V2 draft salary calculation review completed; both calculation runs remain draft and payout/payment gates stay closed.
+
+Evidence:
+
+- Reviewed `/tmp/speakasap-salary-calculation-run-2026-05-v2.json`: run `b5d47fb3-e366-4c04-8683-37a51b3c45bf`, period `2026-05`, status `draft`, `lineCount=14`, rules version `salary-duration-v3-imported-legacy-qty-v1`, totals `CZK=29035` and `EUR=21858`.
+- Confirmed the V2 draft run matches the post-deploy no-write preview `/tmp/speakasap-salary-calculation-preview-2026-05-postdeploy-v1.json`: `profiles=14`, `lines=14`, `linesUsingImportedLessonSalary=14`, and all `6/6` short-record blocker samples are covered by imported salary expenses.
+- Reviewed `/tmp/speakasap-salary-status-after-calculation-v2.json`: `calculationRuns=2`, `payoutRuns=0`, `profilesWithoutAuth=0`, and `lessonExpensesWithoutLessonUuid=0`.
+- Reviewed rollback artifact `/tmp/speakasap-salary-calculation-run-rollback-2026-05-v2.sql`; it deletes only `calculation_lines` and the single `calculation_runs` row for run `b5d47fb3-e366-4c04-8683-37a51b3c45bf`.
+
+Boundary:
+
+- No finalize action, payout run, payout commit, payment-service disbursement, persistent env change, rollback execution, deployment, salary/profile mutation, legacy mutation, object-storage mutation, or destructive operation ran in this review.
+
+Next:
+
+- Keep both draft salary calculation runs in `draft`. Finalize, payout, payment execution, rollback, and broad/persistent salary enablement remain blocked pending a separate approval decision.

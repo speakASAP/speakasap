@@ -1,6 +1,6 @@
 # SpeakASAP Implementation State
 
-Last updated: 2026-06-15.
+Last updated: 2026-06-17.
 
 ## Orchestrator Command
 
@@ -17,12 +17,12 @@ Continue implementation of this project.
 ## Current Status
 
 - Active goal: Goal 9 - Salary And Recording-Duration Payroll Migration
-- Active chunk: 9.6 draft calculation review and payout/payment-boundary gate
+- Active chunk: 9.6 draft review completed; finalize/payout/payment-boundary gate
 - Active branch: not recorded in this checkout
 - Current wave: Wave 9 - Salary And Recording-Duration Payroll Migration
 - Completed goals: Goal 1 Intent Preservation And Refactor Governance; Goal 2 Legacy Portal Inventory And Parity Map; Goal 3 Service Ownership And API Contract Mapping; Goal 4 Data Migration And Reconciliation; Goal 5 Lesson Recording And Private Media Migration; Goal 6 Gateway, Auth, And Frontend Parity; Goal 7 Operational Cutover Readiness; Goal 8 Controlled Cutover Validation With Legacy Retained As Fallback
 - Running worker threads: none
-- Blocked chunks: draft calculation review is active; finalize, payout, payment execution, rollback, and broad/persistent enablement remain blocked pending separate owner approval; payout flows remain blocked by `SALARY_PAYOUT_FLOWS_ENABLED=true` plus separate payment-boundary approval
+- Blocked chunks: finalize, payout, payment execution, rollback, and broad/persistent enablement remain blocked pending separate approval; payout flows remain blocked by `SALARY_PAYOUT_FLOWS_ENABLED=true` plus separate payment-boundary approval
 - Approval gates currently active: any future lesson-record rerun, rollback execution, object-storage mutation, public/private access behavior change, or deployment requires fresh evidence and explicit owner approval where applicable; any future user-service write migration/rerun/rollback/truncation requires fresh no-write DB evidence, rollback artifact, and explicit owner approval
 - State source: this file plus `docs/orchestrator/STATE.json` and root `STATE.json`
 - Evidence log: `docs/orchestrator/STATUS.md`
@@ -185,6 +185,8 @@ At the end of every implementation session, update:
 Do not paste full logs. Keep each session summary short enough to guide the next orchestrator session without depending on chat history.
 
 ## Recent Evidence Summary
+- 2026-06-17: Reviewed V2 draft salary calculation run `b5d47fb3-e366-4c04-8683-37a51b3c45bf` and accepted it only as scoped draft evidence. `/tmp/speakasap-salary-calculation-run-2026-05-v2.json` confirms `status=draft`, `lineCount=14`, totals `CZK=29035` and `EUR=21858`, `payoutRunCount=0`, and `paymentDisbursementCreated=false`. `/tmp/speakasap-salary-status-after-calculation-v2.json` confirms `calculationRuns=2` and `payoutRuns=0`; rollback remains isolated in `/tmp/speakasap-salary-calculation-run-rollback-2026-05-v2.sql`. No finalize/payout/payment/deploy/rollback/destructive action ran.
+
 
 - 2026-06-15: Owner approved the broader calculation packet and one additional draft calculation run was created for period 2026-05. Report `/tmp/speakasap-salary-calculation-run-2026-05-v2.json` records run `b5d47fb3-e366-4c04-8683-37a51b3c45bf`, status draft, 14 lines, totals CZK 29035 and EUR 21858, `payoutRunCount=0`, and `paymentDisbursementCreated=false`. Rollback SQL is `/tmp/speakasap-salary-calculation-run-rollback-2026-05-v2.sql`; rollback was not executed. Post-run status `/tmp/speakasap-salary-status-after-calculation-v2.json` shows 2 calculation runs and 0 payout runs. No payout/payment/finalize/persistent env/deploy/destructive action ran.
 
