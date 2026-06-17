@@ -1,12 +1,12 @@
 {
-  "activeChunk": "9.6 salary calculation review, deploy gate, and payout/payment-boundary gates",
+  "activeChunk": "9.6 draft calculation review and payout/payment-boundary gate",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 salary calculation review, deploy gate, and payout/payment-boundary gates",
+  "current_chunk": "9.6 draft calculation review and payout/payment-boundary gate",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
   "intent_preservation_system": "docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md",
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-06-15",
   "last_controlled_cutover": "/tmp/speakasap-goal8-cutover-smoke.json",
   "last_controlled_cutover_doc": "docs/orchestrator/GOAL_8_CONTROLLED_CUTOVER.md",
   "last_cutover_monitoring": "/tmp/speakasap-goal8-cutover-monitoring.json",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Request owner approval for a scoped education-service deploy/rollout carrying the fixed five-minute salary duration rule, then rerun no-write salary readiness and calculation preview for 2026-05. Keep payout flows disabled pending separate payment-boundary approval.",
+  "next_required_action": "Review draft salary calculation run b5d47fb3-e366-4c04-8683-37a51b3c45bf and keep it in draft until a separate finalize/payout/payment-boundary approval exists. Payout/payment gates remain closed.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -290,5 +290,56 @@
       "cd education-service && npm run build passed"
     ],
     "deployment": "not run; owner approval required"
+  },
+  "last_salary_education_deploy": {
+    "timestamp": "2026-06-15T00:00:00+02:00",
+    "approval": "docs/orchestrator/SALARY_EDUCATION_DEPLOY_APPROVAL.md",
+    "imageDigest": "localhost:5000/speakasap-education@sha256:264330e6f1dcfcc590593e5981ed1f8609ab2e020a3800ad4b9e1037c81c3fbd",
+    "rollout": "deployment/speakasap-education generation 20, 1/1 ready",
+    "health": "ok",
+    "rootDeployUsed": false
+  },
+  "last_salary_postdeploy_preview": {
+    "timestamp": "2026-06-15T00:00:00+02:00",
+    "readinessReport": "/tmp/speakasap-salary-readiness-2026-05-postdeploy-v1.json",
+    "previewReport": "/tmp/speakasap-salary-calculation-preview-2026-05-postdeploy-v1.json",
+    "salaryStatusReport": "/tmp/speakasap-salary-status-postdeploy-20260615.json",
+    "writes": false,
+    "summary": {
+      "profiles": 14,
+      "lines": 14,
+      "linesUsingImportedLessonSalary": 14,
+      "blockerSamplesCoveredByImportedSalaryExpenses": 6,
+      "calculationRunCreated": false,
+      "payoutRuns": 0
+    }
+  },
+  "last_education_externalsecret_issue": "speakasap-education-secret lacks LESSON_RECORD_MEDIA_TOKEN_SECRET; ExternalSecret Ready=False SecretSyncedError; salary evidence unaffected, private media token smoke blocked",
+  "last_salary_broader_calculation_packet": {
+    "timestamp": "2026-06-15T00:00:00+02:00",
+    "packet": "docs/orchestrator/SALARY_BROADER_CALCULATION_ENABLEMENT_APPROVAL.md",
+    "status": "prepared_not_executed",
+    "proposedPeriod": "2026-05",
+    "payoutsApproved": false,
+    "paymentsApproved": false,
+    "persistentEnvChangeApproved": false
+  },
+  "last_salary_calculation_run_v2": {
+    "timestamp": "2026-06-15T00:00:00+02:00",
+    "approval": "docs/orchestrator/SALARY_BROADER_CALCULATION_ENABLEMENT_APPROVAL.md",
+    "report": "/tmp/speakasap-salary-calculation-run-2026-05-v2.json",
+    "rollback": "/tmp/speakasap-salary-calculation-run-rollback-2026-05-v2.sql",
+    "postRunStatus": "/tmp/speakasap-salary-status-after-calculation-v2.json",
+    "writes": true,
+    "period": "2026-05",
+    "calculationRunId": "b5d47fb3-e366-4c04-8683-37a51b3c45bf",
+    "status": "draft",
+    "lineCount": 14,
+    "totals": {
+      "CZK": 29035,
+      "EUR": 21858
+    },
+    "payoutRunCount": 0,
+    "paymentDisbursementCreated": false
   }
 }

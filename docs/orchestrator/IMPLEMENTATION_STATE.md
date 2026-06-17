@@ -1,6 +1,6 @@
 # SpeakASAP Implementation State
 
-Last updated: 2026-06-14.
+Last updated: 2026-06-15.
 
 ## Orchestrator Command
 
@@ -17,12 +17,12 @@ Continue implementation of this project.
 ## Current Status
 
 - Active goal: Goal 9 - Salary And Recording-Duration Payroll Migration
-- Active chunk: 9.6 salary calculation review, deploy gate, and payout/payment-boundary gates
+- Active chunk: 9.6 draft calculation review and payout/payment-boundary gate
 - Active branch: not recorded in this checkout
 - Current wave: Wave 9 - Salary And Recording-Duration Payroll Migration
 - Completed goals: Goal 1 Intent Preservation And Refactor Governance; Goal 2 Legacy Portal Inventory And Parity Map; Goal 3 Service Ownership And API Contract Mapping; Goal 4 Data Migration And Reconciliation; Goal 5 Lesson Recording And Private Media Migration; Goal 6 Gateway, Auth, And Frontend Parity; Goal 7 Operational Cutover Readiness; Goal 8 Controlled Cutover Validation With Legacy Retained As Fallback
 - Running worker threads: none
-- Blocked chunks: broader salary calculation enablement is blocked pending owner-approved education-service deploy, no-write salary readiness rerun, and calculation preview rerun; payout flows remain blocked by `SALARY_PAYOUT_FLOWS_ENABLED=true` plus separate payment-boundary approval
+- Blocked chunks: draft calculation review is active; finalize, payout, payment execution, rollback, and broad/persistent enablement remain blocked pending separate owner approval; payout flows remain blocked by `SALARY_PAYOUT_FLOWS_ENABLED=true` plus separate payment-boundary approval
 - Approval gates currently active: any future lesson-record rerun, rollback execution, object-storage mutation, public/private access behavior change, or deployment requires fresh evidence and explicit owner approval where applicable; any future user-service write migration/rerun/rollback/truncation requires fresh no-write DB evidence, rollback artifact, and explicit owner approval
 - State source: this file plus `docs/orchestrator/STATE.json` and root `STATE.json`
 - Evidence log: `docs/orchestrator/STATUS.md`
@@ -185,6 +185,12 @@ At the end of every implementation session, update:
 Do not paste full logs. Keep each session summary short enough to guide the next orchestrator session without depending on chat history.
 
 ## Recent Evidence Summary
+
+- 2026-06-15: Owner approved the broader calculation packet and one additional draft calculation run was created for period 2026-05. Report `/tmp/speakasap-salary-calculation-run-2026-05-v2.json` records run `b5d47fb3-e366-4c04-8683-37a51b3c45bf`, status draft, 14 lines, totals CZK 29035 and EUR 21858, `payoutRunCount=0`, and `paymentDisbursementCreated=false`. Rollback SQL is `/tmp/speakasap-salary-calculation-run-rollback-2026-05-v2.sql`; rollback was not executed. Post-run status `/tmp/speakasap-salary-status-after-calculation-v2.json` shows 2 calculation runs and 0 payout runs. No payout/payment/finalize/persistent env/deploy/destructive action ran.
+
+- 2026-06-15: Prepared `docs/orchestrator/SALARY_BROADER_CALCULATION_ENABLEMENT_APPROVAL.md` for a possible second draft salary calculation run for period 2026-05. The packet references post-deploy readiness/preview/status evidence, scopes any future write to one draft calculation run, and excludes payouts, payment disbursement, persistent env changes, unrelated deploys, rollback execution, and destructive operations. No new calculation run or data mutation was executed.
+
+- 2026-06-15: Goal 9.6 scoped education deploy completed after owner approval. Built/pushed only `localhost:5000/speakasap-education@sha256:264330e6f1dcfcc590593e5981ed1f8609ab2e020a3800ad4b9e1037c81c3fbd`, applied only `k8s/services/education-service.yaml`, restarted only `deployment/speakasap-education`, rollout reached generation 20 with 1/1 ready, and pod health returned ok. Post-deploy salary readiness `/tmp/speakasap-salary-readiness-2026-05-postdeploy-v1.json` recorded fixed five-minute rule with six short-record blockers; no-write preview `/tmp/speakasap-salary-calculation-preview-2026-05-postdeploy-v1.json` showed 14/14 lines use imported legacy lesson salary hours and 6/6 blockers are covered, with no calculation run created. Salary status shows one prior draft calculation run and zero payout runs. ExternalSecret for `LESSON_RECORD_MEDIA_TOKEN_SECRET` remains unsynced and blocks private media token smoke, not salary evidence.
 
 - 2026-06-14: Goal 9 draft salary calculation smoke reviewed and accepted only as scoped evidence: run `6576ac90-526e-47c6-8755-9631a4fb3149`, 14 draft lines, totals EUR 21858 and CZK 29035, no payout run and no payment disbursement. Fresh no-write readiness report `/tmp/speakasap-salary-readiness-2026-05-current-review.json` cleared missing-duration, short-record, and teacher-mapping blockers but still reports readiness false until patched education runtime is deployed. Fixed source salary duration tolerance from the stale 95% expression to the documented fixed five-minute tolerance and added a verifier guard; education lesson-record contract test and build passed. No deploy, rollback, payout, payment, or destructive operation ran.
 

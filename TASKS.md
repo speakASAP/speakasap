@@ -4,9 +4,16 @@ This file is the root task index for the SpeakASAP master orchestrator. Detailed
 
 ## Active Task
 
-- Goal 9.6: review salary calculation smoke evidence, keep payout/payment gates closed, and prepare the scoped education-service deploy/rerun gate for salary readiness.
+- Goal 9.6: review draft salary calculation run V2; payout/payment/finalize gates remain closed.
 
 Current gate:
+
+- Draft salary calculation run V2 `b5d47fb3-e366-4c04-8683-37a51b3c45bf` was created after owner approval; 14 lines, totals CZK 29035 and EUR 21858, zero payout runs, rollback SQL captured. Finalize/payout/payment/rollback remain separately gated.
+
+- Broader salary calculation enablement packet is prepared at `docs/orchestrator/SALARY_BROADER_CALCULATION_ENABLEMENT_APPROVAL.md`; no additional calculation run has been created.
+
+- Post-deploy salary preview on 2026-06-15 recorded 14/14 lines using imported legacy lesson salary hours, 6/6 short-record blockers covered by imported expenses, no new calculation run, and zero payout runs. Broader calculation enablement still needs a separate owner decision and approval packet.
+- Education ExternalSecret still lacks `LESSON_RECORD_MEDIA_TOKEN_SECRET`; private media token smoke remains blocked separately from salary.
 
 - Draft salary smoke review on 2026-06-14 accepted run `6576ac90-526e-47c6-8755-9631a4fb3149` only as scoped evidence: 14 draft lines, totals EUR 21858 and CZK 29035, no payout run, no payment disbursement, rollback SQL available but not executed.
 - Source salary duration tolerance is now fixed to the documented five-minute rule and guarded by `npm run test:lesson-records`; deploy/rollout was not run and needs owner approval before runtime readiness can be trusted.

@@ -1,3 +1,35 @@
+## 2026-06-15 - Goal 5.5 ExternalSecret Apply Attempt And Rollback
+
+Status: blocked on missing Vault property for `LESSON_RECORD_MEDIA_TOKEN_SECRET`.
+
+Approval:
+
+- Owner approved applying the updated education-service ExternalSecret/manifest in chat on 2026-06-15: "Yes, I approve it. Go ahead, continue."
+
+Execution:
+
+- Ran `kubectl apply -f k8s/services/education-service.yaml` on `alfares`.
+- Kubernetes reported Deployment, Service, and ConfigMap unchanged; `externalsecret.external-secrets.io/speakasap-education-secret configured`.
+- Waited for ESO sync and checked only secret key names/status metadata; no secret values were printed.
+
+Result:
+
+- ESO failed to sync after the new `LESSON_RECORD_MEDIA_TOKEN_SECRET` mapping was applied.
+- Condition after apply: `Ready=False`, `Reason=SecretSyncedError`, message `could not get secret data from provider`.
+- Live Secret did not receive `LESSON_RECORD_MEDIA_TOKEN_SECRET`.
+- Rolled back the live cluster resource with `/tmp/speakasap-education-service.yaml.before-token-secret`.
+- Rollback restored `ExternalSecret` health: `Ready=True`, `Reason=SecretSynced`, refresh time `2026-06-15T12:53:18Z`.
+- Existing recording storage keys remained present: `RECORDS_S3_ENDPOINT_URL`, `RECORDS_S3_BUCKET`, `RECORDS_S3_ACCESS_KEY`, `RECORDS_S3_SECRET_KEY`, `RECORDS_S3_REGION_NAME`, `RECORDS_S3_VERIFY_SSL`, and `RECORDS_S3_HELPER_URL`.
+
+Boundary:
+
+- No deployment rollout, pod restart, migration write, object-storage mutation, runtime smoke, salary write, payout call, rollback SQL, cutover, or secret value disclosure was run.
+- The repository manifest still contains the desired `LESSON_RECORD_MEDIA_TOKEN_SECRET` mapping; the live cluster was rolled back because Vault does not currently provide the property.
+
+Next:
+
+- Create or authorize the Vault property `secret/prod/speakasap/education:LESSON_RECORD_MEDIA_TOKEN_SECRET`, then re-apply the education ExternalSecret and confirm the key syncs before deployment/runtime smoke.
+
 ## 2026-06-13 - Goal 5.5 Live Secret Sync Check
 
 Status: blocked for deployment smoke; live ExternalSecret has not been updated with `LESSON_RECORD_MEDIA_TOKEN_SECRET`.
@@ -1064,6 +1096,132 @@ Next:
 - Goal 10.1: implement the content-service seven-course schema/API contract without writing migrated data, then run build/static validation.
 
 # SpeakASAP Orchestrator Status
+
+## 2026-06-15 - Goal 9.6 Additional Draft Salary Calculation Run V2
+
+Status: approved one-shot draft calculation run completed; payout/payment gates remain closed.
+
+Approval:
+
+- Owner approved the broader calculation packet in chat on 2026-06-15: "No, it's okay. I approve it. Go ahead."
+- Approval packet: `docs/orchestrator/SALARY_BROADER_CALCULATION_ENABLEMENT_APPROVAL.md`.
+
+Execution:
+
+- Ran one temporary one-shot calculation command with `SALARY_CALCULATION_RUNS_ENABLED` scoped only to the command context.
+- Used deployed education aggregate through temporary port-forward and target salary DB through temporary port-forward.
+- Created one draft calculation run for period `2026-05` scoped to the 14 legacy portal users from the post-deploy preview.
+
+Artifacts:
+
+- Execution report: `/tmp/speakasap-salary-calculation-run-2026-05-v2.json`.
+- Rollback SQL: `/tmp/speakasap-salary-calculation-run-rollback-2026-05-v2.sql`.
+- Post-run salary status: `/tmp/speakasap-salary-status-after-calculation-v2.json`.
+- Calculation run ID: `b5d47fb3-e366-4c04-8683-37a51b3c45bf`.
+
+Result:
+
+- `writes=true` for the approved calculation run only.
+- Status: `draft`.
+- Rules version: `salary-duration-v3-imported-legacy-qty-v1`.
+- Calculation lines: `14`.
+- Totals: `CZK=29035`, `EUR=21858`.
+- `payoutRunCount=0`.
+- `paymentDisbursementCreated=false`.
+- Post-run status recorded `calculationRuns=2` and `payoutRuns=0`.
+
+Rollback:
+
+- Rollback SQL deletes only `calculation_lines` for run `b5d47fb3-e366-4c04-8683-37a51b3c45bf` and then the matching `calculation_runs` row.
+- Rollback was not executed and remains separately approval-gated.
+
+Boundary:
+
+- No payout run, payout commit, payment-service disbursement, persistent env change, salary expense/profile mutation, education/user/legacy row mutation, deployment, schema change, object-storage mutation, destructive operation, or legacy retirement ran.
+
+Next:
+
+- Review the V2 draft run. If accepted, keep it in `draft` until a separate finalize/payout/payment-boundary decision exists. Payouts and payment execution remain unapproved.
+
+## 2026-06-15 - Goal 9.6 Broader Calculation Enablement Packet Prepared
+
+Status: approval packet prepared; no new calculation run executed.
+
+Changed:
+
+- Added `docs/orchestrator/SALARY_BROADER_CALCULATION_ENABLEMENT_APPROVAL.md`.
+- Packet scopes a possible second draft calculation run for `2026-05` to the post-deploy no-write evidence and the same 14 legacy portal users.
+- Packet explicitly excludes persistent env changes, payouts, payment disbursement, salary expense/profile mutation, unrelated deployment, rollback execution, and destructive operations.
+
+Evidence referenced:
+
+- `/tmp/speakasap-salary-readiness-2026-05-postdeploy-v1.json`
+- `/tmp/speakasap-salary-calculation-preview-2026-05-postdeploy-v1.json`
+- `/tmp/speakasap-salary-status-postdeploy-20260615.json`
+
+Boundary:
+
+- No salary calculation run, payout run, payment disbursement, rollback, deployment, schema change, or data mutation was executed while preparing this packet.
+
+Next:
+
+- Wait for exact owner approval wording from `docs/orchestrator/SALARY_BROADER_CALCULATION_ENABLEMENT_APPROVAL.md` before creating any additional draft calculation run.
+
+## 2026-06-15 - Goal 9.6 Scoped Education Deploy And Salary Rerun
+
+Status: scoped education deploy completed; salary post-deploy no-write readiness and preview evidence captured; payout/payment gates remain closed.
+
+Approval:
+
+- Owner approved proceeding in chat on 2026-06-15: "I approve. Go ahead with planning".
+- Approval packet: `docs/orchestrator/SALARY_EDUCATION_DEPLOY_APPROVAL.md`.
+
+Execution:
+
+- Built and pushed only `localhost:5000/speakasap-education:latest` from `education-service/Dockerfile`.
+- Image digest: `localhost:5000/speakasap-education@sha256:264330e6f1dcfcc590593e5981ed1f8609ab2e020a3800ad4b9e1037c81c3fbd`.
+- Applied only `k8s/services/education-service.yaml` in namespace `statex-apps`.
+- Restarted and waited only for `deployment/speakasap-education`; rollout completed successfully at generation `20` with `1/1` ready replica.
+- Health check inside the education pod returned `{"status":"ok"}`.
+
+Post-deploy salary evidence:
+
+- No-write salary readiness report `/tmp/speakasap-salary-readiness-2026-05-postdeploy-v1.json` recorded `writes=false`, rules version `salary-duration-v3-record-length-5min-tolerance`, `missingDurationCount=0`, `shortRecordCount=6`, `teacherMappingMissingCount=0`, `demoPayableLessonCount=1`, and the same six short-record blocker lessons as historical parity inputs.
+- No-write calculation preview `/tmp/speakasap-salary-calculation-preview-2026-05-postdeploy-v1.json` recorded `writes=false`, `profiles=14`, `lines=14`, `linesUsingImportedLessonSalary=14`, `blockerSamples=6`, `blockerSamplesCoveredByImportedSalaryExpenses=6`, and `calculationRunCreated=false`.
+- Read-only salary status `/tmp/speakasap-salary-status-postdeploy-20260615.json` recorded `calculationRuns=1` and `payoutRuns=0`; the single calculation run is the prior owner-approved draft smoke.
+
+Open runtime config issue:
+
+- `speakasap-education-secret` still lacks `LESSON_RECORD_MEDIA_TOKEN_SECRET` and `ExternalSecret/speakasap-education-secret` reports `SecretSyncedError: could not get secret data from provider`. This does not block the salary aggregate evidence, but it remains a private lesson-record media runtime blocker before playback/token smoke can be accepted.
+
+Boundary:
+
+- Did not run root `scripts/deploy.sh` or restart unrelated services.
+- Did not enable broad salary calculation runs, create another calculation run, create/commit payout runs, call payment-service, execute rollback, mutate salary expenses/profiles, run destructive operations, mutate object storage, or retire legacy behavior.
+
+Next:
+
+- Keep `SALARY_CALCULATION_RUNS_ENABLED` and `SALARY_PAYOUT_FLOWS_ENABLED` closed for broad use. Next owner decision is whether to accept the post-deploy salary preview and request a separate approval packet for broader calculation enablement, or keep only the existing draft smoke while resolving the unrelated education ExternalSecret media-token sync issue.
+
+## 2026-06-15 - Goal 9.6 Education Deploy Approval Recorded
+
+Status: scoped education-service deploy/rerun gate approved; execution pending.
+
+Approval:
+
+- Owner approved proceeding in chat on 2026-06-15: "I approve. Go ahead with planning".
+- Approval packet: `docs/orchestrator/SALARY_EDUCATION_DEPLOY_APPROVAL.md`.
+
+Approved scope:
+
+- Build/push only `localhost:5000/speakasap-education:latest`.
+- Apply only `k8s/services/education-service.yaml`.
+- Restart/status only `deployment/speakasap-education` in `statex-apps`.
+- Run read-only health, salary readiness, and calculation preview checks for `2026-05`.
+
+Boundary:
+
+- Root all-service deploy, salary calculation enablement for broad use, payout creation/commit, payment disbursement, rollback execution, salary row mutation, destructive operations, and legacy retirement remain unapproved.
 
 ## 2026-06-14 - Goal 9 Salary Draft Review And Fixed-Tolerance Guard
 
