@@ -161,3 +161,16 @@ Status: after the owner-approved retry/repair, payout commit completed to the `p
 - Commit error after retry: `null`.
 
 Boundary: no payout line was marked `paid`, no external provider settlement was faked, and no SQL rollback/refund/reversal/manual settlement completion/status finalization ran. The next owner decision is the settlement/finalization path for the 14 processing lines.
+
+## Owner-Confirmed Manual Settlement Result
+
+Status: owner confirmed all 14 salary payouts were manually paid. The salary and payment-service status records were synchronized to completed/paid.
+
+- Payment refs completion report: `/tmp/speakasap-manual-payout-payment-refs-completed-2026-05-option2-v1.json`.
+- Salary payout paid report: `/tmp/speakasap-manual-payout-salary-paid-2026-05-option2-v1.json`.
+- Payout run: `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`; status `completed`.
+- Payout line statuses: `paid=14`.
+- Payment-service manual disbursement refs: `completed=14`.
+- Provider: `manual_salary_disbursement`.
+
+Boundary: this records owner-confirmed manual payment, not automatic external provider settlement discovery. Future correction, reversal/refund, status rollback, or compensation requires separate owner approval.

@@ -5385,3 +5385,24 @@ Status: owner-approved retry/repair after the payment-boundary idempotency fix c
 - No external provider settlement was faked.
 - No SQL rollback, deployment rollback, refund/reversal, compensation, manual settlement completion, status finalization, object mutation, fallback DB write, legacy mutation, or destructive action ran after the retry.
 - Any settlement completion, paid-status finalization, refund/reversal, SQL repair, rollback, or additional retry requires a separate owner decision.
+
+## 2026-06-21 - Goal 9 Option B Manual Payout Settlement Recorded
+
+Status: owner confirmed all 14 salary payouts for the prepared payout run were paid manually. System status was synchronized to that manual payment evidence.
+
+### Execution Evidence
+
+- Payment refs completion report: `/tmp/speakasap-manual-payout-payment-refs-completed-2026-05-option2-v1.json`.
+- Salary payout paid report: `/tmp/speakasap-manual-payout-salary-paid-2026-05-option2-v1.json`.
+- Calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`; status remains `finalized`.
+- Payout run: `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`; status changed `processing` -> `completed`.
+- Payout line statuses changed `processing=14` -> `paid=14`.
+- Payment-service manual disbursement refs changed `processing=14` -> `completed=14`.
+- Provider remains `manual_salary_disbursement`.
+- Manual settlement metadata was recorded on all 14 payout lines and all 14 payment refs.
+
+### Boundary
+
+- This records owner-confirmed manual payment, not automatic bank/provider settlement discovery.
+- No additional payout run, calculation run, salary recalculation, refund/reversal, rollback, object mutation, fallback DB write, legacy mutation, deployment, or destructive action ran.
+- Future correction, reversal/refund, status rollback, or compensation requires separate owner approval.

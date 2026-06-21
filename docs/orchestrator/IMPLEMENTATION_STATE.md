@@ -17,12 +17,12 @@ Continue implementation of this project.
 ## Current Status
 
 - Active goal: Goal 9 - Salary And Recording-Duration Payroll Migration
-- Active chunk: 9.6 payout commit retry completed; payout processing pending settlement/finalization path
+- Active chunk: 9.6 manual payout settlement recorded; payout completed
 - Active branch: not recorded in this checkout
 - Current wave: Wave 9 - Salary And Recording-Duration Payroll Migration
 - Completed goals: Goal 1 Intent Preservation And Refactor Governance; Goal 2 Legacy Portal Inventory And Parity Map; Goal 3 Service Ownership And API Contract Mapping; Goal 4 Data Migration And Reconciliation; Goal 5 Lesson Recording And Private Media Migration; Goal 6 Gateway, Auth, And Frontend Parity; Goal 7 Operational Cutover Readiness; Goal 8 Controlled Cutover Validation With Legacy Retained As Fallback
 - Running worker threads: none
-- Blocked chunks: payout settlement completion, paid-status finalization, rollback, refund/reversal, SQL repair, and broad/persistent enablement remain blocked pending separate approval; payout commit retry completed to `processing` and must not be rerun without a separate owner decision
+- Blocked chunks: future correction, refund/reversal, status rollback, SQL repair, and broad/persistent enablement remain blocked pending separate approval; Option B payout run is completed after owner-confirmed manual payment
 - Approval gates currently active: any future lesson-record rerun, rollback execution, object-storage mutation, public/private access behavior change, or deployment requires fresh evidence and explicit owner approval where applicable; any future user-service write migration/rerun/rollback/truncation requires fresh no-write DB evidence, rollback artifact, and explicit owner approval
 - State source: this file plus `docs/orchestrator/STATE.json` and root `STATE.json`
 - Evidence log: `docs/orchestrator/STATUS.md`
@@ -41,7 +41,7 @@ Continue implementation of this project.
 | Goal 6 - Gateway, Auth, And Frontend Parity | done | Gateway/frontend route checks and authorized learner/teacher/staff parity checks are recorded. |
 | Goal 7 - Operational Cutover Readiness | done | Manifests, secrets, health, logging, OpenSSL runtime, smoke URLs, rollback, and cutover checklist are recorded. |
 | Goal 8 - Controlled Cutover And Legacy Decommission | done | Controlled cutover validation passed; owner selected legacy retention as fallback/reference. |
-| Goal 9 - Salary And Recording-Duration Payroll Migration | active | Option B salary calculation run `849b766d-90d4-415d-8e59-86fca05128d5` is finalized. Draft payout run `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1` was committed after owner approval and retry/repair; it is now `processing` with payout line statuses `processing=14` and `paymentRefs=14`. The payment boundary records idempotent manual disbursement refs and does not fake paid settlement. Next gate is owner decision for settlement completion or paid-status finalization path; do not rerun payout commit, run SQL rollback, or perform refund/reversal without separate approval. |
+| Goal 9 - Salary And Recording-Duration Payroll Migration | active | Option B salary calculation run `849b766d-90d4-415d-8e59-86fca05128d5` is finalized. Payout run `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1` is completed after owner-confirmed manual payment: payout line statuses `paid=14`, payment-service manual disbursement refs `completed=14`, provider `manual_salary_disbursement`. No payout action remains for this run; future correction/refund/reversal/status rollback requires separate owner approval. |
 | Goal 10 - Seven-Lesson Course Frontend Migration | paused | Paused by explicit owner salary reprioritization. Existing Seven work remains preserved and should not be reverted. |
 
 ## Execution Waves
@@ -514,3 +514,11 @@ Next:
 - Evidence: `/tmp/speakasap-salary-payout-commit-payment-execution-2026-05-option2-v2.json`, `/tmp/speakasap-salary-status-after-payout-commit-option2-v2.json`, and `/tmp/speakasap-salary-payout-commit-payment-execution-rollback-assessment-2026-05-option2-v2.md`.
 - Boundary: no line is `paid`, no external provider settlement was faked, and no rollback/refund/reversal/manual settlement completion/status finalization ran.
 - Next gate: owner decision for settlement completion or paid-status finalization path.
+
+## 2026-06-21 - Goal 9 Option B Manual Payout Settlement
+
+- Owner confirmed the 14 salary payouts for payout run `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1` were performed manually and the money was paid.
+- Payment-service manual disbursement refs were updated from `processing=14` to `completed=14`; provider remains `manual_salary_disbursement`.
+- Salary payout run was updated from `processing` to `completed`; payout lines were updated from `processing=14` to `paid=14`.
+- Evidence: `/tmp/speakasap-manual-payout-payment-refs-completed-2026-05-option2-v1.json` and `/tmp/speakasap-manual-payout-salary-paid-2026-05-option2-v1.json`.
+- Boundary: this records owner-confirmed manual payment, not automatic external provider settlement discovery. Future correction, reversal/refund, status rollback, or compensation requires separate owner approval.

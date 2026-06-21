@@ -1,7 +1,7 @@
 {
-  "activeChunk": "9.6 payout commit retry completed; payout processing pending settlement/finalization path",
+  "activeChunk": "9.6 manual payout settlement recorded; payout completed",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 payout commit retry completed; payout processing pending settlement/finalization path",
+  "current_chunk": "9.6 manual payout settlement recorded; payout completed",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Decide the settlement/finalization path for payout run ffefafe8-c2f7-4b76-8da6-3efbd5d707d1: it is now processing with 14/14 payout lines processing and 14 payment refs after the approved retry. No lines are paid/completed. Do not rerun payout commit or execute SQL rollback without separate owner approval.",
+  "next_required_action": "Goal 9 Option B payout run ffefafe8-c2f7-4b76-8da6-3efbd5d707d1 is completed after owner-confirmed manual payment: 14/14 payout lines are paid, 14 manual salary disbursement refs are completed. No payout action remains for this run; future correction/reversal/refund/status rollback requires separate owner approval.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -777,5 +777,34 @@
     "rollbackAssessment": "/tmp/speakasap-salary-payout-commit-payment-execution-rollback-assessment-2026-05-option2-v2.md",
     "boundary": "Payment boundary records idempotent manual salary disbursement refs and returns/polls processing; it does not fake paid settlement or external provider completion.",
     "nextGate": "Owner decision for real/manual settlement completion or status finalization path. Do not rerun payout commit or SQL rollback without separate approval."
+  },
+  "last_salary_payout_manual_settlement": {
+    "timestamp": "2026-06-21T00:00:00+02:00",
+    "goal": "Goal 9 salary recording-duration payroll migration",
+    "writes": true,
+    "manualSettlementConfirmedByOwner": true,
+    "period": "2026-05",
+    "calculationRunId": "849b766d-90d4-415d-8e59-86fca05128d5",
+    "payoutRunId": "ffefafe8-c2f7-4b76-8da6-3efbd5d707d1",
+    "payoutRunStatusBefore": "processing",
+    "payoutRunStatusAfter": "completed",
+    "payoutLineStatusCountsBefore": {
+      "processing": 14
+    },
+    "payoutLineStatusCountsAfter": {
+      "paid": 14
+    },
+    "paymentRefStatusCountsBefore": {
+      "processing": 14
+    },
+    "paymentRefStatusCountsAfter": {
+      "completed": 14
+    },
+    "paymentRefs": 14,
+    "provider": "manual_salary_disbursement",
+    "paymentRefsReport": "/tmp/speakasap-manual-payout-payment-refs-completed-2026-05-option2-v1.json",
+    "salaryPaidReport": "/tmp/speakasap-manual-payout-salary-paid-2026-05-option2-v1.json",
+    "boundary": "Owner confirmed the money was paid manually outside automatic provider settlement. The system status was synchronized to that manual payment evidence.",
+    "nextGate": "No payout action remains for this run. Future corrections, reversal/refund, or status rollback require separate owner approval."
   }
 }
