@@ -94,3 +94,31 @@ Status: the owner approved a read-only live DB/media-key recovery report for the
 - Row shape: all seven rows have no parts JSON entries and no `education_lessonrecordpart` rows.
 
 Boundary after report: exact private object keys remain in the `/tmp` report only. No object-storage mutation, fallback DB write, salary finalization, payout creation, payout commit, payment-service disbursement, deployment, rollback execution, legacy mutation, or destructive action was approved or run.
+
+## Option B Execution Evidence
+
+Status: owner selected Option 2 on 2026-06-21.
+
+Decision recorded: use imported legacy `LessonSalaryExpense.qty` as the authoritative salary quantity for the seven unresolved salary-scoped private media rows, while keeping recording-duration parity and object recovery open.
+
+Evidence:
+
+- Recovery report `/tmp/speakasap-salary-scoped-media-recovery-readonly-goal9-v1.json`: `writes=false`, `recordCount=7`, `reachableRecords=0`, `unresolvedRecords=7`.
+- Salary lesson UUID report `/tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json`: `writes=false`, `lessonUuids=2687`.
+- Read-only coverage check: `7/7` unresolved lesson UUIDs covered by imported legacy lesson salary rows.
+
+Boundary after selection: no object-storage mutation, fallback DB write, salary finalization, payout creation, payout commit, payment-service disbursement, deployment, rollback execution, legacy mutation, or destructive action was run or approved by this selection.
+
+## Option B No-Write Coverage Validation
+
+Status: completed on 2026-06-21.
+
+- Readiness report: `/tmp/speakasap-salary-readiness-2026-05-option2-v1.json`.
+- Coverage report: `/tmp/speakasap-salary-option2-import-coverage-v1.json`.
+- Duration blockers covered by imported lesson salary rows: `6/6`.
+- Seven unresolved missing-media fallback rows covered by imported lesson salary rows: `7/7`.
+- Aggregate warnings: none.
+- Teacher mapping blockers: none.
+- Safe for draft calculation approval packet: yes.
+
+No salary calculation run, payout creation, payout commit, payment-service disbursement, deployment, rollback execution, object-storage mutation, fallback DB write, legacy mutation, or destructive action ran.

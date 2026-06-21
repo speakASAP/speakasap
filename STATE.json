@@ -1,7 +1,7 @@
 {
-  "activeChunk": "9.6 seven missing-media rows confirmed unresolved by read-only key recovery report",
+  "activeChunk": "9.6 Option B fallback validated no-write; draft salary calculation approval packet next",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 seven missing-media rows confirmed unresolved by read-only key recovery report",
+  "current_chunk": "9.6 Option B fallback validated no-write; draft salary calculation approval packet next",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Prepare a separate owner decision for the seven unresolved salary-scoped media rows: either restore/copy original legacy recording objects into target storage after locating a trusted source, approve an explicit salary fallback policy, or keep them blocked. Do not mutate object storage, write fallback policy data, finalize salary runs, create payouts, execute payments, deploy, execute rollback SQL, or perform destructive actions without separate approval.",
+  "next_required_action": "Prepare a separate owner approval packet before any draft salary calculation run using /tmp/speakasap-salary-option2-import-coverage-v1.json. Payouts, payment execution, deployment, rollback execution, object mutation, fallback DB writes, and legacy mutation remain blocked.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -509,5 +509,35 @@
       "Live DB and recording S3 secret values were used only as environment variables; no secret values were printed or stored in docs"
     ],
     "rollback": "No write rollback needed for this read-only report."
+  },
+  "last_salary_missing_media_fallback_policy": {
+    "timestamp": "2026-06-21T00:00:00+02:00",
+    "goal": "Goal 9 salary recording-duration payroll migration",
+    "writes": false,
+    "decision": "Option 2 selected: use imported legacy LessonSalaryExpense.qty as authoritative salary quantity for seven unresolved salary-scoped missing-media rows.",
+    "evidence": [
+      "/tmp/speakasap-salary-scoped-media-recovery-readonly-goal9-v1.json",
+      "/tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json",
+      "Read-only coverage check confirmed 7/7 unresolved lesson UUIDs covered by imported legacy lesson salary rows."
+    ],
+    "boundaries": [
+      "No duration_seconds synthesis or write.",
+      "No object-storage mutation.",
+      "No fallback DB write.",
+      "No salary finalization, payout, payment execution, deployment, rollback execution, legacy mutation, or destructive action."
+    ]
+  },
+  "last_salary_missing_media_fallback_validation": {
+    "timestamp": "2026-06-21T00:00:00+02:00",
+    "writes": false,
+    "readinessReport": "/tmp/speakasap-salary-readiness-2026-05-option2-v1.json",
+    "coverageReport": "/tmp/speakasap-salary-option2-import-coverage-v1.json",
+    "durationBlockers": 6,
+    "durationBlockersCoveredByImportedLessonSalary": 6,
+    "missingMediaFallbackRows": 7,
+    "missingMediaFallbackRowsCoveredByImportedLessonSalary": 7,
+    "aggregateWarnings": [],
+    "teacherMappingMissingCount": 0,
+    "safeForDraftCalculationApprovalPacket": true
   }
 }

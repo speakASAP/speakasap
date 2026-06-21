@@ -514,3 +514,11 @@ Approved read-only recovery report `/tmp/speakasap-salary-scoped-media-recovery-
 The report tested current record keys, legacy-prefixed current keys, canonical dated mp3/webm/m4a keys, and legacy-prefixed canonical mp3 keys. All `40` candidate probes returned `http_404`. All seven rows have no parts JSON entries and no `education_lessonrecordpart` rows. Exact private object keys remain in the `/tmp` report only and were not copied into durable docs.
 
 Next recovery requires a separate decision: locate a trusted legacy object source for restore/copy, approve an explicit salary fallback policy, or keep the rows blocked. No object mutation, fallback DB write, salary finalization, payout, payment execution, deployment, rollback execution, legacy mutation, or destructive action ran.
+
+### 2026-06-21 Option B Missing-Media Salary Fallback Policy
+
+Owner selected Option 2 for the seven remaining salary-scoped private media `http_404` rows. The approved fallback policy is documented in `docs/orchestrator/SALARY_MISSING_MEDIA_FALLBACK_POLICY.md`.
+
+Read-only coverage check confirmed all seven unresolved lesson UUIDs are present in `/tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json`; zero unresolved rows were uncovered by imported legacy lesson salary expenses.
+
+Policy boundary: use imported legacy `LessonSalaryExpense.qty` as the authoritative salary quantity for these rows, do not synthesize or write `education_lessonrecord.duration_seconds`, and keep the missing-media rows open for future object recovery/recording-duration parity. No fallback DB write, salary finalization, payout, payment execution, deployment, rollback execution, object mutation, legacy mutation, or destructive action ran.

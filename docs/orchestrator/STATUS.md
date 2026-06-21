@@ -5124,3 +5124,43 @@ Boundary:
 Next:
 
 - Prepare a separate owner decision: locate a trusted legacy recording-object source and approve a narrow restore/copy, approve an explicit salary fallback policy, or keep these rows blocked.
+
+## 2026-06-21 - Goal 9.6 Option B Missing-Media Salary Fallback Policy
+
+Status: owner selected Option 2 for the seven unresolved salary-scoped private media rows. The fallback policy is documented in `docs/orchestrator/SALARY_MISSING_MEDIA_FALLBACK_POLICY.md`. No fallback DB write, salary calculation run, payout creation, payout commit, payment execution, deployment, rollback execution, object-storage mutation, legacy mutation, or destructive action ran.
+
+Evidence:
+
+- Read-only recovery report `/tmp/speakasap-salary-scoped-media-recovery-readonly-goal9-v1.json` recorded `writes=false`, `recordCount=7`, `reachableRecords=0`, and `unresolvedRecords=7`.
+- Read-only coverage check confirmed all seven unresolved lesson UUIDs are present in `/tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json`.
+- Existing salary-service calculation logic uses imported legacy lesson salary expenses only when all missing/short duration blockers are covered by imported lesson salary rows and no teacher-mapping/dependency warnings remain.
+
+Approved policy:
+
+- Use imported legacy `LessonSalaryExpense.qty` as the authoritative salary quantity for these seven rows.
+- Do not synthesize or write `duration_seconds`.
+- Keep object recovery and recording-duration parity incomplete for the seven rows.
+- Keep salary calculation writes, payouts, payment execution, deployment, rollback execution, object mutation, and legacy mutation behind separate approval gates.
+
+Next:
+
+- Run no-write salary readiness and calculation preview with the imported-lesson-salary fallback policy in force; prepare a separate approval packet before any draft salary calculation run.
+
+## 2026-06-21 - Goal 9.6 Option B No-Write Coverage Validation
+
+Status: no-write validation completed for the owner-approved Option B missing-media salary fallback policy. No salary calculation run, payout creation, payout commit, payment execution, deployment, rollback execution, object-storage mutation, fallback DB write, legacy mutation, or destructive action ran.
+
+Evidence:
+
+- Readiness report `/tmp/speakasap-salary-readiness-2026-05-option2-v1.json` recorded `writes=false`, `rulesVersion=salary-duration-v3-record-length-5min-tolerance`, `missingDurationCount=0`, `shortRecordCount=6`, `teacherMappingMissingCount=0`, and no aggregate warnings. The command exited `2` because source readiness still reports `salaryCalculationReady=false`; this is expected when duration blockers exist.
+- Coverage report `/tmp/speakasap-salary-option2-import-coverage-v1.json` recorded `writes=false`, `durationBlockers=6`, `coveredByImportedLessonSalary=6`, `uncovered=0`, `unresolvedRows=7`, `coveredByImportedLessonSalary=7`, and `safeForDraftCalculationApprovalPacket=true`.
+
+Boundary:
+
+- Option B only approves using imported legacy `LessonSalaryExpense.qty` as salary quantity for covered rows.
+- Draft salary calculation run creation remains separately approval-gated.
+- Payouts, payment execution, deployment, rollback execution, object mutation, fallback DB writes, and legacy mutation remain blocked.
+
+Next:
+
+- Prepare a separate draft salary calculation approval packet using `/tmp/speakasap-salary-option2-import-coverage-v1.json` if the owner wants to create another draft calculation run. Otherwise keep Goal 9 salary finalization blocked.
