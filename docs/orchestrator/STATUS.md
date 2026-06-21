@@ -5280,3 +5280,31 @@ Status: owner-approved finalization and draft payout preparation completed. Payo
 ### Next Gate
 
 - Review draft payout run `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`. Any payout commit or payment execution requires a separate explicit owner approval packet.
+
+## 2026-06-21 - Goal 9 Option B Payout Commit Payment Execution Packet Prepared
+
+Status: approval packet prepared in `docs/orchestrator/SALARY_PAYOUT_COMMIT_PAYMENT_EXECUTION_APPROVAL_OPTION2.md`. No payout commit, payment-service disbursement, external money movement, deployment, rollback execution, object-storage mutation, fallback DB write, legacy mutation, or destructive action ran.
+
+### Evidence
+
+- Calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`; status: `finalized`.
+- Draft payout run: `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`.
+- Payout lines: `14`; line statuses: `draft=14`.
+- Payout line minor totals: `CZK=2903500`, `EUR=2185800`.
+- Payment refs: `0`.
+- Current status report: `/tmp/speakasap-salary-status-after-payout-prep-option2-v1.json`.
+
+### Proposed Scope
+
+- Commit payout run `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1` exactly once with a unique idempotency key.
+- Execute payment-service salary disbursement for the 14 draft payout lines.
+- Capture execution and post-run status reports.
+
+### Boundaries
+
+- No additional payout run, calculation run, salary recalculation, persistent env change, deployment, rollback execution, object mutation, fallback DB write, legacy mutation, or destructive action is approved by this prepared packet.
+- Payment rollback is not SQL-safe after disbursement; any failure requires a separate owner decision before retry, compensation, manual repair, reversal/refund, or rollback.
+
+### Owner Action Needed
+
+- Approve, reject, or change the exact scope in `docs/orchestrator/SALARY_PAYOUT_COMMIT_PAYMENT_EXECUTION_APPROVAL_OPTION2.md`.
