@@ -494,3 +494,9 @@ The next salary migration chunk should be documentation-to-code hardening only:
 ### 2026-06-13 Duration Parity Rerun
 
 Read-only parity report `/tmp/speakasap-salary-duration-parity-2025-07_2026-06-v2.json` compared imported lesson salary rows against target education lesson records using `salary-duration-v3-record-length-5min-tolerance` for `2025-07` through `2026-06`. All `2687` imported lesson salary rows had populated lesson UUIDs and matched target education lessons. Full parity remains open: `215` row minute mismatches, `105` aggregate mismatches, `286` missing-duration fallback rows, and `1` teacher mapping mismatch remain. The five-minute tolerance correction reduced row mismatches from `300` to `215`; remaining blockers are demo zero-pay rows, missing measured duration/media, materially short recordings, and the single no-teacher target lesson.
+
+### 2026-06-21 Salary-Scoped Duration Full Probe
+
+Read-only salary-scoped duration probe `/tmp/speakasap-salary-scoped-duration-full-probe-goal9-v1.json` used the imported lesson salary UUID report for `2025-07` through `2026-06` and recorded `writes=false`, `candidates=9`, `attempted=9`, `succeeded=2`, and `failed=7`. The two measured target media rows produced durations `9` seconds and `30` seconds. The seven remaining rows failed private media probing with `http_404` and require media recovery or explicit fallback policy approval before full duration parity can be claimed.
+
+Recovery approval packet: `docs/orchestrator/SALARY_DURATION_RECOVERY_APPROVAL.md`. No duration apply, object mutation, salary finalization, payout, payment execution, deployment, rollback execution, or destructive action ran in this probe.

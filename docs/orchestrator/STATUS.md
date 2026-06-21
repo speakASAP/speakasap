@@ -5059,3 +5059,28 @@ Boundary:
 Next:
 
 - Run a full no-write salary-scoped duration probe using `/tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json`; then decide recovery for the 9 remaining payroll-impacting duration candidates before any approved apply or salary finalization.
+
+## 2026-06-21 - Goal 9.6 Salary-Scoped Duration Full Probe
+
+Status: full no-write probe completed; recovery approval packet prepared. Duration apply, object-storage mutation, salary finalization, payout creation, payout commit, payment execution, deployment, rollback execution, legacy mutation, and destructive actions remain approval-gated.
+
+Changed:
+
+- Added `docs/orchestrator/SALARY_DURATION_RECOVERY_APPROVAL.md` with separate approval boundaries for applying the two probe-successful durations and for handling seven missing-media rows.
+
+Evidence:
+
+- RAG retrieval was reachable but returned empty context/sources for the recovery query; repository and live no-write evidence were used.
+- Full no-write probe `/tmp/speakasap-salary-scoped-duration-full-probe-goal9-v1.json` recorded `writes=false`, `candidates=9`, `selected=9`, `attempted=9`, `succeeded=2`, and `failed=7`.
+- Candidate metadata report `/tmp/speakasap-salary-scoped-duration-candidates-goal9-v1.json` recorded `writes=false`, `count=9`, `measured=2`, and `failed=7`.
+- Measured duration rows: `93e96231-2bf1-4a66-8273-bc153dbeb9ff` = `9` seconds; `03913255-48ca-470f-8fc1-47a141b7b492` = `30` seconds.
+- The seven remaining rows all failed private media probing with `http_404` and still need media recovery or explicit fallback policy approval.
+- Live education recording S3 secret values were used only as environment variables for the probe; no secret values were printed or stored in docs.
+
+Boundary:
+
+- No `duration_seconds` apply, object copy/restore/delete, salary calculation finalization, payout run, payout commit, payment-service disbursement, deployment, rollback execution, legacy mutation, or destructive action ran.
+
+Next:
+
+- Review `docs/orchestrator/SALARY_DURATION_RECOVERY_APPROVAL.md`; if approved, run Option A to apply only probe-successful duration rows with rollback SQL, then continue read-only recovery investigation for the seven `http_404` media rows.

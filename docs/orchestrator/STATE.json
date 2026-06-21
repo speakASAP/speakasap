@@ -1,7 +1,7 @@
 {
-  "activeChunk": "9.6 salary-scoped recording-duration backfill targeting prepared; finalize/payout/payment gates closed",
+  "activeChunk": "9.6 full salary-scoped duration probe complete; recovery approval pending",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 salary-scoped recording-duration backfill targeting prepared; finalize/payout/payment gates closed",
+  "current_chunk": "9.6 full salary-scoped duration probe complete; recovery approval pending",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Use /tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json with education-service backfill --lesson-uuid-report to run a full no-write duration probe for the 9 salary-scoped missing-duration candidates. Do not apply duration_seconds, finalize salary runs, create payouts, execute payments, deploy, rollback, or mutate objects without the separate approval and rollback gate.",
+  "next_required_action": "Review docs/orchestrator/SALARY_DURATION_RECOVERY_APPROVAL.md. Decide whether to approve Option A to apply the two probe-successful duration_seconds rows with rollback SQL, and continue read-only recovery for the seven http_404 private media rows. Keep salary finalization, payouts, payments, deployment, rollback execution, and object mutation closed unless separately approved.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -373,5 +373,41 @@
     ],
     "approval": "No salary calculation finalization, payout, payment execution, education duration apply, deployment, rollback, object-storage mutation, or destructive action was approved or run in this chunk.",
     "rollback": "Code-only change can be reverted by git. Any future duration_seconds apply must use backfill --apply with --confirm-write, --approval-note, and --rollback-plan to generate SQL before writes."
+  },
+  "last_salary_duration_full_probe": {
+    "timestamp": "2026-06-21T08:49:58Z",
+    "goal": "Goal 9 salary recording-duration payroll migration",
+    "writes": false,
+    "change": "Full salary-scoped duration probe completed and recovery approval packet prepared.",
+    "evidence": {
+      "salaryLessonUuidReport": "/tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json",
+      "fullProbeReport": "/tmp/speakasap-salary-scoped-duration-full-probe-goal9-v1.json",
+      "candidateMetadataReport": "/tmp/speakasap-salary-scoped-duration-candidates-goal9-v1.json",
+      "candidates": 9,
+      "attempted": 9,
+      "succeeded": 2,
+      "failed": 7,
+      "measuredDurationsSeconds": {
+        "93e96231-2bf1-4a66-8273-bc153dbeb9ff": 9,
+        "03913255-48ca-470f-8fc1-47a141b7b492": 30
+      },
+      "failureErrors": {
+        "9262be4a-d222-4cbb-9799-b054a2863b27": "http_404",
+        "b8e7a2ed-5b30-4104-a523-521ef3ab639a": "http_404",
+        "24479d3e-55e6-4048-8c92-ae21d657989b": "http_404",
+        "b5f8421e-1b3f-4507-9e33-b23a9195fcf2": "http_404",
+        "44897b74-b935-4d84-a50b-911ba1ad8361": "http_404",
+        "38bf0673-c451-4da1-b28c-b976f1b5ee72": "http_404",
+        "39179b1d-da3e-4038-b5bf-da36b72e1e05": "http_404"
+      },
+      "approvalPacket": "docs/orchestrator/SALARY_DURATION_RECOVERY_APPROVAL.md"
+    },
+    "verification": [
+      "RAG query returned no context/sources; repository and live no-write evidence used",
+      "Full no-write duration probe used live education recording S3 secret values only as env vars; no secret values printed",
+      "Temporary DB port-forwards 15438, 15439, and 15440 exited after commands"
+    ],
+    "approval": "No duration apply, object mutation, salary finalization, payout, payment execution, deployment, rollback, legacy mutation, or destructive action was approved or run.",
+    "rollback": "No write rollback needed for this no-write probe. Any future Option A apply must generate rollback SQL before writes."
   }
 }
