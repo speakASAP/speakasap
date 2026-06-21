@@ -34,7 +34,7 @@ export class SalaryDisburseService {
     body: SalaryDisburseRequest,
   ): Promise<{ payoutRef: string; status: 'processing' }> {
     this.assertInternalToken(token);
-    const idempotencyKey = routeIdempotencyKey?.trim() || body.idempotencyKey?.trim();
+    const idempotencyKey = body.idempotencyKey?.trim() || routeIdempotencyKey?.trim();
     if (!idempotencyKey) {
       throw paymentHttpException(
         HttpStatus.BAD_REQUEST,
