@@ -5164,3 +5164,23 @@ Boundary:
 Next:
 
 - Prepare a separate draft salary calculation approval packet using `/tmp/speakasap-salary-option2-import-coverage-v1.json` if the owner wants to create another draft calculation run. Otherwise keep Goal 9 salary finalization blocked.
+
+## 2026-06-21 - Goal 9 Option B Draft Calculation Approval Packet Prepared
+
+Status: approval packet prepared in `docs/orchestrator/SALARY_DRAFT_CALCULATION_APPROVAL_OPTION2.md`. No salary calculation run, payout creation, payout commit, payment execution, deployment, rollback execution, object-storage mutation, fallback DB write, legacy mutation, or destructive action ran.
+
+Evidence:
+
+- Option B coverage report `/tmp/speakasap-salary-option2-import-coverage-v1.json` says `safeForDraftCalculationApprovalPacket=true`.
+- Duration blockers covered by imported lesson salary rows: `6/6`.
+- Missing-media fallback rows covered by imported lesson salary rows: `7/7`.
+- Teacher mapping blockers: `0`.
+- Aggregate warnings: none.
+
+Owner action needed:
+
+- Approve, reject, or change the scope of the exact draft calculation write described in `docs/orchestrator/SALARY_DRAFT_CALCULATION_APPROVAL_OPTION2.md`.
+
+Next:
+
+- If approved, run exactly one draft salary calculation for period `2026-05`, capture rollback SQL and JSON reports, and keep payout/payment/deploy/rollback/object/legacy gates closed.

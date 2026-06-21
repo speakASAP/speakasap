@@ -1,7 +1,7 @@
 {
-  "activeChunk": "9.6 Option B fallback validated no-write; draft salary calculation approval packet next",
+  "activeChunk": "9.6 Option B draft salary calculation approval packet prepared; awaiting owner decision",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 Option B fallback validated no-write; draft salary calculation approval packet next",
+  "current_chunk": "9.6 Option B draft salary calculation approval packet prepared; awaiting owner decision",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Prepare a separate owner approval packet before any draft salary calculation run using /tmp/speakasap-salary-option2-import-coverage-v1.json. Payouts, payment execution, deployment, rollback execution, object mutation, fallback DB writes, and legacy mutation remain blocked.",
+  "next_required_action": "Owner must approve, reject, or change the scope in docs/orchestrator/SALARY_DRAFT_CALCULATION_APPROVAL_OPTION2.md before any draft salary calculation run. No payout, payment execution, deployment, rollback execution, object mutation, fallback DB write, or legacy mutation is approved.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -539,5 +539,28 @@
     "aggregateWarnings": [],
     "teacherMappingMissingCount": 0,
     "safeForDraftCalculationApprovalPacket": true
+  },
+  "last_salary_draft_calculation_approval_packet": {
+    "timestamp": "2026-06-21T00:00:00+02:00",
+    "writes": false,
+    "document": "docs/orchestrator/SALARY_DRAFT_CALCULATION_APPROVAL_OPTION2.md",
+    "period": "2026-05",
+    "evidence": [
+      "/tmp/speakasap-salary-readiness-2026-05-option2-v1.json",
+      "/tmp/speakasap-salary-option2-import-coverage-v1.json"
+    ],
+    "requiresOwnerDecision": true,
+    "notApproved": [
+      "salary calculation run",
+      "salary finalization",
+      "payout creation",
+      "payment execution",
+      "deployment",
+      "rollback execution",
+      "object-storage mutation",
+      "fallback DB write",
+      "legacy mutation",
+      "destructive action"
+    ]
   }
 }
