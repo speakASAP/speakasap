@@ -500,3 +500,9 @@ Read-only parity report `/tmp/speakasap-salary-duration-parity-2025-07_2026-06-v
 Read-only salary-scoped duration probe `/tmp/speakasap-salary-scoped-duration-full-probe-goal9-v1.json` used the imported lesson salary UUID report for `2025-07` through `2026-06` and recorded `writes=false`, `candidates=9`, `attempted=9`, `succeeded=2`, and `failed=7`. The two measured target media rows produced durations `9` seconds and `30` seconds. The seven remaining rows failed private media probing with `http_404` and require media recovery or explicit fallback policy approval before full duration parity can be claimed.
 
 Recovery approval packet: `docs/orchestrator/SALARY_DURATION_RECOVERY_APPROVAL.md`. No duration apply, object mutation, salary finalization, payout, payment execution, deployment, rollback execution, or destructive action ran in this probe.
+
+### 2026-06-21 Option A Salary-Scoped Duration Apply
+
+After owner approval, approved apply report `/tmp/speakasap-salary-scoped-duration-apply-goal9-v1.json` recorded `writes=true`, `candidates=9`, `selected=9`, `attempted=9`, `succeeded=2`, `failed=7`, and `updated=2`. The updated lesson records were `93e96231-2bf1-4a66-8273-bc153dbeb9ff` = `9` seconds and `03913255-48ca-470f-8fc1-47a141b7b492` = `30` seconds. Rollback SQL was generated at `/tmp/speakasap-salary-scoped-duration-apply-goal9-v1-rollback.sql`.
+
+Post-apply no-write probe `/tmp/speakasap-salary-scoped-duration-post-apply-probe-goal9-v1.json` recorded `writes=false`, `candidates=7`, `attempted=7`, `succeeded=0`, and `failed=7`; all remaining rows still fail private media probing with `http_404`. No object mutation, salary finalization, payout, payment execution, deployment, rollback execution, legacy mutation, fallback write, or destructive action ran.

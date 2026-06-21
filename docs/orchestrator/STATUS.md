@@ -5084,3 +5084,23 @@ Boundary:
 Next:
 
 - Review `docs/orchestrator/SALARY_DURATION_RECOVERY_APPROVAL.md`; if approved, run Option A to apply only probe-successful duration rows with rollback SQL, then continue read-only recovery investigation for the seven `http_404` media rows.
+
+## 2026-06-21 - Goal 9.6 Option A Duration Apply
+
+Status: owner-approved Option A completed. Seven salary-scoped private media `http_404` rows remain in read-only recovery. Object mutation, fallback DB writes, salary finalization, payout creation, payout commit, payment execution, deployment, rollback execution, legacy mutation, and destructive actions remain separately approval-gated.
+
+Evidence:
+
+- Apply report `/tmp/speakasap-salary-scoped-duration-apply-goal9-v1.json` recorded `writes=true`, `candidates=9`, `selected=9`, `attempted=9`, `succeeded=2`, `failed=7`, and `updated=2`.
+- Rollback SQL was generated at `/tmp/speakasap-salary-scoped-duration-apply-goal9-v1-rollback.sql` and targets only the updated lesson records.
+- Updated lesson records: `93e96231-2bf1-4a66-8273-bc153dbeb9ff` = `9` seconds; `03913255-48ca-470f-8fc1-47a141b7b492` = `30` seconds.
+- Post-apply no-write probe `/tmp/speakasap-salary-scoped-duration-post-apply-probe-goal9-v1.json` recorded `writes=false`, `candidates=7`, `selected=7`, `attempted=7`, `succeeded=0`, and `failed=7`; all remaining rows are still `http_404`.
+- Live education recording S3 secret values were used only as environment variables for probing; no secret values were printed or stored in docs.
+
+Boundary:
+
+- No object-storage copy/restore/delete, fallback DB write, salary calculation finalization, payout run, payout commit, payment-service disbursement, deployment, rollback execution, legacy mutation, or destructive action ran.
+
+Next:
+
+- Continue read-only recovery investigation for the seven remaining `http_404` private media rows, then prepare a separate approval packet for any object restore/copy or fallback policy write.

@@ -69,3 +69,16 @@ No missing-media object copy, fallback DB write, salary finalization, payout, or
 ## Current Recommendation
 
 Do not finalize salary runs or create payouts. First decide whether to approve Option A for the two probe-successful duration rows, then continue read-only recovery investigation for the seven `http_404` media rows.
+
+## Option A Execution Evidence
+
+Status: Option A was approved by the owner and executed on 2026-06-21.
+
+- Apply report: `/tmp/speakasap-salary-scoped-duration-apply-goal9-v1.json`.
+- Rollback SQL: `/tmp/speakasap-salary-scoped-duration-apply-goal9-v1-rollback.sql`.
+- Post-apply no-write probe: `/tmp/speakasap-salary-scoped-duration-post-apply-probe-goal9-v1.json`.
+- Apply result: `writes=true`, `candidates=9`, `selected=9`, `attempted=9`, `succeeded=2`, `failed=7`, `updated=2`.
+- Updated durations: lessonRecord `93e96231-2bf1-4a66-8273-bc153dbeb9ff` = `9` seconds; lessonRecord `03913255-48ca-470f-8fc1-47a141b7b492` = `30` seconds.
+- Post-apply result: `writes=false`, `candidates=7`, `selected=7`, `attempted=7`, `succeeded=0`, `failed=7`.
+
+Boundary after execution: the seven `http_404` media rows remain unresolved. No object-storage mutation, fallback DB write, salary finalization, payout creation, payout commit, payment-service disbursement, deployment, rollback execution, legacy mutation, or destructive action was approved or run.

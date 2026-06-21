@@ -1,7 +1,7 @@
 {
-  "activeChunk": "9.6 full salary-scoped duration probe complete; recovery approval pending",
+  "activeChunk": "9.6 Option A duration apply complete; seven missing-media rows remain in recovery",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 full salary-scoped duration probe complete; recovery approval pending",
+  "current_chunk": "9.6 Option A duration apply complete; seven missing-media rows remain in recovery",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Review docs/orchestrator/SALARY_DURATION_RECOVERY_APPROVAL.md. Decide whether to approve Option A to apply the two probe-successful duration_seconds rows with rollback SQL, and continue read-only recovery for the seven http_404 private media rows. Keep salary finalization, payouts, payments, deployment, rollback execution, and object mutation closed unless separately approved.",
+  "next_required_action": "Continue read-only recovery investigation for the seven salary-scoped private media http_404 rows. Do not mutate object storage, write fallback policy data, finalize salary runs, create payouts, execute payments, deploy, execute rollback SQL, or perform destructive actions without separate approval.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -409,5 +409,51 @@
     ],
     "approval": "No duration apply, object mutation, salary finalization, payout, payment execution, deployment, rollback, legacy mutation, or destructive action was approved or run.",
     "rollback": "No write rollback needed for this no-write probe. Any future Option A apply must generate rollback SQL before writes."
+  },
+  "last_salary_duration_option_a_apply": {
+    "timestamp": "2026-06-21T09:10:39.527Z",
+    "goal": "Goal 9 salary recording-duration payroll migration",
+    "writes": true,
+    "change": "Owner-approved Option A applied only probe-successful salary-scoped lesson-record durations.",
+    "approval": {
+      "ownerApprovalText": "approved. Go ahead",
+      "approvalPacket": "docs/orchestrator/SALARY_DURATION_RECOVERY_APPROVAL.md",
+      "boundary": "No object mutation, salary finalization, payout, payment execution, deployment, rollback execution, legacy mutation, fallback DB write, or destructive action was approved or run."
+    },
+    "evidence": {
+      "applyReport": "/tmp/speakasap-salary-scoped-duration-apply-goal9-v1.json",
+      "rollbackPlan": "/tmp/speakasap-salary-scoped-duration-apply-goal9-v1-rollback.sql",
+      "rollbackBytes": 160,
+      "postApplyProbeReport": "/tmp/speakasap-salary-scoped-duration-post-apply-probe-goal9-v1.json",
+      "preApplyCandidates": 9,
+      "preApplySelected": 9,
+      "attempted": 9,
+      "succeeded": 2,
+      "failed": 7,
+      "updated": 2,
+      "postApplyCandidates": 7,
+      "postApplySucceeded": 0,
+      "postApplyFailed": 7,
+      "updatedDurationsSeconds": {
+        "93e96231-2bf1-4a66-8273-bc153dbeb9ff": 9,
+        "03913255-48ca-470f-8fc1-47a141b7b492": 30
+      },
+      "remainingFailures": {
+        "9262be4a-d222-4cbb-9799-b054a2863b27": "http_404",
+        "b8e7a2ed-5b30-4104-a523-521ef3ab639a": "http_404",
+        "24479d3e-55e6-4048-8c92-ae21d657989b": "http_404",
+        "b5f8421e-1b3f-4507-9e33-b23a9195fcf2": "http_404",
+        "44897b74-b935-4d84-a50b-911ba1ad8361": "http_404",
+        "38bf0673-c451-4da1-b28c-b976f1b5ee72": "http_404",
+        "39179b1d-da3e-4038-b5bf-da36b72e1e05": "http_404"
+      }
+    },
+    "verification": [
+      "Apply report recorded writes=true and updated=2",
+      "Rollback SQL was generated before/with the approved write gate and targets only the two updated lesson records",
+      "Post-apply no-write probe recorded candidates=7, succeeded=0, failed=7, all http_404",
+      "Live education recording S3 secret values were used only as env vars; no secret values printed or stored in docs"
+    ],
+    "rollback": "If owner explicitly approves rollback execution, run the generated SQL in /tmp/speakasap-salary-scoped-duration-apply-goal9-v1-rollback.sql against the education database; rollback execution is not approved by this entry."
   }
 }
