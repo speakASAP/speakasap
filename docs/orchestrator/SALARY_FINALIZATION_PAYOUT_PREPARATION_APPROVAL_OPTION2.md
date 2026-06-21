@@ -110,3 +110,20 @@ Approved to finalize SpeakASAP Goal 9 Option B draft salary calculation run 849b
 Approve only if the draft calculation totals are accepted and you want a reviewable draft payout batch prepared.
 
 Do not approve payout commit or payment execution yet. Those remain separate future gates after the prepared payout batch is reviewed.
+
+## Execution Result
+
+Status: completed after owner approval.
+
+- Execution report: `/tmp/speakasap-salary-finalization-payout-prep-2026-05-option2-v1.json`.
+- Calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`.
+- Calculation status before/after: `draft` -> `finalized`.
+- Draft payout run: `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`.
+- Payout run status: `draft`.
+- Payout lines: `14`; line statuses: `draft=14`.
+- Payout line minor totals: `CZK=2903500`, `EUR=2185800`.
+- Post-run status: `/tmp/speakasap-salary-status-after-payout-prep-option2-v1.json`.
+- Rollback SQL: `/tmp/speakasap-salary-finalization-payout-prep-rollback-2026-05-option2-v1.sql`; rollback was not executed.
+- Payout commit called: `false`; payment disbursement created: `false`; payment refs: `0`.
+
+No payout commit, payment-service disbursement, external money movement, persistent environment change, deployment, object-storage mutation, fallback DB write, legacy mutation, rollback execution, or destructive action ran.

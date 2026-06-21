@@ -5245,3 +5245,38 @@ Status: approval packet prepared in `docs/orchestrator/SALARY_FINALIZATION_PAYOU
 ### Owner Action Needed
 
 - Approve, reject, or change the exact scope in `docs/orchestrator/SALARY_FINALIZATION_PAYOUT_PREPARATION_APPROVAL_OPTION2.md`.
+
+## 2026-06-21 - Goal 9 Option B Finalization And Draft Payout Preparation Completed
+
+Status: owner-approved finalization and draft payout preparation completed. Payout commit and payment execution remain closed.
+
+### Execution Evidence
+
+- Execution report: `/tmp/speakasap-salary-finalization-payout-prep-2026-05-option2-v1.json`.
+- Calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`.
+- Calculation status before/after: `draft` -> `finalized`.
+- Period: `2026-05`.
+- Rules version: `salary-duration-v3-imported-legacy-qty-v1-option2`.
+- Lines: `14`; imported legacy lesson salary lines: `14`.
+- Totals: `CZK=29035`, `EUR=21858`.
+- Draft payout run: `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`.
+- Payout lines: `14`; line statuses: `draft=14`.
+- Payout line minor totals: `CZK=2903500`, `EUR=2185800`.
+- Counts before: `calculationRuns=3`, `payoutRuns=0`, `payoutLines=0`.
+- Counts after: `calculationRuns=3`, `payoutRuns=1`, `payoutLines=14`.
+- Post-run status: `/tmp/speakasap-salary-status-after-payout-prep-option2-v1.json`.
+- Rollback SQL: `/tmp/speakasap-salary-finalization-payout-prep-rollback-2026-05-option2-v1.sql`; rollback was not executed.
+
+### Boundary Evidence
+
+- Payout run status remains `draft`.
+- All payout lines remain `draft`.
+- Payment refs: `0`.
+- `payoutCommitCalled=false`.
+- `paymentDisbursementCreated=false`.
+- `SALARY_PAYOUT_FLOWS_ENABLED` was scoped to the one-shot process only.
+- No payout commit, payment-service disbursement, external money movement, persistent environment change, deployment, object-storage mutation, fallback DB write, legacy mutation, rollback execution, or destructive action ran.
+
+### Next Gate
+
+- Review draft payout run `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`. Any payout commit or payment execution requires a separate explicit owner approval packet.
