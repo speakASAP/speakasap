@@ -82,3 +82,15 @@ Status: Option A was approved by the owner and executed on 2026-06-21.
 - Post-apply result: `writes=false`, `candidates=7`, `selected=7`, `attempted=7`, `succeeded=0`, `failed=7`.
 
 Boundary after execution: the seven `http_404` media rows remain unresolved. No object-storage mutation, fallback DB write, salary finalization, payout creation, payout commit, payment-service disbursement, deployment, rollback execution, legacy mutation, or destructive action was approved or run.
+
+## Read-Only Media Recovery Probe Evidence
+
+Status: the owner approved a read-only live DB/media-key recovery report for the seven remaining `http_404` rows, and it ran on 2026-06-21.
+
+- Report: `/tmp/speakasap-salary-scoped-media-recovery-readonly-goal9-v1.json`.
+- Result: `writes=false`, `recordCount=7`, `reachableRecords=0`, `unresolvedRecords=7`.
+- Candidate coverage: current record keys, legacy-prefixed current keys, canonical dated mp3/webm/m4a keys, and legacy-prefixed canonical mp3 keys.
+- Probe outcome: all `40` candidate object probes returned `http_404`.
+- Row shape: all seven rows have no parts JSON entries and no `education_lessonrecordpart` rows.
+
+Boundary after report: exact private object keys remain in the `/tmp` report only. No object-storage mutation, fallback DB write, salary finalization, payout creation, payout commit, payment-service disbursement, deployment, rollback execution, legacy mutation, or destructive action was approved or run.

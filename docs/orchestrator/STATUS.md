@@ -5104,3 +5104,23 @@ Boundary:
 Next:
 
 - Continue read-only recovery investigation for the seven remaining `http_404` private media rows, then prepare a separate approval packet for any object restore/copy or fallback policy write.
+
+## 2026-06-21 - Goal 9.6 Read-Only Media Recovery Probe
+
+Status: approved read-only media recovery report completed. The seven salary-scoped private media rows remain unresolved. Object mutation, fallback DB writes, salary finalization, payout creation, payout commit, payment execution, deployment, rollback execution, legacy mutation, and destructive actions remain separately approval-gated.
+
+Evidence:
+
+- Read-only report `/tmp/speakasap-salary-scoped-media-recovery-readonly-goal9-v1.json` recorded `writes=false`, `recordCount=7`, `reachableRecords=0`, and `unresolvedRecords=7`.
+- Candidate coverage included current record keys, legacy-prefixed current keys, canonical dated mp3/webm/m4a keys, and legacy-prefixed canonical mp3 keys.
+- All `40` candidate object probes returned `http_404`.
+- All seven rows have no parts JSON entries and no `education_lessonrecordpart` rows.
+- Exact private object keys remain in the `/tmp` report only; durable docs record counts and statuses only.
+
+Boundary:
+
+- No object-storage copy/restore/delete, fallback DB write, salary calculation finalization, payout run, payout commit, payment-service disbursement, deployment, rollback execution, legacy mutation, or destructive action ran.
+
+Next:
+
+- Prepare a separate owner decision: locate a trusted legacy recording-object source and approve a narrow restore/copy, approve an explicit salary fallback policy, or keep these rows blocked.

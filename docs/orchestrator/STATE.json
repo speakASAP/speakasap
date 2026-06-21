@@ -1,7 +1,7 @@
 {
-  "activeChunk": "9.6 Option A duration apply complete; seven missing-media rows remain in recovery",
+  "activeChunk": "9.6 seven missing-media rows confirmed unresolved by read-only key recovery report",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 Option A duration apply complete; seven missing-media rows remain in recovery",
+  "current_chunk": "9.6 seven missing-media rows confirmed unresolved by read-only key recovery report",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Continue read-only recovery investigation for the seven salary-scoped private media http_404 rows. Do not mutate object storage, write fallback policy data, finalize salary runs, create payouts, execute payments, deploy, execute rollback SQL, or perform destructive actions without separate approval.",
+  "next_required_action": "Prepare a separate owner decision for the seven unresolved salary-scoped media rows: either restore/copy original legacy recording objects into target storage after locating a trusted source, approve an explicit salary fallback policy, or keep them blocked. Do not mutate object storage, write fallback policy data, finalize salary runs, create payouts, execute payments, deploy, execute rollback SQL, or perform destructive actions without separate approval.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -455,5 +455,59 @@
       "Live education recording S3 secret values were used only as env vars; no secret values printed or stored in docs"
     ],
     "rollback": "If owner explicitly approves rollback execution, run the generated SQL in /tmp/speakasap-salary-scoped-duration-apply-goal9-v1-rollback.sql against the education database; rollback execution is not approved by this entry."
+  },
+  "last_salary_media_recovery_readonly_report": {
+    "timestamp": "2026-06-21T09:17:00.588Z",
+    "goal": "Goal 9 salary recording-duration payroll migration",
+    "writes": false,
+    "change": "Read-only recovery report checked approved seven salary-scoped http_404 rows against current and derived candidate object keys.",
+    "approval": {
+      "ownerApprovalText": "Yes, I approve. Go ahead.",
+      "scope": "read-only live DB/media-key recovery report for seven salary-scoped http_404 rows",
+      "boundary": "Read-only DB/media-key recovery only; no object mutation, fallback DB write, salary finalization, payout, payment execution, deployment, rollback execution, legacy mutation, or destructive action was approved or run."
+    },
+    "evidence": {
+      "report": "/tmp/speakasap-salary-scoped-media-recovery-readonly-goal9-v1.json",
+      "recordCount": 7,
+      "reachableRecords": 0,
+      "unresolvedRecords": 7,
+      "probeStatusCounts": {
+        "404:http_404": 40
+      },
+      "candidateSourceCounts": {
+        "current_record_key": 7,
+        "current_record_key_with_legacy_prefix": 7,
+        "canonical_date_lesson_mp3": 6,
+        "canonical_date_lesson_mp3_with_legacy_prefix": 6,
+        "canonical_date_lesson_webm": 7,
+        "canonical_date_lesson_m4a": 7
+      },
+      "recordKeyShapes": {
+        "9262be4a-d222-4cbb-9799-b054a2863b27": "canonical_or_other",
+        "b8e7a2ed-5b30-4104-a523-521ef3ab639a": "canonical_or_other",
+        "24479d3e-55e6-4048-8c92-ae21d657989b": "canonical_or_other",
+        "b5f8421e-1b3f-4507-9e33-b23a9195fcf2": "canonical_or_other",
+        "44897b74-b935-4d84-a50b-911ba1ad8361": "canonical_or_other",
+        "38bf0673-c451-4da1-b28c-b976f1b5ee72": "canonical_or_other",
+        "39179b1d-da3e-4038-b5bf-da36b72e1e05": "canonical_or_other"
+      },
+      "recordsWithoutParts": [
+        "9262be4a-d222-4cbb-9799-b054a2863b27",
+        "b8e7a2ed-5b30-4104-a523-521ef3ab639a",
+        "24479d3e-55e6-4048-8c92-ae21d657989b",
+        "b5f8421e-1b3f-4507-9e33-b23a9195fcf2",
+        "44897b74-b935-4d84-a50b-911ba1ad8361",
+        "38bf0673-c451-4da1-b28c-b976f1b5ee72",
+        "39179b1d-da3e-4038-b5bf-da36b72e1e05"
+      ]
+    },
+    "verification": [
+      "Report recorded writes=false",
+      "Seven approved records were queried",
+      "All seven records had current record keys but no parts JSON entries and no education_lessonrecordpart rows",
+      "Forty candidate object probes returned http_404 across current, legacy-prefixed current, canonical mp3/webm/m4a, and legacy-prefixed canonical mp3 shapes",
+      "Live DB and recording S3 secret values were used only as environment variables; no secret values were printed or stored in docs"
+    ],
+    "rollback": "No write rollback needed for this read-only report."
   }
 }

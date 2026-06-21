@@ -8,7 +8,7 @@ This file is the root task index for the SpeakASAP master orchestrator. Detailed
 
 Current gate:
 
-- Owner-approved Goal 9.6 Option A duration apply is complete: 2 probe-successful `education_lessonrecord.duration_seconds` rows were updated with rollback SQL captured, and post-apply no-write evidence leaves 7 payroll-impacting `http_404` private media rows in recovery.
+- Goal 9.6 duration apply and approved read-only media recovery probe are complete: 2 probe-successful duration rows were updated with rollback SQL captured, and the 7 remaining salary-scoped rows have no reachable current/canonical/legacy-prefix candidate media objects in the target private bucket.
 
 - Draft salary calculation run V2 `b5d47fb3-e366-4c04-8683-37a51b3c45bf` was created after owner approval; 14 lines, totals CZK 29035 and EUR 21858, zero payout runs, rollback SQL captured. Finalize/payout/payment/rollback remain separately gated.
 
@@ -81,7 +81,7 @@ Paused Seven gate:
 
 ## Queue
 
-1. Goal 9.6: continue read-only recovery investigation for the 7 remaining salary-scoped `http_404` private media rows; object restore/copy, fallback DB writes, salary finalization, payouts, payments, deployment, and rollback execution remain separately approval-gated.
+1. Goal 9.6: prepare a separate owner decision for the 7 unresolved salary-scoped media rows: locate/restore trusted legacy objects, approve an explicit salary fallback policy, or keep them blocked; object restore/copy, fallback DB writes, salary finalization, payouts, payments, deployment, and rollback execution remain separately approval-gated.
 2. Goal 9.6: keep `SALARY_PAYOUT_FLOWS_ENABLED` disabled; do not run payouts before separate payment-boundary approval.
 3. Resume Goal 10.3 only after owner redirects back to Seven: content-service base schema readiness plus seven schema creation using `docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md`, then rerun DB-backed no-write report.
 4. Goal 10.4: apply seven content data migration only after post-schema no-write reconciliation, explicit owner approval, and rollback SQL generation through `scripts/apply-seven-data-approved.sh`.

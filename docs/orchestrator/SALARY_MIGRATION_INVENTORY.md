@@ -506,3 +506,11 @@ Recovery approval packet: `docs/orchestrator/SALARY_DURATION_RECOVERY_APPROVAL.m
 After owner approval, approved apply report `/tmp/speakasap-salary-scoped-duration-apply-goal9-v1.json` recorded `writes=true`, `candidates=9`, `selected=9`, `attempted=9`, `succeeded=2`, `failed=7`, and `updated=2`. The updated lesson records were `93e96231-2bf1-4a66-8273-bc153dbeb9ff` = `9` seconds and `03913255-48ca-470f-8fc1-47a141b7b492` = `30` seconds. Rollback SQL was generated at `/tmp/speakasap-salary-scoped-duration-apply-goal9-v1-rollback.sql`.
 
 Post-apply no-write probe `/tmp/speakasap-salary-scoped-duration-post-apply-probe-goal9-v1.json` recorded `writes=false`, `candidates=7`, `attempted=7`, `succeeded=0`, and `failed=7`; all remaining rows still fail private media probing with `http_404`. No object mutation, salary finalization, payout, payment execution, deployment, rollback execution, legacy mutation, fallback write, or destructive action ran.
+
+### 2026-06-21 Read-Only Media Recovery Probe
+
+Approved read-only recovery report `/tmp/speakasap-salary-scoped-media-recovery-readonly-goal9-v1.json` checked the seven remaining salary-scoped private media `http_404` rows after Option A. It recorded `writes=false`, `recordCount=7`, `reachableRecords=0`, and `unresolvedRecords=7`.
+
+The report tested current record keys, legacy-prefixed current keys, canonical dated mp3/webm/m4a keys, and legacy-prefixed canonical mp3 keys. All `40` candidate probes returned `http_404`. All seven rows have no parts JSON entries and no `education_lessonrecordpart` rows. Exact private object keys remain in the `/tmp` report only and were not copied into durable docs.
+
+Next recovery requires a separate decision: locate a trusted legacy object source for restore/copy, approve an explicit salary fallback policy, or keep the rows blocked. No object mutation, fallback DB write, salary finalization, payout, payment execution, deployment, rollback execution, legacy mutation, or destructive action ran.
