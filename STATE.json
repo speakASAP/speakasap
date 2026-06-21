@@ -1,7 +1,7 @@
 {
-  "activeChunk": "9.6 Option B draft salary calculation completed; awaiting owner draft review and separate finalization/payout decision",
+  "activeChunk": "9.6 finalization and payout-preparation approval packet prepared; awaiting owner decision",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 Option B draft salary calculation completed; awaiting owner draft review and separate finalization/payout decision",
+  "current_chunk": "9.6 finalization and payout-preparation approval packet prepared; awaiting owner decision",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Review draft salary calculation run 849b766d-90d4-415d-8e59-86fca05128d5 for period 2026-05. If acceptable, give separate explicit approval for salary finalization and/or payout/payment preparation; no payout, payment execution, deployment, rollback execution, object mutation, fallback DB write, legacy mutation, or destructive action is approved.",
+  "next_required_action": "Owner must approve, reject, or change the scope in docs/orchestrator/SALARY_FINALIZATION_PAYOUT_PREPARATION_APPROVAL_OPTION2.md before salary finalization or draft payout-run creation. Payout commit, payment execution, persistent env changes, deployment, rollback execution, object mutation, fallback DB write, legacy mutation, and destructive actions remain unapproved.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -589,5 +589,38 @@
     "salaryCalculationRunsEnabledWasScopedToThisProcess": true,
     "salaryPayoutFlowsEnabled": false,
     "approvalGate": "Owner approved one draft calculation run only; salary finalization, payouts, payment execution, persistent env changes, deployment, rollback execution, object mutation, fallback DB write, legacy mutation, and destructive actions remain unapproved."
+  },
+  "last_salary_finalization_payout_preparation_approval_packet": {
+    "timestamp": "2026-06-21T00:00:00+02:00",
+    "writes": false,
+    "document": "docs/orchestrator/SALARY_FINALIZATION_PAYOUT_PREPARATION_APPROVAL_OPTION2.md",
+    "period": "2026-05",
+    "calculationRunId": "849b766d-90d4-415d-8e59-86fca05128d5",
+    "draftCalculationReport": "/tmp/speakasap-salary-calculation-run-2026-05-option2-v1.json",
+    "postDraftStatus": "/tmp/speakasap-salary-status-after-calculation-option2-v1.json",
+    "proposedExecutionReport": "/tmp/speakasap-salary-finalization-payout-prep-2026-05-option2-v1.json",
+    "proposedRollbackSql": "/tmp/speakasap-salary-finalization-payout-prep-rollback-2026-05-option2-v1.sql",
+    "proposedPostRunStatus": "/tmp/speakasap-salary-status-after-payout-prep-option2-v1.json",
+    "requiresOwnerDecision": true,
+    "allowedIfApproved": [
+      "finalize calculation run 849b766d-90d4-415d-8e59-86fca05128d5",
+      "create exactly one draft payout run",
+      "create draft payout lines",
+      "scope SALARY_PAYOUT_FLOWS_ENABLED=true to one command/process if required",
+      "generate execution report, rollback SQL, and post-run status"
+    ],
+    "notApproved": [
+      "payout commit",
+      "payment-service disbursement",
+      "external money movement",
+      "persistent runtime env changes",
+      "additional calculation run",
+      "deployment",
+      "rollback execution",
+      "object-storage mutation",
+      "fallback DB write",
+      "legacy mutation",
+      "destructive action"
+    ]
   }
 }

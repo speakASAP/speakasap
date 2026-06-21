@@ -5214,3 +5214,34 @@ Status: owner-approved one-shot draft calculation completed; finalization, payou
 ### Next Gate
 
 - Review draft run `849b766d-90d4-415d-8e59-86fca05128d5`. Any salary finalization, payout preparation, payout commit, or payment execution requires a separate explicit owner approval packet.
+
+## 2026-06-21 - Goal 9 Option B Finalization And Payout Preparation Packet Prepared
+
+Status: approval packet prepared in `docs/orchestrator/SALARY_FINALIZATION_PAYOUT_PREPARATION_APPROVAL_OPTION2.md`. No salary finalization, payout run creation, payout commit, payment execution, deployment, rollback execution, object-storage mutation, fallback DB write, legacy mutation, or destructive action ran.
+
+### Evidence
+
+- Draft calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`.
+- Draft calculation report: `/tmp/speakasap-salary-calculation-run-2026-05-option2-v1.json`.
+- Post-draft status: `/tmp/speakasap-salary-status-after-calculation-option2-v1.json`.
+- Period: `2026-05`.
+- Status before the proposed operation: `draft`.
+- Lines: `14`; imported legacy lesson salary lines: `14`.
+- Totals: `EUR=21858`, `CZK=29035`.
+- Existing payout runs after draft calculation: `0`; existing payout lines: `0`; payment disbursement created: `false`.
+
+### Proposed Scope
+
+- Finalize calculation run `849b766d-90d4-415d-8e59-86fca05128d5`.
+- Create exactly one draft payout run and draft payout lines from the finalized calculation.
+- Generate `/tmp/speakasap-salary-finalization-payout-prep-2026-05-option2-v1.json`, rollback SQL, and post-run status.
+
+### Boundaries
+
+- Payout commit and payment-service disbursement remain excluded.
+- `POST /api/v1/payout-runs/:payoutRunId/commit` remains unapproved.
+- Persistent `SALARY_PAYOUT_FLOWS_ENABLED=true`, deployment, rollback execution, object mutation, fallback DB write, legacy mutation, and destructive actions remain unapproved.
+
+### Owner Action Needed
+
+- Approve, reject, or change the exact scope in `docs/orchestrator/SALARY_FINALIZATION_PAYOUT_PREPARATION_APPROVAL_OPTION2.md`.
