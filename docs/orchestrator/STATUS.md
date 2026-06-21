@@ -5184,3 +5184,33 @@ Owner action needed:
 Next:
 
 - If approved, run exactly one draft salary calculation for period `2026-05`, capture rollback SQL and JSON reports, and keep payout/payment/deploy/rollback/object/legacy gates closed.
+
+## 2026-06-21 - Goal 9 Option B Draft Salary Calculation Completed
+
+Status: owner-approved one-shot draft calculation completed; finalization, payout, and payment gates remain closed.
+
+### Execution Evidence
+
+- Execution report: `/tmp/speakasap-salary-calculation-run-2026-05-option2-v1.json`.
+- Draft calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`.
+- Period: `2026-05`.
+- Status: `draft`.
+- Rules version: `salary-duration-v3-imported-legacy-qty-v1-option2`.
+- Lines: `14`; imported legacy lesson salary lines: `14`.
+- Totals: `EUR=21858`, `CZK=29035`.
+- Rollback SQL: `/tmp/speakasap-salary-calculation-run-rollback-2026-05-option2-v1.sql`; rollback was not executed.
+- Post-run status: `/tmp/speakasap-salary-status-after-calculation-option2-v1.json`.
+
+### Boundary Evidence
+
+- `payoutRunCountForCreatedRun=0`.
+- `payoutRunsBefore=0`, `payoutRunsAfter=0`.
+- `payoutLinesBefore=0`, `payoutLinesAfter=0`.
+- `paymentDisbursementCreated=false`.
+- `SALARY_CALCULATION_RUNS_ENABLED` was scoped to the one-shot process only.
+- `SALARY_PAYOUT_FLOWS_ENABLED=false`.
+- No salary finalization, payout creation, payout commit, payment execution, persistent environment change, deployment, object-storage mutation, fallback DB write, legacy mutation, rollback execution, or destructive action ran.
+
+### Next Gate
+
+- Review draft run `849b766d-90d4-415d-8e59-86fca05128d5`. Any salary finalization, payout preparation, payout commit, or payment execution requires a separate explicit owner approval packet.

@@ -105,3 +105,19 @@ Approved to create one draft salary calculation run for SpeakASAP Goal 9 period 
 Approve only if you want a reviewable draft salary calculation record for `2026-05`.
 
 Do not approve payouts or payment execution yet. Those remain separate future gates after the draft calculation is reviewed.
+
+## Execution Result
+
+Status: completed after owner approval.
+
+- Execution report: `/tmp/speakasap-salary-calculation-run-2026-05-option2-v1.json`.
+- Draft calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`.
+- Period: `2026-05`.
+- Draft status: `draft`.
+- Lines: `14`; imported legacy lesson salary lines: `14`.
+- Totals: `EUR=21858`, `CZK=29035`.
+- Post-run status: `/tmp/speakasap-salary-status-after-calculation-option2-v1.json`.
+- Rollback SQL: `/tmp/speakasap-salary-calculation-run-rollback-2026-05-option2-v1.sql`; rollback was not executed.
+- Payout runs before/after: `0/0`; payout lines before/after: `0/0`; payment disbursement created: `false`.
+
+No salary finalization, payout creation, payout commit, payment execution, persistent environment change, deployment, object-storage mutation, fallback DB write, legacy mutation, rollback execution, or destructive action ran.
