@@ -184,3 +184,7 @@ spec:
       remoteRef:
         key: secret/prod/speakasap
         property: PAYMENTS_MICROSERVICE_API_KEY
+    - secretKey: PAYMENT_SERVICE_INTERNAL_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap
+        property: PAYMENT_SERVICE_INTERNAL_TOKEN

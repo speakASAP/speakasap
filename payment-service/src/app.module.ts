@@ -7,6 +7,7 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsMsModule } from './payments-ms/payments-ms.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SalaryDisburseModule } from './salary-disburse/salary-disburse.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { RequestContextMiddleware } from './shared/request-context.middleware';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -18,6 +19,7 @@ import { AppService } from './app.service';
     PrismaModule,
     AuthClientModule,
     PaymentsMsModule,
+    SalaryDisburseModule,
     OrdersModule,
     DiscountsModule,
     SubscriptionsModule,
