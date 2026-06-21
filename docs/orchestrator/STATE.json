@@ -1,7 +1,7 @@
 {
-  "activeChunk": "9.6 payout commit/payment execution approved but blocked before write by missing payment boundary",
+  "activeChunk": "9.6 payout commit partially attempted; idempotency fix deployed; awaiting owner retry/repair decision",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 payout commit/payment execution approved but blocked before write by missing payment boundary",
+  "current_chunk": "9.6 payout commit partially attempted; idempotency fix deployed; awaiting owner retry/repair decision",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Payment execution is blocked before write: deployed payment-service lacks the salary disbursement route and deployed salary-service lacks PAYMENT_SERVICE_URL. Payout run ffefafe8-c2f7-4b76-8da6-3efbd5d707d1 remains draft with 14 draft lines and 0 payment refs. Next action is implement/deploy the salary disbursement payment boundary or change the payout execution plan.",
+  "next_required_action": "Review partial payout state for ffefafe8-c2f7-4b76-8da6-3efbd5d707d1: payout run is failed with line statuses processing=1, failed=1, draft=12 and paymentRefs=1. Payment boundary idempotency fix is deployed. Retry, manual settlement, reversal/refund, SQL repair, or rollback requires a separate owner decision.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -723,5 +723,32 @@
       "deployed salary-service has no PAYMENT_SERVICE_URL env configured"
     ],
     "nextRequiredAction": "Implement and deploy the salary disbursement payment boundary, or change the payout execution plan, before retrying payout commit."
+  },
+  "last_salary_payout_commit_payment_execution_partial": {
+    "timestamp": "2026-06-21T14:42:00.735Z",
+    "writes": true,
+    "approvedExecutionAttempted": true,
+    "paymentBoundaryImplemented": true,
+    "paymentBoundaryFixCommit": "039e59b",
+    "calculationRunId": "849b766d-90d4-415d-8e59-86fca05128d5",
+    "calculationStatus": "finalized",
+    "payoutRunId": "ffefafe8-c2f7-4b76-8da6-3efbd5d707d1",
+    "payoutStatusBefore": "draft",
+    "payoutStatusAfter": "failed",
+    "payoutLineCount": 14,
+    "payoutLineStatusCounts": {
+      "processing": 1,
+      "failed": 1,
+      "draft": 12
+    },
+    "paymentRefs": 1,
+    "commitError": "DEPENDENCY_UNAVAILABLE payment_disburse_409 caused by first boundary idempotency implementation keying on payout-run header instead of per-line body idempotency key",
+    "fixDeployed": "payment-service now keys salary disbursements by body.idempotencyKey before route header idempotency key",
+    "reports": {
+      "report": "/tmp/speakasap-salary-payout-commit-payment-execution-2026-05-option2-v1.json",
+      "statusReport": "/tmp/speakasap-salary-status-after-payout-commit-option2-v1.json",
+      "assessment": "/tmp/speakasap-salary-payout-commit-payment-execution-rollback-assessment-2026-05-option2-v1.md"
+    },
+    "retryRequiresSeparateOwnerDecision": true
   }
 }

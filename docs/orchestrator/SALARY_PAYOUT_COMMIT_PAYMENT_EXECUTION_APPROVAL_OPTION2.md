@@ -129,3 +129,20 @@ Status: owner approved this packet, but execution was stopped before payout comm
 No payout commit, payment-service disbursement, external money movement, deployment, rollback execution, object-storage mutation, fallback DB write, legacy mutation, or destructive action ran.
 
 Next required action: implement and deploy the salary disbursement payment boundary, or change the payout execution plan, before retrying payout commit.
+
+## Execution Attempt Result
+
+Status: approved payout commit was attempted, but it stopped with a dependency error after a partial state change. The boundary implementation has been fixed and redeployed, but retry/repair requires a separate owner decision.
+
+- Execution report: `/tmp/speakasap-salary-payout-commit-payment-execution-2026-05-option2-v1.json`.
+- Post-run status: `/tmp/speakasap-salary-status-after-payout-commit-option2-v1.json`.
+- Rollback assessment: `/tmp/speakasap-salary-payout-commit-payment-execution-rollback-assessment-2026-05-option2-v1.md`.
+- Calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`; status `finalized`.
+- Payout run: `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`; status changed `draft` -> `failed`.
+- Payout line statuses after attempt: `processing=1`, `failed=1`, `draft=12`.
+- Payment refs after attempt: `1`.
+- Error: `DEPENDENCY_UNAVAILABLE payment_disburse_409`.
+- Root cause: the first boundary implementation keyed salary disbursement idempotency on the payout-run commit header, causing line 2 to conflict with line 1.
+- Fix deployed: payment-service now keys salary disbursements by the per-line body `idempotencyKey` before the route header key.
+
+No deployment rollback, SQL rollback, refund/reversal, manual settlement, or retry was run after the partial state. Any retry, compensation, manual repair, reversal/refund, SQL repair, or rollback requires a separate owner decision.

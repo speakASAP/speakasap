@@ -5332,3 +5332,31 @@ Status: owner approved payout commit/payment execution, but execution was stoppe
 ### Next Gate
 
 - Implement and deploy the salary disbursement payment boundary, or change the payout execution plan, before retrying payout commit/payment execution.
+
+## 2026-06-21 - Goal 9 Option B Payout Commit Partial Attempt And Boundary Fix
+
+Status: approved payout commit/payment execution was attempted and stopped with a dependency error after a partial state change. Payment-service idempotency boundary was fixed and redeployed. Retry/repair remains owner-gated.
+
+### Execution Evidence
+
+- Execution report: `/tmp/speakasap-salary-payout-commit-payment-execution-2026-05-option2-v1.json`.
+- Post-run status: `/tmp/speakasap-salary-status-after-payout-commit-option2-v1.json`.
+- Rollback assessment: `/tmp/speakasap-salary-payout-commit-payment-execution-rollback-assessment-2026-05-option2-v1.md`.
+- Calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`; status `finalized`.
+- Payout run: `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`; status `failed`.
+- Payout line statuses: `processing=1`, `failed=1`, `draft=12`.
+- Payment refs: `1`.
+- Commit error: `DEPENDENCY_UNAVAILABLE payment_disburse_409`.
+
+### Fix Deployed
+
+- Commit `16186ce` added the salary disbursement payment boundary.
+- Commit `039e59b` fixed salary disbursement idempotency to key on the per-line body `idempotencyKey`.
+- Deployed payment-service image: `localhost:5000/speakasap-payment:039e59b`.
+- Deployed route check: authenticated no-write GET for a fake payout ref returned `404`, proving route present and auth passed.
+- Salary runtime has `PAYMENT_SERVICE_URL` and `PAYMENT_SERVICE_INTERNAL_TOKEN` set.
+
+### Boundary
+
+- No SQL rollback, deployment rollback, refund/reversal, manual settlement, compensation, or retry ran after the partial state.
+- Any retry, manual settlement, reversal/refund, SQL repair, or rollback requires a separate owner decision because payment refs now exist.
