@@ -5024,3 +5024,38 @@ Boundary:
 Next:
 
 - Keep both draft salary calculation runs in `draft`. Finalize, payout, payment execution, rollback, and broad/persistent salary enablement remain blocked pending a separate approval decision.
+
+## 2026-06-21 - Goal 9.6 Salary-Scoped Recording Duration Targeting
+
+Status: code and no-write targeting evidence completed; duration apply, finalize, payout, payment execution, deployment, rollback, object-storage mutation, and destructive actions remain approval-gated.
+
+Changed:
+
+- Added `salary-service/scripts/export-salary-lesson-uuids.ts`, a read-only exporter for imported `SalaryExpenseKind.lesson` lesson UUIDs over a period window.
+- Added `npm run export:salary-lesson-uuids` in `salary-service`.
+- Extended `education-service/scripts/backfill-lesson-record-durations.js` with `--lesson-uuids` and `--lesson-uuid-report`, so the existing gated duration backfill can target payroll-impacting lesson records instead of generic missing-duration candidates.
+
+Evidence:
+
+- RAG retrieval was reachable but returned empty context/sources for the Goal 9 duration-backfill query; repository and live read-only DB evidence were used.
+- Read-only salary export `/tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json` recorded `writes=false`, `salaryLessonExpenses=2687`, `withLessonUuid=2687`, `missingLessonUuid=0`, `uniqueLessonUuids=2687`, and `legacyPortalUsers=26`.
+- Salary-scoped education duration dry-run smoke `/tmp/speakasap-salary-scoped-duration-backfill-smoke-goal9.json` recorded `writes=false`, `lessonUuidCount=2687`, `candidates=9`, and `selected=1`; the sampled local host-bucket-root probe failed with `object_missing`, which confirms the DB filter/report path but not media availability for that sample.
+- Temporary Kubernetes port-forward `127.0.0.1:15436 -> db-server-postgres:5432` was used for read-only DB access and stopped afterward.
+
+Verification:
+
+- `cd education-service && node --check scripts/backfill-lesson-record-durations.js` passed.
+- `cd education-service && node scripts/backfill-lesson-record-durations.js --help` passed and showed the new salary-scope flags.
+- `cd salary-service && npx tsx scripts/export-salary-lesson-uuids.ts --help` passed.
+- `git diff --check` passed.
+- `cd education-service && npm run build` passed.
+- `cd salary-service && npm run build` passed.
+
+Boundary:
+
+- No salary calculation finalization, payout run, payout commit, payment-service disbursement, education duration apply, deployment, rollback execution, object-storage mutation, legacy mutation, or destructive action ran.
+- Future `duration_seconds` writes must use `npm run backfill:lesson-record-durations -- --apply --confirm-write --approval-note ... --rollback-plan ...` and owner approval before writes.
+
+Next:
+
+- Run a full no-write salary-scoped duration probe using `/tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json`; then decide recovery for the 9 remaining payroll-impacting duration candidates before any approved apply or salary finalization.

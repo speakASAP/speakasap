@@ -12,7 +12,8 @@
     "prisma:validate": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; export DATABASE_URL=\"${SALARY_DATABASE_URL:-${DATABASE_URL}}\"; exec npx prisma validate'",
     "postinstall": "prisma generate",
     "salary:cli": "tsx scripts/salary-cli.ts",
-    "check:salary-readiness": "tsx scripts/check-salary-readiness.ts"
+    "check:salary-readiness": "tsx scripts/check-salary-readiness.ts",
+    "export:salary-lesson-uuids": "tsx scripts/export-salary-lesson-uuids.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.10",

@@ -1,12 +1,12 @@
 {
-  "activeChunk": "9.6 draft review completed; finalize/payout/payment-boundary gate",
+  "activeChunk": "9.6 salary-scoped recording-duration backfill targeting prepared; finalize/payout/payment gates closed",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 draft review completed; finalize/payout/payment-boundary gate",
+  "current_chunk": "9.6 salary-scoped recording-duration backfill targeting prepared; finalize/payout/payment gates closed",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
   "intent_preservation_system": "docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md",
-  "lastUpdated": "2026-06-17",
+  "lastUpdated": "2026-06-21",
   "last_controlled_cutover": "/tmp/speakasap-goal8-cutover-smoke.json",
   "last_controlled_cutover_doc": "docs/orchestrator/GOAL_8_CONTROLLED_CUTOVER.md",
   "last_cutover_monitoring": "/tmp/speakasap-goal8-cutover-monitoring.json",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Keep draft salary calculation runs 6576ac90-526e-47c6-8755-9631a4fb3149 and b5d47fb3-e366-4c04-8683-37a51b3c45bf in draft. Finalize, payout, payment execution, rollback, and broad/persistent salary enablement remain blocked pending a separate approval decision.",
+  "next_required_action": "Use /tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json with education-service backfill --lesson-uuid-report to run a full no-write duration probe for the 9 salary-scoped missing-duration candidates. Do not apply duration_seconds, finalize salary runs, create payouts, execute payments, deploy, rollback, or mutate objects without the separate approval and rollback gate.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -341,5 +341,37 @@
     },
     "payoutRunCount": 0,
     "paymentDisbursementCreated": false
+  },
+  "last_salary_duration_backfill_targeting": {
+    "timestamp": "2026-06-21T03:05:16Z",
+    "goal": "Goal 9 salary recording-duration payroll migration",
+    "writes": false,
+    "change": "Added payroll-focused salary lesson UUID export and salary-scoped duration backfill filtering so remaining recording-duration gaps can be targeted before any approved apply.",
+    "evidence": {
+      "salaryLessonUuidReport": "/tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json",
+      "salaryLessonUuidList": "/tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.txt",
+      "durationBackfillSmoke": "/tmp/speakasap-salary-scoped-duration-backfill-smoke-goal9.json",
+      "salaryLessonExpenses": 2687,
+      "withLessonUuid": 2687,
+      "missingLessonUuid": 0,
+      "uniqueLessonUuids": 2687,
+      "legacyPortalUsers": 26,
+      "salaryScopedDurationCandidates": 9,
+      "smokeSelected": 1,
+      "smokeWrites": false,
+      "smokeFailure": "object_missing for sampled local host-bucket-root path; DB filter and no-write report path passed"
+    },
+    "verification": [
+      "RAG query returned no context/sources; repository and live read-only DB evidence used",
+      "education-service node --check scripts/backfill-lesson-record-durations.js passed",
+      "education-service backfill --help includes --lesson-uuids and --lesson-uuid-report",
+      "salary-service exporter --help passed",
+      "git diff --check passed",
+      "cd education-service && npm run build passed",
+      "cd salary-service && npm run build passed",
+      "temporary kubectl port-forward 15436 stopped"
+    ],
+    "approval": "No salary calculation finalization, payout, payment execution, education duration apply, deployment, rollback, object-storage mutation, or destructive action was approved or run in this chunk.",
+    "rollback": "Code-only change can be reverted by git. Any future duration_seconds apply must use backfill --apply with --confirm-write, --approval-note, and --rollback-plan to generate SQL before writes."
   }
 }

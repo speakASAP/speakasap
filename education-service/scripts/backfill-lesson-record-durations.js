@@ -23,6 +23,8 @@ function parseArgs(argv) {
     probeLimit: DEFAULT_PROBE_LIMIT,
     batchSize: DEFAULT_BATCH_SIZE,
     lessonUuid: '',
+    lessonUuids: '',
+    lessonUuidReport: '',
     lessonRecordUuid: '',
     periodFrom: '',
     periodTo: '',
@@ -47,6 +49,8 @@ function parseArgs(argv) {
     else if (arg === '--probe-limit') args.probeLimit = Number(next());
     else if (arg === '--batch-size') args.batchSize = Number(next());
     else if (arg === '--lesson-uuid') args.lessonUuid = next();
+    else if (arg === '--lesson-uuids') args.lessonUuids = next();
+    else if (arg === '--lesson-uuid-report') args.lessonUuidReport = next();
     else if (arg === '--lesson-record-uuid') args.lessonRecordUuid = next();
     else if (arg === '--period-from') args.periodFrom = next();
     else if (arg === '--period-to') args.periodTo = next();
@@ -87,6 +91,8 @@ Durations are derived from the private recording object with ffprobe, not from l
 
 Filters:
   --lesson-uuid <uuid>
+  --lesson-uuids <uuid,uuid>
+  --lesson-uuid-report /tmp/salary-lesson-uuids.json
   --lesson-record-uuid <uuid>
   --period-from YYYY-MM
   --period-to YYYY-MM
@@ -322,14 +328,48 @@ function nextPeriodStart(period) {
   return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
 }
 
+function splitLessonUuids(value) {
+  return String(value || '')
+    .split(/[\s,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function loadLessonUuidReport(filePath) {
+  if (!filePath) return [];
+  const parsed = JSON.parse(readFileSync(filePath, 'utf8'));
+  if (Array.isArray(parsed)) {
+    return parsed.map(String);
+  }
+  if (Array.isArray(parsed.lessonUuids)) {
+    return parsed.lessonUuids.map(String);
+  }
+  if (parsed?.data && Array.isArray(parsed.data.lessonUuids)) {
+    return parsed.data.lessonUuids.map(String);
+  }
+  throw new Error('--lesson-uuid-report must be a JSON array or object with lessonUuids');
+}
+
+function loadLessonUuidFilters(args) {
+  const values = [
+    ...splitLessonUuids(args.lessonUuid),
+    ...splitLessonUuids(args.lessonUuids),
+    ...loadLessonUuidReport(args.lessonUuidReport),
+  ];
+  return [...new Set(values)];
+}
+
 function candidateWhere(args) {
   const startGte = periodStart(args.periodFrom);
   const startLt = nextPeriodStart(args.periodTo);
+  const lessonUuidFilter = args.lessonUuidFilters?.length
+    ? { in: args.lessonUuidFilters }
+    : undefined;
   return {
     processed: true,
     recordKey: { not: null },
     durationSeconds: null,
-    ...(args.lessonUuid ? { lessonUuid: args.lessonUuid } : {}),
+    ...(lessonUuidFilter ? { lessonUuid: lessonUuidFilter } : {}),
     ...(args.lessonRecordUuid ? { uuid: args.lessonRecordUuid } : {}),
     ...((startGte || startLt) ? { lesson: { start: { ...(startGte ? { gte: startGte } : {}), ...(startLt ? { lt: startLt } : {}) } } } : {}),
   };
@@ -350,6 +390,7 @@ function sqlString(value) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  args.lessonUuidFilters = loadLessonUuidFilters(args);
   configureEnv(args);
   if (args.apply && (!args.confirmWrite || !args.approvalNote || !args.rollbackPlan)) {
     throw new Error('--apply requires --confirm-write, --approval-note, and --rollback-plan');
@@ -366,6 +407,8 @@ async function main() {
     updated: 0,
     filters: {
       lessonUuid: args.lessonUuid || null,
+      lessonUuidCount: args.lessonUuidFilters.length,
+      lessonUuidReport: args.lessonUuidReport || null,
       lessonRecordUuid: args.lessonRecordUuid || null,
       periodFrom: args.periodFrom || null,
       periodTo: args.periodTo || null,

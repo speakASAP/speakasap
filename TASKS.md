@@ -8,6 +8,8 @@ This file is the root task index for the SpeakASAP master orchestrator. Detailed
 
 Current gate:
 
+- Salary-scoped recording-duration targeting is prepared: `salary-service` can export imported lesson salary UUIDs, and `education-service` duration backfill can consume that report with `--lesson-uuid-report`. No-write evidence for `2025-07` through `2026-06` found 2687 salary lesson UUIDs and 9 remaining salary-scoped missing-duration candidates.
+
 - Draft salary calculation run V2 `b5d47fb3-e366-4c04-8683-37a51b3c45bf` was created after owner approval; 14 lines, totals CZK 29035 and EUR 21858, zero payout runs, rollback SQL captured. Finalize/payout/payment/rollback remain separately gated.
 
 - Broader salary calculation enablement packet is prepared at `docs/orchestrator/SALARY_BROADER_CALCULATION_ENABLEMENT_APPROVAL.md`; no additional calculation run has been created.
@@ -79,7 +81,7 @@ Paused Seven gate:
 
 ## Queue
 
-1. Goal 9.6: request owner approval for the scoped education-service deploy carrying the fixed five-minute salary duration rule, then rerun no-write salary readiness and calculation preview for `2026-05`.
+1. Goal 9.6: run a full no-write salary-scoped duration probe using `/tmp/speakasap-salary-lesson-uuids-2025-07_2026-06-goal9.json`, resolve/recover the 9 remaining payroll-impacting missing-duration candidates, and keep apply/finalize/payout/payment gates closed until separately approved.
 2. Goal 9.6: keep `SALARY_PAYOUT_FLOWS_ENABLED` disabled; do not run payouts before separate payment-boundary approval.
 3. Resume Goal 10.3 only after owner redirects back to Seven: content-service base schema readiness plus seven schema creation using `docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md`, then rerun DB-backed no-write report.
 4. Goal 10.4: apply seven content data migration only after post-schema no-write reconciliation, explicit owner approval, and rollback SQL generation through `scripts/apply-seven-data-approved.sh`.
