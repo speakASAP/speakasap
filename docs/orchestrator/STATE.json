@@ -1,7 +1,7 @@
 {
-  "activeChunk": "9.6 payout commit/payment execution approval packet prepared; awaiting owner decision",
+  "activeChunk": "9.6 payout commit/payment execution approved but blocked before write by missing payment boundary",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 payout commit/payment execution approval packet prepared; awaiting owner decision",
+  "current_chunk": "9.6 payout commit/payment execution approved but blocked before write by missing payment boundary",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Owner must approve, reject, or change the scope in docs/orchestrator/SALARY_PAYOUT_COMMIT_PAYMENT_EXECUTION_APPROVAL_OPTION2.md before payout commit/payment execution. This is the money-movement gate; no payout commit or payment-service disbursement has been run by this packet.",
+  "next_required_action": "Payment execution is blocked before write: deployed payment-service lacks the salary disbursement route and deployed salary-service lacks PAYMENT_SERVICE_URL. Payout run ffefafe8-c2f7-4b76-8da6-3efbd5d707d1 remains draft with 14 draft lines and 0 payment refs. Next action is implement/deploy the salary disbursement payment boundary or change the payout execution plan.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -701,5 +701,27 @@
       "fallback DB write",
       "destructive action"
     ]
+  },
+  "last_salary_payout_commit_payment_execution_blocker": {
+    "timestamp": "2026-06-21T00:00:00+02:00",
+    "writes": false,
+    "approvedButNotExecuted": true,
+    "document": "docs/orchestrator/SALARY_PAYOUT_COMMIT_PAYMENT_EXECUTION_APPROVAL_OPTION2.md",
+    "blockerReport": "/tmp/speakasap-salary-payout-commit-payment-execution-blocked-2026-05-option2-v1.json",
+    "calculationRunId": "849b766d-90d4-415d-8e59-86fca05128d5",
+    "payoutRunId": "ffefafe8-c2f7-4b76-8da6-3efbd5d707d1",
+    "payoutRunStatus": "draft",
+    "payoutLineCount": 14,
+    "payoutLineStatusCounts": {
+      "draft": 14
+    },
+    "paymentRefs": 0,
+    "payoutCommitCalled": false,
+    "paymentDisbursementCreated": false,
+    "blockers": [
+      "deployed payment-service has no /api/v1/internal/salary/disburse route",
+      "deployed salary-service has no PAYMENT_SERVICE_URL env configured"
+    ],
+    "nextRequiredAction": "Implement and deploy the salary disbursement payment boundary, or change the payout execution plan, before retrying payout commit."
   }
 }

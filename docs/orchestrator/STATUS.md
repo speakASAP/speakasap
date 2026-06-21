@@ -5308,3 +5308,27 @@ Status: approval packet prepared in `docs/orchestrator/SALARY_PAYOUT_COMMIT_PAYM
 ### Owner Action Needed
 
 - Approve, reject, or change the exact scope in `docs/orchestrator/SALARY_PAYOUT_COMMIT_PAYMENT_EXECUTION_APPROVAL_OPTION2.md`.
+
+## 2026-06-21 - Goal 9 Option B Payout Commit Execution Blocked Before Write
+
+Status: owner approved payout commit/payment execution, but execution was stopped before payout commit because the deployed payment boundary is missing. No payout commit, payment-service disbursement, external money movement, deployment, rollback execution, object-storage mutation, fallback DB write, legacy mutation, or destructive action ran.
+
+### Blocker Evidence
+
+- Blocker report: `/tmp/speakasap-salary-payout-commit-payment-execution-blocked-2026-05-option2-v1.json`.
+- Deployed payment-service does not contain `/api/v1/internal/salary/disburse`.
+- Deployed salary-service has no `PAYMENT_SERVICE_URL` configured.
+- Running the approved commit would call a missing dependency and likely mark payout lines failed.
+
+### Current Payout State
+
+- Calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`; status remains `finalized`.
+- Payout run: `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`; status remains `draft`.
+- Payout lines: `14`; statuses remain `draft=14`.
+- Payment refs: `0`.
+- `payoutCommitCalled=false`.
+- `paymentDisbursementCreated=false`.
+
+### Next Gate
+
+- Implement and deploy the salary disbursement payment boundary, or change the payout execution plan, before retrying payout commit/payment execution.

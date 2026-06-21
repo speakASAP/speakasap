@@ -112,3 +112,20 @@ Approved to commit SpeakASAP Goal 9 Option B draft payout run ffefafe8-c2f7-4b76
 Approve only if you want the prepared draft payout batch to be committed and sent through the payment-service disbursement boundary.
 
 This is the money-movement approval. If you are not ready to execute payments, reject this packet and keep payout run `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1` in draft.
+
+## Approved Execution Blocked Before Write
+
+Status: owner approved this packet, but execution was stopped before payout commit because the required payment boundary is missing in the deployed runtime.
+
+- Blocker report: `/tmp/speakasap-salary-payout-commit-payment-execution-blocked-2026-05-option2-v1.json`.
+- Deployed payment-service route check: `/api/v1/internal/salary/disburse` route not found.
+- Deployed salary-service env check: `PAYMENT_SERVICE_URL` not configured.
+- Payout run remains: `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`, status `draft`.
+- Payout lines remain: `14`, statuses `draft=14`.
+- Payment refs remain: `0`.
+- Payout commit called: `false`.
+- Payment disbursement created: `false`.
+
+No payout commit, payment-service disbursement, external money movement, deployment, rollback execution, object-storage mutation, fallback DB write, legacy mutation, or destructive action ran.
+
+Next required action: implement and deploy the salary disbursement payment boundary, or change the payout execution plan, before retrying payout commit.
