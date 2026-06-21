@@ -146,3 +146,18 @@ Status: approved payout commit was attempted, but it stopped with a dependency e
 - Fix deployed: payment-service now keys salary disbursements by the per-line body `idempotencyKey` before the route header key.
 
 No deployment rollback, SQL rollback, refund/reversal, manual settlement, or retry was run after the partial state. Any retry, compensation, manual repair, reversal/refund, SQL repair, or rollback requires a separate owner decision.
+
+## Owner-Approved Retry Result
+
+Status: after the owner-approved retry/repair, payout commit completed to the `processing` state. This is not a paid or settled state.
+
+- Retry execution report: `/tmp/speakasap-salary-payout-commit-payment-execution-2026-05-option2-v2.json`.
+- Post-run status: `/tmp/speakasap-salary-status-after-payout-commit-option2-v2.json`.
+- Rollback assessment: `/tmp/speakasap-salary-payout-commit-payment-execution-rollback-assessment-2026-05-option2-v2.md`.
+- Calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`; status `finalized`.
+- Payout run: `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`; status `processing`.
+- Payout line statuses after retry: `processing=14`.
+- Payment refs after retry: `14`.
+- Commit error after retry: `null`.
+
+Boundary: no payout line was marked `paid`, no external provider settlement was faked, and no SQL rollback/refund/reversal/manual settlement completion/status finalization ran. The next owner decision is the settlement/finalization path for the 14 processing lines.

@@ -17,12 +17,12 @@ Continue implementation of this project.
 ## Current Status
 
 - Active goal: Goal 9 - Salary And Recording-Duration Payroll Migration
-- Active chunk: 9.6 draft review completed; finalize/payout/payment-boundary gate
+- Active chunk: 9.6 payout commit retry completed; payout processing pending settlement/finalization path
 - Active branch: not recorded in this checkout
 - Current wave: Wave 9 - Salary And Recording-Duration Payroll Migration
 - Completed goals: Goal 1 Intent Preservation And Refactor Governance; Goal 2 Legacy Portal Inventory And Parity Map; Goal 3 Service Ownership And API Contract Mapping; Goal 4 Data Migration And Reconciliation; Goal 5 Lesson Recording And Private Media Migration; Goal 6 Gateway, Auth, And Frontend Parity; Goal 7 Operational Cutover Readiness; Goal 8 Controlled Cutover Validation With Legacy Retained As Fallback
 - Running worker threads: none
-- Blocked chunks: finalize, payout, payment execution, rollback, and broad/persistent enablement remain blocked pending separate approval; payout flows remain blocked by `SALARY_PAYOUT_FLOWS_ENABLED=true` plus separate payment-boundary approval
+- Blocked chunks: payout settlement completion, paid-status finalization, rollback, refund/reversal, SQL repair, and broad/persistent enablement remain blocked pending separate approval; payout commit retry completed to `processing` and must not be rerun without a separate owner decision
 - Approval gates currently active: any future lesson-record rerun, rollback execution, object-storage mutation, public/private access behavior change, or deployment requires fresh evidence and explicit owner approval where applicable; any future user-service write migration/rerun/rollback/truncation requires fresh no-write DB evidence, rollback artifact, and explicit owner approval
 - State source: this file plus `docs/orchestrator/STATE.json` and root `STATE.json`
 - Evidence log: `docs/orchestrator/STATUS.md`
@@ -41,7 +41,7 @@ Continue implementation of this project.
 | Goal 6 - Gateway, Auth, And Frontend Parity | done | Gateway/frontend route checks and authorized learner/teacher/staff parity checks are recorded. |
 | Goal 7 - Operational Cutover Readiness | done | Manifests, secrets, health, logging, OpenSSL runtime, smoke URLs, rollback, and cutover checklist are recorded. |
 | Goal 8 - Controlled Cutover And Legacy Decommission | done | Controlled cutover validation passed; owner selected legacy retention as fallback/reference. |
-| Goal 9 - Salary And Recording-Duration Payroll Migration | active | Owner reprioritized salary. Demo salary aggregate counters, readiness blocker samples, calculation-run disabled gate, payout disabled gate, no-write readiness command, and historical imported lesson salary quantity preservation are implemented. Report `/tmp/speakasap-salary-readiness-2026-05.json` recorded `writes=false`, `missingDurationCount=0`, `shortRecordCount=6`, `teacherMappingMissingCount=0`, and `demoPayableLessonCount=1`. Reconciliation report `/tmp/speakasap-salary-short-record-reconciliation-2026-05.json` showed all six short rows have legacy/imported salary expense `qty=1.00`; target duration recalculation would underpay by `0.08` to `0.98` hours. Preview report `/tmp/speakasap-salary-calculation-preview-2026-05.json` showed `14/14` lines use imported lesson salary hours and `6/6` blockers are covered by exact imported `salary_expenses.lesson_uuid`. Owner-approved draft calculation smoke created run `6576ac90-526e-47c6-8755-9631a4fb3149` with 14 lines and rollback `/tmp/speakasap-salary-calculation-run-rollback-2026-05-v1.sql`. Draft review is complete at scoped-smoke level; next gate is owner-approved education-service deploy and no-write readiness/preview rerun. Payout env gate remains separate. |
+| Goal 9 - Salary And Recording-Duration Payroll Migration | active | Option B salary calculation run `849b766d-90d4-415d-8e59-86fca05128d5` is finalized. Draft payout run `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1` was committed after owner approval and retry/repair; it is now `processing` with payout line statuses `processing=14` and `paymentRefs=14`. The payment boundary records idempotent manual disbursement refs and does not fake paid settlement. Next gate is owner decision for settlement completion or paid-status finalization path; do not rerun payout commit, run SQL rollback, or perform refund/reversal without separate approval. |
 | Goal 10 - Seven-Lesson Course Frontend Migration | paused | Paused by explicit owner salary reprioritization. Existing Seven work remains preserved and should not be reverted. |
 
 ## Execution Waves
@@ -505,3 +505,12 @@ Next:
 - 2026-06-21: Goal 9 Option B payout commit/payment execution was owner-approved but blocked before write. Read-only blocker report `/tmp/speakasap-salary-payout-commit-payment-execution-blocked-2026-05-option2-v1.json` confirmed payout run `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1` remains `draft` with 14 draft lines, `paymentRefs=0`, `payoutCommitCalled=false`, and `paymentDisbursementCreated=false`. Runtime checks found deployed payment-service has no `/api/v1/internal/salary/disburse` route and deployed salary-service has no `PAYMENT_SERVICE_URL` configured. No payout commit, payment-service disbursement, external money movement, deployment, rollback execution, object mutation, fallback DB write, legacy mutation, or destructive action ran. Next required action is implement/deploy the salary disbursement payment boundary or change the payout execution plan.
 
 - 2026-06-21: Goal 9 Option B payout commit/payment execution was attempted after owner approval. Report `/tmp/speakasap-salary-payout-commit-payment-execution-2026-05-option2-v1.json` recorded payout run `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1` changed from `draft` to `failed`, line statuses `processing=1`, `failed=1`, `draft=12`, and `paymentRefs=1`; commit failed with `DEPENDENCY_UNAVAILABLE payment_disburse_409`. Root cause was the first payment boundary keying idempotency on the payout-run header instead of the per-line body key. Commit `039e59b` fixed and deployed payment-service idempotency. No SQL rollback, deployment rollback, refund/reversal, manual settlement, compensation, or retry ran after the partial state. Next required action is owner decision for retry/repair/rollback.
+
+## 2026-06-21 - Goal 9 Option B Payout Processing State
+
+- Calculation run `849b766d-90d4-415d-8e59-86fca05128d5` is finalized.
+- Payout run `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1` is `processing` after owner-approved retry/repair.
+- Payout line statuses are `processing=14`; payment refs are `14`; commit error is `null`.
+- Evidence: `/tmp/speakasap-salary-payout-commit-payment-execution-2026-05-option2-v2.json`, `/tmp/speakasap-salary-status-after-payout-commit-option2-v2.json`, and `/tmp/speakasap-salary-payout-commit-payment-execution-rollback-assessment-2026-05-option2-v2.md`.
+- Boundary: no line is `paid`, no external provider settlement was faked, and no rollback/refund/reversal/manual settlement completion/status finalization ran.
+- Next gate: owner decision for settlement completion or paid-status finalization path.

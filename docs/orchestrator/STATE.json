@@ -1,7 +1,7 @@
 {
-  "activeChunk": "9.6 payout commit partially attempted; idempotency fix deployed; awaiting owner retry/repair decision",
+  "activeChunk": "9.6 payout commit retry completed; payout processing pending settlement/finalization path",
   "activeGoal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "current_chunk": "9.6 payout commit partially attempted; idempotency fix deployed; awaiting owner retry/repair decision",
+  "current_chunk": "9.6 payout commit retry completed; payout processing pending settlement/finalization path",
   "current_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
   "cycle": 28,
   "docsrag_runtime_jwt": "available",
@@ -163,7 +163,7 @@
   },
   "legacy_recordings_fallback": "retained as fallback/reference; no freeze/decommission executed",
   "next_goal": "Goal 9 - Salary And Recording-Duration Payroll Migration",
-  "next_required_action": "Review partial payout state for ffefafe8-c2f7-4b76-8da6-3efbd5d707d1: payout run is failed with line statuses processing=1, failed=1, draft=12 and paymentRefs=1. Payment boundary idempotency fix is deployed. Retry, manual settlement, reversal/refund, SQL repair, or rollback requires a separate owner decision.",
+  "next_required_action": "Decide the settlement/finalization path for payout run ffefafe8-c2f7-4b76-8da6-3efbd5d707d1: it is now processing with 14/14 payout lines processing and 14 payment refs after the approved retry. No lines are paid/completed. Do not rerun payout commit or execute SQL rollback without separate owner approval.",
   "orchestrator": "SpeakASAP master implementation orchestrator",
   "state_source": "docs/orchestrator/IMPLEMENTATION_STATE.md and docs/orchestrator/STATE.json",
   "status": "active",
@@ -750,5 +750,32 @@
       "assessment": "/tmp/speakasap-salary-payout-commit-payment-execution-rollback-assessment-2026-05-option2-v1.md"
     },
     "retryRequiresSeparateOwnerDecision": true
+  },
+  "last_salary_payout_commit_retry": {
+    "timestamp": "2026-06-21T00:00:00+02:00",
+    "goal": "Goal 9 salary recording-duration payroll migration",
+    "writes": true,
+    "retryAfterBoundaryFix": true,
+    "calculationRunId": "849b766d-90d4-415d-8e59-86fca05128d5",
+    "calculationStatus": "finalized",
+    "payoutRunId": "ffefafe8-c2f7-4b76-8da6-3efbd5d707d1",
+    "payoutStatusBefore": "failed",
+    "payoutStatusAfter": "processing",
+    "payoutLineStatusCountsBefore": {
+      "processing": 1,
+      "failed": 1,
+      "draft": 12
+    },
+    "payoutLineStatusCountsAfter": {
+      "processing": 14
+    },
+    "paymentRefsBefore": 1,
+    "paymentRefsAfter": 14,
+    "commitError": null,
+    "executionReport": "/tmp/speakasap-salary-payout-commit-payment-execution-2026-05-option2-v2.json",
+    "postRunStatus": "/tmp/speakasap-salary-status-after-payout-commit-option2-v2.json",
+    "rollbackAssessment": "/tmp/speakasap-salary-payout-commit-payment-execution-rollback-assessment-2026-05-option2-v2.md",
+    "boundary": "Payment boundary records idempotent manual salary disbursement refs and returns/polls processing; it does not fake paid settlement or external provider completion.",
+    "nextGate": "Owner decision for real/manual settlement completion or status finalization path. Do not rerun payout commit or SQL rollback without separate approval."
   }
 }

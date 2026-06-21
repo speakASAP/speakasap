@@ -5360,3 +5360,28 @@ Status: approved payout commit/payment execution was attempted and stopped with 
 
 - No SQL rollback, deployment rollback, refund/reversal, manual settlement, compensation, or retry ran after the partial state.
 - Any retry, manual settlement, reversal/refund, SQL repair, or rollback requires a separate owner decision because payment refs now exist.
+
+## 2026-06-21 - Goal 9 Option B Payout Commit Retry Completed To Processing
+
+Status: owner-approved retry/repair after the payment-boundary idempotency fix completed. The payout run is now processing; it is not paid or settled.
+
+### Execution Evidence
+
+- Retry execution report: `/tmp/speakasap-salary-payout-commit-payment-execution-2026-05-option2-v2.json`.
+- Post-run status: `/tmp/speakasap-salary-status-after-payout-commit-option2-v2.json`.
+- Rollback assessment: `/tmp/speakasap-salary-payout-commit-payment-execution-rollback-assessment-2026-05-option2-v2.md`.
+- Calculation run: `849b766d-90d4-415d-8e59-86fca05128d5`; status `finalized`.
+- Payout run: `ffefafe8-c2f7-4b76-8da6-3efbd5d707d1`; status changed `failed` -> `processing`.
+- Payout line statuses before retry: `processing=1`, `failed=1`, `draft=12`.
+- Payout line statuses after retry: `processing=14`.
+- Payment refs before retry: `1`.
+- Payment refs after retry: `14`.
+- Commit error after retry: `null`.
+
+### Boundary
+
+- The payment boundary records idempotent manual salary disbursement references and returns/polls `processing`.
+- No payout line was marked `paid`.
+- No external provider settlement was faked.
+- No SQL rollback, deployment rollback, refund/reversal, compensation, manual settlement completion, status finalization, object mutation, fallback DB write, legacy mutation, or destructive action ran after the retry.
+- Any settlement completion, paid-status finalization, refund/reversal, SQL repair, rollback, or additional retry requires a separate owner decision.
