@@ -5642,3 +5642,55 @@ Residual notes:
 
 - The manifest still maps legacy secret keys including `JWT_SECRET`; this is harmless for runtime compatibility, while bearer token validation no longer requires `JWT_SECRET`.
 - `vault-backend` global readiness remains an infrastructure issue, but the existing `speakasap-certification-secret` was sufficient for this rollout.
+
+## 2026-06-24 - WS-C Hosted Auth Callback State Hardening
+
+Status: hosted Auth frontend adapter contract hardening implemented after owner approved the next steps.
+
+Scope performed:
+
+- Re-read the active Auth-owned consumer standard in `/home/ssf/Documents/Github/auth-microservice/docs/HOSTED_AUTH_CONSUMER_STANDARD.md`.
+- Hardened `frontend/lib/auth-session.ts` to send `state` as a top-level hosted Auth query parameter in addition to the callback URL, reject callbacks without a matching stored nonce, preserve only safe local return paths, consume Auth `expires_at`, and retain the existing `expires_in` compatibility path.
+- Hardened `scripts/check-hosted-auth-contract.py` so future checks require `state`, callback state validation, `expires_at` fragment consumption, and safe return-path handling.
+
+Validation:
+
+- `./scripts/check-hosted-auth-contract.py --json-report /tmp/speakasap-hosted-auth-contract-after-state-hardening.json` passed.
+- `python3 -m py_compile scripts/check-hosted-auth-contract.py` passed.
+- `cd frontend && npm run build` passed and included `/auth/callback`.
+- `git diff --check -- frontend scripts/check-hosted-auth-contract.py docs/orchestrator/STATUS.md` passed.
+
+Boundary:
+
+- No legacy `speakasap-portal` file, legacy runtime host, DB, secret, object storage, salary/payment/content feature, or user data was touched.
+- No runtime deployment was run in this hardening entry; deploy remains a separate production gate if the source hardening should be promoted.
+
+Remaining limits:
+
+- The adapter still uses the accepted transitional browser `localStorage` token model until a BFF/HTTP-only-cookie owner is assigned.
+- `[MISSING: centralized refresh-token revocation/global logout contract]` remains an Auth platform open gate.
+
+## 2026-06-24 - WS-C Hosted Auth Callback State Hardening Deploy
+
+Status: deployed to new SpeakASAP frontend; legacy `speakasap-portal` untouched.
+
+Deploy scope:
+
+- Ran scoped frontend deployment only: `PUBLIC_URL=https://speakasap.alfares.cz ./scripts/deploy-frontend.sh`.
+- Built and pushed `localhost:5000/speakasap-frontend:latest`.
+- Image digest: `sha256:85c9674a4bf3801cbbfe81627ecc525a47ab59fcc46c6c3caf4a690d16f8d568`.
+- Applied frontend/ingress manifests and restarted only `deployment/speakasap-frontend`.
+
+Validation evidence:
+
+- Deploy script ran the hosted Auth frontend contract checker before Docker build.
+- Docker build ran `npm run build` successfully and included `/auth/callback`.
+- `deployment/speakasap-frontend` rolled out successfully.
+- New frontend pod `speakasap-frontend-564985768-kvgdd` was `1/1 Running`, restarts `0`.
+- Public root smoke returned `HTTP/2 200`.
+- Gateway health smoke returned `HTTP/2 200`.
+- Protected gateway route `/api/v1/lessons` returned `HTTP/2 401`, preserving auth enforcement.
+
+Boundary:
+
+- No certification-service deploy, broad `scripts/deploy.sh`, DB query, secret read, object mutation, salary/payment/content mutation, legacy portal access, or legacy runtime host mutation was performed.

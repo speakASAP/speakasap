@@ -6,8 +6,10 @@ const DEFAULT_AUTH_BASE_URL = "https://auth.alfares.cz";
 export type AuthSession = {
   accessToken: string;
   refreshToken?: string;
+  expiresAt?: string;
   expiresIn?: number;
   tokenType?: string;
+  authMethod?: string;
   storedAt: number;
 };
 
@@ -29,6 +31,13 @@ function absoluteReturnUrl(returnPath: string): string {
   return new URL(returnPath || "/auth/callback", window.location.origin).toString();
 }
 
+function safeReturnPath(value: string | null | undefined): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/";
+  }
+  return value;
+}
+
 function randomState(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -39,15 +48,15 @@ function randomState(): string {
 export function buildHostedAuthLoginUrl(returnPath = "/"): string {
   const state = randomState();
   const storage = browserStorage();
-  storage?.setItem(`${AUTH_STATE_KEY_PREFIX}${state}`, returnPath || "/");
+  storage?.setItem(`${AUTH_STATE_KEY_PREFIX}${state}`, safeReturnPath(returnPath || "/"));
 
   const callbackUrl = absoluteReturnUrl(`/auth/callback?state=${encodeURIComponent(state)}`);
   const url = new URL(`${authBaseUrl()}/login`);
   url.searchParams.set("client_id", AUTH_CLIENT_ID);
   url.searchParams.set("return_url", callbackUrl);
+  url.searchParams.set("state", state);
   return url.toString();
 }
-
 
 export function getAuthSession(): AuthSession | null {
   const raw = browserStorage()?.getItem(AUTH_SESSION_KEY);
@@ -62,8 +71,10 @@ export function getAuthSession(): AuthSession | null {
     return {
       accessToken: parsed.accessToken,
       refreshToken: typeof parsed.refreshToken === "string" ? parsed.refreshToken : undefined,
+      expiresAt: typeof parsed.expiresAt === "string" ? parsed.expiresAt : undefined,
       expiresIn: typeof parsed.expiresIn === "number" ? parsed.expiresIn : undefined,
       tokenType: typeof parsed.tokenType === "string" ? parsed.tokenType : undefined,
+      authMethod: typeof parsed.authMethod === "string" ? parsed.authMethod : undefined,
       storedAt: typeof parsed.storedAt === "number" ? parsed.storedAt : Date.now(),
     };
   } catch {
@@ -85,27 +96,31 @@ export function clearAuthSession(): void {
 
 export function consumeHostedAuthFragment(locationLike: Location = window.location): { nextPath: string; stored: boolean; error?: string } {
   const params = new URLSearchParams(locationLike.hash.replace(/^#/, ""));
-  const accessToken = params.get("access_token") || params.get("token");
-  const refreshToken = params.get("refresh_token") || undefined;
-  const expiresIn = params.get("expires_in");
-  const tokenType = params.get("token_type") || undefined;
-  const state = new URL(locationLike.href).searchParams.get("state") || "";
+  const url = new URL(locationLike.href);
+  const returnedState = params.get("state") || url.searchParams.get("state") || "";
   const storage = browserStorage();
-  const stateKey = state ? `${AUTH_STATE_KEY_PREFIX}${state}` : "";
-  const nextPath = (stateKey && storage?.getItem(stateKey)) || "/";
+  const stateKey = returnedState ? `${AUTH_STATE_KEY_PREFIX}${returnedState}` : "";
+  const storedReturnPath = stateKey ? storage?.getItem(stateKey) : null;
   if (stateKey) {
     storage?.removeItem(stateKey);
   }
 
+  if (!returnedState || !storedReturnPath) {
+    return { nextPath: "/", stored: false, error: "invalid_state" };
+  }
+
+  const accessToken = params.get("access_token") || params.get("token");
   if (!accessToken) {
-    return { nextPath, stored: false, error: "missing_access_token" };
+    return { nextPath: safeReturnPath(storedReturnPath), stored: false, error: "missing_access_token" };
   }
 
   saveAuthSession({
     accessToken,
-    refreshToken,
-    expiresIn: expiresIn ? Number(expiresIn) : undefined,
-    tokenType,
+    refreshToken: params.get("refresh_token") || undefined,
+    expiresAt: params.get("expires_at") || undefined,
+    expiresIn: params.get("expires_in") ? Number(params.get("expires_in")) : undefined,
+    tokenType: params.get("token_type") || undefined,
+    authMethod: params.get("auth_method") || undefined,
   });
-  return { nextPath, stored: true };
+  return { nextPath: safeReturnPath(storedReturnPath), stored: true };
 }

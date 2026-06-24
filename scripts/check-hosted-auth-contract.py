@@ -62,8 +62,14 @@ def main() -> int:
         "callbackReturnUrlIsAbsolute": 'new URL(returnPath || "/auth/callback", window.location.origin).toString()' in auth,
         "hostedLoginSetsReturnUrlToCallback": 'url.searchParams.set("return_url", callbackUrl)' in auth,
         "hostedLoginSetsClientId": 'url.searchParams.set("client_id", AUTH_CLIENT_ID)' in auth,
+        "hostedLoginSetsState": 'url.searchParams.set("state", state)' in auth,
         "consumesAccessTokenFragment": 'params.get("access_token")' in auth,
         "consumesRefreshTokenFragment": 'params.get("refresh_token")' in auth,
+        "consumesExpiresAtFragment": 'params.get("expires_at")' in auth,
+        "validatesReturnedState": "const returnedState =" in auth
+        and 'error: "invalid_state"' in auth
+        and "storage?.getItem(stateKey)" in auth,
+        "safeReturnPathGuard": "function safeReturnPath" in auth and 'value.startsWith("//")' in auth,
         "callbackConsumesFragment": "consumeHostedAuthFragment(window.location)" in callback,
         "callbackClearsUrl": "window.history.replaceState" in callback,
         "gatewayUsesBearerSession": "getAuthSession()?.accessToken" in api_client
