@@ -89,3 +89,17 @@ Auth source now provides central `POST /auth/contact-code/request` and `POST /au
 - keep domain services validating bearer tokens through auth-microservice `/auth/validate`.
 
 Runtime evidence: Auth and SpeakASAP frontend deployment/runtime smoke completed on 2026-06-24; browser click smoke verifies hosted Auth redirect with absolute callback and stored return state. Remaining gate: live user credential/contact-code smoke requires owner-approved test contact/provider readiness. Source guardrail: scripts/check-hosted-auth-contract.py now enforces the hosted Auth frontend contract and forbids local password/contact-code forms or relative return_url helpers.
+
+## Central Auth Validate Source Guard - 2026-06-24
+
+Scope: new SpeakASAP protected bearer-token services only; legacy `speakasap-portal` remains forbidden and was not inspected or changed.
+
+Implementation lane:
+- Preserve the hosted Auth frontend adapter as the session entrypoint and keep backend protected APIs validating bearer tokens through auth-microservice `POST /auth/validate`.
+- Add `scripts/check-auth-validate-contract.py` as a no-write static guard for central validation convergence across user, course, education, assessment, certification, financial, notification, payment, and salary services.
+- The checker fails if protected `JwtAuthGuard` implementations stop delegating bearer tokens to `AuthClientService`, if service clients stop using `POST /auth/validate`, or if local bearer JWT verification dependencies reappear in service source.
+
+Boundary:
+- Do not read secrets, live PII, or token values.
+- Do not deploy or restart services from this source-level guard lane.
+- Do not convert transitional internal-token machine auth to Auth `/auth/validate`; that remains separately gated by the service identity standard and Auth-issued service JWT design.

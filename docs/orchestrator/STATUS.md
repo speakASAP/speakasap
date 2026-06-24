@@ -5694,3 +5694,39 @@ Validation evidence:
 Boundary:
 
 - No certification-service deploy, broad `scripts/deploy.sh`, DB query, secret read, object mutation, salary/payment/content mutation, legacy portal access, or legacy runtime host mutation was performed.
+
+## 2026-06-24 - WS-C3 Central Auth Validate Contract Guard
+
+Status: implemented source-level no-write guard for central auth-microservice `POST /auth/validate` convergence; legacy `speakasap-portal` untouched.
+
+IPS chain:
+- Vision: new SpeakASAP uses shared Alfares Auth for human identity instead of local app-specific bearer validation.
+- Goal Impact: frontend hosted Auth sessions continue to feed bearer tokens into gateway/domain APIs, and protected services keep validating those tokens centrally.
+- System: new SpeakASAP service source and static validation scripts only.
+- Feature: central `/auth/validate` regression guard.
+- Task: add an executable no-write check that covers protected service `JwtAuthGuard` and `AuthClientService` convergence.
+- Execution Plan: static checker and docs/status update only; no runtime service behavior change, no deploy, no DB or secret access.
+- Coding Prompt: work remote-only in `/home/ssf/Documents/Github/speakasap`; do not touch legacy `speakasap-portal`; preserve internal-token machine-auth exceptions.
+- Code: `scripts/check-auth-validate-contract.py`, `docs/orchestrator/2026-06-24-aos-auth-modernization-plan.md`, `docs/orchestrator/2026-06-24-aos-auth-surface-inventory.md`, and this status entry.
+- Validation: central Auth validate checker, hosted Auth checker, service identity checker, Python compile, and git diff whitespace check.
+
+Evidence:
+- RAG lookup from `alfares` to `docs-rag-microservice.statex-apps.svc.cluster.local:3397` failed with curl exit code `6`, so repository evidence was used and this fallback is recorded.
+- `[MISSING: docs/orchestrator/IMPLEMENTATION_ORCHESTRATOR.md]` remains missing from the remote repo although listed by instructions.
+- The new checker covers user-service, course-service, education-service, assessment-service, certification-service, financial-service, notification-service, payment-service, and salary-service protected bearer-token guards/clients.
+- It requires guard delegation to `AuthClientService`, service clients using `POST /auth/validate` with `{ token }`, env validation for `AUTH_SERVICE_URL` and `AUTH_SERVICE_TIMEOUT`, and absence of local bearer JWT validation patterns.
+- It explicitly preserves certification public certificate view-token signing as outside the protected bearer-token scope and preserves internal-token machine-auth exceptions outside Auth `/auth/validate` until an Auth-issued service JWT design is approved.
+- `./scripts/check-auth-validate-contract.py --json-report /tmp/speakasap-auth-validate-contract-wsc3.json` passed with `ok=true`.
+- `./scripts/check-hosted-auth-contract.py --json-report /tmp/speakasap-hosted-auth-contract-wsc3.json` passed.
+- `./scripts/check-service-identity-contract.py --json-report /tmp/speakasap-service-identity-contract-wsc3.json` passed.
+- `python3 -m py_compile scripts/check-auth-validate-contract.py scripts/check-hosted-auth-contract.py scripts/check-service-identity-contract.py` passed.
+- `cd frontend && npm run build` passed and included `/auth/callback`.
+- `git diff --check -- scripts/check-auth-validate-contract.py docs/orchestrator/2026-06-24-aos-auth-modernization-plan.md docs/orchestrator/2026-06-24-aos-auth-surface-inventory.md docs/orchestrator/STATUS.md` passed.
+
+Approval and rollback:
+- No live DB, secret, PII, deployment, service restart, object mutation, salary/payment/content operation, or legacy runtime access was performed.
+- Rollback is source revert of the new checker and these docs/status entries.
+
+Remaining gates:
+- Runtime smoke for a real hosted Auth user token against protected SpeakASAP routes remains gated by owner-approved test identity/contact-provider readiness.
+- BFF/HTTP-only-cookie session replacement remains `[MISSING: centralized frontend session owner/contract]` and was not implemented in this source-level guard lane.

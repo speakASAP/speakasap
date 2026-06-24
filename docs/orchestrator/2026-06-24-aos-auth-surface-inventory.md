@@ -133,3 +133,27 @@ Merge order after WS-A contract: contract doc -> frontend/BFF adapter -> gateway
 ## Handoff
 
 WS-C can safely proceed to code only after WS-A publishes the hosted auth contract. Until then, the safe state is to preserve existing gateway and service bearer validation through auth-microservice, preserve user-service auth UUID mirrors, and avoid adding speculative login/callback/session behavior.
+
+## 2026-06-24 Central Auth Validate Contract Guard
+
+Status: implemented source-level no-write convergence guard for protected bearer-token services.
+
+IPS chain:
+- Vision: new SpeakASAP uses shared Alfares Auth for human identity and does not reintroduce local bearer-token validation.
+- Goal Impact: protected domain APIs keep a single validation boundary at auth-microservice `POST /auth/validate` while frontend sessions originate from hosted Auth.
+- System: user-service, course-service, education-service, assessment-service, certification-service, financial-service, notification-service, payment-service, salary-service, and static Auth checks.
+- Feature: central Auth validation regression guard.
+- Task: make central `/auth/validate` convergence executable in repo-supported no-write validation.
+- Execution Plan: add a static checker only; do not modify runtime service behavior, secrets, DB state, deployment, or legacy portal code.
+- Coding Prompt: inspect only new SpeakASAP source and docs; preserve internal-token machine-auth exceptions; avoid reading token values or live user data.
+- Code: `scripts/check-auth-validate-contract.py`.
+- Validation: run the checker, hosted Auth checker, service identity checker, Python compile, and git diff whitespace check.
+
+Evidence expected from checker:
+- Protected service `JwtAuthGuard` implementations delegate bearer tokens to `AuthClientService`.
+- Service Auth clients call auth-microservice `POST /auth/validate` with `{ token }` and reject invalid responses.
+- Required services keep `AUTH_SERVICE_URL` and `AUTH_SERVICE_TIMEOUT` env validation.
+- Local bearer JWT verification patterns such as `jsonwebtoken`, `@nestjs/jwt`, `passport-jwt`, direct `jwt.verify`, and bearer `JWT_SECRET` dependencies are absent from protected service source, except certification public certificate view-token secret remains outside bearer auth scope.
+
+Boundary:
+- No legacy `speakasap-portal`, legacy runtime host, DB, secret, live PII, deploy, salary/payment/content mutation, or Auth service change was touched.
