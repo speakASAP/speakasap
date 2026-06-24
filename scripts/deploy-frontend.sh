@@ -37,6 +37,9 @@ smoke_head() {
   return "$status"
 }
 
+echo "Checking hosted Auth frontend contract"
+"$PROJECT_ROOT/scripts/check-hosted-auth-contract.py"
+
 echo "Building $IMAGE from frontend/Dockerfile"
 docker build --build-arg NEXT_PUBLIC_API_URL="$PUBLIC_URL" -f "$PROJECT_ROOT/frontend/Dockerfile" -t "$IMAGE" "$PROJECT_ROOT/frontend"
 

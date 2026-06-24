@@ -1,3 +1,89 @@
+## 2026-06-24 - Hosted Auth Contract Checker
+
+Status: source contract hardened for new SpeakASAP frontend; no runtime deploy required for this no-behavior checker pass.
+
+IPS chain:
+- Vision: all SpeakASAP login entrypoints use the shared hosted Auth UI instead of local forms or app-specific credential flows.
+- Goal Impact: future frontend changes cannot silently reintroduce a relative return_url or local password/contact-code form.
+- System: SpeakASAP Next.js frontend and no-write validation scripts.
+- Feature: hosted Auth consumer contract enforcement.
+- Task: remove the unused raw hosted href helper and add a checker for absolute callback/state storage, token fragment consumption, Bearer forwarding, and forbidden local auth forms.
+- Execution Plan: source-only hardening, build/check validation, no DB, no secrets, no legacy portal mutation.
+- Coding Prompt: keep new SpeakASAP a thin hosted Auth redirect/callback consumer; do not add local phone-code/passwordless UI.
+- Code: frontend/lib/auth-session.ts and scripts/check-hosted-auth-contract.py.
+- Validation: ./scripts/check-hosted-auth-contract.py --json-report - returned ok:true; cd frontend && npm run build passed; python3 -m py_compile scripts/check-hosted-auth-contract.py passed; bash -n scripts/deploy-frontend.sh passed; git diff --check passed for touched files.
+
+Evidence:
+- The checker requires client_id=speakasap, hosted https://auth.alfares.cz/login, absolute /auth/callback return_url construction, stored return state before redirect, fragment access_token/refresh_token consumption, and gateway Authorization: Bearer forwarding.
+- The checker forbids getHostedAuthLoginHref, url.searchParams.set("return_url", returnPath), local password inputs, and local /auth/contact-code/request or /verify forms in the SpeakASAP frontend. scripts/deploy-frontend.sh now runs this checker before Docker build/push.
+- Legacy speakasap-portal remains out of scope and untouched.
+
+Boundary:
+- No production login, live contact delivery, DB query, backfill, secret read, or legacy runtime mutation was executed.
+
+
+## 2026-06-24 - Hosted Auth Link Runtime Fix
+
+Status: deployed for new SpeakASAP frontend; legacy speakasap-portal untouched.
+
+IPS chain:
+- Vision: new SpeakASAP uses the shared Alfares Auth identity provider with a reliable hosted-login handoff.
+- Goal Impact: users clicking Sign in from SpeakASAP are sent to the central Auth UI with a valid callback and can return to the correct app path.
+- System: SpeakASAP Next.js frontend only; backend Auth validation remains through auth-microservice.
+- Feature: hosted Auth browser redirect and callback state preservation.
+- Task: fix SSR-generated hosted Auth link that produced a relative return_url and did not persist callback state in browser storage.
+- Execution Plan: change only the hosted Auth link component to generate the Auth URL in a browser click handler, then build, scoped frontend deploy, and production browser smoke.
+- Coding Prompt: do not touch legacy speakasap-portal, DB, secrets, or unrelated services.
+- Code: frontend/app/components/hosted-auth-link.tsx.
+- Validation: frontend build, scoped frontend deploy, Kubernetes readiness, HTTP smoke, and browser click smoke passed.
+
+Evidence:
+- cd frontend && npm run build passed.
+- PUBLIC_URL=https://speakasap.alfares.cz ./scripts/deploy-frontend.sh built and pushed localhost:5000/speakasap-frontend:latest, rolled out deployment/speakasap-frontend, and passed root/gateway/protected-route smoke.
+- Runtime readiness after deploy: auth-microservice, auth-microservice-web, marathon, speakasap, speakasap-frontend, speakasap-certification, and speakasap-api-gateway reported 1/1 ready.
+- Cache-busted production root HTML now renders the hosted Auth link fallback as href="/auth/callback" instead of an SSR-built https://auth.alfares.cz/login?...return_url=/auth/callback... link.
+- Browser click smoke redirected to host auth.alfares.cz with client_id=speakasap, absolute return_url=https://speakasap.alfares.cz/auth/callback?state=..., and stored speakasap.auth.return.<state> with value / on the SpeakASAP origin.
+
+Boundary:
+- No legacy speakasap-portal file, runtime, DB, or secret was touched.
+- No live user login, password, contact-code delivery, or data backfill was executed.
+
+
+## 2026-06-24 - WS-G Hosted Auth Frontend Adapter
+
+Goal: implement a thin new SpeakASAP frontend adapter for the Auth-hosted `/login` flow after WS-A published hosted identifier login, magic-link, password reset, and fragment token handoff.
+
+IPS chain:
+- Vision: new SpeakASAP uses the shared Alfares Auth identity provider instead of legacy or local credential flows.
+- Goal Impact: learner, teacher, and admin frontend shells can start central Auth sign-in and reuse returned Auth tokens for gateway calls.
+- System: Next.js frontend remains the presentation/session adapter; API gateway and services continue validating bearer tokens through auth-microservice `/auth/validate`.
+- Feature: hosted Auth redirect, `/auth/callback` fragment handling, local session helper, and gateway Authorization reuse.
+- Task: remove manual token-paste dependency from the current admin and lesson-recording protected shells.
+- Execution Plan: frontend-only adapter; no certification-service, legacy portal, live DB, secrets, deploy, or unrelated domain changes.
+- Coding Prompt: WS-G New SpeakASAP Hosted Auth Frontend Adapter Owner delegated from thread `019ef8b1-a6c8-7210-97bd-36f78964a811`.
+- Code: `frontend/lib/auth-session.ts`, `frontend/app/auth/callback/page.tsx`, `frontend/app/components/hosted-auth-link.tsx`, `frontend/app/admin/page.tsx`, `frontend/app/components/lesson-record-workspace.tsx`, `frontend/app/page.tsx`, and auth inventory/status docs.
+- Validation: `cd frontend && npm run build` passed; `git diff --check -- frontend docs/orchestrator/STATUS.md` passed.
+
+Evidence:
+- Central Auth contract source: `/home/ssf/Documents/Github/auth-microservice/docs/UNIFIED_AUTH_CONTRACT.md` documents `https://auth.alfares.cz/login`, `client_id`, `return_url`, fragment handoff, `/auth/refresh`, and consumer responsibilities.
+- The adapter generates hosted login URLs with `client_id=speakasap` and a callback `return_url`, validates nonce-backed callback state, stores `accessToken`/`refreshToken` in the frontend session helper, and sends the access token as `Authorization: Bearer` through the existing gateway client.
+- Backend `/auth/validate` behavior was preserved; gateway/user-service files were not touched.
+
+Approval and rollback:
+- No live DB, secrets, deploy, migration, or legacy runtime mutation was approved or performed.
+- Rollback is source revert of the frontend adapter files and this status entry; no production state was changed.
+
+Remaining blockers:
+- [UNKNOWN: production `NEXT_PUBLIC_APP_URL` value for explicit HTTPS callback origin if runtime origin is insufficient].
+- [SUPERSEDED: SMS/WhatsApp/Telegram provider contract] Auth source now owns email/phone contact-code endpoints; production SMS delivery remains config/deploy-gated.
+- [BLOCKED: certification-service executable build] remains separate WS-C2 dependency-state debt and was not touched by WS-G.
+
+### WS-G Contact-Code Contract Follow-Up
+
+- New SpeakASAP remains a thin hosted Auth consumer and must not implement a local phone-code form.
+- Hosted Auth now owns `POST /auth/contact-code/request` and `/verify` for email or phone passwordless sign-in.
+- SpeakASAP frontend adapter already redirects to hosted `/login` with `client_id=speakasap`, so it will consume the contact-code flow after Auth deployment without extra local UI.
+
 ## 2026-06-15 - Goal 5.5 ExternalSecret Apply Attempt And Rollback
 
 Status: blocked on missing Vault property for `LESSON_RECORD_MEDIA_TOKEN_SECRET`.
@@ -5406,3 +5492,153 @@ Status: owner confirmed all 14 salary payouts for the prepared payout run were p
 - This records owner-confirmed manual payment, not automatic bank/provider settlement discovery.
 - No additional payout run, calculation run, salary recalculation, refund/reversal, rollback, object mutation, fallback DB write, legacy mutation, deployment, or destructive action ran.
 - Future correction, reversal/refund, status rollback, or compensation requires separate owner approval.
+
+## 2026-06-24 - WS-C AOS/Auth Surface Inventory
+
+Status: inventory complete; implementation blocked on missing WS-A hosted auth contract
+
+Role: WS-C new SpeakASAP consumer owner for Alfares AOS/auth modernization.
+
+Scope performed:
+
+- Read remote repo instructions and orchestrator/state docs where present.
+- Queried DocsRAG from `deployment/speakasap`; request returned HTTP 200 but no context/sources for the AOS/auth modernization query.
+- Inventoried frontend auth entrypoints/adapters, api-gateway auth routing, and user-service auth id mapping.
+- Created `docs/orchestrator/2026-06-24-aos-auth-surface-inventory.md`.
+
+Evidence:
+
+- `[MISSING: docs/orchestrator/IMPLEMENTATION_ORCHESTRATOR.md]` remains missing from the remote repo although listed by AGENTS/IPS.
+- `frontend/app/admin/page.tsx` and `frontend/app/components/lesson-record-workspace.tsx` still use manually pasted bearer JWTs for protected workflow checks.
+- `frontend/lib/api-client.ts` forwards `Authorization: Bearer` only when a caller supplies a token and has no session/cookie/refresh adapter.
+- `api-gateway/src/proxy/gateway-auth.guard.ts` and `api-gateway/src/auth-client/auth-client.service.ts` validate protected gateway requests through auth-microservice `POST /auth/validate`, with explicit public/internal exceptions.
+- `user-service/prisma/schema.prisma` stores `auth_user_id` as auth-microservice `User.id`; profile services mirror domain data and do not create auth identities.
+
+Blocker:
+
+- `[MISSING: WS-A hosted auth contract]` for hosted login/register/reset URLs, callback route, token exchange, refresh/session/cookie behavior, locale/return path parameters, logout, 401 handling, and smoke-test fixture path. The AOS plan says code changes occur after the WS-A contract is stable, so no speculative code change was made.
+
+Validation:
+
+- Docs-only change; no executable code changed.
+- Package builds/tests were not run because frontend/gateway/user-service code was not modified.
+
+Approval and rollback:
+
+- No write/deploy/runtime approval used.
+- Rollback for this docs-only pass is reverting `docs/orchestrator/2026-06-24-aos-auth-surface-inventory.md` and this STATUS entry.
+
+Next action:
+
+- WS-A must publish the hosted auth contract, then WS-C can implement the frontend/BFF login/callback/session adapter and rerun affected frontend/gateway/user-service validation.
+
+## 2026-06-24 - WS-C2 Certification Auth Parity
+
+Status: certification-service bearer-token validation aligned with auth-microservice.
+
+Role: WS-C2 SpeakASAP Certification Auth Parity Owner for Alfares AOS/auth modernization.
+
+Scope performed:
+
+- Read `AGENTS.md`, `docs/orchestrator/2026-06-24-aos-auth-modernization-plan.md`, and `docs/orchestrator/2026-06-24-aos-auth-surface-inventory.md`.
+- Queried DocsRAG from `deployment/speakasap`; request returned HTTP 200 with empty context/sources for the certification auth parity query.
+- Replaced certification-service protected bearer-token validation from local `JWT_SECRET` verification to auth-microservice `POST /auth/validate`.
+- Preserved the certification-local `JwtUser` request contract by mapping auth-microservice `user.id` to `req.user.sub`, normalizing roles, and keeping optional email.
+- Preserved certificate public view tokens on `CERT_VIEW_TOKEN_SECRET`; no view-token signing behavior was changed.
+
+Evidence:
+
+- `certification-service/src/auth-client/auth-client.service.ts` now calls `${AUTH_SERVICE_URL}/auth/validate`.
+- `certification-service/src/auth/jwt-auth.guard.ts` now delegates bearer validation to `AuthClientService`, attaches `req.user`, and sets `RequestContext.userId`.
+- `certification-service/src/shared/validate-env.ts` now requires `AUTH_SERVICE_URL` and `AUTH_SERVICE_TIMEOUT` instead of bearer-token `JWT_SECRET`.
+- `k8s/services/certification-service.yaml` already provides `AUTH_SERVICE_URL=http://auth-microservice:3370` and `AUTH_SERVICE_TIMEOUT=5000`.
+
+Validation:
+
+- `git diff --check -- certification-service docs/orchestrator/STATUS.md` passed.
+- `cd certification-service && npm run build` is blocked before TypeScript compile: `prisma generate` cannot unlink root-owned `node_modules/.prisma/client/index.js` (`EACCES`).
+- TypeScript-only validation with `../api-gateway/node_modules/.bin/tsc -p tsconfig.build.json --noEmit` ran but fails on existing certification-service dependency/type/prisma issues, including missing `@types/node`, missing `@types/express`, and existing certificate service Prisma type mismatches.
+- Targeted tests: `[MISSING: certification-service test script/spec files]`; no targeted test suite is available in `certification-service/package.json`.
+
+Approval and rollback:
+
+- No deployment or runtime mutation was performed.
+- Rollback is reverting the WS-C2 certification-service source changes and this STATUS entry.
+
+
+## 2026-06-24 - WS-G Runtime Deploy Evidence
+
+Status: new SpeakASAP hosted Auth frontend adapter deployed; legacy `speakasap-portal` untouched.
+
+- Preflight: `cd frontend && npm run build` passed.
+- Deploy command: `./scripts/deploy-frontend.sh`.
+- Rollout: `deployment/speakasap-frontend` ready `1/1`.
+- Public smoke: root returned HTTP 200 after one transient 502 immediately after rollout; `/health` returned HTTP 200; protected `/api/v1/lessons` returned HTTP 401 as expected.
+- Live root contains `Sign in with Alfares Auth` and `https://auth.alfares.cz/login?client_id=speakasap`.
+- Live `/admin` contains hosted Auth session controls instead of manual token input.
+
+Remaining gates:
+
+- [UNKNOWN: production Notifications SMS provider readiness] belongs to Auth/Notifications runtime config, not SpeakASAP local UI.
+- [BLOCKED: certification-service executable build] remains separate dependency/type debt.
+
+## 2026-06-24 - WS-C2 Certification Build Debt Resolved
+
+Status: certification-service auth parity source now has executable build evidence.
+
+Scope performed:
+
+- Reproduced the previous blocker: `npm run build` failed at `prisma generate` because existing `certification-service/node_modules/.prisma/client` was root-owned and not writable by `ssf`.
+- Confirmed `sudo chown` is not available in this SSH session because sudo requires an interactive password.
+- Quarantined the old generated dependency tree as `certification-service/node_modules.quarantine-root-owned-20260624-132933/` and recreated dependencies from `certification-service/package-lock.json` with `npm ci`.
+- Hardened `certification-service/tsconfig.build.json` so production compile includes only `src/**/*.ts` and excludes `node_modules*`; this prevents generated or quarantined dependency folders from being compiled by the default TypeScript include pattern.
+
+Validation:
+
+- `cd certification-service && npm ci` passed and generated Prisma Client v5.22.0 under the new user-owned `node_modules`.
+- `cd certification-service && npm run build` passed: `prisma generate && tsc -p tsconfig.build.json` completed successfully.
+- Targeted tests: `[MISSING: certification-service test script/spec files]`; no test script is present in `certification-service/package.json`.
+
+Residual operational cleanup:
+
+- `certification-service/node_modules.quarantine-root-owned-20260624-132933/` remains on disk because some files inside it are root-owned and cannot be removed or moved without privileged access.
+- The quarantine directory is excluded locally through `.git/info/exclude`; it is generated environment debt, not source.
+
+Updated blocker state:
+
+- The previous `[BLOCKED: certification-service executable build]` is superseded for source validation.
+- Deployment/runtime verification remains a separate gate and must use the normal SpeakASAP service deployment path.
+
+## 2026-06-24 - WS-C2 Certification Auth Parity Deploy Evidence
+
+Status: deployed and runtime healthy for the new SpeakASAP certification-service auth parity slice.
+
+Deploy scope:
+
+- Built `localhost:5000/speakasap-certification:latest` from `certification-service/Dockerfile` only.
+- Pushed the image to the local registry.
+- Applied only `k8s/services/certification-service.yaml`.
+- Restarted only `deployment/speakasap-certification` in namespace `statex-apps`.
+- Did not run the broad `scripts/deploy.sh`; no other SpeakASAP services were intentionally restarted.
+- Legacy `speakasap-portal` was not touched.
+
+Runtime issue and fix:
+
+- First rollout attempt produced a new CrashLoopBackOff replica while the old replica stayed available.
+- Direct container bootstrap diagnostics showed Nest DI failure: `JwtAuthGuard` required `AuthClientService`, but `AuthClientService` was not exported from `AuthModule` for feature module guard resolution.
+- Fixed `certification-service/src/auth/auth.module.ts` by exporting `AuthClientService` alongside the guards.
+- Rebuilt and repushed the image, then restarted only `speakasap-certification` again.
+
+Validation evidence:
+
+- `cd certification-service && npm run build` passed after the DI export fix.
+- Container bootstrap diagnostic with Nest console logger passed through `SharedModule`, `AppModule`, `AuthModule`, `CertificatesModule`, `QuestsModule`, and `QuestionnairesModule` initialization.
+- `kubectl rollout status deployment/speakasap-certification -n statex-apps --timeout=180s` completed successfully.
+- Final deployment status: `ready=1/1 updated=1 available=1`.
+- Final pod: `speakasap-certification-6bb8f79976-mdjd6`, `READY 1/1`, `STATUS Running`, `RESTARTS 0`.
+- In-pod health check returned `{"status":"ok"}` from `http://127.0.0.1:4202/health`.
+
+Residual notes:
+
+- The manifest still maps legacy secret keys including `JWT_SECRET`; this is harmless for runtime compatibility, while bearer token validation no longer requires `JWT_SECRET`.
+- `vault-backend` global readiness remains an infrastructure issue, but the existing `speakasap-certification-secret` was sufficient for this rollout.

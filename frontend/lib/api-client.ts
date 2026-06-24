@@ -1,3 +1,4 @@
+import { getAuthSession } from "@/lib/auth-session";
 import { getGatewayBaseUrl } from "@/lib/gateway";
 
 export type GatewayMethod = "GET" | "POST" | "PATCH" | "DELETE";
@@ -5,7 +6,7 @@ export type GatewayMethod = "GET" | "POST" | "PATCH" | "DELETE";
 export type GatewayRequest = {
   path: string;
   method?: GatewayMethod;
-  token?: string;
+  token?: string | null;
   body?: unknown;
   headers?: Record<string, string>;
 };
@@ -38,9 +39,10 @@ export async function callGateway(request: GatewayRequest): Promise<{
   if (request.body !== undefined) {
     headers["Content-Type"] = "application/json";
   }
-  const token = request.token?.trim() ?? "";
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+  const explicitToken = request.token?.trim() ?? "";
+  const sessionToken = explicitToken || getAuthSession()?.accessToken || "";
+  if (sessionToken) {
+    headers.Authorization = `Bearer ${sessionToken}`;
   }
 
   const response = await fetch(gatewayUrl(baseUrl, request.path), {

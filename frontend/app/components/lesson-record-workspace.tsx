@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { callGateway } from "@/lib/api-client";
+import { buildHostedAuthLoginUrl, clearAuthSession, getAuthSession } from "@/lib/auth-session";
 
 type PortalRole = "learner" | "teacher";
 
@@ -44,7 +45,7 @@ function cleanUuid(value: string): string {
 }
 
 export function LessonRecordWorkspace({ role, initialLessonUuid }: LessonRecordWorkspaceProps) {
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState<string | null>(null);
   const [lessonUuid, setLessonUuid] = useState(initialLessonUuid);
   const [filename, setFilename] = useState("record.mp3");
   const [contentType, setContentType] = useState("audio/mpeg");
@@ -57,6 +58,20 @@ export function LessonRecordWorkspace({ role, initialLessonUuid }: LessonRecordW
   const basePath = useMemo(() => `/api/v1/lessons/${cleanUuid(lessonUuid)}/record`, [lessonUuid]);
   const isTeacher = role === "teacher";
 
+  useEffect(() => {
+    setToken(getAuthSession()?.accessToken ?? null);
+  }, []);
+
+  function login(): void {
+    window.location.assign(buildHostedAuthLoginUrl(window.location.pathname + window.location.search));
+  }
+
+  function logout(): void {
+    clearAuthSession();
+    setToken(null);
+    setResult(null);
+  }
+
   async function runGateway(label: string, path: string, init?: { method?: "GET" | "POST"; body?: unknown; headers?: Record<string, string>; tokenRequired?: boolean }) {
     const cleanLessonUuid = cleanUuid(lessonUuid);
     if (!cleanLessonUuid) {
@@ -64,9 +79,8 @@ export function LessonRecordWorkspace({ role, initialLessonUuid }: LessonRecordW
       setResult(null);
       return null;
     }
-    if (init?.tokenRequired !== false && !token.trim()) {
-      setError("Bearer token is required for this protected gateway route.");
-      setResult(null);
+    if (init?.tokenRequired !== false && !token) {
+      login();
       return null;
     }
 
@@ -80,6 +94,10 @@ export function LessonRecordWorkspace({ role, initialLessonUuid }: LessonRecordW
         headers: init?.headers,
         token: init?.tokenRequired === false ? undefined : token,
       });
+      if (response.status === 401 || response.status === 403) {
+        clearAuthSession();
+        setToken(null);
+      }
       const nextResult = {
         label,
         path,
@@ -157,16 +175,21 @@ export function LessonRecordWorkspace({ role, initialLessonUuid }: LessonRecordW
                 data-testid="lesson-uuid-input"
               />
             </label>
-            <label className="block text-sm font-medium">
-              Bearer token
-              <textarea
-                className="mt-2 h-24 w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs outline-none ring-0 focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-200"
-                value={token}
-                onChange={(event) => setToken(event.target.value)}
-                placeholder="Paste a short-lived JWT for authorized checks"
-                data-testid="bearer-token-input"
-              />
-            </label>
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-zinc-600 dark:text-zinc-300">
+                  Auth session: {token ? "connected through hosted Auth" : "not connected"}
+                </span>
+                <button type="button" onClick={login} className="rounded-md bg-zinc-950 px-3 py-2 text-sm font-medium text-white dark:bg-zinc-50 dark:text-zinc-950">
+                  Sign in
+                </button>
+                {token ? (
+                  <button type="button" onClick={logout} className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium dark:border-zinc-700">
+                    Clear session
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
 
           <div className="mt-5 grid gap-2 sm:grid-cols-3 lg:grid-cols-1">

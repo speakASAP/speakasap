@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { HostedAuthButton } from "@/app/components/hosted-auth-button";
 import { getGatewayBaseUrl } from "@/lib/gateway";
+import { HostedAuthLink } from "@/app/components/hosted-auth-link";
 
 export default function Home() {
   const gatewayBaseUrl = getGatewayBaseUrl();
@@ -16,7 +18,8 @@ export default function Home() {
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           Active gateway base URL: <code>{gatewayBaseUrl ?? "NOT_CONFIGURED"}</code>
         </p>
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+        <div className="mt-8 grid gap-3 sm:grid-cols-4">
+          <HostedAuthLink returnPath="/" />
           <Link className="rounded-xl border px-4 py-3 hover:bg-zinc-100 dark:hover:bg-zinc-900" href="/learner">
             Learner portal shell
           </Link>
@@ -26,6 +29,11 @@ export default function Home() {
           <Link className="rounded-xl border px-4 py-3 hover:bg-zinc-100 dark:hover:bg-zinc-900" href="/admin">
             Admin portal shell
           </Link>
+        </div>
+        <div className="mt-4">
+          <HostedAuthButton className="inline-flex rounded-xl bg-zinc-950 px-4 py-3 text-sm font-medium text-white dark:bg-zinc-50 dark:text-zinc-950">
+            Sign in with Alfares Auth
+          </HostedAuthButton>
         </div>
       </main>
     </div>
