@@ -22,6 +22,12 @@ type SalaryDisburseRecord = {
   provider: 'manual_salary_disbursement';
 };
 
+type ServiceActor = {
+  type: 'service';
+  serviceName: string;
+  authMethod: 'internal-service-token';
+};
+
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 @Injectable()
@@ -30,10 +36,11 @@ export class SalaryDisburseService {
 
   async create(
     token: string | undefined,
+    serviceName: string | undefined,
     routeIdempotencyKey: string | undefined,
     body: SalaryDisburseRequest,
   ): Promise<{ payoutRef: string; status: 'processing' }> {
-    this.assertInternalToken(token);
+    this.assertInternalServiceActor(token, serviceName);
     const idempotencyKey = body.idempotencyKey?.trim() || routeIdempotencyKey?.trim();
     if (!idempotencyKey) {
       throw paymentHttpException(
@@ -86,8 +93,12 @@ export class SalaryDisburseService {
     return { payoutRef, status: record.status };
   }
 
-  async get(token: string | undefined, payoutRef: string): Promise<{ payoutRef: string; status: 'processing' }> {
-    this.assertInternalToken(token);
+  async get(
+    token: string | undefined,
+    serviceName: string | undefined,
+    payoutRef: string,
+  ): Promise<{ payoutRef: string; status: 'processing' }> {
+    this.assertInternalServiceActor(token, serviceName);
     const rows = await this.prisma.idempotencyRecord.findMany({
       where: {
         key: { startsWith: 'salary-disburse:' },
@@ -104,7 +115,7 @@ export class SalaryDisburseService {
     return { payoutRef: match.payoutRef, status: match.status };
   }
 
-  private assertInternalToken(token: string | undefined): void {
+  private assertInternalServiceActor(token: string | undefined, serviceName: string | undefined): ServiceActor {
     const expected =
       process.env.PAYMENT_SERVICE_INTERNAL_TOKEN ||
       process.env.INTERNAL_API_TOKEN ||
@@ -113,6 +124,12 @@ export class SalaryDisburseService {
     if (!expected || token !== expected) {
       throw paymentHttpException(HttpStatus.UNAUTHORIZED, 'UNAUTHORIZED', 'Invalid internal token');
     }
+    const serviceActor: ServiceActor = {
+      type: 'service',
+      serviceName: serviceName?.trim() || 'internal-service',
+      authMethod: 'internal-service-token',
+    };
+    return serviceActor;
   }
 
   private assertBody(body: SalaryDisburseRequest): void {

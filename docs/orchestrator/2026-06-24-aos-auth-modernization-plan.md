@@ -45,6 +45,12 @@ G5: Regression validation.
 - Gateway forwards Authorization correctly.
 - No legacy speakasap-portal dependency added.
 
+G6: Internal service identity.
+- Classify `x-internal-token` routes as transitional machine auth, not Auth RBAC.
+- Attach `serviceActor` metadata after successful internal-token validation.
+- Send `X-Service-Name` from service-to-service internal callers where source owns the outbound client.
+- Follow `auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md` until a final Auth-issued service JWT replacement is approved.
+
 ## Deliverables
 
 - `docs/orchestrator/2026-06-24-aos-auth-modernization-plan.md` with this plan.
@@ -56,6 +62,21 @@ G5: Regression validation.
 - Do not touch `/home/ssf/Documents/Github/speakasap-portal`.
 - Do not SSH to legacy `speakasap` runtime for mutation.
 - Do not move domain data into auth; auth owns identity only.
+
+## Internal Service Identity Follow-Up - 2026-06-24
+
+Scope: new SpeakASAP only; legacy speakasap-portal remains forbidden.
+
+Implementation lane:
+- Gateway `/api/v1/internal/...`, user-service internal routes, education-service internal salary route, financial-service internal financial route, and payment salary-disburse internal route must keep token checks fail-closed.
+- Successful internal-token validation should expose a `serviceActor` with `type=service`, `serviceName`, and `authMethod=internal-service-token`.
+- Outbound internal clients should include `X-Service-Name` using `SERVICE_NAME` or a deterministic service fallback.
+- The no-write checker is `scripts/check-service-identity-contract.py`.
+
+Boundary:
+- Do not read, print, rotate, or migrate internal token values in this lane.
+- Do not call Auth `/auth/validate` for static internal-token exceptions until an Auth-issued service JWT cutover is explicitly designed and approved.
+- Do not treat service actors as human users or grant Auth RBAC from internal token possession.
 
 
 ## Contact-Code Contract Update - 2026-06-24

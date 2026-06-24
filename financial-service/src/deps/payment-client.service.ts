@@ -34,6 +34,8 @@ export type SliceEnvelope<T> = {
 export class PaymentClientService {
   private readonly logger = new Logger(PaymentClientService.name);
 
+  private readonly serviceName = process.env.SERVICE_NAME || 'speakasap-financial';
+
   private baseUrl(): string {
     const u = process.env.PAYMENT_SERVICE_URL?.replace(/\/$/, '');
     if (!u) {
@@ -76,7 +78,7 @@ export class PaymentClientService {
         url,
         {
           method: 'GET',
-          headers: { 'X-Internal-Token': token },
+          headers: { 'X-Internal-Token': token, 'X-Service-Name': this.serviceName },
           signal: controller.signal,
         },
         this.logger,
@@ -116,7 +118,7 @@ export class PaymentClientService {
         url,
         {
           method: 'GET',
-          headers: { 'X-Internal-Token': token },
+          headers: { 'X-Internal-Token': token, 'X-Service-Name': this.serviceName },
           signal: controller.signal,
         },
         this.logger,

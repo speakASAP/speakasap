@@ -9,6 +9,12 @@ import { Request } from 'express';
 import { AuthClientService } from '../auth-client/auth-client.service';
 import type { AuthContextUser } from '../shared/auth.types';
 
+type ServiceActor = {
+  type: 'service';
+  serviceName: string;
+  authMethod: 'internal-service-token';
+};
+
 @Injectable()
 export class GatewayAuthGuard implements CanActivate {
   constructor(private readonly auth: AuthClientService) {}
@@ -41,6 +47,11 @@ export class GatewayAuthGuard implements CanActivate {
           details: {},
         });
       }
+      (req as Request & { serviceActor?: ServiceActor }).serviceActor = {
+        type: 'service',
+        serviceName: this.resolveServiceName(req),
+        authMethod: 'internal-service-token',
+      };
       return true;
     }
 
@@ -57,5 +68,11 @@ export class GatewayAuthGuard implements CanActivate {
     this.auth.attachRequestContext(user);
     (req as Request & { authUser?: AuthContextUser }).authUser = user;
     return true;
+  }
+
+  private resolveServiceName(req: Request): string {
+    const raw = req.headers['x-service-name'];
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    return value?.trim() || 'internal-service';
   }
 }

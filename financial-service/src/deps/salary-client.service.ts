@@ -13,6 +13,8 @@ export type SalaryPeriodTotalsResponse = {
 export class SalaryClientService {
   private readonly logger = new Logger(SalaryClientService.name);
 
+  private readonly serviceName = process.env.SERVICE_NAME || 'speakasap-financial';
+
   private baseUrl(): string {
     const u = process.env.SALARY_SERVICE_URL?.replace(/\/$/, '');
     if (!u) {
@@ -40,7 +42,7 @@ export class SalaryClientService {
         url,
         {
           method: 'GET',
-          headers: { 'X-Internal-Token': token },
+          headers: { 'X-Internal-Token': token, 'X-Service-Name': this.serviceName },
           signal: controller.signal,
         },
         this.logger,

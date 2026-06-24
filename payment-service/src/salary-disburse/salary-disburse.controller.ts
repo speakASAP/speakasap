@@ -31,17 +31,19 @@ export class SalaryDisburseController {
   @Post()
   create(
     @Headers('x-internal-token') token: string | undefined,
+    @Headers('x-service-name') serviceName: string | undefined,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() body: SalaryDisburseDto,
   ) {
-    return this.service.create(token, idempotencyKey, body);
+    return this.service.create(token, serviceName, idempotencyKey, body);
   }
 
   @Get(':payoutRef')
   get(
     @Headers('x-internal-token') token: string | undefined,
+    @Headers('x-service-name') serviceName: string | undefined,
     @Param('payoutRef') payoutRef: string,
   ) {
-    return this.service.get(token, payoutRef);
+    return this.service.get(token, serviceName, payoutRef);
   }
 }

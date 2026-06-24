@@ -18,6 +18,8 @@ export type ProductsMetadataResponse = {
 export class CourseClientService {
   private readonly logger = new Logger(CourseClientService.name);
 
+  private readonly serviceName = process.env.SERVICE_NAME || 'speakasap-financial';
+
   private baseUrl(): string {
     const u = process.env.COURSE_SERVICE_URL?.replace(/\/$/, '');
     if (!u) {
@@ -45,7 +47,7 @@ export class CourseClientService {
         url,
         {
           method: 'GET',
-          headers: { 'X-Internal-Token': token },
+          headers: { 'X-Internal-Token': token, 'X-Service-Name': this.serviceName },
           signal: controller.signal,
         },
         this.logger,

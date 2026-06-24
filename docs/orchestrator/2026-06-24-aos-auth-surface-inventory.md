@@ -20,6 +20,28 @@ Remaining limits:
 - Tokens are stored in browser `localStorage`, matching this thin frontend-only adapter scope. A cookie/BFF session can replace it later if the platform publishes a stronger frontend session standard.
 - No live deployment, production smoke, DB query, secret read, or legacy `speakasap-portal` access was performed in WS-G.
 
+## 2026-06-24 SpeakASAP Internal Service Identity Slice
+
+Status: completed source-level machine-auth classification for new SpeakASAP internal-token routes; no token values, DB writes, salary/payment/provider operations, deploy, production smoke, secret reads, or legacy `speakasap-portal` access.
+
+IPS chain:
+- Vision: new SpeakASAP uses Auth as the human identity source while internal service calls remain explicit machine actors.
+- Goal Impact: `x-internal-token` routes are no longer anonymous bypasses in source evidence; they create or carry `serviceActor` metadata and outbound callers identify themselves with `X-Service-Name`.
+- System: SpeakASAP api-gateway, user-service, education-service, financial-service, payment-service, and no-write service identity checker.
+- Feature: service actor annotation for transitional internal-token machine auth.
+- Task: keep internal token comparison behavior unchanged while adding caller metadata and a checker that prevents regression to unlabeled internal access.
+- Execution Plan: source-only guard/client/service/docs/checker updates; do not migrate token values, call Auth `/auth/validate` for static internal tokens, or change domain route behavior in this slice.
+- Coding Prompt: classify `x-internal-token` as machine auth, not Auth RBAC; attach `serviceActor` after successful receiver-side token validation; send `X-Service-Name` from known outbound clients; never log or print token values.
+- Code: `api-gateway/src/proxy/gateway-auth.guard.ts`, `user-service/src/auth/internal-token.guard.ts`, `education-service/src/auth/internal-token.guard.ts`, `financial-service/src/auth/internal-token.guard.ts`, `education-service/src/internal-salary/internal-salary.service.ts`, `financial-service/src/deps/payment-client.service.ts`, `financial-service/src/deps/course-client.service.ts`, `financial-service/src/deps/salary-client.service.ts`, `payment-service/src/salary-disburse/salary-disburse.controller.ts`, `payment-service/src/salary-disburse/salary-disburse.service.ts`, `scripts/check-service-identity-contract.py`, and auth boundary docs.
+- Validation: `./scripts/check-service-identity-contract.py`, affected package builds, and central `auth-microservice` readiness check.
+
+Evidence:
+- Internal route receivers set `serviceActor` with `type=service`, `serviceName=<x-service-name|internal-service>`, and `authMethod=internal-service-token` after token validation.
+- Financial-service outbound internal clients send `X-Service-Name` using `SERVICE_NAME` or the `speakasap-financial` fallback.
+- Education-service user-service lookup sends `X-Service-Name` using `SERVICE_NAME` or the `speakasap-education` fallback.
+- Payment salary-disburse internal endpoint accepts `x-service-name` and classifies successful token validation through `assertInternalServiceActor`.
+- This slice references `auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md`; internal tokens remain a transitional machine-auth exception and are not treated as human Auth RBAC.
+
 # AOS/Auth Surface Inventory - WS-C New SpeakASAP Consumer
 
 Date: 2026-06-24
@@ -63,7 +85,7 @@ Validation: repository search, RAG query, and docs-only validation; code package
 | Gateway route ownership | `api-gateway/src/proxy/upstream-resolve.ts`, `docs/refactoring/GATEWAY_API_CONTRACT.md`, `docs/refactoring/GATEWAY_AUTH_BOUNDARY.md` | User routes go to `USER_SERVICE_URL`; gateway remains contract layer and must not own domain behavior. | token validation / route boundary | No new auth route should be added without owner service, auth mode, callback/session contract, and validation command. |
 | User-service bearer validation | `user-service/src/auth/jwt-auth.guard.ts`, `user-service/src/auth-client/auth-client.service.ts`, `user-service/src/shared/validate-env.ts` | Domain service validates bearer token through `AUTH_SERVICE_URL` `POST /auth/validate` and attaches `req.authUser`. | token validation | Already aligned with auth-microservice identity ownership. |
 | User-service profile mapping | `user-service/prisma/schema.prisma`, `user-service/src/students/*`, `user-service/src/teachers/*`, `user-service/src/managers/*`, `user-service/src/employee-profiles/*` | `auth_user_id` is auth-microservice `User.id`; profile rows mirror domain data and optional legacy portal ids. Profile updates can upsert mirror fields but do not create auth identities. | domain profile mirror | Keep as-is; do not create identity records outside auth-microservice. |
-| Internal user-service mapping | `user-service/src/internal/internal.controller.ts`, `user-service/src/auth/internal-token.guard.ts` | Internal routes resolve notification targets and upsert domain profiles by `authUserId` behind `x-internal-token`. | internal domain profile mirror | Keep behind internal token; no hosted-login dependency. |
+| Internal user-service mapping | `user-service/src/internal/internal.controller.ts`, `user-service/src/auth/internal-token.guard.ts` | Internal routes resolve notification targets and upsert domain profiles by `authUserId` behind `x-internal-token`; successful calls now attach `serviceActor` metadata from `X-Service-Name` or `internal-service`. | internal domain profile mirror / machine auth | Keep behind internal token; no hosted-login dependency. |
 
 ## Missing WS-A Contract
 

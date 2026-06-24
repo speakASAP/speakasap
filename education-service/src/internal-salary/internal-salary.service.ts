@@ -40,6 +40,8 @@ const BLOCKER_SAMPLE_LIMIT = 200;
 export class InternalSalaryService {
   private readonly logger = new Logger(InternalSalaryService.name);
 
+  private readonly serviceName = process.env.SERVICE_NAME || 'speakasap-education';
+
   constructor(private readonly prisma: PrismaService) {}
 
   async periodAggregates(period: string, legacyPortalUserIds: number[]) {
@@ -209,7 +211,7 @@ export class InternalSalaryService {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(url.toString(), {
-        headers: { 'X-Internal-Token': token },
+        headers: { 'X-Internal-Token': token, 'X-Service-Name': this.serviceName },
         signal: controller.signal,
       });
       if (!res.ok) {
