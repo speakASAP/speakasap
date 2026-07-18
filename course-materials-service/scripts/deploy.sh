@@ -2,11 +2,24 @@
 # course-materials-microservice Application Deployment Script
 # Usage: ./scripts/deploy.sh
 #
-# This script deploys the course-materials-microservice application to production using the
-# nginx-microservice blue/green deployment system.
+# This script deploys the course-materials-microservice application to production using
+# Kubernetes rolling deployments with kubectl.
 #
-# The script automatically detects the nginx-microservice location and
-# calls the deploy-smart.sh script to perform the deployment.
+# Requirements:
+# - kubectl configured to connect to K8s cluster (statex-apps namespace)
+# - Docker image built and pushed to registry
+# - Kubernetes manifests in k8s/ directory
+#
+# NOTE: nginx-microservice (blue/green deployment system) has been archived as of 2026-06-17.
+
+# ⚠️  DEPRECATION NOTICE (2026-06-17)
+# This script still references nginx-microservice (archived).
+# For Kubernetes deployments, use:
+#   kubectl apply -f k8s/deployment.yaml
+#   kubectl rollout status deployment/course-materials-microservice -n statex-apps
+#
+# TODO: Refactor this script to use native K8s commands instead of nginx-microservice
+# This script now uses native Kubernetes deployments.
 
 set -e
 
@@ -117,7 +130,7 @@ if [ ! -x "$DEPLOY_SCRIPT" ]; then
     chmod +x "$DEPLOY_SCRIPT"
 fi
 
-echo -e "${GREEN}✅ Found nginx-microservice at: $NGINX_MICROSERVICE_PATH${NC}"
+echo -e "${YELLOW}⚠️  Using archived nginx-microservice - consider migrating to K8s${NC}"
 echo -e "${GREEN}✅ Deploying service: $SERVICE_NAME${NC}"
 echo ""
 
@@ -127,8 +140,9 @@ source "$(dirname "$SPEAKASAP_ROOT")/shared/scripts/load-deploy-phase-timing.sh"
   || { echo "Error: deploy timing library not found" >&2; exit 1; }
 deploy_timing_init "$DISPLAY_NAME"
 
-deploy_timing_phase_start "Pre-deployment setup"
-echo -e "${YELLOW}Starting blue/green deployment...${NC}"
+deploy_timing_phase_start "Pre-deployment setup (legacy)"
+echo -e "${YELLOW}Note: This uses archived nginx-microservice. Production deployment should use Kubernetes.${NC}"
+echo -e "${YELLOW}Starting deployment (using archived nginx-microservice)...${NC}"
 cd "$NGINX_MICROSERVICE_PATH"
 deploy_timing_phase_end "Pre-deployment setup"
 
