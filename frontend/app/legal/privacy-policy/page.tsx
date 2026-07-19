@@ -76,10 +76,11 @@ export default function PrivacyPolicyPage() {
         GDPR). Security and abuse prevention rely on our legitimate interest (Art. 6(1)(f) GDPR).
       </p>
       <p>
-        We may send you information about our own similar courses on the basis of our legitimate
-        interest (Art. 6(1)(f) GDPR). Marketing messages require a separate opt-in, every message
-        carries an unsubscribe link, and unsubscribing never affects your access to courses you have
-        already purchased.
+        Marketing messages about our courses are sent only with your consent (Art. 6(1)(a) GDPR),
+        given through a separate opt-in. You can withdraw that consent at any time — every message
+        carries an unsubscribe link — and withdrawal is as easy as giving it. Withdrawing never
+        affects your access to courses you have already purchased, and does not affect messages sent
+        before you withdrew.
       </p>
 
       <h2>How we use your data</h2>
