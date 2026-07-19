@@ -16,15 +16,17 @@ export const metadata: Metadata = {
  * and processors are derived from what this codebase actually integrates with:
  * auth-microservice, payments-microservice, notifications-microservice.
  *
- * Facts that cannot be derived from code are marked [MISSING: ...] per the
- * ecosystem rule against guessing. Fill them in before publishing.
+ * Retention, age limit, transfers, sub-processors, marketing basis and the DPO
+ * were confirmed by the owner on 2026-07-19. Sub-processors match what the data
+ * actually shows in production: Stripe and Fio banka in the payment webhook
+ * records, AWS SES as the only provider in the notifications table.
  */
 export default function PrivacyPolicyPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-12 prose prose-slate">
       <h1>Privacy Policy</h1>
       <p>
-        <em>Last updated: [MISSING: publication date]</em>
+        <em>Last updated: 19 July 2026</em>
       </p>
 
       <h2>Introduction</h2>
@@ -43,7 +45,10 @@ export default function PrivacyPolicyPage() {
         Contact for privacy matters: <a href="mailto:contact@alfares.cz">contact@alfares.cz</a>,
         +420 774 287 541.
       </p>
-      <p>[MISSING: whether a Data Protection Officer is appointed, and their contact details]</p>
+      <p>
+        Data Protection Officer: Sergej Stasok. Reach the DPO at{' '}
+        <a href="mailto:contact@alfares.cz">contact@alfares.cz</a> with &ldquo;DPO&rdquo; in the subject line.
+      </p>
 
       <h2>Personal data we collect</h2>
       <ul>
@@ -70,7 +75,12 @@ export default function PrivacyPolicyPage() {
         We process account, learning and payment data to perform our contract with you (Art. 6(1)(b)
         GDPR). Security and abuse prevention rely on our legitimate interest (Art. 6(1)(f) GDPR).
       </p>
-      <p>[MISSING: legal basis and scope for any marketing communications, if these are sent]</p>
+      <p>
+        We may send you information about our own similar courses on the basis of our legitimate
+        interest (Art. 6(1)(f) GDPR). Marketing messages require a separate opt-in, every message
+        carries an unsubscribe link, and unsubscribing never affects your access to courses you have
+        already purchased.
+      </p>
 
       <h2>How we use your data</h2>
       <p>
@@ -87,7 +97,12 @@ export default function PrivacyPolicyPage() {
         <li>Notification service — transactional e-mail</li>
       </ul>
       <p>We do not sell personal data and do not share it for advertising.</p>
-      <p>[MISSING: named third-party sub-processors behind these services, e.g. payment gateway and e-mail provider]</p>
+      <p>Named sub-processors:</p>
+      <ul>
+        <li>Stripe — card payments</li>
+        <li>Fio banka — bank transfers</li>
+        <li>Amazon Web Services (SES) — transactional e-mail delivery</li>
+      </ul>
 
       <h2>Data security</h2>
       <p>
@@ -96,11 +111,18 @@ export default function PrivacyPolicyPage() {
       </p>
 
       <h2>Retention</h2>
-      <p>[MISSING: retention periods per data category — account, learning records, payment records]</p>
-      <p>
-        Payment records are kept as long as Czech accounting and tax law requires.{' '}
-        [MISSING: confirm the applicable statutory period]
-      </p>
+      <ul>
+        <li>
+          <strong>Account and learning data</strong> — kept while your account exists, and deleted
+          when you close it or ask us to erase it.
+        </li>
+        <li>
+          <strong>Payment and invoicing records</strong> — kept for 10 years, as Czech accounting and
+          tax law requires. These cannot be deleted earlier on request, because we are legally
+          obliged to retain them.
+        </li>
+      </ul>
+
 
       <h2>Your rights</h2>
       <p>
@@ -129,10 +151,17 @@ export default function PrivacyPolicyPage() {
       </p>
 
       <h2>Children&rsquo;s privacy</h2>
-      <p>[MISSING: minimum age for using the platform, and how parental consent is handled if minors may enrol]</p>
+      <p>
+        The platform is intended for adults. You must be at least 18 years old to create an account.
+        We do not knowingly collect personal data from anyone under 18; if we learn that we have, we
+        delete it.
+      </p>
 
       <h2>International transfers</h2>
-      <p>[MISSING: whether data leaves the EEA, and the transfer safeguard relied on if it does]</p>
+      <p>
+        Your personal data is stored and processed within the European Union. We do not transfer it
+        outside the European Economic Area.
+      </p>
 
       <h2>Data breaches</h2>
       <p>
