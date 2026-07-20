@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { getAuthBaseUrl, getAuthSession } from "../../lib/auth-session";
+import { buildHostedAuthLoginUrl, getAuthBaseUrl, getAuthSession } from "../../lib/auth-session";
 import { MARKETING_CONSENT_VERSION } from "../legal/privacy-policy/consent-version";
 
 const PRODUCT = "speakasap";
@@ -23,6 +23,7 @@ export default function MarketingConsent() {
   const [state, setState] = useState<ConsentState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailure, setLoadFailure] = useState<"signed_out" | "failed" | null>(null);
 
   const request = useCallback(async (path: string, init?: RequestInit) => {
     const session = getAuthSession();
@@ -53,7 +54,9 @@ export default function MarketingConsent() {
   }, [request]);
 
   useEffect(() => {
-    load().catch(() => setError("We could not load your e-mail preferences."));
+    load().catch((cause) =>
+      setLoadFailure(cause instanceof Error && cause.message === "not_signed_in" ? "signed_out" : "failed"),
+    );
   }, [load]);
 
   const grant = useCallback(async () => {
@@ -89,6 +92,27 @@ export default function MarketingConsent() {
       setBusy(false);
     }
   }, [request, load]);
+
+  // A failed load must say so. Falling through to the "loading" branch would
+  // leave a signed-out visitor staring at a spinner that never resolves.
+  if (loadFailure === "signed_out") {
+    return (
+      <p>
+        Please <a href={buildHostedAuthLoginUrl("/account/marketing-consent")}>sign in</a> to manage
+        your e-mail preferences. You can also unsubscribe without signing in, using the link in any
+        marketing message we have sent you.
+      </p>
+    );
+  }
+
+  if (loadFailure === "failed") {
+    return (
+      <p role="alert">
+        We could not load your e-mail preferences. Please reload the page, or use the unsubscribe
+        link in any marketing message we have sent you.
+      </p>
+    );
+  }
 
   if (!state) {
     return <p>Loading your e-mail preferences…</p>;
