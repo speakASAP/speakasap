@@ -54,11 +54,21 @@ smoke_head() {
 echo "Checking hosted Auth frontend contract"
 "$PROJECT_ROOT/scripts/check-hosted-auth-contract.py"
 
+# Tag :latest alongside the real tag, as the shared runner does.
+#
+# k8s/services/frontend.yaml carries :latest as its bootstrap image. If only
+# the SHA tag were pushed, that bootstrap reference would rot to whatever was
+# built last time, and a plain `kubectl apply -f` outside this script would
+# quietly roll production back to a stale image.
 echo "Building $IMAGE from frontend/Dockerfile"
-docker build --build-arg NEXT_PUBLIC_API_URL="$PUBLIC_URL" -f "$PROJECT_ROOT/frontend/Dockerfile" -t "$IMAGE" "$PROJECT_ROOT/frontend"
+docker build --build-arg NEXT_PUBLIC_API_URL="$PUBLIC_URL" \
+  -f "$PROJECT_ROOT/frontend/Dockerfile" \
+  -t "$IMAGE" -t "${IMAGE_REPO}:latest" \
+  "$PROJECT_ROOT/frontend"
 
-echo "Pushing $IMAGE"
+echo "Pushing $IMAGE and ${IMAGE_REPO}:latest"
 docker push "$IMAGE"
+docker push "${IMAGE_REPO}:latest"
 
 echo "Applying frontend and ingress manifests"
 kubectl apply -f "$PROJECT_ROOT/k8s/services/frontend.yaml" -n "$NAMESPACE"
