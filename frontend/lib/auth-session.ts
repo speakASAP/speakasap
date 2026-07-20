@@ -17,6 +17,10 @@ function authBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_AUTH_BASE_URL || DEFAULT_AUTH_BASE_URL).replace(/\/$/, "");
 }
 
+export function getAuthBaseUrl(): string {
+  return authBaseUrl();
+}
+
 function browserStorage(): Storage | null {
   if (typeof window === "undefined") {
     return null;

@@ -77,10 +77,20 @@ export default function PrivacyPolicyPage() {
       </p>
       <p>
         Marketing messages about our courses are sent only with your consent (Art. 6(1)(a) GDPR),
-        given through a separate opt-in. You can withdraw that consent at any time — every message
-        carries an unsubscribe link — and withdrawal is as easy as giving it. Withdrawing never
-        affects your access to courses you have already purchased, and does not affect messages sent
-        before you withdrew.
+        given through a separate opt-in in your{" "}
+        <a href="/account/marketing-consent">e-mail preferences</a>. Consent is per product, so
+        opting in here does not opt you in to any other service we run. You can withdraw at any
+        time, either from the same page or through the unsubscribe link carried by every marketing
+        message; the unsubscribe link needs no sign-in, so withdrawal is as easy as giving consent.
+        Withdrawing never affects your access to courses you have already purchased, and does not
+        affect messages sent before you withdrew.
+      </p>
+      <p>
+        We record each consent together with the version of this policy shown to you at the time,
+        the date, and the IP address and browser it came from, so that we can demonstrate what you
+        agreed to. Withdrawal is recorded in the same way rather than erasing the original record,
+        and if this wording changes materially we ask you again instead of relying on consent given
+        to the earlier text.
       </p>
 
       <h2>How we use your data</h2>
