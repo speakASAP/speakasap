@@ -4,8 +4,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 NAMESPACE="${NAMESPACE:-statex-apps}"
-IMAGE="${IMAGE:-localhost:5000/speakasap-frontend:latest}"
 PUBLIC_URL="${PUBLIC_URL:-https://speakasap.alfares.cz}"
+IMAGE_REPO="${IMAGE_REPO:-localhost:5000/speakasap-frontend}"
+
+# Tag from git, the same way the shared runner tags every other service.
+#
+# A ":latest" tag makes the running image untraceable to a commit and leaves
+# nothing to roll back to, because each build silently replaces the previous
+# one under the same name. deploy_compute_default_tag also appends -wt<stamp>
+# for a dirty tree, so an uncommitted change still produces a new tag rather
+# than a `kubectl set image` no-op that keeps the old image running.
+# shellcheck disable=SC1091
+source "$PROJECT_ROOT/../shared/scripts/deploy-lib/tag.sh"
+IMAGE_TAG="${TAG_OVERRIDE:-$(deploy_compute_default_tag "$PROJECT_ROOT")}"
+IMAGE="${IMAGE:-${IMAGE_REPO}:${IMAGE_TAG}}"
+
+echo "Tag: ${IMAGE_TAG}"
 
 smoke_head() {
   local label="$1"
@@ -50,8 +64,14 @@ echo "Applying frontend and ingress manifests"
 kubectl apply -f "$PROJECT_ROOT/k8s/services/frontend.yaml" -n "$NAMESPACE"
 kubectl apply -f "$PROJECT_ROOT/k8s/ingress.yaml" -n "$NAMESPACE"
 
-echo "Restarting frontend deployment"
-kubectl rollout restart deployment/speakasap-frontend -n "$NAMESPACE"
+# Point the deployment at this exact tag. The manifest above still carries a
+# bootstrap image reference, so this must run after the apply, not before.
+# This replaces `rollout restart`: with a real tag the image reference itself
+# changes, which is what makes the rollout meaningful and reversible.
+echo "Setting frontend image to $IMAGE"
+kubectl set image deployment/speakasap-frontend \
+  "$(kubectl get deployment/speakasap-frontend -n "$NAMESPACE" -o jsonpath='{.spec.template.spec.containers[0].name}')=$IMAGE" \
+  -n "$NAMESPACE"
 kubectl rollout status deployment/speakasap-frontend -n "$NAMESPACE" --timeout=180s
 
 echo "Frontend pods"
@@ -60,3 +80,6 @@ kubectl get pods -n "$NAMESPACE" -l app=speakasap-frontend -o wide
 smoke_head "frontend root" "$PUBLIC_URL/"
 smoke_head "gateway health remains routed" "$PUBLIC_URL/health"
 smoke_head "protected gateway API remains routed" "$PUBLIC_URL/api/v1/lessons" false
+
+echo "Tag: ${IMAGE_TAG}"
+echo "Roll back with: TAG_OVERRIDE=<previous-tag> $0"
