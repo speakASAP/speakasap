@@ -8,7 +8,7 @@
 
 **Read first:** [`00-MASTER.md`](00-MASTER.md) (contracts C4, C5, C6), spec §11.2.
 
-**You own:** `frontend/app/teacher/assignments/**`, `frontend/lib/drills/teacher/**`. Track E owns `app/learner/**` and `lib/drills/runner/**` — do not touch either. Vitest is set up by Track E task E.1; if Track E has not landed, do E.1 yourself and say so in your status file so Track E skips it.
+**You own:** `frontend/app/teacher/assignments/**`, `frontend/lib/drills/teacher/**`. Track E owns `app/learner/**` and `lib/drills/runner/**` — do not touch either. Vitest is installed repo-wide by Track 0 task 0.1; if `frontend/vitest.config.ts` is missing, Track 0 has not landed — stop and tell the orchestrator rather than installing it here.
 
 **Hard rule for this whole track:** **no screen shows a score.** Not the review page, not the library rows, not the assignments list, not the lesson panel. Teachers see that work is done, what the sentences are, and whether validation flagged anything. `DrillAssignmentDTO` has no accuracy field; do not compute one client-side either.
 

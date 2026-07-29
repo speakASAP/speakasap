@@ -470,7 +470,7 @@ the wave where they are the sole writer, marked below.
 
 | Track | Repo / service | Owns |
 |---|---|---|
-| 0 | speakasap (4 NestJS services) | `shared/contracts/*`, `shared/scripts/sync-drill-contracts.sh`, `jest.config.js` + test/typecheck scripts in content/education/notification/api-gateway **only**, `api-gateway/src/proxy/upstream-resolve.ts`. **Not `frontend/`** — its tooling is Vitest and belongs to Track E task E.1 |
+| 0 | speakasap (repo-wide) | `package.json` (root, new), `scripts/run-all.sh`, `jest.config.base.js`, `<service>/jest.config.js` × 11, `frontend/vitest.config.ts` + `vitest.setup.ts`, test/typecheck scripts in all 12 packages, `shared/contracts/*`, `shared/scripts/sync-drill-contracts.sh`, `api-gateway/src/proxy/upstream-resolve.ts` |
 | A | speakasap/content-service | `prisma/schema.prisma` (bank + vocabulary models), `src/drills/**` except `sets/**`, `src/vocabulary/**`, `scripts/import-*.ts` |
 | A2 | speakasap/content-service | `prisma/schema.prisma` (set models — sole writer after A completes), `src/drills/sets/**` |
 | B | speakasap/education-service | `prisma/schema.prisma` (drill models), `src/drills/**` except `orchestration/**` and `runner/**` |

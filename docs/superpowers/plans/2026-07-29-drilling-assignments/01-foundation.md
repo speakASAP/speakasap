@@ -10,33 +10,79 @@
 
 ---
 
-### Task 0.1: Jest test infrastructure for the four speakasap services
+### Task 0.1: Test infrastructure for the whole speakasap repo
+
+This is repo-wide, not drilling-specific. The four services this feature touches
+need it to function; the other eight need it so the repo has one way to run
+tests, and so the next feature does not repeat this task.
+
+**Current state, measured 2026-07-29:** 12 packages, **every one with zero test
+dependencies**, zero `.spec.ts` files, no `test` script, no `typecheck` script,
+and **no root `package.json`** — so there is no repo-wide command either.
 
 **Files:**
-- Create: `speakasap/content-service/jest.config.js`
-- Create: `speakasap/education-service/jest.config.js`
-- Create: `speakasap/notification-service/jest.config.js`
-- Create: `speakasap/api-gateway/jest.config.js`
-- Modify: each service's `package.json` (scripts + devDependencies)
-- Test: `speakasap/education-service/src/sanity.spec.ts` (temporary, deleted in step 6)
+- Create: `speakasap/jest.config.base.js`
+- Create: `speakasap/<service>/jest.config.js` × 11 NestJS services
+- Create: `speakasap/frontend/vitest.config.ts`, `speakasap/frontend/vitest.setup.ts`
+- Create: `speakasap/package.json` (root — scripts only, `private: true`, no dependencies)
+- Modify: 12 × `package.json` (scripts + devDependencies)
+- Test: `speakasap/education-service/src/sanity.spec.ts` (temporary, deleted in step 7)
+
+The 11 NestJS services: `api-gateway`, `assessment-service`,
+`certification-service`, `content-service`, `course-service`,
+`education-service`, `financial-service`, `notification-service`,
+`payment-service`, `salary-service`, `user-service`. Plus `frontend` (Next.js,
+Vitest — see step 4).
 
 **Interfaces:**
 - Consumes: nothing
-- Produces: `npm test` and `npm run typecheck` in each of the four services. Every later task in Tracks A, B, D and G depends on these two commands existing.
+- Produces:
+  - `npm test` and `npm run typecheck` in each of the 12 packages
+  - `npm test` and `npm run typecheck` at the repo root, fanning out to all 12
+  - Every later task in every track depends on these commands existing.
 
-- [ ] **Step 1: Add the dev dependencies to all four services**
+**Note for Track E:** frontend Vitest setup moves here. Track E task E.1 becomes
+a no-op — check whether this task has landed before doing it.
+
+- [ ] **Step 1: Add the dev dependencies to all 11 NestJS services**
 
 ```bash
 cd /home/ssf/Documents/Github/speakasap
-for s in content-service education-service notification-service api-gateway; do
+for s in api-gateway assessment-service certification-service content-service \
+         course-service education-service financial-service notification-service \
+         payment-service salary-service user-service; do
+  echo "== $s"
   rtk npm --prefix "$s" install --save-dev \
     jest@^29.7.0 ts-jest@^29.1.2 @types/jest@^29.5.12 @nestjs/testing@^10.3.10
 done
 ```
 
-- [ ] **Step 2: Create the jest config in each service**
+This takes several minutes. Some services may have peer-dependency warnings
+against their pinned NestJS version — warnings are fine, a hard `ERESOLVE`
+failure is not. Record any service that fails and continue with the rest; a
+service that cannot take the dependency is reported, not forced.
 
-Identical in all four. Write to `<service>/jest.config.js`:
+- [ ] **Step 2: Create the shared base config**
+
+`speakasap/jest.config.base.js`:
+
+```js
+/** Shared jest config for every NestJS service in this repo.
+ *  Services extend it so the settings live in one place. */
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  rootDir: 'src',
+  testRegex: '.*\\.spec\\.ts$',
+  moduleFileExtensions: ['ts', 'js', 'json'],
+  collectCoverageFrom: ['**/*.ts'],
+  coveragePathIgnorePatterns: ['/node_modules/', '\\.module\\.ts$', 'main\\.ts$'],
+};
+```
+
+- [ ] **Step 3: Create the per-service jest config**
+
+Identical in all 11. Write to `<service>/jest.config.js`:
 
 ```js
 /** @type {import('ts-jest').JestConfigWithTsJest} */
@@ -51,9 +97,51 @@ module.exports = {
 };
 ```
 
-- [ ] **Step 3: Add the scripts to each `package.json`**
+```js
+const base = require('../jest.config.base');
+module.exports = { ...base };
+```
 
-In each service's `package.json`, add to `"scripts"`:
+- [ ] **Step 4: Set up the frontend with Vitest**
+
+Next.js 15 + App Router: Vitest reads `next.config.ts` module resolution and the
+existing `tsconfig.json` paths without a Babel transform step, which Jest would
+need configured by hand.
+
+```bash
+cd /home/ssf/Documents/Github/speakasap/frontend
+rtk npm install --save-dev vitest@^2 @vitejs/plugin-react@^4 jsdom@^25 \
+  @testing-library/react@^16 @testing-library/user-event@^14 @testing-library/jest-dom@^6
+```
+
+`frontend/vitest.config.ts`:
+
+```ts
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./vitest.setup.ts'],
+    globals: true,
+    include: ['{app,lib}/**/*.test.{ts,tsx}'],
+  },
+  resolve: { alias: { '@': resolve(__dirname, '.') } },
+});
+```
+
+`frontend/vitest.setup.ts` is one line:
+
+```ts
+import '@testing-library/jest-dom/vitest';
+```
+
+- [ ] **Step 5: Add the scripts to all 12 `package.json` files**
+
+In each of the 11 NestJS services, add to `"scripts"`:
 
 ```json
 "test": "jest",
@@ -61,10 +149,80 @@ In each service's `package.json`, add to `"scripts"`:
 "typecheck": "./node_modules/.bin/tsc --noEmit -p tsconfig.json"
 ```
 
-The `typecheck` script exists so no one is tempted to run `npx tsc`, which
-silently runs the wrong package and reports a false pass.
+In `frontend/package.json`:
 
-- [ ] **Step 4: Write a sanity test that must fail**
+```json
+"test": "vitest run",
+"test:watch": "vitest",
+"typecheck": "./node_modules/.bin/tsc --noEmit -p tsconfig.json"
+```
+
+The `typecheck` script invokes the compiler **by path** so nobody is tempted to
+run `npx tsc`, which silently runs the unrelated registry package `tsc@2.0.4`
+and prints "This is not the tsc command you are looking for" — which rtk parses
+as "No errors found", exactly like a real pass.
+
+- [ ] **Step 6: Create the root `package.json`**
+
+The repo has none, which is why there has never been a repo-wide typecheck.
+Scripts only — no dependencies, no workspaces (the services install
+independently and adding workspaces would rewrite every lockfile).
+
+`speakasap/package.json`:
+
+```json
+{
+  "name": "speakasap",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "test": "bash scripts/run-all.sh test",
+    "typecheck": "bash scripts/run-all.sh typecheck"
+  }
+}
+```
+
+`speakasap/scripts/run-all.sh`:
+
+```bash
+#!/usr/bin/env bash
+# Run one npm script across every package that defines it.
+# Continues past failures and reports a summary, so one broken service
+# does not hide the state of the other eleven.
+set -uo pipefail
+
+SCRIPT="${1:?usage: run-all.sh <npm-script>}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+PACKAGES=(api-gateway assessment-service certification-service content-service
+          course-service education-service financial-service notification-service
+          payment-service salary-service user-service frontend)
+
+failed=()
+for p in "${PACKAGES[@]}"; do
+  [[ -f "$ROOT/$p/package.json" ]] || continue
+  if ! node -e "process.exit(require('$ROOT/$p/package.json').scripts?.['$SCRIPT']?0:1)"; then
+    echo "SKIP  $p (no '$SCRIPT' script)"
+    continue
+  fi
+  echo "=== $p: npm run $SCRIPT"
+  if npm --prefix "$ROOT/$p" run "$SCRIPT" --silent; then
+    echo "PASS  $p"
+  else
+    echo "FAIL  $p"
+    failed+=("$p")
+  fi
+done
+
+echo
+echo "--- summary: ${#failed[@]} failed"
+for f in "${failed[@]}"; do echo "  FAIL $f"; done
+[[ ${#failed[@]} -eq 0 ]]
+```
+
+Make it executable: `rtk chmod +x /home/ssf/Documents/Github/speakasap/scripts/run-all.sh`
+
+- [ ] **Step 7: Write a sanity test that must fail**
 
 Create `speakasap/education-service/src/sanity.spec.ts`:
 
@@ -77,48 +235,83 @@ describe('jest wiring', () => {
 });
 ```
 
-- [ ] **Step 5: Run it and confirm it FAILS**
+- [ ] **Step 8: Run both sanity tests and confirm they FAIL**
 
 ```bash
 rtk npm --prefix /home/ssf/Documents/Github/speakasap/education-service test
+rtk npm --prefix /home/ssf/Documents/Github/speakasap/frontend test
 ```
 
-Expected: `1 failed`, with `Expected: 5 / Received: 4`.
+Expected in each: `1 failed`, with `Expected: 5 / Received: 4`.
 
-This step is not ceremony. It is the only proof that the runner executes
-TypeScript and reports failures rather than exiting 0 on an empty match.
+This step is not ceremony. It is the only proof that each runner executes
+TypeScript and reports failures rather than exiting 0 on an empty match — the
+exact failure mode that makes a fresh test setup worthless.
 
-- [ ] **Step 6: Fix the assertion, confirm PASS, then delete the file**
+For the frontend, create the matching temporary file
+`frontend/lib/sanity.test.ts`:
 
-Change `toBe(5)` to `toBe(4)`, rerun — expect `1 passed`. Then:
+```ts
+describe('vitest wiring', () => {
+  it('runs TypeScript and reports real failures', () => {
+    const sum = (a: number, b: number): number => a + b;
+    expect(sum(2, 2)).toBe(5);
+  });
+});
+```
+
+- [ ] **Step 9: Fix both assertions, confirm PASS, then delete both files**
+
+Change `toBe(5)` to `toBe(4)` in each, rerun — expect `1 passed` in both. Then:
 
 ```bash
 rtk rm /home/ssf/Documents/Github/speakasap/education-service/src/sanity.spec.ts
+rtk rm /home/ssf/Documents/Github/speakasap/frontend/lib/sanity.test.ts
 ```
 
-- [ ] **Step 7: Verify typecheck works in all four**
+- [ ] **Step 10: Run the repo-wide commands**
 
 ```bash
 cd /home/ssf/Documents/Github/speakasap
-for s in content-service education-service notification-service api-gateway; do
-  echo "== $s"; rtk npm --prefix "$s" run typecheck
-done
+rtk npm test
+rtk npm run typecheck
 ```
 
-Expected: no errors in any service. If a service already has pre-existing type
-errors, record them in the status file and do **not** fix them here — that is
-out of scope and would collide with other tracks.
+`npm test` across 12 packages with no test files should report every package as
+passing with zero suites — that is the correct empty state, not an error.
 
-- [ ] **Step 8: Commit**
+`npm run typecheck` is the interesting one: **this repo has never been
+typechecked as a whole.** Expect pre-existing errors in services untouched by
+this feature.
+
+**Record every failure in the status file and fix none of them.** Fixing
+pre-existing type errors in eight services this feature does not touch is a
+separate piece of work, would collide with other tracks, and would bury the
+drilling changes in unrelated diffs. The value delivered here is that the errors
+are now *visible and countable* for the first time.
+
+- [ ] **Step 11: Commit**
 
 ```bash
 cd /home/ssf/Documents/Github/speakasap
-rtk git add content-service education-service notification-service api-gateway
-rtk git commit -m "chore: add jest and typecheck scripts to speakasap services
+rtk git add package.json scripts/run-all.sh jest.config.base.js \
+  api-gateway assessment-service certification-service content-service \
+  course-service education-service financial-service notification-service \
+  payment-service salary-service user-service frontend
+rtk git commit -m "chore: give the speakasap repo a test runner
 
-The repo had no test runner at all. Every service now has jest+ts-jest,
-a typecheck script that invokes the local compiler by path, and a verified
-runner (a deliberately failing test was run first to prove failures surface).
+The repo had none: 12 packages, zero test dependencies, zero spec files,
+no test or typecheck script, and no root package.json.
+
+Every NestJS service now has jest+ts-jest extending one shared base
+config; the frontend has vitest+testing-library; all 12 have a typecheck
+script that invokes the local compiler by path rather than via npx, which
+silently runs the wrong package and reports a false pass. A root
+package.json fans both commands out across the repo.
+
+Both runners were verified with a deliberately failing test before use.
+Pre-existing typecheck failures in untouched services are reported, not
+fixed — that is separate work.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -444,11 +637,14 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ## Track 0 completion checklist
 
-- [ ] `rtk npm --prefix <service> test` runs in all four speakasap services
-- [ ] `rtk npm --prefix <service> run typecheck` passes in all four
+- [ ] `rtk npm test` runs from the repo root and reaches all 12 packages
+- [ ] `rtk npm run typecheck` runs from the repo root; **pre-existing failures are recorded, not fixed**
+- [ ] Both runners verified with a deliberately failing test (jest and vitest)
 - [ ] `shared/scripts/sync-drill-contracts.sh --check` exits 0
+- [ ] The drift test fails when drift is introduced
 - [ ] The gateway ordering test fails when the order is reversed
-- [ ] Status file written to `status/track-0.md` with pasted command output
+- [ ] Status file written to `status/track-0.md` with pasted command output, including the full list of services with pre-existing type errors
 
 **Announce to the orchestrator before Wave 2 starts.** Tracks A, B, C and H all
-assume `src/drills/contracts.ts` exists and `npm test` works.
+assume `src/drills/contracts.ts` exists and `npm test` works; Tracks E and F
+assume the frontend Vitest config exists.

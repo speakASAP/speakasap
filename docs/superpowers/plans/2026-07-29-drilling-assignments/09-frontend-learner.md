@@ -10,76 +10,28 @@
 
 **You own:** `frontend/app/learner/practice/**`, `frontend/lib/drills/runner/**`. Track F owns `app/teacher/**` — do not touch it. `frontend/lib/drills/contracts.ts` is read-only (Track 0 owns it).
 
-**Note:** `frontend/package.json` has **no test tooling at all**. Task E.1 adds it. Track 0 only covered the four NestJS services.
-
 ---
 
-### Task E.1: Frontend test infrastructure
+### Task E.1: Confirm the frontend test runner works
 
-**Files:**
-- Modify: `frontend/package.json`
-- Create: `frontend/vitest.config.ts`
-- Create: `frontend/vitest.setup.ts`
+Vitest and testing-library were installed repo-wide by **Track 0 task 0.1**
+(steps 4, 5 and 8). This task is a two-minute confirmation, not a setup.
 
-**Interfaces:**
-- Produces: `npm test` and `npm run typecheck` in `frontend/`
-
-Vitest rather than Jest: it reads `next.config.ts` module resolution and the
-existing `tsconfig.json` paths without a Babel transform step, which Jest in a
-Next 15 App Router project needs configuring by hand.
-
-- [ ] **Step 1: Install**
+- [ ] **Step 1: Confirm the tooling is present**
 
 ```bash
 cd /home/ssf/Documents/Github/speakasap/frontend
-rtk npm install --save-dev vitest@^2 @vitejs/plugin-react@^4 jsdom@^25 \
-  @testing-library/react@^16 @testing-library/user-event@^14 @testing-library/jest-dom@^6
+rtk ls vitest.config.ts vitest.setup.ts
+rtk npm test
+rtk npm run typecheck
 ```
 
-- [ ] **Step 2: Write `vitest.config.ts`**
+Expected: `vitest run` executes and reports zero test files (the correct empty
+state), and typecheck is clean.
 
-```ts
-import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
-
-export default defineConfig({
-  plugins: [react()],
-  test: {
-    environment: 'jsdom',
-    setupFiles: ['./vitest.setup.ts'],
-    globals: true,
-    include: ['{app,lib}/**/*.test.{ts,tsx}'],
-  },
-  resolve: { alias: { '@': resolve(__dirname, '.') } },
-});
-```
-
-`vitest.setup.ts` is one line: `import '@testing-library/jest-dom/vitest';`
-
-- [ ] **Step 3: Add scripts**
-
-```json
-"test": "vitest run",
-"test:watch": "vitest",
-"typecheck": "./node_modules/.bin/tsc --noEmit -p tsconfig.json"
-```
-
-- [ ] **Step 4: Prove the runner reports failures**
-
-Create `lib/drills/runner/sanity.test.ts` asserting `expect(2 + 2).toBe(5)`, run
-`rtk npm test`, confirm it FAILS, fix to `toBe(4)`, confirm PASS, delete the file.
-
-- [ ] **Step 5: Commit**
-
-```bash
-rtk git add package.json package-lock.json vitest.config.ts vitest.setup.ts
-rtk git commit -m "chore(frontend): add vitest and testing-library
-
-Runner verified with a deliberately failing test before use.
-
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-```
+If either file is missing, Track 0 has not landed. **Stop and tell the
+orchestrator** rather than installing it yourself — doing it here would create a
+second, divergent config and a lockfile conflict with Track 0's commit.
 
 ---
 
