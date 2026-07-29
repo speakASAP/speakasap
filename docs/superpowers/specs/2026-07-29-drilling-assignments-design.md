@@ -53,7 +53,7 @@ The legacy portal appears in this design in exactly two ways, both temporary:
 | Ownership | Item bank, vocabulary and reusable sets in **content-service**; assignments, attempts, grading in **education-service** |
 | Item source | Bank + AI, mixed per set; wholly new topics are generated end to end |
 | Vocabulary | Built on words from the student's earlier lessons; **≥ 80 % known words**, up to 20 % new |
-| Completion rule | All blanks correct, unlimited retries; **first-attempt accuracy** is the recorded score |
+| Completion rule | All blanks correct, unlimited retries. First-attempt correctness is recorded **internally only**, to rank bank items — it is never shown to a teacher |
 | Review gate | Every set is validated by an agent, then approved by a teacher; approval is **per set, once, forever** |
 | Self-drilling | Allowed from the approved library, but **only when no assignment is outstanding** |
 | Languages | Prompt in the student's material language, answers in the course language |
@@ -422,14 +422,16 @@ Recomputed on every rating and every completion, stored on the row so sorting is
 an indexed `ORDER BY`. Downvotes subtract through the same weights. No time
 decay in v1 — the corpus is small and a good drill does not go stale.
 
-`avgFirstTryAccuracy` is shown to the teacher as a difficulty signal but does
-**not** feed the score: a hard set is not a bad set.
+`avgFirstTryAccuracy` does **not** feed the score — a hard set is not a bad set —
+and is **not shown to teachers**. It is retained only as an internal difficulty
+signal for item selection (§6.3's 55–90 % band). No teacher-facing screen, list,
+panel or email displays it or any other score.
 
 ### 8.3 Library API
 
 ```
 GET   /api/v1/drill-sets?languageCode=&materialLanguage=&topicSlugs=&courseKey=
-                        &lessonOrder=&q=&sort=popularity|recent|accuracy
+                        &lessonOrder=&q=&sort=popularity|recent
                         &createdBy=&reviewState=&groupBy=lesson
 GET   /api/v1/drill-sets/available-for-me      # student: approved, in-course, lessonOrder ≤ current
 GET   /api/v1/drill-sets/:uuid                 # full preview incl. answers (teacher auth)
@@ -699,8 +701,7 @@ range, sorted by popularity.
   first-attempt accuracy
 - `hint` shown under the sentence, carrying translations of any new words
 - progress bar; when the server confirms the last blank, the assignment
-  auto-completes and a summary appears with first-try accuracy and a
-  thumbs-up/down posting to `/rate`
+  auto-completes and a summary appears with a thumbs-up/down posting to `/rate`
 - `aria-live="polite"` announces correctness; every blank has a real label; full
   keyboard operation
 - a failed `/check` retries once, then surfaces "not saved — check your
@@ -718,7 +719,7 @@ range, sorted by popularity.
 `/teacher/assignments/library` — grouped by course + lesson order by default;
 full-text search across **all** lessons; filters for language, topic, level,
 mine/all, approved only. Rows show title, topics, item count, times assigned,
-★ score, average first-try accuracy, known-word ratio. Multi-select →
+★ score and known-word ratio — **no score of any kind**. Multi-select →
 "Assign selected to…".
 
 `/teacher/assignments/[uuid]/review` — items sorted `FAIL` → `WARN` → `PASS`,
@@ -837,7 +838,7 @@ assignments" block above the fold:
 teacher decides what a student should practise next:
 
 - *teacher view*: a per-student panel listing that lesson's drilling
-  assignments with status and first-try accuracy, plus "Create drilling
+  assignments with their status, plus "Create drilling
   assignment" pre-filled with `lessonUuid` and `studentId` →
   `{PLATFORM_URL}/teacher/assignments/new?lessonUuid=…&studentId=…&sso=…`
 - *student view*: the same lesson's assignments with their status and a link
@@ -853,9 +854,10 @@ page.
 
 - `drill_assignment_assigned` → student on assign: topic list with links to the
   public grammar pages, due date, deep link to the runner. Plus in-app.
-- `drill_assignment_completed` → teacher on completion: first-try accuracy,
-  per-topic breakdown, the items the student struggled with, links to the lesson
-  and the review page. Plus in-app. **Not sent for self-selected drills.**
+- `drill_assignment_completed` → teacher on completion: per-topic breakdown and
+  the items the student struggled with — qualitative, **never a score or a
+  percentage** — plus links to the lesson and the review page. Plus in-app.
+  **Not sent for self-selected drills.**
 
 Both rendered in the recipient's material language. Dispatch is fire-and-forget
 with retry; a failed email never blocks a state transition and is logged with
