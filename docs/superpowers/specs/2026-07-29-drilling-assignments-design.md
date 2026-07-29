@@ -20,7 +20,7 @@ drill another student needs next month, and the teacher must be able to find it
 again without remembering which lesson it came from.
 
 Sentences must be built on what the student already knows. A drill for lesson 5
-assumes the vocabulary of lessons 1–4, and stretches the student with a
+assumes the vocabulary of lessons 1–5, and stretches the student with a
 controlled proportion of new words.
 
 ---
