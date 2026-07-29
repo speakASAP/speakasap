@@ -7,6 +7,9 @@
     "build": "prisma generate && tsc -p tsconfig.build.json",
     "migrate:notification-data": "tsx scripts/migrate-notification-data.ts",
     "start": "node dist/main.js",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "typecheck": "./node_modules/.bin/tsc --noEmit -p tsconfig.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; export DATABASE_URL=\"${NOTIFICATION_DATABASE_URL:-${DATABASE_URL}}\"; exec npx prisma migrate deploy'",
     "prisma:validate": "bash -c 'set -a; test -f ../.env && . ../.env; set +a; export DATABASE_URL=\"${NOTIFICATION_DATABASE_URL:-${DATABASE_URL}}\"; exec npx prisma validate'",
@@ -23,11 +26,15 @@
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
+    "@nestjs/testing": "^10.4.22",
     "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.14",
     "@types/node": "^20.11.30",
     "@types/pg": "^8.11.6",
+    "jest": "^29.7.0",
     "pg": "^8.13.1",
     "prisma": "^5.11.0",
+    "ts-jest": "^29.4.12",
     "tsx": "^4.19.2",
     "typescript": "^5.4.5"
   }

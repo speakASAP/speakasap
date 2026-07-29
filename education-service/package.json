@@ -6,6 +6,9 @@
   "scripts": {
     "build": "prisma generate && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "typecheck": "./node_modules/.bin/tsc --noEmit -p tsconfig.json",
     "test:lesson-records": "node scripts/verify-lesson-record-runtime-contract.js",
     "backfill:lesson-record-durations": "node scripts/backfill-lesson-record-durations.js",
     "repair:lesson-record-keys": "node scripts/repair-lesson-record-keys.js",
@@ -23,9 +26,13 @@
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
+    "@nestjs/testing": "^10.4.22",
     "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.14",
     "@types/node": "^20.11.30",
+    "jest": "^29.7.0",
     "prisma": "^5.11.0",
+    "ts-jest": "^29.4.12",
     "typescript": "^5.4.5"
   }
 }
