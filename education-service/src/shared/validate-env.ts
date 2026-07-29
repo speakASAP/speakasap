@@ -10,6 +10,8 @@ const REQUIRED_ENV = [
   'DEFAULT_PAGE_SIZE',
   'MAX_PAGE_SIZE',
   'INTERNAL_API_TOKEN',
+  'AI_SERVICE_URL',
+  'DRILL_GENERATION_MODEL_TIER',
 ];
 
 export function validateEnv(): void {
