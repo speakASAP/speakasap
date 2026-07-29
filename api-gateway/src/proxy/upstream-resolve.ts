@@ -1,5 +1,8 @@
 /**
- * Longest-prefix wins: first matching entry owns the request.
+ * First-match-wins over a hand-ordered array: the first entry whose prefix
+ * matches owns the request. Ordering is NOT computed by prefix length —
+ * entries must be listed most-specific-first, or a broader prefix placed
+ * above a narrower one will silently shadow it.
  * Aligned with docs/refactoring/GATEWAY_ROUTE_OWNERSHIP_MATRIX.md
  */
 const ROUTES: { prefix: string; envKey: string }[] = [
@@ -10,6 +13,8 @@ const ROUTES: { prefix: string; envKey: string }[] = [
   { prefix: '/api/v1/internal/financial/refresh-window', envKey: 'FINANCIAL_SERVICE_URL' },
   { prefix: '/api/v1/internal/financial', envKey: 'FINANCIAL_SERVICE_URL' },
   { prefix: '/api/v1/internal/salary', envKey: 'SALARY_SERVICE_URL' },
+  // Must stay above '/api/v1/internal' below — otherwise it never matches
+  // and internal drilling calls silently resolve to user-service and 404.
   { prefix: '/api/v1/internal/drill-assignments', envKey: 'EDUCATION_SERVICE_URL' },
   { prefix: '/api/v1/internal', envKey: 'USER_SERVICE_URL' },
 
