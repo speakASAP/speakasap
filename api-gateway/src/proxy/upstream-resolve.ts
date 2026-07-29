@@ -10,6 +10,7 @@ const ROUTES: { prefix: string; envKey: string }[] = [
   { prefix: '/api/v1/internal/financial/refresh-window', envKey: 'FINANCIAL_SERVICE_URL' },
   { prefix: '/api/v1/internal/financial', envKey: 'FINANCIAL_SERVICE_URL' },
   { prefix: '/api/v1/internal/salary', envKey: 'SALARY_SERVICE_URL' },
+  { prefix: '/api/v1/internal/drill-assignments', envKey: 'EDUCATION_SERVICE_URL' },
   { prefix: '/api/v1/internal', envKey: 'USER_SERVICE_URL' },
 
   { prefix: '/api/v1/manager/user-questionnaires', envKey: 'CERTIFICATION_SERVICE_URL' },
@@ -38,6 +39,7 @@ const ROUTES: { prefix: string; envKey: string }[] = [
   { prefix: '/api/v1/homeworks', envKey: 'EDUCATION_SERVICE_URL' },
   { prefix: '/api/v1/lessons', envKey: 'EDUCATION_SERVICE_URL' },
   { prefix: '/api/v1/groups', envKey: 'EDUCATION_SERVICE_URL' },
+  { prefix: '/api/v1/drill-assignments', envKey: 'EDUCATION_SERVICE_URL' },
 
   { prefix: '/api/v1/seven', envKey: 'CONTENT_SERVICE_URL' },
   { prefix: '/api/v1/dictionary', envKey: 'CONTENT_SERVICE_URL' },
@@ -45,6 +47,10 @@ const ROUTES: { prefix: string; envKey: string }[] = [
   { prefix: '/api/v1/phonetics', envKey: 'CONTENT_SERVICE_URL' },
   { prefix: '/api/v1/grammar', envKey: 'CONTENT_SERVICE_URL' },
   { prefix: '/api/v1/languages', envKey: 'CONTENT_SERVICE_URL' },
+  { prefix: '/api/v1/drill-sets', envKey: 'CONTENT_SERVICE_URL' },
+  { prefix: '/api/v1/drill-items', envKey: 'CONTENT_SERVICE_URL' },
+  { prefix: '/api/v1/drill-topics', envKey: 'CONTENT_SERVICE_URL' },
+  { prefix: '/api/v1/course-vocabulary', envKey: 'CONTENT_SERVICE_URL' },
 
   { prefix: '/api/v1/webhooks/payments', envKey: 'PAYMENT_SERVICE_URL' },
   { prefix: '/api/v1/discounts', envKey: 'PAYMENT_SERVICE_URL' },
