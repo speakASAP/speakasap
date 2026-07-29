@@ -85,19 +85,6 @@ module.exports = {
 Identical in all 11. Write to `<service>/jest.config.js`:
 
 ```js
-/** @type {import('ts-jest').JestConfigWithTsJest} */
-module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  rootDir: 'src',
-  testRegex: '.*\\.spec\\.ts$',
-  moduleFileExtensions: ['ts', 'js', 'json'],
-  collectCoverageFrom: ['**/*.ts'],
-  coveragePathIgnorePatterns: ['/node_modules/', '\\.module\\.ts$', 'main\\.ts$'],
-};
-```
-
-```js
 const base = require('../jest.config.base');
 module.exports = { ...base };
 ```
@@ -493,7 +480,9 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: nothing
 - Produces: `/api/v1/drill-*` and `/api/v1/course-vocabulary` reachable through the gateway. Tracks E, F and J all call through these prefixes.
 
-**Critical ordering detail:** the existing table is longest-prefix-wins and
+**Critical ordering detail:** the existing table is **first-match-wins over a
+hand-ordered array** (verified 2026-07-29; the file header's "longest-prefix
+wins" comment was wrong and is corrected as part of this task) and
 already contains `{ prefix: '/api/v1/internal', envKey: 'USER_SERVICE_URL' }`.
 `/api/v1/internal/drill-assignments` **must be inserted above it**, or every
 internal drill call silently routes to user-service and 404s.
@@ -585,7 +574,7 @@ rtk git add api-gateway/src/proxy
 rtk git commit -m "feat(gateway): route drill and vocabulary prefixes
 
 /api/v1/internal/drill-assignments is placed above /api/v1/internal so
-longest-prefix matching sends it to education-service rather than
+first-match routing sends it to education-service rather than
 user-service. The ordering test was verified by reversing the order and
 watching it fail.
 

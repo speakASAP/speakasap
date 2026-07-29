@@ -600,7 +600,9 @@ GET    /api/v1/internal/drill-assignments/by-teacher/:teacherId
 Gateway prefixes for `api-gateway/src/proxy/upstream-resolve.ts`:
 `/api/v1/drill-assignments` → `EDUCATION_SERVICE_URL`;
 `/api/v1/drill-sets`, `/api/v1/drill-items`, `/api/v1/drill-topics`,
-`/api/v1/course-vocabulary` → `CONTENT_SERVICE_URL`. Longest-prefix wins, so
+`/api/v1/course-vocabulary` → `CONTENT_SERVICE_URL`. The resolver is
+**first-match-wins over a hand-ordered array** — not computed longest-prefix,
+despite what its file header claimed before 2026-07-29 — so
 `/api/v1/internal/drill-assignments` must precede the existing
 `/api/v1/internal` → `USER_SERVICE_URL` entry.
 
