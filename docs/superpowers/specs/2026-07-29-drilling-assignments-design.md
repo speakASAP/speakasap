@@ -2,7 +2,7 @@
 
 Date: 2026-07-29
 Status: approved design, ready for implementation planning
-Scope: `speakasap` (content-service, education-service, notification-service, frontend), `ai-microservice`, `speakasap-portal` (entry points only)
+Scope: `speakasap` (content-service, education-service, notification-service, frontend), `ai-microservice`, `speakasap-portal` (transitional entry points only)
 
 ---
 
@@ -10,33 +10,60 @@ Scope: `speakasap` (content-service, education-service, notification-service, fr
 
 A teacher needs to set targeted grammar practice for a student — "50 preposition
 exercises with *an/bei/für*", "past tense drilling" — and today has no way to do
-it. The teacher writes the request, the system assembles the sentences, the
-teacher approves them, the student practises them in the browser with instant
-per-blank feedback, and the teacher is notified when the work is done.
+it. The teacher writes the request, the system assembles the sentences, a
+validation agent checks every one of them against the request, the teacher
+approves, the student practises in the browser with instant per-blank feedback,
+and the teacher is notified when the work is done.
 
-The exercises must be reusable. A drill built for one student is the same drill
-another student needs next month, and the teacher must be able to find it again
-without remembering which lesson it came from.
+The exercises must be reusable. A drill built for one student could be the same
+drill another student needs next month, and the teacher must be able to find it
+again without remembering which lesson it came from.
+
+Sentences must be built on what the student already knows. A drill for lesson 5
+assumes the vocabulary of lessons 1–4, and stretches the student with a
+controlled proportion of new words.
 
 ---
 
-## 2. Decisions taken
+## 2. Platform position
+
+Everything here is built on the new platform: NestJS services, Prisma,
+PostgreSQL, Next.js, Kubernetes. Nothing is designed for backward compatibility
+with the legacy portal, which is being sunset.
+
+The legacy portal appears in this design in exactly two ways, both temporary:
+
+- **As a one-time data source.** The legacy exercise banks are migrated into
+  content-service by a TypeScript importer that reads the files as text. After
+  the import, those files are not a runtime dependency of anything — the bank in
+  content-service is the source of truth and grows from there.
+- **As a transitional entry point.** Until the legacy student and teacher
+  dashboards are retired, they carry links into the new platform. These are
+  template-level links only, marked in the code for deletion at sunset. No
+  feature logic lives there and nothing in the new platform depends on them.
+
+---
+
+## 3. Decisions taken
 
 | Question | Decision |
 |---|---|
 | Student practice UI | New platform, `speakasap.alfares.cz/learner/practice/*` |
-| Teacher UI | New platform, `/teacher/assignments/*`, deep-linked from legacy portal |
-| Ownership | Item bank + reusable sets in **content-service**; assignments, attempts, grading in **education-service** |
-| Item source | Hybrid — import the legacy banks, AI generates only the shortfall |
+| Teacher UI | New platform, `/teacher/assignments/*`, deep-linked from the legacy dashboards while they exist |
+| Ownership | Item bank, vocabulary and reusable sets in **content-service**; assignments, attempts, grading in **education-service** |
+| Item source | Bank + AI, mixed per set; wholly new topics are generated end to end |
+| Vocabulary | Built on words from the student's earlier lessons; **≥ 80 % known words**, up to 20 % new |
 | Completion rule | All blanks correct, unlimited retries; **first-attempt accuracy** is the recorded score |
-| Review gate | Required only while a set contains unreviewed AI items; approval is **per set, once, forever** |
+| Review gate | Every set is validated by an agent, then approved by a teacher; approval is **per set, once, forever** |
+| Self-drilling | Allowed from the approved library, but **only when no assignment is outstanding** |
 | Languages | Prompt in the student's material language, answers in the course language |
 | Notifications | Student: email + in-app on assign. Teacher: email + in-app on completion |
 | AI model | Best available tier (`smart`), configurable — quality over token cost |
+| Legacy SSO | Reuse the marathon mechanism verbatim (§12) |
 
 ---
 
-## 3. Core model: sets, not assignments
+## 4. Core model: sets, not assignments
 
 The reusable object is a **DrillSet** — a titled, topic-tagged, ordered
 collection of drill items in one language. Everything else hangs off it.
@@ -44,34 +71,100 @@ collection of drill items in one language. Everything else hangs off it.
 ```
 DrillItem  ──many──▶  DrillSet  ──instantiated as──▶  DrillAssignment (per student)
    ▲                     │                                   │
-   │                     ├── ratings (teacher +1 / student +1)│
- banks + AI              └── review state (approved once)     └── attempts
+   │                     ├── validation verdicts             │
+ banks + AI              ├── ratings (teacher +1 / student +1)
+                         └── review state (approved once)     └── attempts
 ```
 
 Consequences of making the set — not the assignment — the unit of reuse:
 
 - A set the teacher approved once is vetted forever. Assigning it to a second
-  student skips review entirely. This is what makes "required only for
-  AI-generated items" precise: review is required while the set holds
-  *unreviewed* AI items, not every time it is handed out.
+  student skips review entirely.
 - Ratings and usage statistics accumulate on a stable object, so popularity
   ranking means something.
+- Students self-select from approved sets, so the same vetting serves both paths.
 - Editing a set does not mutate live assignments — each assignment holds a
   **snapshot copy** of its items.
 
 ### Grouping key for "the same lesson"
 
 `education_lesson.uuid` is per student-course, so it cannot group drills across
-students. The stable grouping key is **`courseClass` + lesson `order`** (e.g.
-`GermanA1` + lesson 5), which is exactly how `SevenLesson` is already keyed in
-content-service. Sets carry `courseKey` and `lessonOrder` as nullable tags; the
-library groups by them.
+students. The stable grouping key is **`courseKey` + `lessonOrder`** (e.g.
+`GermanA1` + lesson 5), which is how `SevenLesson` is already keyed in
+content-service. Sets carry both as nullable tags; the library groups by them.
 
 ---
 
-## 4. Item bank (content-service)
+## 5. Vocabulary baseline
 
-### 4.1 Schema — new models
+This is the foundation the sentences are built on, so it is built first.
+
+### 5.1 What the student knows
+
+For a student on lesson *N* of course *C*, the known-vocabulary set is every
+word introduced in lessons 1…*N* of that course, from three sources already
+present in content-service:
+
+- `WordTheme` (`moduleClass`, `order`) joined through `WordThemeRelation` to
+  `Word` — the curated per-module vocabulary list
+- content words tokenized from imported course-material drill items
+  (`sourceType = BANK_SEVEN`) with `lessonOrder ≤ N`
+- content words tokenized from `SevenLesson.bodyHtml` for lessons 1…*N*
+
+These are materialized into one table so lookups are a single indexed query:
+
+```prisma
+model CourseVocabulary {
+  id          Int    @id @default(autoincrement())
+  courseKey   String @db.VarChar(255)
+  languageId  Int
+  lessonOrder Int             // the lesson that first introduces the word
+  word        String @db.VarChar(255)   // normalized: lowercased, NFC
+  lemma       String? @db.VarChar(255)
+  translation String? @db.Text
+  source      String @db.VarChar(16)    // THEME | ITEM | LESSON_BODY
+  @@unique([courseKey, languageId, word, source])
+  @@index([courseKey, languageId, lessonOrder])
+}
+```
+
+Endpoint: `GET /api/v1/course-vocabulary?courseKey=&languageCode=&maxLessonOrder=`
+returns the word list plus translations, capped and paged.
+
+Tokenization is per-language and deliberately simple: split on Unicode word
+boundaries, lowercase, NFC-normalize, drop a per-language stopword list
+(articles, pronouns, auxiliaries — words that are never the point of a drill).
+Lemmatization is best-effort: where no lemmatizer exists for a language, surface
+forms are matched directly and the ratio check tolerates it. Getting this
+slightly wrong makes the ratio conservative, which is the safe direction.
+
+### 5.2 The 80/20 rule
+
+Every generated set must satisfy, measured over content words (stopwords
+excluded):
+
+- **≥ 80 % of content-word tokens across the set are known** — present in the
+  student's vocabulary baseline for lessons 1…*N*
+- **no single sentence contains more than 2 unknown content words** — a
+  set-level ratio alone would let one sentence become impenetrable
+- **every unknown word appears in that item's `hint`** with its translation, so
+  the student can complete the sentence rather than guess
+- unknown words must be within the student's level and relevant to the requested
+  topic — not arbitrary vocabulary
+
+This is checked deterministically before the AI validation agent runs (it is
+arithmetic, not judgement, and costs nothing). A set failing the ratio is sent
+back for regeneration automatically, with the offending words named in the
+regeneration request.
+
+Bank items are checked by the same rule. A legacy item that is too far outside
+the student's vocabulary is not selected, rather than being rewritten.
+
+---
+
+## 6. Item bank (content-service)
+
+### 6.1 Schema
 
 ```prisma
 model DrillTopic {
@@ -83,6 +176,7 @@ model DrillTopic {
   level            String?  @db.VarChar(4)   // A1..C2
   grammarLessonId  Int?     // -> GrammarLesson, yields the public topic URL
   parentTopicId    Int?
+  isNew            Boolean  @default(false)  // created on the fly, awaiting teacher confirmation
   @@unique([languageId, materialLanguage, slug])
 }
 
@@ -94,13 +188,14 @@ model DrillItem {
   level            String?  @db.VarChar(4)
   template         String   @db.Text   // "Ich gehe [in]{in} die Schule."
   blanks           Json               // [{index, prompt, answer, alternatives[]}]
-  plainText        String   @db.Text   // template with answers substituted, markup stripped
-  hint             String?  @db.Text   // the <span class="mute"> vocabulary note
+  plainText        String   @db.Text   // answers substituted, markup stripped
+  hint             String?  @db.Text   // "(wohnen – жить; in Moskau – в Москве)"
   sourceType       String   @db.VarChar(16)  // BANK_GRAMMAR | BANK_SEVEN | AI | TEACHER
   sourceRef        String?  @db.VarChar(255) // "german.Lesson1Ex1.ex3"
-  courseKey        String?  @db.VarChar(255) // course-material items only
+  courseKey        String?  @db.VarChar(255)
   lessonOrder      Int?
-  hash             String   @unique @db.VarChar(64)  // sha256(normalized plainText + language)
+  unknownWords     Json     @default("[]")  // content words outside the baseline it was built for
+  hash             String   @unique @db.VarChar(64)
   status           String   @default("ACTIVE") @db.VarChar(16) // ACTIVE | RETIRED
   timesShown       Int      @default(0)
   timesCorrectFirstTry Int  @default(0)
@@ -108,65 +203,154 @@ model DrillItem {
   @@index([languageId, materialLanguage, topicId, status])
   @@index([courseKey, lessonOrder])
 }
+
+model DrillItemRevision {
+  id         Int      @id @default(autoincrement())
+  itemId     Int
+  template   String   @db.Text
+  blanks     Json
+  hint       String?  @db.Text
+  reason     String   @db.VarChar(32)  // REGENERATED | TEACHER_EDIT | VALIDATION_FIX
+  createdAt  DateTime @default(now())
+  @@index([itemId, createdAt])
+}
 ```
 
-`template` keeps the legacy markup verbatim so bank items, AI items and
-teacher-edited items are all one format, and the renderer has one code path.
+`template` uses one markup for bank, AI and teacher-edited items —
+`[prompt]{answer}`, inherited from the migrated data — so the renderer, the
+grader and the validator each have exactly one code path.
 
-### 4.2 Importers
+### 6.2 One-time migration of the legacy banks
 
-Two one-off, idempotent, re-runnable importers. Both parse Python source with a
-regex — they do **not** execute it (Python 3.4 is not available on alfares, and
-executing legacy source is not something an importer should do).
+A TypeScript importer in content-service reads the legacy exercise files as
+**text** and writes `DrillItem` rows. It is a migration, not an integration: it
+runs once per source file, is idempotent on `hash`, and after it the legacy
+files play no part in the running system.
 
 **A. Grammar bank** — `speakasap-portal/grammar/exercises/*.py` (~4.5 MB, 16
-languages, plus `fr/`, `ru/` and `<ml>__<lang>.py` material-language variants).
+languages, plus `fr/`, `ru/` subdirectories and `<ml>__<lang>.py` variants).
 
-- Match `class (\w+)\(AnswerForm\)`, then `ex\d+\s*=\s*SmartExerciseField\(\s*label=(['"])(.*?)\1\s*\)` with DOTALL — labels wrap across lines (`grammar/exercises/german.py`).
+- Match `class (\w+)\(AnswerForm\)`, then `ex\d+\s*=\s*SmartExerciseField\(\s*label=(['"])(.*?)\1\s*\)` with DOTALL — labels wrap across lines.
 - Parse blanks with `\[([^\]]*)\]\{([^\}]*)\}`. **Empty prompts are valid** (`Ich heiß[]{e}` — suffix drill) and must not be skipped.
-- Handle escaped quotes in labels (`zo\'`).
-- Extract the trailing `<span class="mute">…</span>` into `hint`; strip remaining HTML from `plainText` but keep it in `template`.
-- Topic slug from the class name: `ComparisonAdjectivesEx1` → strip trailing `Ex\d+` → kebab-case → `comparison-adjectives`. Match to `GrammarLesson` by `alias` then `url`; unmatched topics are created with `grammarLessonId = null` and listed in the import report for manual tagging.
-- Material language: filename `<lang>.py` → `ru`; `<ml>__<lang>.py` → `<ml>`; `fr/`, `ru/` subdirectories → directory name.
+- Handle backslash-escaped quotes inside labels (`zo\'`).
+- Extract the trailing `<span class="mute">…</span>` into `hint`; strip remaining HTML from `plainText`.
+- Topic slug from the class name: `ComparisonAdjectivesEx1` → strip trailing `Ex\d+` → kebab-case → `comparison-adjectives`. Match to `GrammarLesson` by `alias` then `url`; unmatched topics get `grammarLessonId = null` and appear in the report.
+- Material language: `<lang>.py` → `ru`; `<ml>__<lang>.py` → `<ml>`; `fr/`, `ru/` subdirectories → directory name.
 
 **B. Course-material bank** — `speakasap-portal/seven/exercises/*.py` (~1.5 MB).
 Same parser, different tagging: class `Lesson<N>Ex<M>` yields `lessonOrder = N`
-and `courseKey` from the language + material language, joined to the existing
-`SevenLesson` / `SevenExercise` rows already in content-service. These items are
-the "sentences from our own course materials" — they arrive pre-aligned to the
-course a student is actually taking.
+and `courseKey` from language + material language, joined to the `SevenLesson` /
+`SevenExercise` rows already in content-service. These are the sentences from
+the courses students actually take, and they arrive pre-aligned to lesson order —
+which is what makes the vocabulary baseline in §5 computable.
 
-Both are idempotent on `hash`. Each emits a report: items parsed, items skipped
-with reason, topics unmatched, coverage per language. Files that are 0 bytes
-(`english.py`, `russian.py`, `chinese.py` in places) are expected and reported,
-not treated as failures.
+Each importer emits a report: items parsed, skipped with reason, topics
+unmatched, coverage per language. Zero-byte source files are expected and
+reported, not failures.
 
 **Known gap:** classes using plain `ExerciseField` (answers passed as a separate
 list rather than inline `{}`) are out of scope for v1. The report counts them so
-the value of a second pass can be judged from data.
+a second pass is a decision made from data.
 
-### 4.3 Bank query API
+### 6.3 Bank query API
 
 ```
 GET  /api/v1/drill-topics?languageCode=de&materialLanguage=ru
 POST /api/v1/drill-items/search
      { languageCode, materialLanguage, topicSlugs[], level?, courseKey?,
-       maxLessonOrder?, limit, excludeHashes[] }
+       maxLessonOrder?, vocabularyBaseline?, limit, excludeHashes[] }
 ```
 
-`maxLessonOrder` restricts course-material items to lessons the student has
-already covered — never drill vocabulary the student has not met.
+When `vocabularyBaseline` is supplied, items violating the 80/20 rule against it
+are excluded server-side.
 
-Selection order: highest `popularityScore` of the sets the item belongs to,
-then highest `timesCorrectFirstTry / timesShown` inside a 55–90 % band (an item
-everyone gets right first try is not drilling; one nobody gets is discouraging),
-then random. Deterministic under a seed for testability.
+Selection order: highest `popularityScore` among the sets an item belongs to,
+then `timesCorrectFirstTry / timesShown` inside a 55–90 % band (an item everyone
+gets right first try is not drilling; one nobody gets is discouraging), then
+random under a seed for testability.
 
 ---
 
-## 5. Drill library — sets, search, ratings (content-service)
+## 7. Validation agent
 
-### 5.1 Schema
+Every set is validated before a teacher sees it — sets built entirely from bank
+items included. A human-written legacy sentence is not automatically a match for
+*this* teacher's request: a preposition drill must actually drill prepositions.
+
+### 7.1 Two layers
+
+**Deterministic pre-checks** run first, cost nothing, and reject the obvious:
+
+- `template` parses and yields ≥ 1 blank; `blanks.length` matches; indices align
+- every `answer` is non-empty after trimming
+- the answer's script matches the target language (a Cyrillic answer in a German
+  drill is a generation failure, not an item)
+- substituting answers leaves no residual markup
+- the 80/20 vocabulary rule (§5.2), per set and per sentence
+- `hash` collides with neither the set nor the bank
+- where the topic has a closed word list (prepositions, articles, modal verbs,
+  irregular verb forms), **the answer is a member of that list** — the cheapest
+  and strongest possible topic-alignment check
+
+**AI validation** handles what cannot be decided mechanically, via
+`POST /api/teacher-assistant/validate-drill` on ai-microservice. Per item:
+
+```json
+{ "itemRef": "3",
+  "verdicts": { "topicAlignment": "PASS|WARN|FAIL",
+                "grammar": "PASS|FAIL",
+                "level": "PASS|WARN|FAIL",
+                "naturalness": "PASS|WARN" },
+  "issues": [{ "code": "OFF_TOPIC",
+               "message": "Blank tests an article, not a preposition",
+               "span": "die" }],
+  "suggestedFix": { "template": "Ich warte [на]{auf} den Bus.", "blanks": [...] } }
+```
+
+It checks: does the blank exercise the requested grammar point; is the sentence
+grammatically correct **in the target language**; is it natural rather than
+translated-sounding; is it at the stated level. Where it finds an error it must
+return a corrected sentence, not only a complaint — a grammatically wrong
+sentence generated by the system is corrected in the target language before any
+teacher sees it.
+
+The validator runs with its own prompt and output schema, separate from the
+generator, and never sees the generator's reasoning — an independent check, not
+a self-review.
+
+### 7.2 Storage and surfacing
+
+Verdicts are stored per set item (`validationState`, `validationIssues`,
+`validatedAt`, `validatorVersion`). The review screen sorts `FAIL` first, then
+`WARN`, then `PASS`, each with its issue text and the suggested fix. For every
+flagged item the teacher can **apply suggestion**, **regenerate**, **edit
+manually**, or **keep anyway** (recorded, so a teacher override is never
+silently lost).
+
+A set with any unresolved `FAIL` cannot be approved. `WARN` does not block.
+
+### 7.3 Regeneration loop
+
+```
+POST /api/v1/drill-sets/:uuid/regenerate   { itemIds[], note? }
+```
+
+Creates a generation job for exactly those positions, passing the original
+instructions, the validation issues that caused the rejection, the teacher's
+optional note, and every other sentence in the set as `avoidTexts`. Replacements
+keep their order; the previous versions are written to `DrillItemRevision` so
+the teacher can revert. The new items are validated on arrival and the set
+returns to `PENDING_REVIEW`.
+
+This is the loop the teacher works in: review → flag → regenerate → review →
+approve. It has no iteration limit; each round is a fresh job with the accumulated
+constraints.
+
+---
+
+## 8. Drill library — sets, search, ratings (content-service)
+
+### 8.1 Schema
 
 ```prisma
 model DrillSet {
@@ -175,16 +359,18 @@ model DrillSet {
   languageId       Int
   materialLanguage String   @db.VarChar(2)
   level            String?  @db.VarChar(4)
-  topicSlugs       String[] // denormalized for filtering
+  topicSlugs       String[]
   courseKey        String?  @db.VarChar(255)
   lessonOrder      Int?
   origin           String   @db.VarChar(16)  // AI | BANK | MIXED | TEACHER
-  reviewState      String   @db.VarChar(16)  // PENDING_REVIEW | APPROVED
+  reviewState      String   @db.VarChar(16)  // GENERATING | VALIDATING | PENDING_REVIEW | APPROVED
   createdByTeacherId Int?
-  instructions     String?  @db.Text  // the teacher's original free-text request
-  visibility       String   @default("SHARED") @db.VarChar(8) // SHARED | PRIVATE
-  searchText       String   @db.Text  // concatenated item plainText, for full-text search
+  instructions     String?  @db.Text   // the teacher's original free-text request
+  visibility       String   @default("SHARED") @db.VarChar(8)  // SHARED | PRIVATE
+  searchText       String   @db.Text   // concatenated item plainText, GIN tsvector indexed
+  knownWordRatio   Float?
   timesAssigned    Int      @default(0)
+  timesSelfSelected Int     @default(0)
   teacherUpvotes   Int      @default(0)
   studentUpvotes   Int      @default(0)
   avgFirstTryAccuracy Float?
@@ -198,10 +384,14 @@ model DrillSet {
 }
 
 model DrillSetItem {
-  id       Int    @id @default(autoincrement())
-  setUuid  String @db.Uuid
-  itemId   Int
-  order    Int
+  id               Int     @id @default(autoincrement())
+  setUuid          String  @db.Uuid
+  itemId           Int
+  order            Int
+  validationState  String  @default("PENDING") @db.VarChar(8)  // PENDING|PASS|WARN|FAIL|OVERRIDDEN
+  validationIssues Json    @default("[]")
+  validatedAt      DateTime?
+  validatorVersion String? @db.VarChar(32)
   @@unique([setUuid, order])
 }
 
@@ -218,69 +408,67 @@ model DrillSetRating {
 }
 ```
 
-`searchText` gets a Postgres `tsvector` GIN index so a teacher who remembers one
-sentence — "the one about the whale and the elephant" — can find the set.
-
-### 5.2 Popularity
+### 8.2 Popularity
 
 ```
 popularityScore = 3·teacherUpvotes + 1·studentUpvotes
-                + 0.5·min(timesAssigned, 20)
+                + 0.5·min(timesAssigned + timesSelfSelected, 20)
                 − 5·(reviewState != APPROVED)
 ```
 
-Recomputed on every rating and every assignment completion, stored on the row so
-sorting is a plain indexed `ORDER BY`. Downvotes subtract through the same
-weights. No time decay in v1 — the corpus is small and a good drill does not go
-stale.
+Recomputed on every rating and every completion, stored on the row so sorting is
+an indexed `ORDER BY`. Downvotes subtract through the same weights. No time
+decay in v1 — the corpus is small and a good drill does not go stale.
 
-`avgFirstTryAccuracy` is reported to the teacher as a difficulty signal but does
+`avgFirstTryAccuracy` is shown to the teacher as a difficulty signal but does
 **not** feed the score: a hard set is not a bad set.
 
-### 5.3 Library API
+### 8.3 Library API
 
 ```
-GET  /api/v1/drill-sets?languageCode=&materialLanguage=&topicSlugs=&courseKey=
-                       &lessonOrder=&q=&sort=popularity|recent|accuracy
-                       &createdBy=&reviewState=&groupBy=lesson
-GET  /api/v1/drill-sets/:uuid            # full preview incl. answers (teacher auth)
-POST /api/v1/drill-sets                  # create from selected items
-PATCH /api/v1/drill-sets/:uuid           # title, topics, visibility
-PATCH /api/v1/drill-sets/:uuid/items/:id # edit one item's template/answers
+GET   /api/v1/drill-sets?languageCode=&materialLanguage=&topicSlugs=&courseKey=
+                        &lessonOrder=&q=&sort=popularity|recent|accuracy
+                        &createdBy=&reviewState=&groupBy=lesson
+GET   /api/v1/drill-sets/available-for-me      # student: approved, in-course, lessonOrder ≤ current
+GET   /api/v1/drill-sets/:uuid                 # full preview incl. answers (teacher auth)
+POST  /api/v1/drill-sets                       # compose from selected items
+PATCH /api/v1/drill-sets/:uuid                 # title, topics, visibility
+PATCH /api/v1/drill-sets/:uuid/items/:id       # edit template/answers
 DELETE /api/v1/drill-sets/:uuid/items/:id
-POST /api/v1/drill-sets/:uuid/approve
-POST /api/v1/drill-sets/:uuid/ratings    # { value, comment? } — rater identity
-                                         # comes from the token, never the body
-
+POST  /api/v1/drill-sets/:uuid/regenerate      # { itemIds[], note? }
+POST  /api/v1/drill-sets/:uuid/approve
+POST  /api/v1/drill-sets/:uuid/ratings         # { value, comment? } — rater from the token, never the body
 ```
 
-`groupBy=lesson` returns sets bucketed by `courseKey` + `lessonOrder` with an
-"unassigned" bucket, which is the default view of the library browser. Search
-with `q` deliberately ignores the lesson filter so a teacher can find a good
-drill that came from a different lesson — the exact case raised in review.
+`groupBy=lesson` buckets sets by `courseKey` + `lessonOrder` with an
+"unassigned" bucket — the default library view. Search with `q` **deliberately
+ignores the lesson filter**, so a teacher can find a good drill that came from a
+different lesson by recalling one of its sentences.
 
 ---
 
-## 6. Assignments, attempts, grading (education-service)
+## 9. Assignments, attempts, grading (education-service)
 
-### 6.1 Schema
+### 9.1 Schema
 
 ```prisma
 model DrillAssignment {
   uuid              String   @id @db.Uuid
-  setUuid           String   @db.Uuid       // source set in content-service
+  setUuid           String   @db.Uuid
   studentId         Int
-  teacherId         Int
+  teacherId         Int?                      // null for self-selected
+  origin            String   @db.VarChar(8)   // TEACHER | SELF
   studentCourseUuid String?  @db.Uuid
-  lessonUuid        String?  @db.Uuid       // nullable — standalone or lesson-linked
+  lessonUuid        String?  @db.Uuid         // nullable — standalone or lesson-linked
   batchUuid         String?  @db.Uuid
   title             String   @db.VarChar(255)
   languageCode      String   @db.VarChar(8)
   materialLanguage  String   @db.VarChar(2)
-  status            String   @db.VarChar(16) // GENERATING|PENDING_REVIEW|ASSIGNED|IN_PROGRESS|COMPLETED|CANCELLED
+  status            String   @db.VarChar(16)  // GENERATING|PENDING_REVIEW|ASSIGNED|IN_PROGRESS|COMPLETED|CANCELLED
   dueAt             DateTime?
-  resourceLinks     Json     @default("[]") // [{topic, url}] grammar topic links
-  generationMeta    Json     @default("{}") // model, tier, tokens, correlationId, bankCount, aiCount
+  resourceLinks     Json     @default("[]")   // [{topic, url}] public grammar pages
+  generationMeta    Json     @default("{}")
+  generationProgress Json    @default("{}")   // { phase, generated, total, etaSeconds, message }
   firstTryAccuracy  Float?
   createdAt         DateTime @default(now())
   assignedAt        DateTime?
@@ -318,15 +506,15 @@ model DrillAttempt {
 }
 
 model DrillAssignmentBatch {
-  uuid       String   @id @db.Uuid
-  teacherId  Int
-  instructions String @db.Text
-  filter     Json     // { groupUuid? , studentIds[] }
-  createdAt  DateTime @default(now())
+  uuid         String   @id @db.Uuid
+  teacherId    Int
+  instructions String   @db.Text
+  filter       Json     // { groupUuid?, studentIds[] }
+  createdAt    DateTime @default(now())
 }
 ```
 
-### 6.2 Lifecycle
+### 9.2 Lifecycle
 
 ```
               ┌── set already APPROVED ──────────────────────┐
@@ -335,28 +523,40 @@ GENERATING ───┤                                              ├─▶ A
                                                         └────────────────▶ CANCELLED
 ```
 
-Bulk assignment creates one `DrillAssignmentBatch` and fans out to N
-assignments sharing one set. Reviewing the set once releases all of them.
+Bulk assignment creates one `DrillAssignmentBatch` and fans out to N assignments
+sharing one set. Reviewing the set once releases all of them.
 
-### 6.3 Grading
+### 9.3 Self-drilling
 
-One pure function, `src/drills/grading.ts`, table-tested — no framework, no I/O:
+A student may start a self-chosen drill **only when nothing is outstanding** —
+no assignment in `ASSIGNED` or `IN_PROGRESS`. Teacher work comes first.
+
+The rule is enforced server-side in `POST /api/v1/drill-assignments/self`, which
+returns `409` with the blocking assignment's uuid when work is pending. The UI
+also hides the entry point, but the UI is not the enforcement.
+
+Self-selected assignments have `teacherId = null`, `origin = SELF`, and generate
+no teacher completion email — they do count toward set statistics, ratings and
+the student's history, which the teacher can see on the student's page. Students
+choose only from `APPROVED` sets matching their course language, material
+language and `lessonOrder ≤ current`, so a self-drill can never be
+un-vetted content or content ahead of where they are.
+
+### 9.4 Grading
+
+One pure function, `src/drills/grading.ts`, table-tested, no I/O:
 
 - trim; collapse internal whitespace; Unicode NFC normalize
 - fold typographic apostrophes and quotes to ASCII (`’` → `'`)
-- strip a single trailing `.`/`!`/`?` (mid-string punctuation is significant)
+- strip a single trailing `.`/`!`/`?`; mid-string punctuation is significant
 - accept any entry in `alternatives[]`
 - case-insensitive **by default**, with a per-language `caseSensitive` flag —
-  German capitalises nouns and `sie`/`Sie` is a real distinction
-- diacritics are **never** stripped: `é ≠ e` in French, `ö ≠ o` in German
+  German capitalises nouns, and `sie`/`Sie` is a real distinction
+- diacritics are **never** stripped: `é ≠ e`, `ö ≠ o`
 
-Called only server-side. Never shipped to the browser.
+Server-side only. Never shipped to the browser.
 
-### 6.4 Answer confidentiality
-
-The legacy implementation puts the answer in the DOM
-(`portal/templates/tags/exercise_field.html` → `data-answer="{{ help }}"`), so a
-student can read every answer from devtools. The new runner does not:
+### 9.5 Answer confidentiality
 
 - `GET /api/v1/drill-assignments/:uuid/runner` returns, per blank, only
   `{ index, prompt, maxLength }` — never `answer` or `alternatives`
@@ -365,14 +565,13 @@ student can read every answer from devtools. The new runner does not:
 - an explicit test asserts the runner response body contains none of the
   assignment's answer strings
 
-### 6.5 Assignment API
+### 9.6 Assignment API
 
 Teacher:
 ```
-POST   /api/v1/drill-assignments/generate      { studentIds[]|groupUuid, lessonUuid?,
-                                                 instructions, topicSlugs[], itemCount,
-                                                 dueAt?, useCourseMaterials? }
-POST   /api/v1/drill-assignments/from-set      { setUuid, studentIds[], lessonUuid?, dueAt? }
+POST   /api/v1/drill-assignments/generate   { studentIds[]|groupUuid, lessonUuid?,
+                                              instructions, topicSlugs[], itemCount, dueAt? }
+POST   /api/v1/drill-assignments/from-set   { setUuid, studentIds[], lessonUuid?, dueAt? }
 GET    /api/v1/drill-assignments?teacherId=me&status=
 GET    /api/v1/drill-assignments/:uuid
 POST   /api/v1/drill-assignments/:uuid/cancel
@@ -381,113 +580,114 @@ POST   /api/v1/drill-assignments/:uuid/cancel
 Student:
 ```
 GET    /api/v1/drill-assignments/mine
+POST   /api/v1/drill-assignments/self       { setUuid }        # 409 if work outstanding
 GET    /api/v1/drill-assignments/:uuid/runner
 POST   /api/v1/drill-assignments/:uuid/check   { itemUuid, blankIndex, value }
 POST   /api/v1/drill-assignments/:uuid/reveal  { itemUuid, blankIndex }
-POST   /api/v1/drill-assignments/:uuid/rate    { value, comment? }   → forwards to content-service
+POST   /api/v1/drill-assignments/:uuid/rate    { value, comment? }
 ```
 
-Internal (for the legacy portal):
+Internal (for the transitional legacy dashboards):
 ```
 GET    /api/v1/internal/drill-assignments/by-student/:studentId
 GET    /api/v1/internal/drill-assignments/by-teacher/:teacherId
 ```
 
-Gateway prefixes to add to `api-gateway/src/proxy/upstream-resolve.ts`:
+Gateway prefixes for `api-gateway/src/proxy/upstream-resolve.ts`:
 `/api/v1/drill-assignments` → `EDUCATION_SERVICE_URL`;
-`/api/v1/drill-sets`, `/api/v1/drill-items`, `/api/v1/drill-topics` → `CONTENT_SERVICE_URL`.
-Longest-prefix wins, so `/api/v1/internal/drill-assignments` must be listed
-above the existing `/api/v1/internal` → `USER_SERVICE_URL` entry.
+`/api/v1/drill-sets`, `/api/v1/drill-items`, `/api/v1/drill-topics`,
+`/api/v1/course-vocabulary` → `CONTENT_SERVICE_URL`. Longest-prefix wins, so
+`/api/v1/internal/drill-assignments` must precede the existing
+`/api/v1/internal` → `USER_SERVICE_URL` entry.
 
 ---
 
-## 7. Generation (education-service → ai-microservice)
+## 10. Generation
 
-### 7.1 Pipeline
+### 10.1 Pipeline
 
-1. Resolve topics (`content-service /drill-topics`) and the student's course +
-   current lesson order (`education-service`, local).
-2. Ask content-service for up to `itemCount` bank items:
-   grammar-bank items for the requested topics, plus — when
-   `useCourseMaterials` is set — course-material items restricted to
-   `maxLessonOrder = student's current lesson order`.
-3. If the bank covers the request, build the set with `origin = BANK`,
-   `reviewState = APPROVED`, and assign immediately.
-4. Otherwise call ai-microservice for the shortfall, passing:
-   - the teacher's verbatim instructions
-   - 8–12 bank items as few-shot examples (same topic, same language pair)
-   - vocabulary and sentences from the student's course lessons up to their
-     current order, from `SevenLesson.bodyHtml` and imported course-material items
-   - `avoidTexts` — `plainText` of every item already selected, plus items this
-     student has seen before
-5. Validate every returned item (§7.3). Discard failures, re-request up to two
-   further rounds, then stop and mark the set partial with a note for the teacher.
-6. Persist the set to content-service with `origin = AI|MIXED`,
-   `reviewState = PENDING_REVIEW`; create assignments in `PENDING_REVIEW`.
+1. **Resolve** — topics, the student's course, and their current lesson order.
+2. **Baseline** — fetch the vocabulary baseline for lessons 1…*N* (§5).
+3. **Bank** — request items for the requested topics, filtered by the baseline.
+   Course-material items are restricted to `lessonOrder ≤ N`.
+4. **Generate** — ask ai-microservice for the shortfall. A wholly new topic with
+   no bank coverage means the whole set is generated; this is expected, not an
+   error condition, and happens routinely early on.
+5. **Validate** — deterministic checks, then the validation agent (§7) over
+   **every** item, bank items included.
+6. **Persist** — write the set to content-service with `origin = AI|BANK|MIXED`,
+   `reviewState = PENDING_REVIEW`; create assignments.
 
-### 7.2 The agent — ai-microservice `src/teacher-assistant/`
+### 10.2 The generator agent — ai-microservice `src/teacher-assistant/`
 
 `POST /api/teacher-assistant/generate-drill`, JWT required, calling
 `/ai/complete` with `model_tier` from `DRILL_GENERATION_MODEL_TIER` (default
-`smart` — best available; quality matters more than token cost here).
+`smart` — the best available tier).
 
-Request:
 ```json
 { "languageCode": "de", "materialLanguage": "ru", "level": "A2",
   "topics": [{ "slug": "prepositions", "title": "Предлоги", "focus": "an, bei, für" }],
   "instructions": "50 sentences, present tense only, everyday vocabulary",
   "count": 32,
+  "knownVocabulary": ["heißen", "wohnen", "lernen", "..."],
+  "maxNewWordsPerSentence": 2,
   "exampleItems": ["Ich gehe [in]{in} die Schule."],
-  "courseVocabulary": ["heißen", "wohnen", "lernen"],
   "avoidTexts": ["..."] }
 ```
 
-Response schema (enforced via `output_schema`):
+Response schema (enforced by `output_schema`):
+
 ```json
 { "items": [ { "template": "Ich warte [на]{auf} den Bus.",
                "blanks": [{ "prompt": "на", "answer": "auf", "alternatives": [] }],
                "hint": "(warten auf – ждать; der Bus – автобус)",
-               "topicSlug": "prepositions" } ] }
+               "topicSlug": "prepositions",
+               "newWords": ["warten"] } ] }
 ```
 
-The prompt instructs: prompt text in `materialLanguage`, blanks in
-`languageCode`, one grammar point per sentence, everyday register, no proper
-nouns outside `courseVocabulary`, `hint` in the legacy `(word – translation)`
-style. Prompt and schema live in one reviewable file so they can be evaluated
-and changed without touching call sites.
+The prompt requires: prompts in `materialLanguage`, blanks in `languageCode`,
+one grammar point per sentence, at least 80 % of content words drawn from
+`knownVocabulary`, at most `maxNewWordsPerSentence` new ones, every new word
+translated in `hint`, everyday register, no proper nouns outside the known list.
+Prompt and schema live in one reviewable file so they can be evaluated and
+changed without touching call sites.
 
-### 7.3 Validation before storage
+### 10.3 Progress and latency
 
-Every AI item must pass, or it is discarded:
-- `template` parses under `\[([^\]]*)\]\{([^\}]*)\}` and yields ≥ 1 blank
-- `blanks.length` equals the parsed count and indices align
-- every `answer` is non-empty after trimming
-- the answer's script matches the target language's expected script (a Cyrillic
-  answer in a German drill is a generation failure, not a valid item)
-- substituting the answers produces a sentence with no leftover markup
-- `hash` collides with neither the current set nor the bank
+Fifty items on the best tier plus validation takes tens of seconds. The teacher
+is never shown a bare spinner. `generationProgress` is updated at each phase:
 
-Validation is a pure function with its own tests, fed by fixtures of real
-malformed output. It never trusts the model's own claim of conformance.
+```json
+{ "phase": "GENERATING", "generated": 23, "total": 50,
+  "etaSeconds": 34, "message": "Generating sentences 23 of 50" }
+```
 
-### 7.4 Asynchrony
+The wizard polls every 2 s and shows a countdown from the estimate, the running
+count, and the current phase (`Resolving topics` → `Selecting from library` →
+`Generating sentences` → `Validating` → `Ready for review`). Items already
+generated are listed as they arrive, so the teacher can start reading before the
+set is finished. Errors surface immediately with a retry; a job that stalls past
+its estimate says so rather than counting down to zero and lying. The teacher
+may leave the page — the job continues and the set appears in the review queue.
 
-No queue library is installed in these services. Generation runs as an
-in-process background task; the assignment sits in `GENERATING` and the frontend
-polls `GET /drill-assignments/:uuid`. Correct at this volume, and replaceable
-with BullMQ later without an API change. A `GENERATING` row older than 10
-minutes is swept to `CANCELLED` with an error note on next access.
+A `GENERATING` row older than 10 minutes is swept to `CANCELLED` with an error
+note on next access.
 
 ---
 
-## 8. Student runner (frontend)
+## 11. Frontend
 
-`/learner/practice` — assignment list: title, topics with links to the public
-grammar pages, item count, due date, progress.
+### 11.1 Student runner
+
+`/learner/practice` — assigned work first, with topics linked to the public
+grammar pages, item count, due date and progress. Below it, the self-drilling
+section: locked with an explanatory note while an assignment is outstanding,
+otherwise a browsable list of approved sets for the student's course and lesson
+range, sorted by popularity.
 
 `/learner/practice/[uuid]` — the runner. One component, `DrillRunner`:
 
-- renders `template`, each blank an auto-sized inline `<input>` showing `prompt`
+- renders `template`; each blank is an auto-sized inline `<input>` with `prompt`
   as placeholder
 - on debounced input (250 ms), blur, or Enter → `POST /check`
 - **correct** → the input is replaced in place by bold green text, becoming part
@@ -495,156 +695,162 @@ grammar pages, item count, due date, progress.
 - **incorrect** → red border, value kept, unlimited retries, no answer revealed
 - optional "show answer" per blank, recorded as `revealed` and excluded from
   first-attempt accuracy
-- progress bar; when the server reports the last blank correct, the assignment
+- `hint` shown under the sentence, carrying translations of any new words
+- progress bar; when the server confirms the last blank, the assignment
   auto-completes and a summary appears with first-try accuracy and a
-  thumbs-up/down that posts to `/rate`
+  thumbs-up/down posting to `/rate`
 - `aria-live="polite"` announces correctness; every blank has a real label; full
-  keyboard operation (Tab/Enter advance)
+  keyboard operation
+- a failed `/check` retries once, then surfaces "not saved — check your
+  connection" rather than silently marking a blank wrong
 
-Offline/flaky network: a failed `/check` retries once, then surfaces
-"not saved — check your connection" rather than silently marking a blank wrong.
-
----
-
-## 9. Teacher UI (frontend)
+### 11.2 Teacher
 
 `/teacher/assignments/new` — three-step wizard:
 1. **Who** — student, several students, or a group; optional lesson link
-2. **What** — topic picker (autocomplete from `/drill-topics`, shows the public
-   grammar-page URL), free-text instructions, item count, "use sentences from
-   this student's course materials" toggle
-3. **How** — *Generate new* or *Pick from library*
+2. **What** — topic picker (autocomplete from `/drill-topics`, showing the
+   public grammar-page URL; free text creates a new topic flagged `isNew`),
+   instructions, item count
+3. **How** — *Generate new* or *Pick from library*, then the progress view (§10.3)
 
-`/teacher/assignments/library` — the drill library. Default view groups sets by
-course + lesson order; a search box queries `searchText` **across all lessons**
-so a set from a different lesson can be found by a remembered sentence. Filters:
-language, topic, level, mine/all, approved only. Each row shows
-title, topics, item count, times assigned, ★ score, average first-try accuracy.
-Multi-select checkboxes → "Assign selected to…".
+`/teacher/assignments/library` — grouped by course + lesson order by default;
+full-text search across **all** lessons; filters for language, topic, level,
+mine/all, approved only. Rows show title, topics, item count, times assigned,
+★ score, average first-try accuracy, known-word ratio. Multi-select →
+"Assign selected to…".
 
-`/teacher/assignments/[uuid]/review` — item-by-item preview showing exactly what
-the student will see plus the answers, with inline edit, delete, "regenerate
-this item", set title/topic editing, ★ rating, and **Approve & send**. Approving
-marks the *set* approved, so it never needs reviewing again.
+`/teacher/assignments/[uuid]/review` — items sorted `FAIL` → `WARN` → `PASS`,
+each showing what the student will see, the answers, and any validation issue
+with its suggested fix. Per item: apply suggestion · regenerate · edit · keep
+anyway. Bulk "regenerate all flagged". **Approve & send** is disabled while any
+unresolved `FAIL` remains. Approving marks the *set* approved — it never needs
+reviewing again.
 
-`/teacher/assignments` — list by status, including completed ones with scores.
-
----
-
-## 10. Notifications (speakasap/notification-service)
-
-Two templates, both bilingual by the recipient's material language:
-
-- `drill_assignment_assigned` → student, on approval/assign. Subject, topic
-  list with links to the public grammar pages, due date, deep link to the
-  runner. Plus an in-app record.
-- `drill_assignment_completed` → teacher, on completion. First-try accuracy,
-  per-topic breakdown, items the student struggled with, link to the lesson and
-  to the review page. Plus an in-app record.
-
-Dispatch is fire-and-forget with retry; a failed email never blocks the state
-transition, and a failure is logged with the assignment uuid.
+`/teacher/assignments` — list by status, including completed ones with scores
+and the student's self-drilling history.
 
 ---
 
-## 11. Legacy portal integration (speakasap-portal)
+## 12. Authentication from the legacy dashboards
 
-Django templates and one new module. No model changes, no migrations, no React
-15, no Webpack 2, no touching supervisord.
+The mechanism is the one marathon already uses, reused rather than reinvented:
 
-1. **`portal/platform_sso.py`** — generalizes `marathon/jwt_for_marathon.py`
-   into `get_platform_bearer_token(user, audience, expiry)`, signed with a new
-   `SPEAKASAP_PLATFORM_JWT_SECRET` setting (Vault: `secret/prod/speakasap-portal`).
-   PyJWT 1.5.3 / Python 3.4 compatible, byte-vs-str return handled as the
-   existing helper does.
-2. **`user-service`** — new `POST /api/v1/internal/sso/exchange`: verifies the
-   portal JWT, maps the legacy numeric user id to the platform auth user (the
-   bridge already exists in reverse via `/api/v1/students/me` →
-   `education-service/src/lesson-records/user-profiles.client.ts`), and returns a
-   normal platform access token. **This is the only genuinely new auth surface
-   and gets its own stage with tests** — the known portal-JWT identity gap lives
-   here.
-3. **`frontend /auth/handoff`** — consumes `?sso=`, calls the exchange, stores
-   the session using the existing `consumeHostedAuthFragment` machinery, and
+1. The legacy portal issues a short-lived HS256 JWT with the numeric legacy user
+   id in `sub`, signed with a shared secret — `marathon/jwt_for_marathon.py`
+   generalized into `portal/platform_sso.py` with an `audience` argument and a
+   new `SPEAKASAP_PLATFORM_JWT_SECRET` (Vault: `secret/prod/speakasap-portal`).
+2. The new platform verifies it and exchanges the numeric id for the
+   auth-microservice user via the **existing** endpoint
+   `GET /internal/users/by-legacy-id?system=speakasap-portal&legacyUserId=<id>`
+   (`auth-microservice/src/users/internal-users.controller.ts:10`), guarded by
+   `x-internal-service-token`, with a short-TTL in-process cache — exactly as
+   `marathon/src/shared/auth-client.ts:102` does.
+3. `frontend /auth/handoff` consumes `?sso=`, performs the exchange, stores the
+   session through the existing `consumeHostedAuthFragment` machinery, and
    redirects to `nextPath`.
-4. **`cabinet/student` dashboard** — server-side call to
-   `/api/v1/internal/drill-assignments/by-student/:id`, renders "Practice
-   assignments — N due" cards linking to
-   `{PLATFORM_URL}/learner/practice/{uuid}?sso=…`.
-5. **`cabinet/teacher` dashboard and the lesson page** — "Create drilling
-   assignment" button linking to
-   `{PLATFORM_URL}/teacher/assignments/new?lessonUuid=…&studentId=…&sso=…`,
-   plus a "Practice assignments" panel on the lesson showing status per student.
 
-Both portal-side calls fail soft: if education-service is unreachable the panel
-renders empty with a quiet notice, never a 500 on the dashboard.
+**One deliberate difference from marathon:** marathon fails soft to the raw
+numeric `sub` when the mapping lookup fails. Drilling **fails closed** — no
+session is issued. Marathon can treat an unmapped id as a participant key;
+here an unmapped id would attach graded work to an identity the platform cannot
+verify. A mapping outage produces a sign-in error, never a guessed user.
+
+Both are teachers and students already present in auth-microservice, so no new
+account provisioning is involved.
+
+### Transitional entry points (legacy portal, removed at sunset)
+
+- `cabinet/student` dashboard — "Practice assignments — N due" cards linking to
+  `{PLATFORM_URL}/learner/practice/{uuid}?sso=…`
+- `cabinet/teacher` dashboard and the lesson page — "Create drilling assignment"
+  linking to `{PLATFORM_URL}/teacher/assignments/new?lessonUuid=…&studentId=…&sso=…`,
+  plus a per-student status panel on the lesson
+
+Both fail soft: if education-service is unreachable the panel renders empty with
+a quiet notice, never a 500 on a dashboard.
 
 ---
 
-## 12. Testing
+## 13. Notifications (speakasap/notification-service)
+
+- `drill_assignment_assigned` → student on assign: topic list with links to the
+  public grammar pages, due date, deep link to the runner. Plus in-app.
+- `drill_assignment_completed` → teacher on completion: first-try accuracy,
+  per-topic breakdown, the items the student struggled with, links to the lesson
+  and the review page. Plus in-app. **Not sent for self-selected drills.**
+
+Both rendered in the recipient's material language. Dispatch is fire-and-forget
+with retry; a failed email never blocks a state transition and is logged with
+the assignment uuid.
+
+---
+
+## 14. Testing
 
 | Area | Tests |
 |---|---|
-| Importers | Parser unit tests on fixtures from each language file: multi-line labels, escaped quotes, empty prompts (`heiß[]{e}`), multiple blanks per sentence, `<span class="mute">` extraction, HTML-heavy labels. Idempotence: second run inserts zero rows. |
-| Grading | Table tests per rule and per language, including German case sensitivity, French diacritics, typographic apostrophes, trailing punctuation, alternatives. |
-| Answer confidentiality | Explicit test: runner response body contains no answer or alternative string from the assignment. |
-| Assignment state machine | Every legal transition plus rejection of illegal ones; bulk fan-out; set approval releasing all assignments in a batch. |
-| AI validation | Fixtures of real malformed model output — wrong blank count, empty answer, wrong-script answer, leftover markup, duplicate — each rejected. |
-| Generation orchestration | Bank fully covers → zero AI calls, set auto-approved. Bank partially covers → AI called for exactly the shortfall. AI fails twice → set marked partial, no crash. |
-| Popularity | Score formula unit tests; ordering test; downvote lowers rank; unapproved sets rank last. |
-| Frontend | `DrillRunner`: correct → inline text and focus advance; incorrect → error, retry allowed; reveal excluded from accuracy; completion fires once. One Playwright e2e end-to-end on staging. |
-| Legacy | Django tests for token issue and for dashboard cards rendering, including the service-unreachable path. |
+| Importers | Parser unit tests per language fixture: multi-line labels, escaped quotes, empty prompts (`heiß[]{e}`), multiple blanks, `<span class="mute">` extraction. Idempotence: second run inserts zero rows. |
+| Vocabulary | Baseline built for a known course matches a hand-checked word list; tokenizer stopword handling; ratio arithmetic at boundaries (exactly 80 %, 3 unknown words in one sentence). |
+| Deterministic validation | Each rule rejects its own violation and nothing else; closed-list topic check (a preposition set whose blank is an article fails). |
+| AI validation | Fixtures of real malformed output — wrong blank count, empty answer, wrong-script answer, residual markup, off-topic blank, ungrammatical sentence — each caught, each yielding a usable `suggestedFix`. |
+| Regeneration | Regenerating 3 of 50 replaces exactly those positions, preserves order, writes revisions, re-validates, returns the set to `PENDING_REVIEW`. |
+| Grading | Table tests per rule and per language: German case sensitivity, French diacritics, typographic apostrophes, trailing punctuation, alternatives. |
+| Answer confidentiality | Runner response body contains no answer or alternative string from the assignment. |
+| Self-drilling gate | `POST /self` returns 409 while an assignment is `ASSIGNED` or `IN_PROGRESS`; succeeds when none is; rejects sets that are unapproved, wrong course, or ahead of the student's lesson. |
+| State machine | Every legal transition, rejection of illegal ones, bulk fan-out, set approval releasing a whole batch. |
+| Popularity | Score formula, ordering, downvote effect, unapproved sets rank last. |
+| Progress reporting | Phases advance in order; a stalled job reports stalled rather than counting to zero. |
+| SSO | Valid token → session; expired, wrong-signature, and unmapped-id tokens → no session (fail closed), each asserted separately. |
+| Frontend | `DrillRunner`: correct → inline text and focus advance; incorrect → error and retry; reveal excluded from accuracy; completion fires once. Self-drill lock renders while work is outstanding. One Playwright e2e on staging. |
 
-Verification before any "done" claim follows `superpowers:verification-before-completion`:
-typecheck each changed service with its own compiler
-(`./node_modules/.bin/tsc --noEmit -p tsconfig.json` — never `npx tsc`), run the
-suites, and reproduce the end-to-end flow in the browser.
+Verification before any "done" claim follows
+`superpowers:verification-before-completion`: typecheck each changed service
+with its own compiler (`./node_modules/.bin/tsc --noEmit -p tsconfig.json` —
+never `npx tsc`), run the suites, and reproduce the flow end to end in a browser.
 
 ---
 
-## 13. Stages
-
-Each stage is independently shippable and independently verifiable.
+## 15. Stages
 
 | # | Stage | Owner service | Depends on |
 |---|---|---|---|
 | 0 | Contracts, gateway routes, env vars, Vault keys | api-gateway, shared | — |
-| 1 | Item bank schema + grammar importer + course-material importer | content-service | 0 |
-| 2 | Drill library: sets, search, ratings, popularity, review state | content-service | 1 |
-| 3 | Assignment schema, state machine, grading engine | education-service | 0 |
-| 4 | Teacher-assistant agent + prompt + output schema | ai-microservice | 0 |
-| 5 | Generation orchestration + AI validation | education-service | 1,2,3,4 |
-| 6 | Runner API (answer-safe) + completion + rating forward | education-service | 3 |
-| 7 | Frontend: `DrillRunner` + `/learner/practice` | frontend | 6 |
-| 8 | Frontend: teacher wizard, library browser, review screen | frontend | 2,5 |
-| 9 | Notification templates + dispatch hooks | notification-service | 6 |
-| 10 | SSO exchange endpoint + `/auth/handoff` | user-service, frontend | 0 |
-| 11 | Legacy portal entry points (student + teacher + lesson panel) | speakasap-portal | 10 |
-| 12 | Rollout, seed verification, production reproduction | all | all |
+| 1 | Item bank schema + migration of both legacy banks | content-service | 0 |
+| 2 | Vocabulary baseline: `CourseVocabulary`, tokenizer, API | content-service | 1 |
+| 3 | Drill library: sets, search, ratings, popularity, review state | content-service | 1 |
+| 4 | Assignment schema, state machine, grading engine | education-service | 0 |
+| 5 | Generator agent + prompt + output schema | ai-microservice | 0 |
+| 6 | Validation agent + deterministic pre-checks + 80/20 enforcement | ai-microservice, content-service | 2,5 |
+| 7 | Generation orchestration, progress reporting, regeneration loop | education-service | 1–6 |
+| 8 | Runner API (answer-safe), completion, self-drilling gate, ratings | education-service | 4 |
+| 9 | Frontend: `DrillRunner`, `/learner/practice`, self-drill browser | frontend | 8 |
+| 10 | Frontend: wizard, progress view, library browser, review screen | frontend | 3,7 |
+| 11 | Notification templates + dispatch hooks | notification-service | 8 |
+| 12 | Legacy SSO handoff (marathon mechanism, fail-closed) | frontend, portal | 0 |
+| 13 | Transitional legacy entry points | speakasap-portal | 12 |
+| 14 | Rollout, migration verification, production reproduction | all | all |
 
-Deploys are serialized ecosystem-wide (`shared/scripts/with-deploy-lock.sh`).
+Deploys are serialized ecosystem-wide via `shared/scripts/with-deploy-lock.sh`.
 Implementation subagents stop at the deploy boundary; deploys are performed one
 at a time by the orchestrating session.
 
 ---
 
-## 14. Risks
+## 16. Risks
 
-- **Importer coverage is unknown until it runs.** Plain-`ExerciseField` classes
+- **Migration coverage is unknown until it runs.** Plain-`ExerciseField` classes
   are excluded from v1; the report quantifies what was left behind so a second
-  pass is a data-driven decision rather than a guess.
-- **Legacy portal has no local dev environment.** Portal changes are templates
-  plus one module, verified read-only on the speakasap server before deploy.
-  `ssh speakasap` remains read-only; deployment goes through the normal pipeline.
-- **`DrillAttempt` growth** — 50 items × several blanks × retries × students.
-  Indexed by assignment; a retention policy is needed before the table matters,
-  not after.
-- **SSO identity mapping** is the highest-risk piece and is isolated in stage 10
-  with its own tests; a mismatch there must fail closed, never fall back to an
-  unauthenticated session.
-- **Generation latency** — 50 items on the `smart` tier may take tens of
-  seconds. The `GENERATING` state plus polling exists for this; the teacher is
-  never blocked on a spinner and can leave the page.
-- **Topic taxonomy drift** — teacher-typed topics that match no `DrillTopic`
-  must not silently produce an empty bank query; they fall through to AI
-  generation and are flagged in the review screen as a new topic to confirm.
+  pass is a data-driven decision.
+- **Vocabulary baseline quality drives sentence quality.** If `WordTheme`
+  coverage for a course is thin, the 80 % rule will reject good sentences and
+  force needless regeneration. Stage 2 ends by reporting baseline size per
+  course, so thin courses are known before generation depends on them.
+- **Lemmatization varies by language.** Where no lemmatizer exists, surface-form
+  matching makes the known-word ratio conservative — the safe direction, but it
+  will show up as more regeneration on morphologically rich languages.
+- **Validation agent cost and latency** — a second model pass over every item,
+  bank items included. Deterministic checks run first and reject cheaply; the
+  agent only sees what survives.
+- **Topic taxonomy drift** — teacher-typed topics that match nothing are created
+  with `isNew`, generated entirely by AI, and confirmed by the teacher during
+  review, so the taxonomy grows deliberately rather than filling with synonyms.
