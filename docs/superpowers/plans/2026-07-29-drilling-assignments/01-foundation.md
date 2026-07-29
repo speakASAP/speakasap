@@ -144,7 +144,7 @@ import '@testing-library/jest-dom/vitest';
 In each of the 11 NestJS services, add to `"scripts"`:
 
 ```json
-"test": "jest",
+"test": "jest --passWithNoTests",
 "test:watch": "jest --watch",
 "typecheck": "./node_modules/.bin/tsc --noEmit -p tsconfig.json"
 ```
@@ -152,10 +152,19 @@ In each of the 11 NestJS services, add to `"scripts"`:
 In `frontend/package.json`:
 
 ```json
-"test": "vitest run",
+"test": "vitest run --passWithNoTests",
 "test:watch": "vitest",
 "typecheck": "./node_modules/.bin/tsc --noEmit -p tsconfig.json"
 ```
+
+`--passWithNoTests` is required: both runners exit 1 when they find no test
+files, and eight of these packages will have none for a while. It is passed as
+a **CLI flag rather than a config key** so it stays visible in `package.json`.
+
+It is also a false-green risk — the same class of problem as `npx tsc`. Once a
+package has tests, a broken config that discovers zero suites would report
+green. Step 6's `run-all.sh` therefore reports zero-suite packages explicitly,
+so the empty state is visible rather than silent.
 
 The `typecheck` script invokes the compiler **by path** so nobody is tempted to
 run `npx tsc`, which silently runs the unrelated registry package `tsc@2.0.4`
@@ -199,6 +208,7 @@ PACKAGES=(api-gateway assessment-service certification-service content-service
           payment-service salary-service user-service frontend)
 
 failed=()
+no_tests=()
 for p in "${PACKAGES[@]}"; do
   [[ -f "$ROOT/$p/package.json" ]] || continue
   if ! node -e "process.exit(require('$ROOT/$p/package.json').scripts?.['$SCRIPT']?0:1)"; then
@@ -206,8 +216,16 @@ for p in "${PACKAGES[@]}"; do
     continue
   fi
   echo "=== $p: npm run $SCRIPT"
-  if npm --prefix "$ROOT/$p" run "$SCRIPT" --silent; then
-    echo "PASS  $p"
+  out="$(npm --prefix "$ROOT/$p" run "$SCRIPT" --silent 2>&1)"
+  status=$?
+  echo "$out"
+  if [[ $status -eq 0 ]]; then
+    if grep -qE "No tests found|No test files found" <<<"$out"; then
+      echo "PASS  $p (0 suites)"
+      no_tests+=("$p")
+    else
+      echo "PASS  $p"
+    fi
   else
     echo "FAIL  $p"
     failed+=("$p")
@@ -217,8 +235,15 @@ done
 echo
 echo "--- summary: ${#failed[@]} failed"
 for f in "${failed[@]}"; do echo "  FAIL $f"; done
+echo "--- packages with zero test suites: ${#no_tests[@]}"
+for n in "${no_tests[@]}"; do echo "  EMPTY $n"; done
 [[ ${#failed[@]} -eq 0 ]]
 ```
+
+The zero-suite report exists because `--passWithNoTests` would otherwise hide a
+package whose tests stopped being discovered. Zero suites never fails the
+command — it is the correct state for a package with no tests yet — but it is
+always visible in the summary.
 
 Make it executable: `rtk chmod +x /home/ssf/Documents/Github/speakasap/scripts/run-all.sh`
 
@@ -277,8 +302,9 @@ rtk npm test
 rtk npm run typecheck
 ```
 
-`npm test` across 12 packages with no test files should report every package as
-passing with zero suites — that is the correct empty state, not an error.
+`npm test` across 12 packages with no test files reports every package as
+`PASS (0 suites)` and lists all 12 under "packages with zero test suites". That
+is the correct empty state, and it is visible rather than silent.
 
 `npm run typecheck` is the interesting one: **this repo has never been
 typechecked as a whole.** Expect pre-existing errors in services untouched by
