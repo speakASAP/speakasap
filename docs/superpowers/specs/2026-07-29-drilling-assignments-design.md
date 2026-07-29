@@ -59,7 +59,9 @@ The legacy portal appears in this design in exactly two ways, both temporary:
 | Languages | Prompt in the student's material language, answers in the course language |
 | Notifications | Student: email + in-app on assign. Teacher: email + in-app on completion |
 | AI model | Best available tier (`smart`), configurable — quality over token cost |
-| Legacy SSO | Reuse the marathon mechanism verbatim (§12) |
+| Identity | No registration — every user already exists in the legacy portal and 214k are already mapped; resolve, or link from signed claims (§12) |
+| Legacy SSO | Reuse the marathon mechanism, but fail closed on lookup outage (§12.3) |
+| Legacy portal UI | Student dashboard, teacher dashboard, and the lesson page — both views (§13) |
 
 ---
 
@@ -731,47 +733,123 @@ and the student's self-drilling history.
 
 ---
 
-## 12. Authentication from the legacy dashboards
+## 12. Identity and sign-in from the legacy portal
 
-The mechanism is the one marathon already uses, reused rather than reinvented:
+### 12.1 There is no registration
+
+Every teacher and student in this feature already exists in the legacy portal.
+Drilling never registers anyone, never shows a sign-up form, and never asks a
+student to create an account. It only *resolves* a legacy user to their platform
+identity.
+
+That resolution has largely already happened. The Goal 4 auth bootstrap
+populated `legacy_identity_mappings` with **214,232 `speakasap-portal` users,
+every row carrying an `authUserId`** (measured 2026-07-29: 214,034 `created`,
+192 `created_duplicate_email`, 6 `mapped`; zero `skipped` rows). For practical
+purposes the mapping exists before this feature ships.
+
+This is the key difference from marathon. Marathon has a public funnel and
+genuinely registers new participants (`registerMarathonContact` →
+`POST /auth/register-contact`). Drilling has no such funnel: the population is
+closed and pre-existing.
+
+### 12.2 Mechanism — the marathon pattern, reused
 
 1. The legacy portal issues a short-lived HS256 JWT with the numeric legacy user
    id in `sub`, signed with a shared secret — `marathon/jwt_for_marathon.py`
    generalized into `portal/platform_sso.py` with an `audience` argument and a
    new `SPEAKASAP_PLATFORM_JWT_SECRET` (Vault: `secret/prod/speakasap-portal`).
-2. The new platform verifies it and exchanges the numeric id for the
-   auth-microservice user via the **existing** endpoint
-   `GET /internal/users/by-legacy-id?system=speakasap-portal&legacyUserId=<id>`
-   (`auth-microservice/src/users/internal-users.controller.ts:10`), guarded by
-   `x-internal-service-token`, with a short-TTL in-process cache — exactly as
-   `marathon/src/shared/auth-client.ts:102` does.
+   The token also carries verified `email`, `first_name`, `last_name` and
+   `role` claims taken from the Django user record — signed, so they are
+   trustworthy, and sufficient to create a mapping without a callback.
+2. The platform verifies signature, expiry and audience, then resolves the id
+   through `auth-microservice`, guarded by `x-internal-service-token` and cached
+   in-process for 10 minutes — exactly as `marathon/src/shared/auth-client.ts:102`.
 3. `frontend /auth/handoff` consumes `?sso=`, performs the exchange, stores the
    session through the existing `consumeHostedAuthFragment` machinery, and
    redirects to `nextPath`.
 
-**One deliberate difference from marathon:** marathon fails soft to the raw
-numeric `sub` when the mapping lookup fails. Drilling **fails closed** — no
-session is issued. Marathon can treat an unmapped id as a participant key;
-here an unmapped id would attach graded work to an identity the platform cannot
-verify. A mapping outage produces a sign-in error, never a guessed user.
+### 12.3 Resolution outcomes
 
-Both are teachers and students already present in auth-microservice, so no new
-account provisioning is involved.
+Three cases, and they must be distinguished — collapsing them is how identity
+bugs happen:
 
-### Transitional entry points (legacy portal, removed at sunset)
+| Outcome | Action |
+|---|---|
+| **Mapping found** (the 214k case) | Issue the session. |
+| **No mapping — `404`** | Provision from the token's signed claims: match an existing auth user by normalized email, else create one, then write the `legacy_identity_mappings` row with `status = mapped` or `created`. Issue the session. This is *linking a known person*, not registering a new one. |
+| **Lookup unavailable — timeout or `5xx`** | **Fail closed.** No session, no provisioning, a retryable sign-in error. |
 
-- `cabinet/student` dashboard — "Practice assignments — N due" cards linking to
-  `{PLATFORM_URL}/learner/practice/{uuid}?sso=…`
-- `cabinet/teacher` dashboard and the lesson page — "Create drilling assignment"
-  linking to `{PLATFORM_URL}/teacher/assignments/new?lessonUuid=…&studentId=…&sso=…`,
-  plus a per-student status panel on the lesson
+The third row is the deliberate deviation from marathon, which falls soft to the
+raw numeric `sub` (`marathon/src/shared/auth-client.ts:110`). For marathon an
+unmapped id is a usable participant key. Here it would attach graded work to an
+identity the platform has not verified — and provisioning during an outage risks
+creating a duplicate user for someone who is already mapped. An outage is
+transient; the student retries and loses nothing.
 
-Both fail soft: if education-service is unreachable the panel renders empty with
-a quiet notice, never a 500 on a dashboard.
+Provisioning needs one new endpoint on auth-microservice, since only a read path
+exists today (`findLegacyMapping`, `users.service.ts:56`):
+
+```
+POST /internal/users/resolve-or-provision-legacy
+     { system, legacyUserId, email, firstName?, lastName? }
+  →  { authUserId, provisioned: boolean }
+```
+
+It is idempotent on `(system, legacyUserId)`, reuses the existing
+`LegacyIdentityMapping` entity and its `status` enum, and is guarded by
+`InternalServiceGuard` like its sibling. **Verification task:** before rollout,
+confirm no active teacher or student is missing from `legacy_identity_mappings`
+— the bootstrap covered 214k rows, but coverage against the *current* active
+roster has not been measured, and the provisioning path should be a rarely-taken
+fallback rather than a routine one.
 
 ---
 
-## 13. Notifications (speakasap/notification-service)
+## 13. Legacy portal UI (transitional, removed at sunset)
+
+The teacher assigns from the legacy portal and the student is reminded there,
+because that is where both still work day to day. Three placements, all Django
+templates plus server-side reads — no feature logic, no models, no migrations,
+no React 15, no Webpack 2. Each is marked in code for deletion at sunset.
+
+**1. Student dashboard** (`cabinet/templates/student/…`) — a "Practice
+assignments" block above the fold:
+
+- one card per outstanding assignment: title, topics, item count, due date,
+  progress ("18 of 50 done")
+- primary button → `{PLATFORM_URL}/learner/practice/{uuid}?sso=…`
+- when nothing is outstanding, a single "Practise on your own" link to
+  `{PLATFORM_URL}/learner/practice` — matching the self-drilling gate in §9.3,
+  so the legacy dashboard and the platform never disagree about what the student
+  may do
+- source: `GET /api/v1/internal/drill-assignments/by-student/:studentId`
+
+**2. Teacher dashboard** (`cabinet/templates/teacher/…`) — a "Drilling" block:
+
+- counts by state: awaiting my review, assigned, completed this week
+- "Create drilling assignment" → `{PLATFORM_URL}/teacher/assignments/new?sso=…`
+- "Review pending" → the platform review queue, badged with the count, since a
+  set awaiting review is blocking a student
+- source: `GET /api/v1/internal/drill-assignments/by-teacher/:teacherId`
+
+**3. Lesson page** — the placement that matters most, because this is where a
+teacher decides what a student should practise next:
+
+- *teacher view*: a per-student panel listing that lesson's drilling
+  assignments with status and first-try accuracy, plus "Create drilling
+  assignment" pre-filled with `lessonUuid` and `studentId` →
+  `{PLATFORM_URL}/teacher/assignments/new?lessonUuid=…&studentId=…&sso=…`
+- *student view*: the same lesson's assignments with their status and a link
+  into the runner
+
+All three fail soft: if education-service is unreachable the block renders empty
+with a quiet notice. A drilling outage must never 500 a dashboard or a lesson
+page.
+
+---
+
+## 14. Notifications (speakasap/notification-service)
 
 - `drill_assignment_assigned` → student on assign: topic list with links to the
   public grammar pages, due date, deep link to the runner. Plus in-app.
@@ -785,7 +863,7 @@ the assignment uuid.
 
 ---
 
-## 14. Testing
+## 15. Testing
 
 | Area | Tests |
 |---|---|
@@ -800,7 +878,7 @@ the assignment uuid.
 | State machine | Every legal transition, rejection of illegal ones, bulk fan-out, set approval releasing a whole batch. |
 | Popularity | Score formula, ordering, downvote effect, unapproved sets rank last. |
 | Progress reporting | Phases advance in order; a stalled job reports stalled rather than counting to zero. |
-| SSO | Valid token → session; expired, wrong-signature, and unmapped-id tokens → no session (fail closed), each asserted separately. |
+| SSO and identity | Valid token → session. Expired, wrong-signature and wrong-audience tokens → no session, each asserted separately. Mapping `404` → provisions once and issues a session; called twice with the same legacy id → one auth user, one mapping row (idempotence). Lookup timeout/`5xx` → **no session and no provisioning**, asserted explicitly, because a soft failure here is the bug this rule exists to prevent. |
 | Frontend | `DrillRunner`: correct → inline text and focus advance; incorrect → error and retry; reveal excluded from accuracy; completion fires once. Self-drill lock renders while work is outstanding. One Playwright e2e on staging. |
 
 Verification before any "done" claim follows
@@ -810,7 +888,7 @@ never `npx tsc`), run the suites, and reproduce the flow end to end in a browser
 
 ---
 
-## 15. Stages
+## 16. Stages
 
 | # | Stage | Owner service | Depends on |
 |---|---|---|---|
@@ -826,9 +904,10 @@ never `npx tsc`), run the suites, and reproduce the flow end to end in a browser
 | 9 | Frontend: `DrillRunner`, `/learner/practice`, self-drill browser | frontend | 8 |
 | 10 | Frontend: wizard, progress view, library browser, review screen | frontend | 3,7 |
 | 11 | Notification templates + dispatch hooks | notification-service | 8 |
-| 12 | Legacy SSO handoff (marathon mechanism, fail-closed) | frontend, portal | 0 |
-| 13 | Transitional legacy entry points | speakasap-portal | 12 |
-| 14 | Rollout, migration verification, production reproduction | all | all |
+| 12 | Identity: `resolve-or-provision-legacy` endpoint + mapping-coverage audit | auth-microservice | 0 |
+| 13 | SSO handoff: `platform_sso.py`, `/auth/handoff`, fail-closed resolution | frontend, speakasap-portal | 12 |
+| 14 | Legacy UI: student dashboard, teacher dashboard, lesson page (both views) | speakasap-portal | 13 |
+| 15 | Rollout, migration verification, production reproduction | all | all |
 
 Deploys are serialized ecosystem-wide via `shared/scripts/with-deploy-lock.sh`.
 Implementation subagents stop at the deploy boundary; deploys are performed one
@@ -836,7 +915,7 @@ at a time by the orchestrating session.
 
 ---
 
-## 16. Risks
+## 17. Risks
 
 - **Migration coverage is unknown until it runs.** Plain-`ExerciseField` classes
   are excluded from v1; the report quantifies what was left behind so a second
@@ -854,3 +933,8 @@ at a time by the orchestrating session.
 - **Topic taxonomy drift** — teacher-typed topics that match nothing are created
   with `isNew`, generated entirely by AI, and confirmed by the teacher during
   review, so the taxonomy grows deliberately rather than filling with synonyms.
+- **Mapping coverage against the active roster is unmeasured.** 214,232 legacy
+  users are mapped, but that is the bootstrap's total, not a check that every
+  currently-active teacher and student is among them. Stage 12 measures it. If
+  coverage is complete the provisioning path is dead code kept as a safety net;
+  if it is not, the gap is known before students hit it rather than after.
