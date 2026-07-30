@@ -22,17 +22,34 @@ describe('resolveUpstreamBaseUrl — drill routes', () => {
     expect(resolveUpstreamBaseUrl('/api/v1/drill-assignments/mine')).toBe('http://education:4205');
   });
 
-  it('routes drill sets, items, topics and vocabulary to content-service', () => {
+  it('routes drill sets and topics (public, answer-free) to content-service', () => {
     expect(resolveUpstreamBaseUrl('/api/v1/drill-sets')).toBe('http://content:4201');
-    expect(resolveUpstreamBaseUrl('/api/v1/drill-items/search')).toBe('http://content:4201');
     expect(resolveUpstreamBaseUrl('/api/v1/drill-topics')).toBe('http://content:4201');
-    expect(resolveUpstreamBaseUrl('/api/v1/course-vocabulary')).toBe('http://content:4201');
   });
 
   it('routes internal drill assignments to education, NOT user-service', () => {
     expect(resolveUpstreamBaseUrl('/api/v1/internal/drill-assignments/by-student/42')).toBe(
       'http://education:4205',
     );
+  });
+
+  // Task A.8 security fix: drill-items/search returns DrillBlank.answer/.alternatives
+  // and course-vocabulary reveals a course's known-word baseline. The gateway's auth
+  // guard only checks for a valid token, not a role, so a public prefix would let any
+  // authenticated student read drill answers. Both must resolve to content-service
+  // ONLY under /api/v1/internal (which requires the x-internal-token header), and
+  // must NOT resolve under their old public prefixes at all.
+  it('routes internal drill-items search to content-service, NOT user-service', () => {
+    expect(resolveUpstreamBaseUrl('/api/v1/internal/drill-items/search')).toBe('http://content:4201');
+  });
+
+  it('routes internal course-vocabulary to content-service, NOT user-service', () => {
+    expect(resolveUpstreamBaseUrl('/api/v1/internal/course-vocabulary')).toBe('http://content:4201');
+  });
+
+  it('no longer exposes drill-items/search or course-vocabulary on a public prefix', () => {
+    expect(resolveUpstreamBaseUrl('/api/v1/drill-items/search')).toBeNull();
+    expect(resolveUpstreamBaseUrl('/api/v1/course-vocabulary')).toBeNull();
   });
 
   it('leaves other internal routes on user-service', () => {

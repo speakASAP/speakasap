@@ -16,6 +16,16 @@ export const ROUTES: { prefix: string; envKey: string }[] = [
   // Must stay above '/api/v1/internal' below — otherwise it never matches
   // and internal drilling calls silently resolve to user-service and 404.
   { prefix: '/api/v1/internal/drill-assignments', envKey: 'EDUCATION_SERVICE_URL' },
+  // Same reason as drill-assignments immediately above, plus a security reason:
+  // these two responses carry DrillBlank.answer/.alternatives (drill-items/search)
+  // and a course's known-vocabulary baseline (course-vocabulary) — Task A.8's
+  // review found the gateway's auth guard checks for a valid token but not a
+  // role, so any authenticated student could otherwise read drill answers.
+  // Moving them under /api/v1/internal makes the gateway require the
+  // x-internal-token header. Must stay above '/api/v1/internal' below, or they
+  // silently resolve to user-service and 404.
+  { prefix: '/api/v1/internal/drill-items', envKey: 'CONTENT_SERVICE_URL' },
+  { prefix: '/api/v1/internal/course-vocabulary', envKey: 'CONTENT_SERVICE_URL' },
   { prefix: '/api/v1/internal', envKey: 'USER_SERVICE_URL' },
 
   { prefix: '/api/v1/manager/user-questionnaires', envKey: 'CERTIFICATION_SERVICE_URL' },
@@ -53,9 +63,12 @@ export const ROUTES: { prefix: string; envKey: string }[] = [
   { prefix: '/api/v1/grammar', envKey: 'CONTENT_SERVICE_URL' },
   { prefix: '/api/v1/languages', envKey: 'CONTENT_SERVICE_URL' },
   { prefix: '/api/v1/drill-sets', envKey: 'CONTENT_SERVICE_URL' },
-  { prefix: '/api/v1/drill-items', envKey: 'CONTENT_SERVICE_URL' },
+  // drill-items/search and course-vocabulary are internal-only as of the Task A.8
+  // security fix (see the /api/v1/internal/drill-items and
+  // /api/v1/internal/course-vocabulary entries above) — there is deliberately no
+  // public-prefix entry for them here. drill-topics carries no answers and stays
+  // public for Track F's teacher UI.
   { prefix: '/api/v1/drill-topics', envKey: 'CONTENT_SERVICE_URL' },
-  { prefix: '/api/v1/course-vocabulary', envKey: 'CONTENT_SERVICE_URL' },
 
   { prefix: '/api/v1/webhooks/payments', envKey: 'PAYMENT_SERVICE_URL' },
   { prefix: '/api/v1/discounts', envKey: 'PAYMENT_SERVICE_URL' },

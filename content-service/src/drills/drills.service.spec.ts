@@ -137,6 +137,31 @@ describe('DrillsService.searchItems', () => {
     expect((res.items[0] as any).topicId).toBeUndefined();
   });
 
+  it('search response is answer-bearing, which is why the route is internal-only', async () => {
+    // This is NOT a bug: DrillItemDTO.blanks legitimately includes answer and
+    // alternatives, because Track D's generation orchestration needs them to build
+    // and grade drill sets. That is exactly why POST /drill-items/search must be
+    // gateway-routed under /api/v1/internal (x-internal-token required) and never
+    // promoted to a public prefix a student's JWT could reach — the gateway's auth
+    // guard checks for a valid token, not a role. If this assertion ever needs to
+    // change because answers stop being returned here, that's fine; if it changes
+    // because someone strips this comment and moves the route back to public
+    // without another look, it's not.
+    prisma.drillItem.findMany.mockResolvedValue([
+      { id: 1, plainText: 'a b', blanks: [{ index: 0, prompt: '', answer: 'secret-answer', alternatives: ['alt'] }],
+        template: 'a [ ]{secret-answer}', hash: 'h1', languageId: 1, materialLanguage: 'ru',
+        sourceType: 'BANK_GRAMMAR', courseKey: null, lessonOrder: null, level: null, hint: null,
+        unknownWords: [], timesShown: 0, timesCorrectFirstTry: 0, topic: { slug: 'prepositions' } },
+    ]);
+    const svc = new DrillsService(prisma, vocabulary);
+    const res = await svc.searchItems({
+      languageCode: 'de', materialLanguage: 'ru', topicSlugs: ['prepositions'], limit: 10,
+    });
+    expect(res.items[0].blanks).toEqual([
+      { index: 0, prompt: '', answer: 'secret-answer', alternatives: ['alt'] },
+    ]);
+  });
+
   it('orders items with no history (timesShown=0) without dividing by zero, deterministically for a given seed', async () => {
     prisma.drillItem.findMany.mockResolvedValue([
       { id: 1, plainText: 'one', blanks: [], template: 'one', hash: 'h1', languageId: 1,

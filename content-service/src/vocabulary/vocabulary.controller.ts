@@ -9,7 +9,14 @@ export class VocabularyController {
 
   constructor(private readonly vocabularyService: VocabularyService) {}
 
-  @Get('course-vocabulary')
+  // Internal-only: a course vocabulary baseline reveals exactly which words a
+  // named student/course is assumed to already know, which is generation input
+  // Track D uses to build answer-bearing drill sets — not something a student's
+  // browser session needs or should be able to pull directly for an arbitrary
+  // courseKey. Gateway-routed under /api/v1/internal/course-vocabulary, which
+  // requires the x-internal-token header; no guard is added here (see
+  // DrillsController for the same reasoning) — the gateway enforces this.
+  @Get('internal/course-vocabulary')
   async getBaseline(
     @Query('courseKey') courseKey?: string,
     @Query('languageCode') languageCode?: string,

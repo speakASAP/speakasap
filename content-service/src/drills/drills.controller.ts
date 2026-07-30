@@ -45,7 +45,17 @@ export class DrillsController {
     return result;
   }
 
-  @Post('drill-items/search')
+  // Internal-only: DrillItemDTO.blanks carries DrillBlank.answer/.alternatives — the
+  // correct answers to every drill item in the bank. This route must never be
+  // reachable through a public prefix a student's JWT can reach (the gateway's
+  // auth guard checks for a valid token, not a role). It is gateway-routed under
+  // /api/v1/internal/drill-items/search, which requires the x-internal-token
+  // header; content-service itself still applies no guard (see the class-level
+  // comment above), same as every other route here — the gateway is what makes
+  // this safe. Do not move this back under a public prefix without re-reviewing
+  // that constraint. Track D (education-service orchestration) is the only
+  // intended caller.
+  @Post('internal/drill-items/search')
   @HttpCode(HttpStatus.OK)
   async searchItems(
     @Body() body: DrillItemSearchRequest,
