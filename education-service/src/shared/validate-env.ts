@@ -1,4 +1,4 @@
-const REQUIRED_ENV = [
+export const REQUIRED_ENV = [
   'PORT',
   'SERVICE_NAME',
   'DATABASE_URL',

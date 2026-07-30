@@ -5,7 +5,7 @@
  * above a narrower one will silently shadow it.
  * Aligned with docs/refactoring/GATEWAY_ROUTE_OWNERSHIP_MATRIX.md
  */
-const ROUTES: { prefix: string; envKey: string }[] = [
+export const ROUTES: { prefix: string; envKey: string }[] = [
   { prefix: '/api/v1/internal/financial/products-metadata', envKey: 'COURSE_SERVICE_URL' },
   { prefix: '/api/v1/internal/financial/orders-paid-slice', envKey: 'PAYMENT_SERVICE_URL' },
   { prefix: '/api/v1/internal/financial/transactions-slice', envKey: 'PAYMENT_SERVICE_URL' },

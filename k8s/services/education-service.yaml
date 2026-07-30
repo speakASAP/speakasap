@@ -119,6 +119,8 @@ data:
   USER_SERVICE_URL: "http://speakasap-user:4207"
   ASSESSMENT_SERVICE_URL: "http://speakasap-assessment:4203"
   AI_SERVICE_URL: "http://ai-microservice:3380"
+  DRILL_GENERATION_MODEL_TIER: "smart"
+  DRILL_GENERATION_TIMEOUT_SECONDS: "600"
   AI_SERVICE_TIMEOUT: "5000"
   AI_SERVICE_TRANSLATE_PATH: "/api/v1/translate"
   NOTIFICATION_SERVICE_URL: "http://speakasap-notification:4209"
