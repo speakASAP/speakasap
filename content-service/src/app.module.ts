@@ -7,11 +7,21 @@ import { DictionaryModule } from './dictionary/dictionary.module';
 import { SongsModule } from './songs/songs.module';
 import { LanguagesModule } from './languages/languages.module';
 import { SevenModule } from './seven/seven.module';
+import { DrillsModule } from './drills/drills.module';
 import { RequestContextMiddleware } from './shared/request-context.middleware';
 import { SharedModule } from './shared/shared.module';
 
 @Module({
-  imports: [SharedModule, GrammarModule, PhoneticsModule, DictionaryModule, SongsModule, LanguagesModule, SevenModule],
+  imports: [
+    SharedModule,
+    GrammarModule,
+    PhoneticsModule,
+    DictionaryModule,
+    SongsModule,
+    LanguagesModule,
+    SevenModule,
+    DrillsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
