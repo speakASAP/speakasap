@@ -16,7 +16,11 @@ export const STOPWORDS: Record<string, ReadonlySet<string>> = {
   fr: new Set(['le','la','les','un','une','des','je','tu','il','elle','nous','vous','ils','elles',
     'et','ou','mais','dans','a','avec','de','est','sont','etait','pas','aussi','comme','sur',
     'pour','chez','s','il','y','en','était','à','où',
-    'd','l','c','j','m','n','qu','t']),
+    'd','l','c','j','m','n','qu','t',
+    // Frequent function words missing from the original list. Their absence let them count
+    // as content words, and it also kept 'est-ce' alive: a hyphenated token is only dropped
+    // when EVERY part is a stopword, and 'ce' was not one.
+    'ce','que','qui','ne','on','se','au','aux','du']),
   // 'él'/'tú'/'también': accented forms distinct from (or unmatchable without accents from)
   // the unaccented 'el'/'tu'/'tambien' already present. The original list's second 'el'
   // was a duplicate of the article and has been replaced by 'él' (the pronoun).

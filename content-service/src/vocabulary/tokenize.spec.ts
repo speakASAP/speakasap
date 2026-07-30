@@ -54,3 +54,25 @@ describe('tokenizeContentWords', () => {
     expect(result).not.toContain('también');
   });
 });
+
+describe('tokenizeContentWords — hyphenated compounds', () => {
+  it('keeps a single-lexeme compound whole rather than shredding it', () => {
+    const r = tokenizeContentWords('On se voit ce week-end.', 'fr');
+    expect(r).toContain('week-end');
+    expect(r).not.toContain('week');
+    expect(r).not.toContain('end');
+  });
+
+  it('keeps rendez-vous whole even though "vous" is itself a stopword', () => {
+    const r = tokenizeContentWords("J'ai un rendez-vous demain.", 'fr');
+    expect(r).toContain('rendez-vous');
+    expect(r).not.toContain('rendez');
+  });
+
+  it('still drops a compound whose every part is a stopword', () => {
+    const r = tokenizeContentWords("Qu'est-ce que c'est?", 'fr');
+    expect(r).not.toContain('est-ce');
+    expect(r).not.toContain('qu');
+    expect(r).not.toContain('c');
+  });
+});
