@@ -22,6 +22,11 @@
 - Consumes: existing `Language`, `GrammarLesson`, `SevenLesson` models
 - Produces: `DrillTopic`, `DrillItem`, `DrillItemRevision` Prisma models used by every later task in this track
 
+**Table naming:** content-service's schema uses **no `@@map`** anywhere — its tables are
+PascalCase (`"Language"`, `"SevenLesson"`). Drill models here follow that, so this
+service's database keeps one naming style. (education-service is the opposite case and
+does use `@@map`, because it maps legacy Django tables. Per-service convention wins.)
+
 - [ ] **Step 1: Append the models to `schema.prisma`**
 
 ```prisma
@@ -42,7 +47,6 @@ model DrillTopic {
 
   @@unique([languageId, materialLanguage, slug])
   @@index([languageId, materialLanguage])
-  @@map("drill_topic")
 }
 
 model DrillItem {
@@ -72,7 +76,6 @@ model DrillItem {
 
   @@index([languageId, materialLanguage, topicId, status])
   @@index([courseKey, lessonOrder])
-  @@map("drill_item")
 }
 
 model DrillItemRevision {
@@ -87,7 +90,6 @@ model DrillItemRevision {
   item DrillItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([itemId, createdAt])
-  @@map("drill_item_revision")
 }
 ```
 
@@ -844,7 +846,6 @@ model CourseVocabulary {
 
   @@unique([courseKey, languageId, word, source])
   @@index([courseKey, languageId, lessonOrder])
-  @@map("drill_course_vocabulary")
 }
 ```
 

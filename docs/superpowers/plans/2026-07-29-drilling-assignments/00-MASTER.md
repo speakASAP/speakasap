@@ -23,7 +23,9 @@ Every task's requirements implicitly include this section.
 - **No secrets in code, logs or markdown.** All secrets live in Vault at `secret/prod/<service>`.
 - **Answers are server-side only.** No endpoint that a student can call may return `answer` or `alternatives`. Task 7.4 enforces this with a test; do not weaken it.
 - **First-try accuracy is never shown to a teacher.** Item-level correctness counters exist for bank selection only. No teacher-facing screen, list, panel or email displays a score.
-- **Prisma model names use `Drill` prefix**; table names are snake_case with a `drill_` prefix via `@@map`.
+- **Prisma model names use a `Drill` prefix.** Table naming follows **the existing convention of the service's own schema**, not a global rule — a database with two naming styles is worse than either style. Verified 2026-07-30:
+  - `content-service` uses **no `@@map` at all** (tables are PascalCase, e.g. `"Language"`, `"SevenLesson"`). Drill models there get **no `@@map`**.
+  - `education-service` uses `@@map` throughout (8 models) because it maps legacy Django tables (`education_lesson`, `education_studentcourse`). Drill models there **do** get `@@map("drill_…")` and snake_case `@map` on fields, so they sit consistently beside the legacy tables.
 - **All new HTTP routes are versioned** under `/api/v1/`.
 - **Commit after every task.** Conventional Commits, ending with `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
 - **Language of user-visible copy**: prompts and UI strings in the recipient's material language (`ru` or `en`); code, comments and commits in English.
