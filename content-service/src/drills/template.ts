@@ -1,13 +1,14 @@
 import { createHash } from 'crypto';
-import { DrillBlank, DrillTemplate, ParsedTemplate } from './contracts';
+import { DrillBlank, DrillTemplate, ParsedTemplate, DRILL_BLANK_PATTERN } from './contracts';
 
-const BLANK = /\[([^\]]*)\]\{([^}]*)\}/g;
 const HTML_TAG = /<[^>]+>/g;
+
+const blankRe = () => new RegExp(DRILL_BLANK_PATTERN.source, 'g');
 
 export function parseTemplate(template: DrillTemplate): ParsedTemplate {
   const blanks: DrillBlank[] = [];
   let index = 0;
-  const substituted = template.replace(BLANK, (_m, prompt: string, answer: string) => {
+  const substituted = template.replace(blankRe(), (_m, prompt: string, answer: string) => {
     blanks.push({ index: index++, prompt, answer, alternatives: [] });
     return answer;
   });
@@ -20,7 +21,7 @@ export function toSegments(
   const segments: ({ type: 'text'; value: string } | { type: 'blank'; index: number })[] = [];
   let cursor = 0;
   let index = 0;
-  for (const match of template.matchAll(BLANK)) {
+  for (const match of template.matchAll(blankRe())) {
     const at = match.index!;
     if (at > cursor) segments.push({ type: 'text', value: template.slice(cursor, at) });
     segments.push({ type: 'blank', index: index++ });

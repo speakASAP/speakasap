@@ -38,6 +38,18 @@ describe('parseTemplate', () => {
     const r = parseTemplate(t);
     expect(r.plainText).toBe('Ich gehe in die Schule. (gehen – идти)');
   });
+
+  it('preserves literal brackets in text before markup', () => {
+    const r = parseTemplate('Use [ and { in text, then [a]{x} works.');
+    expect(r.blanks).toEqual([{ index: 0, prompt: 'a', answer: 'x', alternatives: [] }]);
+    expect(r.plainText).toBe('Use [ and { in text, then x works.');
+  });
+
+  it('preserves self-closed literal bracket pairs', () => {
+    const r = parseTemplate('A [sic] note then [a]{x}.');
+    expect(r.blanks).toEqual([{ index: 0, prompt: 'a', answer: 'x', alternatives: [] }]);
+    expect(r.plainText).toBe('A [sic] note then x.');
+  });
 });
 
 describe('toSegments', () => {
@@ -60,5 +72,19 @@ describe('hashItem', () => {
 
   it('differs across languages', () => {
     expect(hashItem('Hallo', 'de')).not.toBe(hashItem('Hallo', 'en'));
+  });
+});
+
+describe('Idempotency', () => {
+  it('parseTemplate and toSegments produce consistent results on repeated calls', () => {
+    const template = 'Ich gehe [in]{in} die Schule. [Das]{Die} ist ein Satz.';
+
+    const r1 = parseTemplate(template);
+    const r2 = parseTemplate(template);
+    expect(r1).toEqual(r2);
+
+    const segs1 = toSegments(template);
+    const segs2 = toSegments(template);
+    expect(segs1).toEqual(segs2);
   });
 });
