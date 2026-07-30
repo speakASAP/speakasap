@@ -1,12 +1,13 @@
 import { VocabularyService } from './vocabulary.service';
 
 const prisma = {
-  courseVocabulary: { findMany: jest.fn() },
+  courseVocabulary: { findMany: jest.fn(), findFirst: jest.fn() },
 } as any;
 
 describe('VocabularyService.getBaseline', () => {
   beforeEach(() => {
     prisma.courseVocabulary.findMany.mockReset();
+    prisma.courseVocabulary.findFirst.mockReset();
   });
 
   it('includes only lessons at or below maxLessonOrder and builds a lookup index', async () => {
@@ -22,18 +23,42 @@ describe('VocabularyService.getBaseline', () => {
     );
     expect(baseline.index).toEqual(expect.arrayContaining(['schule', 'wohnen']));
     expect(baseline.maxLessonOrder).toBe(4);
+    // A non-empty filtered result proves a baseline exists on its own — the extra
+    // existence check (findFirst) must be skipped entirely in this case.
+    expect(baseline.hasBaseline).toBe(true);
+    expect(prisma.courseVocabulary.findFirst).not.toHaveBeenCalled();
   });
 
-  it('returns an empty baseline rather than throwing when a course has no vocabulary', async () => {
+  it('returns an empty baseline with hasBaseline=false when a course has NO vocabulary at all', async () => {
     prisma.courseVocabulary.findMany.mockResolvedValue([]);
+    prisma.courseVocabulary.findFirst.mockResolvedValue(null);
     const svc = new VocabularyService(prisma);
     const baseline = await svc.getBaseline('seven:greek:ru', 'el', 5);
     expect(baseline.words).toEqual([]);
     expect(baseline.index).toEqual([]);
+    expect(baseline.hasBaseline).toBe(false);
+    expect(prisma.courseVocabulary.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { courseKey: 'seven:greek:ru' } }),
+    );
+  });
+
+  it('reports hasBaseline=true with an empty baseline when rows exist but none at or below maxLessonOrder', async () => {
+    // The filtered query legitimately returns nothing (a student at lesson 1 of a course
+    // whose earliest recorded word starts at lesson 3) but the course DOES have a built
+    // baseline overall. This must not be confused with "no baseline was ever built" —
+    // that distinction is the entire point of this field.
+    prisma.courseVocabulary.findMany.mockResolvedValue([]);
+    prisma.courseVocabulary.findFirst.mockResolvedValue({ id: 42 });
+    const svc = new VocabularyService(prisma);
+    const baseline = await svc.getBaseline('seven:german:ru', 'de', 1);
+    expect(baseline.words).toEqual([]);
+    expect(baseline.index).toEqual([]);
+    expect(baseline.hasBaseline).toBe(true);
   });
 
   it('filters by courseKey, not language, matching the query shape sent to Prisma', async () => {
     prisma.courseVocabulary.findMany.mockResolvedValue([]);
+    prisma.courseVocabulary.findFirst.mockResolvedValue(null);
     const svc = new VocabularyService(prisma);
     await svc.getBaseline('seven:french:ru', 'fr', 10);
     expect(prisma.courseVocabulary.findMany).toHaveBeenCalledWith(
@@ -43,6 +68,7 @@ describe('VocabularyService.getBaseline', () => {
 
   it('echoes courseKey, languageCode and maxLessonOrder back on the returned baseline unchanged', async () => {
     prisma.courseVocabulary.findMany.mockResolvedValue([]);
+    prisma.courseVocabulary.findFirst.mockResolvedValue(null);
     const svc = new VocabularyService(prisma);
     const baseline = await svc.getBaseline('seven:chinese:ru', 'zh', 7);
     expect(baseline.courseKey).toBe('seven:chinese:ru');

@@ -59,6 +59,15 @@ describe('stripHtml', () => {
     expect(stripHtml('<div>\n  <p>A</p>\n  <p>B</p>\n</div>')).toBe('A B');
   });
 
+  it('strips a dangling unclosed tag that runs to the end of the string, rather than ' +
+    'leaking its name/attributes as text', () => {
+    expect(stripHtml('Hello <span class="mute"')).toBe('Hello');
+  });
+
+  it('does not end a tag match early on a `>` inside a quoted attribute value', () => {
+    expect(stripHtml('<a title="a > b">word</a>')).toBe('word');
+  });
+
   it('handles a realistic SevenLesson.bodyHtml fragment end to end', () => {
     const html =
       '<p>Здравствуйте!&nbsp;Меня зовут <span class="mute">Анна</span>.<br>' +

@@ -39,6 +39,26 @@ export class VocabularyService {
       new Set(words.flatMap((w) => (w.lemma ? [w.word, w.lemma] : [w.word]))),
     );
 
-    return { courseKey, languageCode, maxLessonOrder, words, index };
+    // hasBaseline must answer "does ANY CourseVocabulary row exist for this courseKey, at
+    // any lesson order" — NOT "did the filtered (lessonOrder <= maxLessonOrder) query
+    // return rows". Those are different questions: a student at lesson 1 of a course whose
+    // vocabulary starts at lesson 3 legitimately gets an empty `words` here, and that must
+    // read as "no known words yet", not as "this course has no baseline at all" (which
+    // means "do not attempt the 80/20 check — there is nothing to check against").
+    //
+    // A non-empty filtered result already proves a baseline exists, so the common case
+    // (rows.length > 0) is answered for free. Only when the filtered query comes back
+    // empty do we need the extra existence check, which is a cheap `LIMIT 1`-shaped
+    // findFirst, not a count of every row.
+    let hasBaseline = rows.length > 0;
+    if (!hasBaseline) {
+      const anyRow = await this.prisma.courseVocabulary.findFirst({
+        where: { courseKey },
+        select: { id: true },
+      });
+      hasBaseline = anyRow !== null;
+    }
+
+    return { courseKey, languageCode, maxLessonOrder, words, index, hasBaseline };
   }
 }

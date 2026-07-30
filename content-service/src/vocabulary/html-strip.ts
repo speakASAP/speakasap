@@ -10,21 +10,45 @@
  *  1. Remove <script>/<style> elements INCLUDING their contents (a plain tag-strip would
  *     leave JS/CSS source text behind to be tokenized as "words").
  *  2. Remove HTML comments.
- *  3. Replace every remaining tag with a single space (not '') so two words separated only
- *     by an inline tag ("cat<b>dog</b>" or "Line1<br>Line2") don't glue into one token.
- *  4. Decode entities: numeric (decimal `&#65;` and hex `&#x0301;`) generically via
+ *  3. Replace every well-formed remaining tag with a single space (not '') so two words
+ *     separated only by an inline tag ("cat<b>dog</b>" or "Line1<br>Line2") don't glue
+ *     into one token. TAG_RE is quote-aware: a `>` inside a quoted attribute value (e.g.
+ *     `<a title="a > b">`) does NOT end the match early — it's matched as part of the
+ *     quoted-string alternative, not the bare "any non-angle-bracket char" alternative, so
+ *     the tag's real closing `>` (after the quote) is the one that terminates it. Getting
+ *     this wrong leaks a stray word from inside the attribute (here, "b") as if it were
+ *     lesson prose.
+ *  4. Strip a dangling UNCLOSED tag that runs to the end of the string (a `<` with no `>`
+ *     anywhere after it) — step 3 requires a literal closing `>` and correctly leaves an
+ *     unclosed tag untouched, so this is a deliberate second pass, not a gap in step 3.
+ *     Real-world source: a `bodyHtml` value truncated mid-tag. Without this, a fragment
+ *     like `Hello <span class="mute"` (no closing `>`) would leak "span class mute" as
+ *     vocabulary — exactly the failure this whole helper exists to prevent.
+ *  5. Decode entities: numeric (decimal `&#65;` and hex `&#x0301;`) generically via
  *     String.fromCodePoint, plus a small table of common named entities. The hex form in
  *     particular matters for the real corpus: `&#x0301;` is a combining acute stress accent
  *     (U+0301) that appears attached to Cyrillic vowels — it must decode to an actual
  *     combining mark character (matched by the tokenizer's \p{M}) and NOT be swallowed as
  *     whitespace. An unrecognized named entity is left untouched rather than guessed at.
- *  5. Collapse whitespace runs (including the non-breaking space &nbsp; decodes to) to a
+ *  6. Collapse whitespace runs (including the non-breaking space &nbsp; decodes to) to a
  *     single space and trim.
+ *
+ * Known scope limit: this targets the two concrete gaps found in review (quoted `>` and a
+ * tag unclosed to end-of-string). It does not attempt general malformed-HTML recovery —
+ * e.g. a `<` missing a `>` for the same tag but with more valid markup and prose following
+ * it later in the document is not the observed failure mode in this corpus and is not
+ * handled.
  */
 
 const SCRIPT_OR_STYLE_ELEMENT_RE = /<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi;
 const COMMENT_RE = /<!--[\s\S]*?-->/g;
-const TAG_RE = /<[^>]+>/g;
+// Quote-aware: after the tag name, repeat "any char that isn't < > " '" OR a whole
+// quoted string (which may itself contain < or >), then require a literal closing >.
+// This is what keeps a `>` inside a quoted attribute value from ending the match early.
+const TAG_RE = /<\/?[a-zA-Z][a-zA-Z0-9-]*(?:[^<>"']|"[^"]*"|'[^']*')*\/?>/g;
+// A `<` with no closing `>` anywhere for the rest of the string — a truncated/unclosed
+// tag. Applied AFTER TAG_RE, which only ever matches well-formed (closed) tags.
+const UNCLOSED_TAG_AT_END_RE = /<[^>]*$/;
 const ENTITY_RE = /&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z][a-zA-Z0-9]*);/g;
 const WHITESPACE_RUN_RE = /\s+/g;
 
@@ -69,7 +93,8 @@ export function stripHtml(html: string): string {
   const withoutMarkup = html
     .replace(SCRIPT_OR_STYLE_ELEMENT_RE, ' ')
     .replace(COMMENT_RE, ' ')
-    .replace(TAG_RE, ' ');
+    .replace(TAG_RE, ' ')
+    .replace(UNCLOSED_TAG_AT_END_RE, ' ');
 
   const withEntitiesDecoded = withoutMarkup.replace(ENTITY_RE, decodeEntity);
 
