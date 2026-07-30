@@ -23,6 +23,7 @@ model Language {
   words           Word[]
   drillTopics     DrillTopic[]
   drillItems      DrillItem[]
+  courseVocabulary CourseVocabulary[]
 
   @@index([order])
   @@index([name])
@@ -256,4 +257,31 @@ model DrillItemRevision {
   item DrillItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([itemId, createdAt])
+}
+
+// Materialized "known by lesson N" baseline that Track D's 80/20 rule checks
+// against. `source` is a string, not an enum, so a future data source can
+// land without a migration.
+//
+// As of 2026-07-30, only 'ITEM' and 'LESSON_BODY' rows are ever written —
+// 'THEME' is kept as an allowed value because Word/WordTheme/WordThemeRelation
+// are the intended source for it but currently hold 0 rows in production (the
+// curated per-module wordlist was never imported). This is NOT a bug in the
+// builder; see scripts/build-course-vocabulary.ts.
+model CourseVocabulary {
+  id          Int      @id @default(autoincrement())
+  courseKey   String   @db.VarChar(255)
+  languageId  Int
+  lessonOrder Int
+  word        String   @db.VarChar(255)
+  lemma       String?  @db.VarChar(255)
+  translation String?  @db.Text
+  // 'THEME' | 'ITEM' | 'LESSON_BODY' — see VocabularySource in src/drills/contracts.ts.
+  source      String   @db.VarChar(16)
+  createdAt   DateTime @default(now())
+
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@unique([courseKey, languageId, word, source])
+  @@index([courseKey, languageId, lessonOrder])
 }
