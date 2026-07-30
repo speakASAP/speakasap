@@ -20,6 +20,12 @@ import { basename, join } from 'path';
 import { parseLegacyExerciseFile, topicSlugFromClassName } from '../src/drills/legacy-parser';
 import { parseTemplate, hashItem } from '../src/drills/template';
 
+// Matches ANY `<word>Field(` call site (SmartExerciseField, TestField, and any field type a
+// future bank might introduce). Used only to report coverage of what this importer intentionally
+// does NOT attempt — never to parse those other field types.
+const ANY_FIELD_CALL_RE = /\b\w+Field\(/g;
+const SMART_FIELD_CALL_RE = /\bSmartExerciseField\(/g;
+
 interface FileEntry {
   path: string;
   dir: string;
@@ -36,6 +42,13 @@ interface FileReport {
   itemsSkippedNoBlanks: number;
   /** Same hash seen twice within this run (in-memory only — no DB round trip in dry-run). */
   itemsDuplicateInBatch: number;
+  /**
+   * Occurrences of a `*Field(` call that is NOT `SmartExerciseField(` — e.g. `TestField(label=...,
+   * choices=(...))`, a multiple-choice format that is structurally incompatible with DrillItem's
+   * fill-in-the-blank shape. Correctly not attempted; counted here purely so a coverage audit sees
+   * the whole file, not just the subset this importer can ever produce.
+   */
+  otherFieldTypesSkipped: number;
 }
 
 interface ApplyFileReport extends FileReport {
@@ -88,9 +101,14 @@ function parseOnly(entries: FileEntry[]): FileReport[] {
       itemsInsertable: 0,
       itemsSkippedNoBlanks: 0,
       itemsDuplicateInBatch: 0,
+      otherFieldTypesSkipped: 0,
     };
 
     if (!report.empty) {
+      const anyFieldCalls = (source.match(ANY_FIELD_CALL_RE) ?? []).length;
+      const smartFieldCalls = (source.match(SMART_FIELD_CALL_RE) ?? []).length;
+      report.otherFieldTypesSkipped = anyFieldCalls - smartFieldCalls;
+
       for (const cls of parseLegacyExerciseFile(source, path)) {
         report.classes++;
         for (const item of cls.items) {
@@ -125,8 +143,18 @@ function totalsOf(reports: FileReport[]) {
       insertable: a.insertable + r.itemsInsertable,
       skippedNoBlanks: a.skippedNoBlanks + r.itemsSkippedNoBlanks,
       duplicateInBatch: a.duplicateInBatch + r.itemsDuplicateInBatch,
+      otherFieldTypesSkipped: a.otherFieldTypesSkipped + r.otherFieldTypesSkipped,
     }),
-    { files: 0, emptyFiles: 0, classes: 0, parsed: 0, insertable: 0, skippedNoBlanks: 0, duplicateInBatch: 0 },
+    {
+      files: 0,
+      emptyFiles: 0,
+      classes: 0,
+      parsed: 0,
+      insertable: 0,
+      skippedNoBlanks: 0,
+      duplicateInBatch: 0,
+      otherFieldTypesSkipped: 0,
+    },
   );
 }
 
@@ -154,6 +182,7 @@ async function applyToDatabase(entries: FileEntry[]): Promise<ApplyFileReport[]>
         itemsInsertable: 0,
         itemsSkippedNoBlanks: 0,
         itemsDuplicateInBatch: 0,
+        otherFieldTypesSkipped: 0,
         itemsInserted: 0,
         itemsDuplicateInDb: 0,
         topicsUnmatched: [],
@@ -176,6 +205,14 @@ async function applyToDatabase(entries: FileEntry[]): Promise<ApplyFileReport[]>
         report.classes++;
         const slug = topicSlugFromClassName(cls.className);
 
+        // Topic -> GrammarLesson mapping status (verified against production, 2026-07-30):
+        // GrammarLesson has 0 rows — the table exists but was never populated. Even once it is,
+        // there is no mechanical mapping between exercise class slugs (English CamelCase -> kebab,
+        // e.g. "comparison-adjectives") and real grammar lesson slugs (transliterated Russian,
+        // e.g. "pravila-chteniya", "chislitelnye"). This lookup will therefore always miss until an
+        // owner decides how (or whether) to bridge the two naming systems. Do not treat a growing
+        // topicsUnmatched list as a parser bug to fix, and do not build a read-only "measure it"
+        // mode for --dry-run — the answer for the current data is already known: unmatchable.
         const grammarLesson = await prisma.grammarLesson.findFirst({
           where: { OR: [{ alias: slug }, { url: slug }], course: { languageId: language.id } },
         });
@@ -245,7 +282,28 @@ async function main() {
 
   if (dryRun) {
     const reports = parseOnly(entries);
-    console.log(JSON.stringify({ mode: 'dry-run', reports }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          mode: 'dry-run',
+          // Deliberately not an array (never `[]`) — an empty array here would read as "zero
+          // topics unmatched" when the truth is "not measured". See topicsUnmatchedNote and the
+          // comment above the grammarLesson lookup in applyToDatabase() for why this is not a
+          // TODO: GrammarLesson has 0 rows in production, and there is no mechanical mapping
+          // between exercise-class slugs and real (transliterated Russian) lesson slugs anyway.
+          topicsUnmatched: null,
+          topicsUnmatchedNote:
+            'not measured in --dry-run (requires GrammarLesson DB lookups, which this mode never ' +
+            'performs). Separately: GrammarLesson has 0 rows in production, and even populated it ' +
+            'cannot mechanically match — exercise class slugs are English CamelCase-derived ' +
+            '(e.g. "comparison-adjectives") while real lesson slugs are transliterated Russian ' +
+            '(e.g. "pravila-chteniya"). Resolution is an owner decision, not something to measure.',
+          reports,
+        },
+        null,
+        2,
+      ),
+    );
     console.log('TOTALS', JSON.stringify(totalsOf(reports)));
     console.log(
       'NOTE: dry-run performed zero database queries (Prisma was never imported). ' +

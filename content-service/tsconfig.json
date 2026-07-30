@@ -3,19 +3,14 @@
     "lib": ["ES2020", "DOM"],
     "moduleResolution": "node",
     "baseUrl": ".",
-    "paths": {
-      "@prisma/client": ["node_modules/.prisma/client"]
-    },
     "module": "commonjs",
     "target": "ES2020",
-    "outDir": "dist",
-    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noEmit": true
   },
-  "include": ["src/**/*", "scripts/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*.ts", "scripts/**/*.ts"]
 }
