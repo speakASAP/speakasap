@@ -37,10 +37,15 @@ describe('checkVocabularyRatio', () => {
   it('fails when one sentence has 3 unknown words even if the set ratio passes', () => {
     // Letters-only distinct tokens: the frozen tokenizer matches \p{L}\p{M}'’- only, so a
     // digit-bearing fixture like `w${i}` would collapse every entry to the single token "w".
+    // Prefixed with "xz"/"xy" (not "w") specifically so no generated token can ever collide
+    // with a German stopword ('war', 'wir', 'wie', 'waren' all start with "w") — the exact
+    // class of bug that a "wa"+letter scheme produced for i=17 ("war").
     const letters = 'abcdefghijklmnopqrstuvwxyz';
-    const known = Array.from({ length: 40 }, (_, i) => `w${letters[Math.floor(i / 26)]}${letters[i % 26]}`);
+    const known = Array.from({ length: 40 }, (_, i) =>
+      i < 26 ? `xz${letters[i]}` : `xy${letters[i - 26]}`);
     const sentences = [known.slice(0, 20).join(' '), 'alpha beta gamma'];
     const r = checkVocabularyRatio(sentences, baseline(known));
+    expect(r.knownRatio).toBeCloseTo(20 / 23);
     expect(r.knownRatio).toBeGreaterThanOrEqual(0.8);
     expect(r.perItemUnknownCount[1]).toBe(3);
     expect(r.passes).toBe(false);
@@ -58,6 +63,14 @@ describe('checkVocabularyRatio', () => {
   });
 
   describe('hasBaseline: false — no vocabulary ever built for this course', () => {
+    // checkVocabularyRatio has no special case for hasBaseline: it is not this function's
+    // job to decide whether a course is intentionally unsupported (e.g. chinese/english/
+    // japanese today) versus a failed or never-run vocabulary build — that policy call
+    // belongs to the caller, which holds course context this function does not. So a
+    // hasBaseline: false baseline reports the honest, unmasked answer: everything is
+    // unknown, the ratio is 0, and the check fails, exactly as it would for any other
+    // student who is missing all of this vocabulary.
+
     it('still computes real ratio and unknown-word numbers instead of hardcoding zero', () => {
       const r = checkVocabularyRatio(
         ['Ni hao ma'],
@@ -68,29 +81,23 @@ describe('checkVocabularyRatio', () => {
       expect(r.perItemUnknownCount).toEqual([3]);
     });
 
-    it('forces passes true and marks the result unassessed, even though the raw ratio would fail', () => {
+    it('reports honestly when a course has no baseline rather than masking it', () => {
       const r = checkVocabularyRatio(
         ['Ni hao ma wo shi xue sheng'],
         baseline([], { hasBaseline: false, languageCode: 'zh' }),
       );
+      expect(r.knownRatio).toBe(0);
       expect(r.knownRatio).toBeLessThan(0.8);
-      expect(r.passes).toBe(true);
-      expect(r.assessed).toBe(false);
+      expect(r.passes).toBe(false);
     });
 
-    it('forces passes true even when a single sentence blows past the per-sentence cap', () => {
+    it('fails on the per-sentence cap too, honestly, when there is no baseline', () => {
       const r = checkVocabularyRatio(
         ['alpha beta gamma delta'],
         baseline([], { hasBaseline: false }),
       );
       expect(r.perItemUnknownCount[0]).toBeGreaterThan(2);
-      expect(r.passes).toBe(true);
-      expect(r.assessed).toBe(false);
-    });
-
-    it('marks a real baseline as assessed', () => {
-      const r = checkVocabularyRatio(['Ich gehe zur Schule'], baseline(['gehe', 'zur', 'schule']));
-      expect(r.assessed).toBe(true);
+      expect(r.passes).toBe(false);
     });
   });
 });

@@ -8,13 +8,21 @@ import { tokenizeContentWords } from './tokenize';
  * The 80/20 vocabulary ratio checker. Decides whether a set of drill sentences is
  * acceptable for a student, given what they are known to already know.
  *
- * When `baseline.hasBaseline` is false (no vocabulary has ever been built for this
- * course — true today for chinese/english/japanese), there is nothing to fail
- * sentences against: every word would register as "unknown" and a naive ratio would
- * always reject, sending sets into an unbreakable regeneration loop. The real numbers
- * are still computed and returned for diagnostics, but `passes` is forced true and
- * `assessed` is set to false so callers can tell "failed the ratio" apart from
- * "could not be assessed" instead of misreading a forced pass as a real one.
+ * This is a pure, honest computation with no special case for `baseline.hasBaseline`.
+ * When a course has no baseline at all, every word is unknown by construction, so
+ * `knownRatio` comes back 0 and `passes` comes back `false` — that is the truthful
+ * answer to "does this set meet the 80/20 rule against what we know this student
+ * knows", given that we know nothing.
+ *
+ * A course with `baseline.hasBaseline === false` will therefore ALWAYS fail this
+ * check. Deciding whether that is expected — e.g. a course that is known to have no
+ * vocabulary tracking by design — versus a symptom of a failed or never-run
+ * vocabulary build is a **caller** decision, not this function's. This function does
+ * not have the course context to tell those two cases apart, and must not guess: a
+ * caller that silently treats every `hasBaseline: false` failure as "skip the gate"
+ * will also silently swallow a broken vocabulary build. Callers must distinguish an
+ * intentionally-unsupported course (e.g. via a reviewed allowlist) from any other
+ * `hasBaseline: false`, and surface the latter loudly rather than skipping it.
  */
 export function checkVocabularyRatio(
   plainTexts: string[],
@@ -43,15 +51,9 @@ export function checkVocabularyRatio(
   }
 
   const knownRatio = total === 0 ? 1 : knownCount / total;
-  const ratioPasses =
+  const passes =
     knownRatio >= VOCABULARY_MIN_KNOWN_RATIO &&
     perItemUnknownCount.every((n) => n <= VOCABULARY_MAX_NEW_WORDS_PER_SENTENCE);
 
-  return {
-    knownRatio,
-    unknownWords,
-    perItemUnknownCount,
-    passes: baseline.hasBaseline ? ratioPasses : true,
-    assessed: baseline.hasBaseline,
-  };
+  return { knownRatio, unknownWords, perItemUnknownCount, passes };
 }
