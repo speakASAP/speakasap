@@ -21,6 +21,8 @@ model Language {
   songsCourse     SongsCourse?
   sevenCourses    SevenCourse[]
   words           Word[]
+  drillTopics     DrillTopic[]
+  drillItems      DrillItem[]
 
   @@index([order])
   @@index([name])
@@ -192,4 +194,66 @@ model WordThemeRelation {
 
   @@unique([wordId, themeId, order])
   @@index([themeId, order])
+}
+
+model DrillTopic {
+  id               Int      @id @default(autoincrement())
+  slug             String   @db.VarChar(255)
+  languageId       Int
+  materialLanguage String   @db.VarChar(2)
+  title            String   @db.VarChar(255)
+  level            String?  @db.VarChar(4)
+  grammarLessonId  Int?
+  parentTopicId    Int?
+  isNew            Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  language Language    @relation(fields: [languageId], references: [id])
+  items    DrillItem[]
+
+  @@unique([languageId, materialLanguage, slug])
+  @@index([languageId, materialLanguage])
+}
+
+model DrillItem {
+  id                   Int      @id @default(autoincrement())
+  languageId           Int
+  materialLanguage     String   @db.VarChar(2)
+  topicId              Int?
+  level                String?  @db.VarChar(4)
+  template             String   @db.Text
+  blanks               Json
+  plainText            String   @db.Text
+  hint                 String?  @db.Text
+  sourceType           String   @db.VarChar(16)
+  sourceRef            String?  @db.VarChar(255)
+  courseKey            String?  @db.VarChar(255)
+  lessonOrder          Int?
+  unknownWords         Json     @default("[]")
+  hash                 String   @unique @db.VarChar(64)
+  status               String   @default("ACTIVE") @db.VarChar(16)
+  timesShown           Int      @default(0)
+  timesCorrectFirstTry Int      @default(0)
+  createdAt            DateTime @default(now())
+
+  language  Language            @relation(fields: [languageId], references: [id])
+  topic     DrillTopic?         @relation(fields: [topicId], references: [id])
+  revisions DrillItemRevision[]
+
+  @@index([languageId, materialLanguage, topicId, status])
+  @@index([courseKey, lessonOrder])
+}
+
+model DrillItemRevision {
+  id        Int      @id @default(autoincrement())
+  itemId    Int
+  template  String   @db.Text
+  blanks    Json
+  hint      String?  @db.Text
+  reason    String   @db.VarChar(32)
+  createdAt DateTime @default(now())
+
+  item DrillItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, createdAt])
 }
