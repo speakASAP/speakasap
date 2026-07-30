@@ -69,6 +69,7 @@ model Lesson {
   homeworks                    Homework[]
   lessonRecord                 LessonRecord?
   studentAccesses              StudentAccess[]
+  drillAssignments             DrillAssignment[]
 
   @@index([studentCourseUuid])
   @@map("education_lesson")
@@ -128,4 +129,78 @@ model LessonRecordPart {
 
   @@index([lessonRecordUuid])
   @@map("education_lessonrecordpart")
+}
+
+model DrillAssignment {
+  uuid               String    @id @db.Uuid
+  setUuid            String    @map("set_uuid") @db.Uuid
+  studentId          Int       @map("student_id")
+  teacherId          Int?      @map("teacher_id")
+  origin             String    @db.VarChar(8)
+  studentCourseUuid  String?   @map("student_course_uuid") @db.Uuid
+  lessonUuid         String?   @map("lesson_uuid") @db.Uuid
+  batchUuid          String?   @map("batch_uuid") @db.Uuid
+  title              String    @db.VarChar(255)
+  languageCode       String    @map("language_code") @db.VarChar(8)
+  materialLanguage   String    @map("material_language") @db.VarChar(2)
+  status             String    @db.VarChar(16)
+  dueAt              DateTime? @map("due_at")
+  resourceLinks      Json      @default("[]") @map("resource_links")
+  generationMeta     Json      @default("{}") @map("generation_meta")
+  generationProgress Json      @default("{}") @map("generation_progress")
+  firstTryAccuracy   Float?    @map("first_try_accuracy")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  assignedAt         DateTime? @map("assigned_at")
+  startedAt          DateTime? @map("started_at")
+  completedAt        DateTime? @map("completed_at")
+
+  lesson Lesson?               @relation(fields: [lessonUuid], references: [uuid], onDelete: SetNull)
+  items  DrillAssignmentItem[]
+
+  @@index([studentId, status])
+  @@index([teacherId, status])
+  @@index([lessonUuid])
+  @@index([setUuid])
+  @@map("drill_assignment")
+}
+
+model DrillAssignmentItem {
+  uuid           String  @id @db.Uuid
+  assignmentUuid String  @map("assignment_uuid") @db.Uuid
+  order          Int
+  sourceItemId   Int?    @map("source_item_id")
+  template       String  @db.Text
+  blanks         Json
+  hint           String? @db.Text
+  topicSlug      String? @map("topic_slug") @db.VarChar(255)
+
+  assignment DrillAssignment @relation(fields: [assignmentUuid], references: [uuid], onDelete: Cascade)
+
+  @@unique([assignmentUuid, order])
+  @@map("drill_assignment_item")
+}
+
+model DrillAttempt {
+  uuid           String   @id @db.Uuid
+  assignmentUuid String   @map("assignment_uuid") @db.Uuid
+  itemUuid       String   @map("item_uuid") @db.Uuid
+  blankIndex     Int      @map("blank_index")
+  submittedValue String   @map("submitted_value") @db.Text
+  isCorrect      Boolean  @map("is_correct")
+  attemptNo      Int      @map("attempt_no")
+  revealed       Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([assignmentUuid, itemUuid])
+  @@map("drill_attempt")
+}
+
+model DrillAssignmentBatch {
+  uuid         String   @id @db.Uuid
+  teacherId    Int      @map("teacher_id")
+  instructions String   @db.Text
+  filter       Json
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("drill_assignment_batch")
 }
