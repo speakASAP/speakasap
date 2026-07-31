@@ -78,13 +78,28 @@ CREATE INDEX "drill_assignment_lesson_uuid_idx" ON "drill_assignment"("lesson_uu
 CREATE INDEX "drill_assignment_set_uuid_idx" ON "drill_assignment"("set_uuid");
 
 -- CreateIndex
+CREATE INDEX "drill_assignment_student_course_uuid_idx" ON "drill_assignment"("student_course_uuid");
+
+-- CreateIndex
+CREATE INDEX "drill_assignment_batch_uuid_idx" ON "drill_assignment"("batch_uuid");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "drill_assignment_item_assignment_uuid_order_key" ON "drill_assignment_item"("assignment_uuid", "order");
 
 -- CreateIndex
-CREATE INDEX "drill_attempt_assignment_uuid_item_uuid_idx" ON "drill_attempt"("assignment_uuid", "item_uuid");
+CREATE INDEX "drill_attempt_assignment_uuid_item_uuid_blank_index_is_corr_idx" ON "drill_attempt"("assignment_uuid", "item_uuid", "blank_index", "is_correct", "revealed");
+
+-- CreateIndex
+CREATE INDEX "drill_attempt_item_uuid_idx" ON "drill_attempt"("item_uuid");
 
 -- AddForeignKey
 ALTER TABLE "drill_assignment" ADD CONSTRAINT "drill_assignment_lesson_uuid_fkey" FOREIGN KEY ("lesson_uuid") REFERENCES "education_lesson"("uuid") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "drill_assignment" ADD CONSTRAINT "drill_assignment_student_course_uuid_fkey" FOREIGN KEY ("student_course_uuid") REFERENCES "education_studentcourse"("uuid") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "drill_assignment" ADD CONSTRAINT "drill_assignment_batch_uuid_fkey" FOREIGN KEY ("batch_uuid") REFERENCES "drill_assignment_batch"("uuid") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "drill_assignment_item" ADD CONSTRAINT "drill_assignment_item_assignment_uuid_fkey" FOREIGN KEY ("assignment_uuid") REFERENCES "drill_assignment"("uuid") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -94,3 +109,4 @@ ALTER TABLE "drill_attempt" ADD CONSTRAINT "drill_attempt_assignment_uuid_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "drill_attempt" ADD CONSTRAINT "drill_attempt_item_uuid_fkey" FOREIGN KEY ("item_uuid") REFERENCES "drill_assignment_item"("uuid") ON DELETE CASCADE ON UPDATE CASCADE;
+

@@ -47,6 +47,7 @@ model StudentCourse {
   previous           StudentCourse? @relation("StudentCoursePrevNext", fields: [previousUuid], references: [uuid])
   next               StudentCourse? @relation("StudentCoursePrevNext")
   lessons            Lesson[]
+  drillAssignments   DrillAssignment[]
 
   @@index([groupUuid])
   @@map("education_studentcourse")
@@ -112,6 +113,14 @@ model LessonRecord {
   durationSeconds   Int?               @map("duration_seconds")
   parts             Json               @default("[]")
   createdAt         DateTime           @default(now()) @map("created")
+  // KNOWN DRIFT — do not "fix". `updated` carries a DB-level default in Postgres
+  // (Django wrote it), but is modelled here as `@updatedAt` with no `@default`.
+  // Prisma therefore wants to emit
+  //   ALTER TABLE "education_lessonrecord" ALTER COLUMN "updated" DROP DEFAULT;
+  // into every migration generated from this schema. That statement is deliberately
+  // stripped from the drill-assignments migrations: dropping a DB default on a
+  // legacy table Django may still write to is not this feature's change to make.
+  // If you regenerate a migration and see that ALTER, strip it — it is expected.
   updatedAt         DateTime           @updatedAt @map("updated")
   lesson            Lesson             @relation(fields: [lessonUuid], references: [uuid], onDelete: Cascade)
   recordParts       LessonRecordPart[]
@@ -154,14 +163,28 @@ model DrillAssignment {
   startedAt          DateTime? @map("started_at")
   completedAt        DateTime? @map("completed_at")
 
-  lesson   Lesson?               @relation(fields: [lessonUuid], references: [uuid], onDelete: SetNull)
-  items    DrillAssignmentItem[]
-  attempts DrillAttempt[]
+  // studentCourseUuid and batchUuid carry FKs for the same reason lessonUuid does
+  // (2026-07-31 ruling, applied to the class rather than the one instance): both
+  // parents live in this schema and this database — DrillAssignmentBatch is created
+  // in the very same migration — so there is no ordering obstacle, and every other
+  // FK-shaped column here has one. SetNull, not Cascade: both columns are nullable
+  // and neither parent's deletion should destroy assignment history.
+  // sourceItemId on DrillAssignmentItem is the one exception — it points at
+  // content-service's DrillItem in a different database and is correctly bare.
+  lesson        Lesson?               @relation(fields: [lessonUuid], references: [uuid], onDelete: SetNull)
+  studentCourse StudentCourse?        @relation(fields: [studentCourseUuid], references: [uuid], onDelete: SetNull)
+  batch         DrillAssignmentBatch? @relation(fields: [batchUuid], references: [uuid], onDelete: SetNull)
+  items         DrillAssignmentItem[]
+  attempts      DrillAttempt[]
 
   @@index([studentId, status])
   @@index([teacherId, status])
   @@index([lessonUuid])
   @@index([setUuid])
+  // Postgres does not auto-index foreign keys. Without these, deleting one
+  // StudentCourse or one batch sequentially scans drill_assignment to apply SET NULL.
+  @@index([studentCourseUuid])
+  @@index([batchUuid])
   @@map("drill_assignment")
 }
 
@@ -196,7 +219,19 @@ model DrillAttempt {
   assignment DrillAssignment     @relation(fields: [assignmentUuid], references: [uuid], onDelete: Cascade)
   item       DrillAssignmentItem @relation(fields: [itemUuid], references: [uuid], onDelete: Cascade)
 
-  @@index([assignmentUuid, itemUuid])
+  // Widened from @@index([assignmentUuid, itemUuid]) to cover countBlanks/countBlanksFor,
+  // the hottest read in the runner loop: it filters on
+  //   assignment_uuid IN (...) AND (is_correct OR revealed)
+  // and selects only (item_uuid, blank_index). Every column that query touches is in
+  // this index, so it is answered by an index-only scan with no heap access, and the
+  // leading (assignment_uuid, item_uuid) prefix still serves per-item lookups.
+  @@index([assignmentUuid, itemUuid, blankIndex, isCorrect, revealed])
+  // Supports the drill_attempt_item_uuid_fkey ON DELETE CASCADE. Postgres does not
+  // auto-index foreign keys, and the composite index above leads with assignment_uuid,
+  // so without this every delete of a drill_assignment_item sequentially scans
+  // drill_attempt — 20 scans to delete one 20-item assignment, on the
+  // fastest-growing table in the feature.
+  @@index([itemUuid])
   @@map("drill_attempt")
 }
 
@@ -206,6 +241,8 @@ model DrillAssignmentBatch {
   instructions String   @db.Text
   filter       Json
   createdAt    DateTime @default(now()) @map("created_at")
+
+  assignments DrillAssignment[]
 
   @@map("drill_assignment_batch")
 }
