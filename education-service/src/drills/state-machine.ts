@@ -17,7 +17,7 @@ export function canTransition(
   from: DrillAssignmentStatus,
   to: DrillAssignmentStatus,
 ): boolean {
-  return ALLOWED[from].includes(to);
+  return ALLOWED[from]?.includes(to) ?? false;
 }
 
 export function assertTransition(

@@ -1,4 +1,5 @@
 import { canTransition, assertTransition, TERMINAL_STATUSES } from './state-machine';
+import { DrillAssignmentStatus } from './contracts';
 
 describe('canTransition', () => {
   it('allows the teacher-review path', () => {
@@ -37,6 +38,10 @@ describe('canTransition', () => {
 
   it('forbids a no-op transition', () => {
     expect(canTransition('ASSIGNED', 'ASSIGNED')).toBe(false);
+  });
+
+  it('returns false for a status outside the union instead of throwing', () => {
+    expect(canTransition('BOGUS' as DrillAssignmentStatus, 'ASSIGNED')).toBe(false);
   });
 });
 
