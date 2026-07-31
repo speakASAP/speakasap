@@ -142,7 +142,15 @@ src/drills/grading.ts(16,56): error TS2345: Argument of type 'number' is not ass
 
 so the green above is a real green, not a compiler that never ran.
 
-### Migration status — created, NOT applied
+### Migration status — APPLIED to production 2026-07-31
+
+> **Superseded.** The section below recorded the state at the end of implementation,
+> when the migration was created but not applied. It was applied to production on
+> 2026-07-31 with the owner's explicit authorization (no paid users on this database —
+> test users only). Procedure and verification are in "Migration applied" immediately
+> after this block. Handoff note 10 is therefore closed.
+
+### (historical) Migration status — created, NOT applied
 
 Authoritative check against the live `speakasap_education_db` (read-only, via the
 postgres MCP):
@@ -169,6 +177,43 @@ drill_tables_present
 
 No drill table exists in the database. The migration is created and unapplied, as
 required.
+
+### Migration applied — 2026-07-31 (supersedes the block above)
+
+Applied to production `speakasap_education_db` with the owner's explicit
+authorization. Procedure, in order:
+
+1. **`kubectl port-forward -n statex-apps svc/db-server-postgres 5432:5432`** — the
+   sanctioned route. Not a direct ClusterIP connection; see the ecosystem CLAUDE.md
+   rule added the same day.
+2. **Scratch-database dry run**, closing the gap that handoff note 10 raised — this SQL
+   had never been executed anywhere:
+   - `pg_dump --schema-only --no-owner --no-privileges` of the production database
+   - restored into a throwaway `drill_dryrun` database
+   - the migration applied to it with `ON_ERROR_STOP=1` → **executed cleanly**
+   - verified 4 tables, 6 FKs, 13 indexes (9 declared + 4 primary keys)
+   - `drill_dryrun` dropped afterwards
+3. **`npm run prisma:migrate:deploy`** — `migrate deploy`, never `migrate dev`. Output:
+   `Applying migration 20260731044037_drill_assignments` … `All migrations have been
+   successfully applied.`
+
+Post-apply verification against production:
+
+```
+drill tables      : drill_assignment, drill_assignment_batch, drill_assignment_item, drill_attempt
+_prisma_migrations: 20260731044037_drill_assignments | applied | rolled_back=f
+constraints       : 6 FKs, 13 indexes
+legacy row counts : education_lesson=182600, education_studentcourse=20125, education_lessonrecord=101184
+drift column      : education_lessonrecord.updated default = CURRENT_TIMESTAMP  (untouched, as intended)
+```
+
+Legacy row counts are unchanged from before the migration, and the deliberately
+stripped `DROP DEFAULT` never ran — `education_lessonrecord.updated` still carries its
+`CURRENT_TIMESTAMP` default. No scratch or shadow databases remain; the port-forward was
+closed.
+
+**Handoff note 10 is closed.** The drift documented at `schema.prisma:116-123` remains
+open and is unrelated to this feature.
 
 ### How the migration was regenerated (offline — no database touched)
 
