@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { canTransition, assertTransition, TERMINAL_STATUSES } from './state-machine';
 import { DrillAssignmentStatus } from './contracts';
 
@@ -43,6 +44,20 @@ describe('canTransition', () => {
   it('returns false for a status outside the union instead of throwing', () => {
     expect(canTransition('BOGUS' as DrillAssignmentStatus, 'ASSIGNED')).toBe(false);
   });
+
+  // status is VarChar(16), not an enum: every one of these strings fits the
+  // column and every one resolves to an inherited, non-array, non-undefined
+  // value on the ALLOWED object literal. Optional chaining does not stop them.
+  it.each(['constructor', '__proto__', 'toString', 'valueOf', 'hasOwnProperty'])(
+    'returns false for the prototype key %p instead of throwing',
+    (key) => {
+      expect(canTransition(key as DrillAssignmentStatus, 'ASSIGNED')).toBe(false);
+    },
+  );
+
+  it('returns false when a prototype key is the transition target', () => {
+    expect(canTransition('ASSIGNED', 'constructor' as DrillAssignmentStatus)).toBe(false);
+  });
 });
 
 describe('assertTransition', () => {
@@ -53,6 +68,11 @@ describe('assertTransition', () => {
 
   it('does not throw on a legal transition', () => {
     expect(() => assertTransition('ASSIGNED', 'IN_PROGRESS')).not.toThrow();
+  });
+
+  it('throws a ConflictException rather than a TypeError for a prototype key', () => {
+    expect(() => assertTransition('__proto__' as DrillAssignmentStatus, 'ASSIGNED'))
+      .toThrow(ConflictException);
   });
 });
 
