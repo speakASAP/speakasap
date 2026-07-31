@@ -357,6 +357,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ```ts
 import { canTransition, assertTransition, TERMINAL_STATUSES } from './state-machine';
+import { DrillAssignmentStatus } from './contracts';
 
 describe('canTransition', () => {
   it('allows the teacher-review path', () => {
@@ -395,6 +396,10 @@ describe('canTransition', () => {
 
   it('forbids a no-op transition', () => {
     expect(canTransition('ASSIGNED', 'ASSIGNED')).toBe(false);
+  });
+
+  it('returns false for a status outside the union instead of throwing', () => {
+    expect(canTransition('BOGUS' as DrillAssignmentStatus, 'ASSIGNED')).toBe(false);
   });
 });
 
@@ -438,7 +443,7 @@ export function canTransition(
   from: DrillAssignmentStatus,
   to: DrillAssignmentStatus,
 ): boolean {
-  return ALLOWED[from].includes(to);
+  return ALLOWED[from]?.includes(to) ?? false;
 }
 
 export function assertTransition(
@@ -451,7 +456,9 @@ export function assertTransition(
 }
 ```
 
-- [ ] **Step 3: Run, confirm PASS (10 passed)**
+**Note (added 2026-07-31 after review):** `canTransition` is guarded with optional chaining because `status` is a free `VarChar(16)` column, not a Prisma enum. An unexpected status is reachable through ordinary data drift (legacy row, hand-run UPDATE, schema migration before app update) — not just through corruption. The guard ensures these edge cases return `false` and let `assertTransition` throw the controlled `ConflictException` rather than crashing with `TypeError: Cannot read properties of undefined`.
+
+- [ ] **Step 3: Run, confirm PASS (11 passed)**
 
 - [ ] **Step 4: Commit**
 
