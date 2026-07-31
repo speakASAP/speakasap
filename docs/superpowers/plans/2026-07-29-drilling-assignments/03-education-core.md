@@ -47,8 +47,9 @@ model DrillAssignment {
   startedAt          DateTime? @map("started_at")
   completedAt        DateTime? @map("completed_at")
 
-  lesson Lesson?               @relation(fields: [lessonUuid], references: [uuid], onDelete: SetNull)
-  items  DrillAssignmentItem[]
+  lesson   Lesson?               @relation(fields: [lessonUuid], references: [uuid], onDelete: SetNull)
+  items    DrillAssignmentItem[]
+  attempts DrillAttempt[]
 
   @@index([studentId, status])
   @@index([teacherId, status])
@@ -68,6 +69,7 @@ model DrillAssignmentItem {
   topicSlug      String? @map("topic_slug") @db.VarChar(255)
 
   assignment DrillAssignment @relation(fields: [assignmentUuid], references: [uuid], onDelete: Cascade)
+  attempts   DrillAttempt[]
 
   @@unique([assignmentUuid, order])
   @@map("drill_assignment_item")
@@ -83,6 +85,9 @@ model DrillAttempt {
   attemptNo      Int      @map("attempt_no")
   revealed       Boolean  @default(false)
   createdAt      DateTime @default(now()) @map("created_at")
+
+  assignment DrillAssignment     @relation(fields: [assignmentUuid], references: [uuid], onDelete: Cascade)
+  item       DrillAssignmentItem @relation(fields: [itemUuid], references: [uuid], onDelete: Cascade)
 
   @@index([assignmentUuid, itemUuid])
   @@map("drill_attempt")
@@ -105,6 +110,17 @@ Add to the existing `Lesson` model: `drillAssignments DrillAssignment[]`.
 statistics are computed from it for bank selection. It is **never** returned in
 any teacher-facing DTO. `DrillAssignmentDTO` (contract C6) has no such field —
 do not add one.
+
+**Note (added by ruling after B.1 review, 2026-07-31):** `DrillAttempt.assignmentUuid`
+and `DrillAttempt.itemUuid` were originally bare `@db.Uuid` scalars with no
+`@relation`. Review flagged that every other FK-shaped column in this migration has
+one, and an orphaned `drill_attempt` row has no DB-level cleanup path when its parent
+`DrillAssignment` or `DrillAssignmentItem` is deleted. Both parents are created in the
+same migration, so there is no ordering obstacle. The human partner ruled this finding
+governs over the original plan text above: both relations now carry
+`onDelete: Cascade`, with `attempts DrillAttempt[]` back-relations added to
+`DrillAssignment` and `DrillAssignmentItem`. The model block above reflects the
+as-built shape.
 
 - [ ] **Step 2: Validate and create the migration**
 

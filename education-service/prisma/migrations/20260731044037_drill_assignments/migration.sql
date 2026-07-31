@@ -88,3 +88,9 @@ ALTER TABLE "drill_assignment" ADD CONSTRAINT "drill_assignment_lesson_uuid_fkey
 
 -- AddForeignKey
 ALTER TABLE "drill_assignment_item" ADD CONSTRAINT "drill_assignment_item_assignment_uuid_fkey" FOREIGN KEY ("assignment_uuid") REFERENCES "drill_assignment"("uuid") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "drill_attempt" ADD CONSTRAINT "drill_attempt_assignment_uuid_fkey" FOREIGN KEY ("assignment_uuid") REFERENCES "drill_assignment"("uuid") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "drill_attempt" ADD CONSTRAINT "drill_attempt_item_uuid_fkey" FOREIGN KEY ("item_uuid") REFERENCES "drill_assignment_item"("uuid") ON DELETE CASCADE ON UPDATE CASCADE;

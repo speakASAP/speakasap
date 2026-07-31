@@ -154,8 +154,9 @@ model DrillAssignment {
   startedAt          DateTime? @map("started_at")
   completedAt        DateTime? @map("completed_at")
 
-  lesson Lesson?               @relation(fields: [lessonUuid], references: [uuid], onDelete: SetNull)
-  items  DrillAssignmentItem[]
+  lesson   Lesson?               @relation(fields: [lessonUuid], references: [uuid], onDelete: SetNull)
+  items    DrillAssignmentItem[]
+  attempts DrillAttempt[]
 
   @@index([studentId, status])
   @@index([teacherId, status])
@@ -175,6 +176,7 @@ model DrillAssignmentItem {
   topicSlug      String? @map("topic_slug") @db.VarChar(255)
 
   assignment DrillAssignment @relation(fields: [assignmentUuid], references: [uuid], onDelete: Cascade)
+  attempts   DrillAttempt[]
 
   @@unique([assignmentUuid, order])
   @@map("drill_assignment_item")
@@ -190,6 +192,9 @@ model DrillAttempt {
   attemptNo      Int      @map("attempt_no")
   revealed       Boolean  @default(false)
   createdAt      DateTime @default(now()) @map("created_at")
+
+  assignment DrillAssignment     @relation(fields: [assignmentUuid], references: [uuid], onDelete: Cascade)
+  item       DrillAssignmentItem @relation(fields: [itemUuid], references: [uuid], onDelete: Cascade)
 
   @@index([assignmentUuid, itemUuid])
   @@map("drill_attempt")
