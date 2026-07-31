@@ -284,6 +284,36 @@ That is the shape `countBlanks` treats as resolved. First-try accuracy is comput
 elsewhere from `attemptNo = 1 AND isCorrect`, which a reveal never satisfies — so bank
 selection stays clean. Whoever implements that query: do not break the property.
 
+**8. `InternalStudentAssignmentsResponse.outstanding[]` is NOT `findForStudent().active`.**
+The contract (`contracts.ts:371-375`) has an `outstanding: DrillAssignmentDTO[]` array
+alongside `completedRecent`. `active` is the natural mapping *by position* and the wrong
+one *by name*: `active` is everything non-terminal, so it includes `GENERATING` and
+`PENDING_REVIEW` assignments a student cannot act on, while "outstanding" everywhere else
+in this feature means `ASSIGNED | IN_PROGRESS`. **B2 must decide deliberately** which it
+serializes, and `selfDrillingAllowed` must derive from `findOutstanding()` either way —
+never from `active.length`.
+
+**9. `countBlanksFor(uuids)` does not chunk its `IN (…)` clauses.** Fine at the intended
+call sites (page-sized lists, ~11 assignments). A caller passing thousands of uuids would
+hit the Postgres bind-parameter ceiling. Chunk at the call site, or add chunking here
+before any bulk/reporting consumer uses it.
+
+**10. Track K — dry-run this migration before production.** The migration SQL was
+generated **offline** via `prisma migrate diff --from-schema-datamodel … --to-schema-datamodel`
+because the target datasource is production and pointing `migrate dev` at it would have
+created a shadow database (and risked a reset prompt). Two reviews verified the SQL is
+column-for-column, index-for-index and FK-for-FK faithful to `schema.prisma`, and that
+both legacy FK targets (`education_lesson`, `education_studentcourse`) have primary keys
+on `uuid`. But **the script has never been executed against any database** — the
+shadow-DB executability check that `migrate dev` gives for free was skipped. Apply it once
+to a throwaway database restored from a production schema dump before applying to
+production. That closes the only residual gap.
+
+Related: a datamodel→datamodel diff cannot see drift between `prisma/migrations/*` and
+`schema.prisma`. Here that is harmless and deliberate — see the `LessonRecord.updatedAt`
+comment at `schema.prisma:116-123` — but do not read this migration's cleanliness as
+evidence that this service has no schema drift. It has some, and it is documented there.
+
 ---
 
 ## 5. Commit history
