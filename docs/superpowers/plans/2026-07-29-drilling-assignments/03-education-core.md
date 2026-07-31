@@ -122,6 +122,63 @@ governs over the original plan text above: both relations now carry
 `DrillAssignment` and `DrillAssignmentItem`. The model block above reflects the
 as-built shape.
 
+**Note (whole-track review, 2026-07-31) — two more FKs, same class.** The ruling
+above was applied to the one instance, not the class. Two more FK-shaped columns had
+no relation and now do, both `onDelete: SetNull` (both columns are nullable and
+neither parent's deletion should destroy assignment history):
+
+- `DrillAssignment.batchUuid` → `DrillAssignmentBatch.uuid`. Created in this very
+  same migration; identical case to the ruling above.
+- `DrillAssignment.studentCourseUuid` → `StudentCourse` (`education_studentcourse`),
+  same schema, same database. Directly analogous to `lessonUuid`, which already had
+  an FK to a legacy Django table.
+
+Back-relations added: `assignments DrillAssignment[]` on `DrillAssignmentBatch`,
+`drillAssignments DrillAssignment[]` on `StudentCourse`.
+
+`DrillAssignmentItem.sourceItemId` points at content-service's `DrillItem` in a
+**different database** and is deliberately left bare. Do not "complete the set".
+
+**Note (whole-track review, 2026-07-31) — index changes.** Postgres does not
+auto-index foreign keys, so the FK ruling above left `drill_attempt_item_uuid_fkey`
+with no usable index: `@@index([assignmentUuid, itemUuid])` leads with
+`assignment_uuid`, so every `DELETE` of a `drill_assignment_item` sequentially scanned
+`drill_attempt` — 20 scans to delete one 20-item assignment, on the fastest-growing
+table in the feature. As-built index set:
+
+- `DrillAttempt`: `@@index([itemUuid])` added, supporting that cascade.
+- `DrillAttempt`: `@@index([assignmentUuid, itemUuid])` **widened** to
+  `@@index([assignmentUuid, itemUuid, blankIndex, isCorrect, revealed])`. This is the
+  supporting index for `countBlanks`/`countBlanksFor`, the hottest read in the runner
+  loop, which filters `assignment_uuid IN (...) AND (is_correct OR revealed)` and
+  selects only `(item_uuid, blank_index)`. Every column that query touches is present,
+  so it is answered by an index-only scan; the `(assignment_uuid, item_uuid)` prefix is
+  preserved, so per-item lookups lose nothing and no second index is needed.
+- `DrillAssignment`: `@@index([studentCourseUuid])` and `@@index([batchUuid])` added,
+  so the two new SET NULL foreign keys are not the same class of problem.
+
+**Note on regenerating the migration (2026-07-31).** `20260731044037_drill_assignments`
+has still never been applied, so the schema changes above were regenerated **into the
+same directory** rather than appended as a second migration. `prisma migrate dev` was
+**not** used: the only reachable database (`EDUCATION_TARGET_DATABASE_URL`) is
+production, and `migrate dev` creates a shadow database there and can prompt for a
+reset. The SQL was produced fully offline instead:
+
+```bash
+rtk git show aa38676:education-service/prisma/schema.prisma > /tmp/schema-base.prisma
+rtk npx prisma migrate diff \
+  --from-schema-datamodel /tmp/schema-base.prisma \
+  --to-schema-datamodel prisma/schema.prisma --script \
+  > prisma/migrations/20260731044037_drill_assignments/migration.sql
+```
+
+A datamodel→datamodel diff touches no database and, as a side effect, never emits the
+`ALTER TABLE "education_lessonrecord" ALTER COLUMN "updated" DROP DEFAULT;` drift
+statement that a DB-backed diff produces — so there was nothing to strip, and the
+result is byte-for-byte the four drill tables, their indexes and their foreign keys.
+See the `LessonRecord.updatedAt` comment in `schema.prisma` for why that statement is
+stripped whenever it does appear.
+
 - [ ] **Step 2: Validate and create the migration**
 
 ```bash
@@ -316,6 +373,35 @@ export function gradeBlank(
 }
 ```
 
+**Note (whole-track review, 2026-07-31) — `gradeBlank` is hardened against a
+malformed persisted blank.** The line above is NOT the as-built code. `blanks` is an
+unvalidated `Json` column written by AI generation in Tracks C/D, so its runtime shape
+is not guaranteed to match `DrillBlank`, and the bare spread turned a bad row into a
+500 on the *student's* check request:
+
+```
+missing alternatives => TypeError: blank.alternatives is not iterable
+null answer          => TypeError: Cannot read properties of null (reading 'normalize')
+```
+
+As-built behaviour — **signature and well-formed-input behaviour are unchanged**:
+
+- non-string `answer` (null, missing, number) → **ungradeable**:
+  `{ correct: false, acceptedText: null }`
+- missing / non-array `alternatives` → treated as `[]` (note: a bare spread of a
+  *string* `alternatives` would splat it into single accepted characters)
+- non-string entries inside `alternatives` → skipped
+
+`{ correct: false, acceptedText: null }` is the deliberate ungradeable return: it never
+tells a student they are right and never reveals anything. All 16 original grading
+tests still pass untouched.
+
+**Note (whole-track review, 2026-07-31) — apostrophe folding widened.** The character
+class is now `/[‘’ʼ´`′]/`. `´` (U+00B4 acute), `` ` `` (U+0060 grave) and `′` (U+2032
+prime) were missing and are produced by real keyboards and mobile autocorrect.
+`toLocaleLowerCase` was considered and deliberately **not** adopted: Turkish is not an
+offered language, and plain `toLowerCase` is correct for the live language set.
+
 - [ ] **Step 4: Run, confirm PASS (17 passed)**
 
 - [ ] **Step 5: Prove the diacritic tests are real**
@@ -456,7 +542,46 @@ export function assertTransition(
 }
 ```
 
-**Note (added 2026-07-31 after review):** `canTransition` is guarded with optional chaining because `status` is a free `VarChar(16)` column, not a Prisma enum. An unexpected status is reachable through ordinary data drift (legacy row, hand-run UPDATE, schema migration before app update) — not just through corruption. The guard ensures these edge cases return `false` and let `assertTransition` throw the controlled `ConflictException` rather than crashing with `TypeError: Cannot read properties of undefined`.
+**Note (added 2026-07-31 after review):** `canTransition` is guarded because `status` is a free `VarChar(16)` column, not a Prisma enum. An unexpected status is reachable through ordinary data drift (legacy row, hand-run UPDATE, schema migration before app update) — not just through corruption. The guard ensures these edge cases return `false` and let `assertTransition` throw the controlled `ConflictException` rather than crashing.
+
+**Note (whole-track review, 2026-07-31) — the optional-chaining guard did not actually
+guard; as-built code differs from the block above.** `?.` only short-circuits on
+`undefined`. `ALLOWED` is an object literal, so prototype keys resolve to inherited
+**non-array** values that are never `undefined`, and every one of them fits a
+`VarChar(16)` column:
+
+```
+'BOGUS'       => false          (the original 11th test passed)
+'constructor' => TypeError: ALLOWED[from]?.includes is not a function
+'__proto__'   => TypeError
+'toString'    => TypeError
+'valueOf'     => TypeError
+```
+
+As-built:
+
+```ts
+export function canTransition(from: DrillAssignmentStatus, to: DrillAssignmentStatus): boolean {
+  const allowed = ALLOWED[from];
+  return Array.isArray(allowed) && allowed.includes(to);
+}
+```
+
+Tests now cover `constructor`, `__proto__`, `toString`, `valueOf` and `hasOwnProperty`
+as both source and target, plus an `assertTransition` case asserting a
+`ConflictException` rather than a `TypeError`. Verified by reverting to `?.` and
+watching 6 tests fail.
+
+**Note (whole-track review, 2026-07-31) — `assertTransition` and `DrillErrorBody`.**
+`assertTransition` throws a bare `ConflictException`, whose body is Nest's default
+`{ statusCode, error, message }` — no `code` field, while the contract's
+`DrillErrorBody` requires one. `DrillErrorCode` was read: **no existing member fits a
+generic illegal transition.** The closest, `GENERATION_IN_PROGRESS`, is narrower (a
+mutation attempted while a set is still generating) and would be a lie for, say,
+`COMPLETED -> IN_PROGRESS`. No code was invented and the contract was not changed.
+Instead a doc comment on `assertTransition` states that **callers must catch and
+re-wrap it** at the controller/filter layer; any HTTP boundary that lets it escape
+returns a body other tracks cannot parse. Tracks B2/D/E/G: this is your job.
 
 - [ ] **Step 3: Run, confirm PASS (11 passed)**
 
@@ -598,6 +723,114 @@ countBlanks(assignmentUuid: string): Promise<{ blanksCorrect: number; blanksTota
 student who gets the same blank right twice has not solved two blanks. Write a
 test for that specific case before implementing.
 
+---
+
+#### As-built interface after the whole-track review (2026-07-31) — READ THIS, NOT THE BLOCK ABOVE
+
+Tracks B2, D, E and G build against **these** signatures. Four things changed.
+
+**1. `AssignmentRow` no longer carries answers.**
+
+```ts
+export type AssignmentRow = Prisma.DrillAssignmentGetPayload<{
+  include: { items: { select: { uuid: true } } };
+}>;
+```
+
+It was `include: { items: true }`, which pulled `items[].blanks` — the full
+answer/alternatives blob — into memory. The only consumer of `items` is
+`toAssignmentDTO`'s `row.items?.length ?? 0`, so a student with 11 assignments ×
+~20 items dragged ~220 rows of `template` + `blanks` JSON out of Postgres to produce
+two integers. Worse, this is the exported type four tracks hold: a single
+`return row` anywhere would have shipped answers **and** `firstTryAccuracy` to a
+student. `row.items.length` still works. All three query sites use it.
+`firstTryAccuracy` is still on the type (it is a scalar on the assignment row) and
+must never reach a DTO — `toAssignmentDTO` lists fields explicitly for that reason.
+
+**2. `findForStudent` returns a structured result, not a flat array.**
+
+```ts
+export interface StudentAssignments {
+  active: AssignmentRow[];     // non-terminal, createdAt desc
+  completed: AssignmentRow[];  // 10 most recent COMPLETED, createdAt desc
+}
+findForStudent(studentId: number): Promise<StudentAssignments>
+```
+
+It previously returned `[...nonTerminal, ...tenMostRecentCompleted]` as one array,
+discarding the boundary. **Human ruling: keep both definitions distinct.**
+
+- `active` stays **non-terminal** — GENERATING is included on purpose; a student
+  should see generation progress, which is what the DTO's `generationProgress`
+  field renders.
+- `completed` stays the 10 most recent. CANCELLED is terminal and excluded from
+  both buckets; it never reappears as recent history.
+- **`active` is NOT `outstanding`.** The contract's `outstanding` — the thing that
+  drives `selfDrillingAllowed` — means **ASSIGNED | IN_PROGRESS only**. Derive
+  `selfDrillingAllowed` from `findOutstanding`, never from `active`: a consumer
+  equating them would block self-drilling on a `PENDING_REVIEW` or `GENERATING`
+  assignment the student cannot act on. `findOutstanding` is unchanged.
+
+Tests now pin both queries exactly, `orderBy: { createdAt: 'desc' }` included. The
+previous tests used `expect.objectContaining` and never pinned ordering, so a
+regression dropping `orderBy` would have gone uncaught.
+
+**3. `countBlanks` counts RESOLVED positions — correct OR revealed.**
+
+`DrillAttempt.revealed` exists and spec §9.6 defines a reveal endpoint (built by a
+later track, writing `{ isCorrect: false, revealed: true }`), but `countBlanks`
+ignored `revealed` entirely. A revealed blank could therefore never be "solved", so
+an assignment containing one would sit in `IN_PROGRESS` forever and permanently
+block that student's self-drilling via `findOutstanding`.
+
+**Human ruling: a revealed blank counts as resolved.**
+
+- A distinct `(itemUuid, blankIndex)` position counts when `isCorrect = true`
+  **OR** `revealed = true`. Distinctness is preserved — the same position resolved
+  twice counts once.
+- Completion stays reachable, and a student who reveals everything completes with
+  zero correct.
+- The DTO field keeps the name **`blanksCorrect`**. Renaming a contract field
+  consumed by four tracks is out of scope, so `countBlanks` carries a doc comment
+  saying plainly that it counts *resolved* positions. **Do not "fix" it back.**
+- First-try accuracy is computed elsewhere from `attemptNo = 1 AND isCorrect`,
+  which a reveal never satisfies, so bank-selection statistics stay clean. That
+  query is not implemented here; do not break the property.
+
+**4. New: `countBlanksFor` — the batch form. Use it for lists.**
+
+```ts
+countBlanksFor(assignmentUuids: string[]): Promise<Map<string, BlankCounts>>
+export interface BlankCounts { blanksCorrect: number; blanksTotal: number }
+```
+
+`toAssignmentDTO` needs `counts` per assignment, and `countBlanks` costs two queries
+per uuid, so rendering a list of 11 assignments cost 2 + 2N queries. `countBlanksFor`
+is two queries total regardless of N, with identical resolved-position semantics
+(`countBlanks` now delegates to it, so there is one implementation of the rule).
+**Every uuid in the input appears in the returned map**, including ones with no items
+and no attempts — those map to `{ blanksCorrect: 0, blanksTotal: 0 }` rather than
+being absent, so callers need no `?? 0` fallback. Repeated uuids are deduplicated; an
+empty input issues no queries. It exists so four tracks do not each write their own
+loop — **do not write one.**
+
+Both count methods tolerate a non-array `blanks` blob (contributing 0) for the same
+reason `gradeBlank` does: it is an unvalidated `Json` column.
+
+**5. `toAssignmentDTO` keeps `row: any` — but has two unenforced preconditions.**
+
+The signature is unchanged (the plan's specified interface, deliberately
+adjudicated), which means TypeScript catches neither of these. A doc comment now
+records both; they are on the caller:
+
+- **`row` must be fetched with `items` included.** `itemCount` is
+  `row.items?.length ?? 0`, so a row fetched without them silently reports
+  `itemCount: 0` instead of failing. `AssignmentsRepository` always includes them.
+- **`row` must be a live Prisma row, not JSON.** `createdAt`, `dueAt`, `assignedAt`
+  and `completedAt` are called as `Date` objects, so a JSON-deserialized row (cache
+  read, HTTP hop, queue payload) throws `row.createdAt.toISOString is not a
+  function`. Rehydrate the dates first.
+
 - [ ] **Step 6: Run all tests, typecheck, commit**
 
 ```bash
@@ -617,11 +850,16 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ## Track B completion checklist
 
-- [ ] `rtk npm test` green, `rtk npm run typecheck` clean
-- [ ] Migration created, **not applied**
-- [ ] The diacritic-stripping and DTO-spread falsification checks both performed
-- [ ] Status file at `status/track-b.md` with pasted output
+- [x] `rtk npm test` green (73 passed), `rtk npm run typecheck` clean
+- [x] Migration created, **not applied**
+- [x] The diacritic-stripping and DTO-spread falsification checks both performed
+- [x] Whole-track review fixes applied and falsified (2026-07-31)
+- [x] Status file at `status/track-b.md` with pasted output
 
 **Hand off to Track B2 (runner API), Track D (orchestration), Track E, Track G.**
 They consume `gradeBlank`, `assertTransition`, `toAssignmentDTO`,
-`findOutstanding` and `countBlanks`.
+`findOutstanding`, `countBlanks` and `countBlanksFor`. **Read the as-built interface
+block in Task B.4 above** — `findForStudent`'s return shape, `countBlanks`'s
+resolved-position semantics and `countBlanksFor` all differ from the original plan
+text. Handoff notes those tracks need are in
+[`status/track-b.md`](status/track-b.md).
