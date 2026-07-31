@@ -171,6 +171,8 @@ track has to think about it.
 
 - [ ] **Step 1: Write the failing tests — one table, every rule**
 
+> **2026-07-31 review note:** the original assertion here compared two identical precomposed `'é'` literals (a tautology that verified nothing); repaired to compare an explicit precomposed codepoint against an explicit decomposed sequence.
+
 ```ts
 import { gradeBlank, normalizeAnswer, gradingOptionsFor } from './grading';
 import { DrillBlank } from './contracts';
@@ -200,7 +202,9 @@ describe('normalizeAnswer', () => {
   });
 
   it('NFC-normalizes composed and decomposed forms to the same string', () => {
-    expect(normalizeAnswer('é', opts)).toBe(normalizeAnswer('é', opts));
+    const precomposed = '\u00e9'; // \u00e9 as a single precomposed codepoint
+    const decomposed = 'e\u0301'; // e (U+0065) + combining acute accent (U+0301)
+    expect(normalizeAnswer(decomposed, opts)).toBe(normalizeAnswer(precomposed, opts));
   });
 });
 

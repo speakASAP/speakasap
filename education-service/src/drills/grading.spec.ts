@@ -26,7 +26,9 @@ describe('normalizeAnswer', () => {
   });
 
   it('NFC-normalizes composed and decomposed forms to the same string', () => {
-    expect(normalizeAnswer('é', opts)).toBe(normalizeAnswer('é', opts));
+    const precomposed = '\u00e9'; // \u00e9 as a single precomposed codepoint
+    const decomposed = 'e\u0301'; // e (U+0065) + combining acute accent (U+0301)
+    expect(normalizeAnswer(decomposed, opts)).toBe(normalizeAnswer(precomposed, opts));
   });
 });
 
