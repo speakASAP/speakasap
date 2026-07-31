@@ -32,83 +32,160 @@
   ```
   Both agents use it. It is the only place that talks to `/ai/complete`.
 
+> **CORRECTION — 2026-07-31.** The client and spec originally given below were
+> wrong in three ways and had never worked against the real `/ai/complete`. All
+> three were found in the whole-track review after C.1–C.4 were implemented,
+> reviewed and committed; the blocks in this task have been replaced with the
+> corrected versions. Anyone re-reading this plan, and Track D in particular,
+> should treat the text below — not the original — as the truth.
+>
+> 1. **No `Authorization` header — every call would have 401'd.** `/ai/complete`
+>    sits behind `ServiceAuthGuard`, registered as `APP_GUARD` in
+>    `ServiceIdentityModule`, and `AiController` carries no `@Public()`. The
+>    client must mint a self-issued service token with the in-repo
+>    `JwtUtil.sign(...)` (HS256 over `JWT_SECRET`, issuer pinned to
+>    `ai-microservice` by `JwtUtil.verify`) and send it as a bearer token.
+> 2. **The response shape was imagined.** The plan assumed
+>    `{ content, model, usage }`. The real contract
+>    (`src/contracts/ai-complete.contract.ts`) is
+>    `{ schemaVersion, text, model_used, inputTokens?, outputTokens?,
+>    token_usage_estimate?, error_code?, error_message?, … }`. There is no
+>    `content`, no `model`, no `usage`. In practice `payload.content` was
+>    `undefined` → `raw = ''` → `JSON.parse('')` threw, so **every** request
+>    ended as a 503 reading "ai/complete content is not valid JSON", and `meta`
+>    was permanently `{ model: 'unknown', promptTokens: 0, completionTokens: 0 }`
+>    — i.e. Track D's cost telemetry would have been dead on arrival.
+>    The original spec mocked the imagined shape, which is exactly why five green
+>    tests certified a client that failed 100% of real requests. The corrected
+>    spec builds every fixture through the real `AiCompleteResponseSchema`, so a
+>    contract change now breaks the tests instead of silently passing them.
+> 3. **`output_schema` does not constrain the model.** `AiService` uses it only
+>    as a boolean flag — presence prepends "Respond with valid JSON only. No
+>    markdown fences." and sets `response_format: { type: 'json_object' }`. The
+>    schema object itself is never serialized into the prompt nor forwarded to
+>    the provider, so the model never learned the field names (`items`,
+>    `template`, `blanks`, `topicSlug`, `newWords`, or the validator's
+>    `{ results: [{ itemRef, … }] }` envelope) that C.2/C.3 require. Near-100% of
+>    generated items would have been dropped and `itemRef` correlation would have
+>    been a coin flip. `LlmClient` now appends the serialized schema to the
+>    outgoing `user_prompt`, and still sends `output_schema` in the body because
+>    its presence is what turns on JSON mode upstream.
+>
+> Two further defects fixed at the same time: a **200 response carrying
+> `error_code`** (`RATE_LIMIT` / `AI_AUTH_ERROR` / `CLI_FAILED` — `AiService`
+> returns HTTP 200 with an empty `text` on provider failure) was treated as
+> success and surfaced as "not valid JSON"; and there was **no timeout**, so a
+> 50-item generate on the CC-CLI path could hold a Nest request open for
+> undici's ~300s default with no bound of its own.
+
 - [ ] **Step 1: Write the failing test**
 
 ```ts
 import { LlmClient } from './llm.client';
+import { JwtUtil } from '../service-identity/jwt.util';
+import {
+  AiCompleteResponse,
+  AiCompleteResponseSchema,
+} from '../contracts/ai-complete.contract';
+
+// Every fixture goes through the REAL response schema. This is the load-bearing
+// part of the rewrite: hand-written mocks are what let a client that failed 100%
+// of real requests ship with five green tests.
+function aiCompleteResponse(overrides: Record<string, unknown> = {}): AiCompleteResponse {
+  return AiCompleteResponseSchema.parse({ text: '', model_used: 'test-model', ...overrides });
+}
+function okResponse(overrides: Record<string, unknown> = {}) {
+  return { ok: true, status: 200, json: async () => aiCompleteResponse(overrides) };
+}
+
+const TEST_SECRET = 'test-jwt-secret-not-a-real-credential';
 
 describe('LlmClient.completeJson', () => {
   const fetchMock = jest.fn();
   beforeEach(() => {
     jest.resetAllMocks();
-    global.fetch = fetchMock as any;
+    global.fetch = fetchMock as unknown as typeof fetch;
     process.env.AI_ORCHESTRATOR_URL = 'http://ai-microservice:3380';
     process.env.DRILL_GENERATION_MODEL_TIER = 'smart';
+    process.env.JWT_SECRET = TEST_SECRET;
   });
 
-  it('sends the configured tier and the output schema', async () => {
+  const call = (client: LlmClient, outputSchema: unknown = { type: 'object' }) =>
+    client.completeJson<Record<string, unknown>>({
+      systemPrompt: 'sys', userPrompt: 'user', outputSchema, correlationId: 'c-1',
+    });
+  const lastInit = () => fetchMock.mock.calls[0][1] as RequestInit;
+
+  it('sends a service token that ServiceAuthGuard would accept', async () => {
+    fetchMock.mockResolvedValue(okResponse({ text: '{"items":[]}' }));
+    await call(new LlmClient());
+    const headers = lastInit().headers as Record<string, string>;
+    expect(headers.Authorization).toMatch(/^Bearer \S+$/);
+    // Verified exactly the way the guard does it.
+    const payload = JwtUtil.verify(headers.Authorization.slice(7), TEST_SECRET);
+    expect(payload.serviceId).toBe('ai-microservice');
+  });
+
+  it('fails closed rather than calling unauthenticated when JWT_SECRET is absent', async () => {
+    delete process.env.JWT_SECRET;
+    await expect(call(new LlmClient())).rejects.toThrow(/auth is not configured/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('parses the JSON body out of the contract `text` field', async () => {
+    fetchMock.mockResolvedValue(okResponse({ text: '{"items":[{"template":"a"}]}' }));
+    const { data } = await call(new LlmClient());
+    expect((data as any).items[0].template).toBe('a');
+  });
+
+  it('maps model_used / inputTokens / outputTokens into meta', async () => {
+    fetchMock.mockResolvedValue(okResponse({
+      text: '{"items":[]}', model_used: 'anthropic/claude-sonnet-4',
+      inputTokens: 1234, outputTokens: 567,
+    }));
+    const { meta } = await call(new LlmClient());
+    expect(meta).toEqual({
+      model: 'anthropic/claude-sonnet-4', tier: 'smart',
+      promptTokens: 1234, completionTokens: 567,
+    });
+  });
+
+  it('serializes the output schema into the outgoing user_prompt', async () => {
+    fetchMock.mockResolvedValue(okResponse({ text: '{"items":[]}' }));
+    const schema = { type: 'object', required: ['items'] };
+    await call(new LlmClient(), schema);
+    const body = JSON.parse(lastInit().body as string);
+    expect(body.user_prompt).toContain(JSON.stringify(schema));
+    expect(body.output_schema).toEqual(schema); // still triggers JSON mode upstream
+  });
+
+  it('throws when a 200 response carries an error_code', async () => {
+    fetchMock.mockResolvedValue(okResponse({ text: '', error_code: 'RATE_LIMIT' }));
+    await expect(call(new LlmClient())).rejects.toThrow(/RATE_LIMIT/);
+  });
+
+  it('bounds the upstream call with an abort signal', async () => {
+    fetchMock.mockResolvedValue(okResponse({ text: '{"items":[]}' }));
+    await call(new LlmClient());
+    expect(lastInit().signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('throws on a non-ok upstream response without echoing the body', async () => {
     fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ content: '{"items":[]}', model: 'm', usage: { prompt_tokens: 1, completion_tokens: 2 } }),
+      ok: false, status: 502, text: async () => 'bad gateway: leaky-detail-from-provider',
     });
-    const client = new LlmClient();
-    await client.completeJson({
-      systemPrompt: 'sys', userPrompt: 'user',
-      outputSchema: { type: 'object' }, correlationId: 'c-1',
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.model_tier).toBe('smart');
-    expect(body.output_schema).toEqual({ type: 'object' });
-    expect(body.correlation_id).toBe('c-1');
-  });
-
-  it('parses the JSON payload out of the content field', async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ content: '{"items":[{"template":"a"}]}', model: 'm', usage: {} }),
-    });
-    const client = new LlmClient();
-    const { data } = await client.completeJson<{ items: { template: string }[] }>({
-      systemPrompt: 's', userPrompt: 'u', outputSchema: {}, correlationId: 'c',
-    });
-    expect(data.items[0].template).toBe('a');
-  });
-
-  it('strips markdown fences the model sometimes wraps JSON in', async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ content: '```json\n{"items":[]}\n```', model: 'm', usage: {} }),
-    });
-    const client = new LlmClient();
-    const { data } = await client.completeJson<{ items: unknown[] }>({
-      systemPrompt: 's', userPrompt: 'u', outputSchema: {}, correlationId: 'c',
-    });
-    expect(data.items).toEqual([]);
-  });
-
-  it('throws a typed error on unparseable content rather than returning garbage', async () => {
-    fetchMock.mockResolvedValue({
-      ok: true, json: async () => ({ content: 'I cannot do that.', model: 'm', usage: {} }),
-    });
-    const client = new LlmClient();
-    await expect(client.completeJson({
-      systemPrompt: 's', userPrompt: 'u', outputSchema: {}, correlationId: 'c',
-    })).rejects.toThrow(/not valid JSON/i);
-  });
-
-  it('throws on a non-ok upstream response', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 502, text: async () => 'bad gateway' });
-    const client = new LlmClient();
-    await expect(client.completeJson({
-      systemPrompt: 's', userPrompt: 'u', outputSchema: {}, correlationId: 'c',
-    })).rejects.toThrow(/502/);
+    await expect(call(new LlmClient())).rejects.toThrow(/502/);
+    await expect(call(new LlmClient())).rejects.not.toThrow(/leaky-detail/);
   });
 });
 ```
 
-The fence-stripping and unparseable cases are not hypothetical — models return
-both regularly, and a client that returns garbage on them pushes the failure
-into the validator where it is much harder to diagnose.
+The shipped spec also covers fence stripping, unparseable text, and the
+top-level-spread fallback — see
+`ai-microservice/src/teacher-assistant/llm.client.spec.ts` for the full list (13
+cases). The fence-stripping and unparseable cases are not hypothetical — models
+return both regularly, and a client that returns garbage on them pushes the
+failure into the validator where it is much harder to diagnose.
 
 - [ ] **Step 2: Run, confirm failure**
 
@@ -120,6 +197,8 @@ rtk npm --prefix /home/ssf/Documents/Github/ai-microservice test -- llm.client
 
 ```ts
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { JwtUtil } from '../service-identity/jwt.util';
+import { AiCompleteResponse } from '../contracts/ai-complete.contract';
 
 export interface LlmMeta {
   model: string;
@@ -138,6 +217,24 @@ export interface CompleteJsonArgs {
 
 const FENCE = /^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$/;
 
+/** `/ai/complete` runs behind ServiceAuthGuard (APP_GUARD in
+ *  ServiceIdentityModule) and AiController has no `@Public()`. The guard
+ *  verifies HS256 against `JWT_SECRET` and JwtUtil.verify pins `iss` to
+ *  `ai-microservice`, so this service mints its own token with the same util. */
+const SELF_SERVICE_ID = 'ai-microservice';
+const SERVICE_TOKEN_TTL_SECONDS = 900;
+
+/** Generous on purpose: a 50-item generate on the claude-CLI path is minutes. */
+const DEFAULT_TIMEOUT_MS = 300_000;
+
+/** Keys belonging to the `/ai/complete` envelope. Anything else at the top level
+ *  came from AiService's `{ ...parsedData }` spread of the model's own JSON. */
+const ENVELOPE_KEYS = new Set([
+  'schemaVersion', 'text', 'model_used', 'inputTokens', 'outputTokens',
+  'token_usage_estimate', 'error_code', 'error_message',
+  'agent_id', 'agent_slug', 'agent_name', 'agent_service_scope',
+]);
+
 @Injectable()
 export class LlmClient {
   private readonly logger = new Logger(LlmClient.name);
@@ -148,48 +245,101 @@ export class LlmClient {
 
     const res = await fetch(`${base}/ai/complete`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.mintServiceToken()}`,
+      },
+      signal: AbortSignal.timeout(this.resolveTimeoutMs()),
       body: JSON.stringify({
         model_tier: tier,
         system_prompt: args.systemPrompt,
-        user_prompt: args.userPrompt,
-        output_schema: args.outputSchema,
+        // output_schema is only a boolean flag upstream — the schema object
+        // itself never reaches the provider, so serialize it into the prompt.
+        user_prompt: this.withSchema(args.userPrompt, args.outputSchema),
+        output_schema: args.outputSchema, // still what turns on JSON mode
         max_tokens: args.maxTokens ?? 8000,
         correlation_id: args.correlationId,
       }),
     });
 
     if (!res.ok) {
-      const body = await res.text();
-      throw new ServiceUnavailableException(`ai/complete failed: ${res.status} ${body.slice(0, 200)}`);
+      // The body may echo prompt fragments or provider detail: log, never return.
+      const body = await res.text().catch(() => '');
+      this.logger.error(`ai/complete returned ${res.status}: ${body.slice(0, 500)}`);
+      throw new ServiceUnavailableException(`ai/complete failed with status ${res.status}`);
     }
 
-    const payload = (await res.json()) as { content: string; model?: string; usage?: Record<string, number> };
-    const raw = payload.content ?? '';
+    const payload = (await res.json()) as AiCompleteResponse;
+
+    // A provider failure arrives as HTTP 200 with empty text and an error_code.
+    if (payload.error_code) {
+      this.logger.error(
+        `ai/complete reported ${payload.error_code}: ${(payload.error_message ?? '').slice(0, 500)}`,
+      );
+      throw new ServiceUnavailableException(`ai/complete failed: ${payload.error_code}`);
+    }
+
+    const meta: LlmMeta = {
+      model: payload.model_used ?? 'unknown',
+      tier,
+      promptTokens: payload.inputTokens ?? 0,
+      completionTokens: payload.outputTokens ?? 0,
+    };
+
+    const raw = payload.text ?? '';
+    if (raw.trim() === '') {
+      // AiService spreads the parsed JSON across the top level on both the
+      // LiteLLM and the CC-CLI path, so an empty `text` is still recoverable.
+      const spread = this.extractSpreadPayload(payload);
+      if (spread) return { data: spread as T, meta };
+    }
+
     const unfenced = FENCE.exec(raw)?.[1] ?? raw;
 
     let data: T;
     try {
       data = JSON.parse(unfenced) as T;
     } catch {
-      this.logger.warn(`ai/complete returned content that is not valid JSON (${raw.slice(0, 120)})`);
-      throw new ServiceUnavailableException('ai/complete content is not valid JSON');
+      this.logger.warn(`ai/complete returned text that is not valid JSON (${raw.slice(0, 120)})`);
+      throw new ServiceUnavailableException('ai/complete text is not valid JSON');
     }
 
-    return {
-      data,
-      meta: {
-        model: payload.model ?? 'unknown',
-        tier,
-        promptTokens: payload.usage?.prompt_tokens ?? 0,
-        completionTokens: payload.usage?.completion_tokens ?? 0,
-      },
-    };
+    return { data, meta };
+  }
+
+  private withSchema(userPrompt: string, outputSchema: unknown): string {
+    if (outputSchema === undefined || outputSchema === null) return userPrompt;
+    return `${userPrompt}\n\nReturn JSON matching exactly this schema:\n${JSON.stringify(outputSchema)}`;
+  }
+
+  /** The secret is read here and never logged, stored, or thrown. */
+  private mintServiceToken(): string {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) throw new ServiceUnavailableException('ai/complete auth is not configured');
+    return JwtUtil.sign(SELF_SERVICE_ID, secret, SERVICE_TOKEN_TTL_SECONDS);
+  }
+
+  private resolveTimeoutMs(): number {
+    const raw = Number(process.env.DRILL_LLM_TIMEOUT_MS);
+    return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
+  }
+
+  private extractSpreadPayload(payload: AiCompleteResponse): Record<string, unknown> | null {
+    const extra: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(payload as Record<string, unknown>)) {
+      if (!ENVELOPE_KEYS.has(key)) extra[key] = value;
+    }
+    return Object.keys(extra).length > 0 ? extra : null;
   }
 }
 ```
 
-- [ ] **Step 4: Run, confirm PASS (5 passed). Commit**
+Requires `AI_ORCHESTRATOR_URL`, `DRILL_GENERATION_MODEL_TIER` (must be one of
+`free|cheap|smart|premium` per `ModelTierSchema`, or `/ai/complete` 400s with no
+hint why) and optionally `DRILL_LLM_TIMEOUT_MS` — all three are documented in
+`ai-microservice/.env.example`.
+
+- [ ] **Step 4: Run, confirm PASS (13 passed). Commit**
 
 ```bash
 cd /home/ssf/Documents/Github/ai-microservice
