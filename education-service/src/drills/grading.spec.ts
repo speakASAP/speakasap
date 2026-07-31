@@ -13,6 +13,11 @@ describe('normalizeAnswer', () => {
 
   it('folds typographic apostrophes to ASCII', () => {
     expect(normalizeAnswer('l’eau', opts)).toBe("l'eau");
+    expect(normalizeAnswer('l‘eau', opts)).toBe("l'eau"); // U+2018 left single quote
+    expect(normalizeAnswer('lʼeau', opts)).toBe("l'eau"); // U+02BC modifier apostrophe
+    expect(normalizeAnswer('l´eau', opts)).toBe("l'eau"); // U+00B4 acute accent
+    expect(normalizeAnswer('l`eau', opts)).toBe("l'eau"); // U+0060 grave accent
+    expect(normalizeAnswer('l′eau', opts)).toBe("l'eau"); // U+2032 prime
   });
 
   it('strips a single trailing sentence punctuation mark', () => {
@@ -68,6 +73,56 @@ describe('gradeBlank', () => {
 
   it('rejects an empty submission', () => {
     expect(gradeBlank('   ', blank('auf'), { caseSensitive: false }).correct).toBe(false);
+  });
+});
+
+// `blanks` is an unvalidated Json column written by AI generation (Tracks C/D).
+// A malformed blank must not turn a student's check request into a 500.
+describe('gradeBlank on a malformed persisted blank', () => {
+  const opts = { caseSensitive: false };
+
+  it('still grades when alternatives is missing entirely', () => {
+    const malformed = { index: 0, prompt: '', answer: 'auf' } as unknown as DrillBlank;
+    expect(gradeBlank('auf', malformed, opts)).toEqual({ correct: true, acceptedText: 'auf' });
+    expect(gradeBlank('bei', malformed, opts)).toEqual({ correct: false, acceptedText: null });
+  });
+
+  it('still grades when alternatives is a non-array', () => {
+    const malformed = {
+      index: 0, prompt: '', answer: 'auf', alternatives: 'dies',
+    } as unknown as DrillBlank;
+    expect(gradeBlank('auf', malformed, opts)).toEqual({ correct: true, acceptedText: 'auf' });
+    // A bare spread of a string alternative would splat it into single characters
+    // and accept each one — `[...'dies']` is `['d','i','e','s']`.
+    expect(gradeBlank('d', malformed, opts)).toEqual({ correct: false, acceptedText: null });
+    expect(gradeBlank('dies', malformed, opts)).toEqual({ correct: false, acceptedText: null });
+  });
+
+  it('skips non-string entries inside alternatives', () => {
+    const malformed = {
+      index: 0, prompt: '', answer: 'auf', alternatives: [null, 42, 'dies'],
+    } as unknown as DrillBlank;
+    expect(gradeBlank('dies', malformed, opts)).toEqual({ correct: true, acceptedText: 'dies' });
+    expect(gradeBlank('bei', malformed, opts)).toEqual({ correct: false, acceptedText: null });
+  });
+
+  it('treats a null answer as ungradeable rather than throwing', () => {
+    const malformed = {
+      index: 0, prompt: '', answer: null, alternatives: [],
+    } as unknown as DrillBlank;
+    expect(gradeBlank('auf', malformed, opts)).toEqual({ correct: false, acceptedText: null });
+  });
+
+  it('treats a missing answer as ungradeable even when an alternative matches', () => {
+    const malformed = {
+      index: 0, prompt: '', alternatives: ['auf'],
+    } as unknown as DrillBlank;
+    expect(gradeBlank('auf', malformed, opts)).toEqual({ correct: false, acceptedText: null });
+  });
+
+  it('treats a null blank as ungradeable rather than throwing', () => {
+    expect(gradeBlank('auf', null as unknown as DrillBlank, opts))
+      .toEqual({ correct: false, acceptedText: null });
   });
 });
 
