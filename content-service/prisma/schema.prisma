@@ -24,6 +24,7 @@ model Language {
   drillTopics     DrillTopic[]
   drillItems      DrillItem[]
   courseVocabulary CourseVocabulary[]
+  drillSets       DrillSet[]
 
   @@index([order])
   @@index([name])
@@ -240,6 +241,7 @@ model DrillItem {
   language  Language            @relation(fields: [languageId], references: [id])
   topic     DrillTopic?         @relation(fields: [topicId], references: [id])
   revisions DrillItemRevision[]
+  setItems  DrillSetItem[]
 
   @@index([languageId, materialLanguage, topicId, status])
   @@index([courseKey, lessonOrder])
@@ -284,4 +286,91 @@ model CourseVocabulary {
 
   @@unique([courseKey, languageId, word, source])
   @@index([courseKey, languageId, lessonOrder])
+}
+
+// A reusable, reviewable collection of drill items — the unit of assignment
+// and of reuse. Sets are shared across teachers by default; `visibility` is
+// the opt-out, not the norm.
+//
+// `searchText` is the concatenated plainText of the set's items, carried on
+// the row so library search is one indexed lookup rather than a join and a
+// scan. It is GIN tsvector indexed by hand in the migration SQL — Prisma
+// cannot express that index, so it does not appear here.
+//
+// `avgFirstTryAccuracy` is deliberately NOT part of popularityScore (a hard
+// set is not a bad set) and is never shown to a teacher; it exists only as an
+// internal difficulty signal for item selection. See spec 8.2.
+model DrillSet {
+  uuid                String    @id @db.Uuid
+  title               String    @db.VarChar(255)
+  languageId          Int
+  materialLanguage    String    @db.VarChar(2)
+  level               String?   @db.VarChar(4)
+  topicSlugs          String[]
+  courseKey           String?   @db.VarChar(255)
+  lessonOrder         Int?
+  // AI | BANK | MIXED | TEACHER — see DrillSetOrigin in src/drills/contracts.ts.
+  origin              String    @db.VarChar(16)
+  // GENERATING | VALIDATING | PENDING_REVIEW | APPROVED — see DrillSetReviewState.
+  reviewState         String    @db.VarChar(16)
+  createdByTeacherId  Int?
+  // The teacher's original free-text request, kept verbatim for regeneration.
+  instructions        String?   @db.Text
+  // SHARED | PRIVATE
+  visibility          String    @default("SHARED") @db.VarChar(8)
+  searchText          String    @db.Text
+  knownWordRatio      Float?
+  timesAssigned       Int       @default(0)
+  timesSelfSelected   Int       @default(0)
+  teacherUpvotes      Int       @default(0)
+  studentUpvotes      Int       @default(0)
+  avgFirstTryAccuracy Float?
+  popularityScore     Float     @default(0)
+  createdAt           DateTime  @default(now())
+  approvedAt          DateTime?
+
+  language Language         @relation(fields: [languageId], references: [id])
+  items    DrillSetItem[]
+  ratings  DrillSetRating[]
+
+  @@index([languageId, materialLanguage, reviewState])
+  @@index([courseKey, lessonOrder])
+  @@index([popularityScore])
+}
+
+model DrillSetItem {
+  id               Int       @id @default(autoincrement())
+  setUuid          String    @db.Uuid
+  itemId           Int
+  order            Int
+  // PENDING | PASS | WARN | FAIL | OVERRIDDEN — see ValidationState.
+  validationState  String    @default("PENDING") @db.VarChar(16)
+  validationIssues Json      @default("[]")
+  validatedAt      DateTime?
+  validatorVersion String?   @db.VarChar(32)
+
+  set  DrillSet  @relation(fields: [setUuid], references: [uuid], onDelete: Cascade)
+  item DrillItem @relation(fields: [itemId], references: [id])
+
+  @@unique([setUuid, order])
+  @@index([itemId])
+}
+
+// One vote per rater per set, changeable — hence the unique key and the
+// upsert in SetsService.recordRating.
+model DrillSetRating {
+  id        Int      @id @default(autoincrement())
+  setUuid   String   @db.Uuid
+  // TEACHER | STUDENT
+  raterType String   @db.VarChar(8)
+  raterId   Int
+  // +1 | -1
+  value     Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  set DrillSet @relation(fields: [setUuid], references: [uuid], onDelete: Cascade)
+
+  @@unique([setUuid, raterType, raterId])
 }
