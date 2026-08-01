@@ -98,37 +98,65 @@ export class StudentProgressClientAdapter {
   }
 }
 
+/** The legacy system `DrillAssignment.studentId` values belong to. */
+const LEGACY_SYSTEM = 'speakasap-portal';
+
 /**
  * `DrillIdentityResolver` — the auth UUID to legacy integer bridge.
  *
- * BLOCKED ON AUTH-MICROSERVICE. Track H shipped two routes and both map in the wrong
- * direction: `GET /internal/users/by-legacy-id` and
- * `POST /internal/users/resolve-or-provision-legacy` both take a legacy id and return
- * an auth UUID (contract C9). This resolver needs the reverse — auth UUID to legacy id
- * — because the JWT carries the UUID while `DrillAssignment.studentId` is the legacy
- * Django integer. No route returns that.
+ * Calls auth-microservice's `GET /internal/users/by-auth-user`. The JWT carries
+ * `AuthContextUser.id` (a UUID) while `DrillAssignment.studentId` is the legacy Django
+ * integer, so every student-facing drill call goes through here first.
  *
- * It fails CLOSED (503 IDENTITY_UNRESOLVED, contract C7) rather than guessing. Guessing
- * a student id would hand one student another student's assignments and their answers;
- * a 503 only means the endpoint is unavailable, which is the truth.
- *
- * Resolve by adding a lookup keyed on authUserId to auth-microservice's
- * InternalUsersController, then replacing the throw below with the call.
+ * EVERY failure path fails CLOSED with 503 IDENTITY_UNRESOLVED (contract C7) — no
+ * mapping, an unreachable service, an ambiguous mapping, a non-numeric id. There is no
+ * safe fallback: defaulting, coercing or picking a row all hand one student another
+ * student's assignments and the answers inside them. A 503 says only that identity
+ * could not be established, which is the truth in all four cases.
  */
 @Injectable()
 export class DrillIdentityResolverAdapter {
   private readonly logger = new Logger(DrillIdentityResolverAdapter.name);
 
   async resolveStudentId(authUserId: string): Promise<number> {
-    this.logger.error(
-      `Cannot resolve auth user ${authUserId} to a legacy student id: auth-microservice exposes no authUserId -> legacyUserId route (Track D handoff)`,
-    );
-    throw new ServiceUnavailableException({
-      statusCode: 503,
-      code: 'IDENTITY_UNRESOLVED',
-      message: 'Could not resolve the signed-in user to a student record',
-    });
+    const base = requiredEnv('AUTH_SERVICE_URL', 'auth-microservice');
+    const query = new URLSearchParams({ system: LEGACY_SYSTEM, authUserId });
+
+    let response: { legacyUserId?: unknown };
+    try {
+      response = await requestUpstream<{ legacyUserId?: unknown }>({
+        url: `${base}/internal/users/by-auth-user?${query}`,
+        method: 'GET',
+        token: requiredEnv('INTERNAL_API_TOKEN', 'auth-microservice'),
+        internalToken: requiredEnv('INTERNAL_API_TOKEN', 'auth-microservice'),
+        timeoutMs: numericEnv('AUTH_SERVICE_TIMEOUT', 10000),
+        upstream: 'auth-microservice',
+      });
+    } catch (error) {
+      // Covers 404 (no mapping), 409 (ambiguous — a duplicate-account data defect) and
+      // transport failures alike. They are distinguished in the log, never in the
+      // response: the caller's only correct action is the same in every case.
+      this.logger.error(
+        `Identity resolution failed for auth user ${authUserId}: ${(error as Error).message}`,
+      );
+      throw unresolved();
+    }
+
+    const legacyId = Number(response.legacyUserId);
+    if (!Number.isInteger(legacyId) || legacyId <= 0) {
+      this.logger.error(`Identity resolution returned no usable legacy id for ${authUserId}`);
+      throw unresolved();
+    }
+    return legacyId;
   }
+}
+
+function unresolved(): ServiceUnavailableException {
+  return new ServiceUnavailableException({
+    statusCode: 503,
+    code: 'IDENTITY_UNRESOLVED',
+    message: 'Could not resolve the signed-in user to a student record',
+  });
 }
 
 /**
