@@ -1,10 +1,13 @@
 import { Injectable, NotImplementedException } from '@nestjs/common';
 import {
+  DrillBlank,
   DrillItemSearchRequest,
   DrillItemSearchResponse,
   DrillSetDetailDTO,
+  DrillSetDTO,
   DrillSetOrigin,
   DrillSetReviewState,
+  DrillTemplate,
   DrillTopicDTO,
   VocabularyBaseline,
 } from '../contracts';
@@ -29,6 +32,14 @@ export interface CreateSetInput {
   visibility?: 'SHARED' | 'PRIVATE';
   knownWordRatio?: number | null;
   itemIds: number[];
+}
+
+/** A replacement drill item, not yet persisted — content-service assigns the id. */
+export interface ReplacementItem {
+  template: DrillTemplate;
+  blanks: DrillBlank[];
+  hint: string | null;
+  topicSlug: string;
 }
 
 /**
@@ -108,24 +119,55 @@ export class ContentClient {
     });
   }
 
+  async getSet(setUuid: string, token: string): Promise<DrillSetDetailDTO> {
+    return requestUpstream<DrillSetDetailDTO>({
+      url: `${this.baseUrl()}/api/v1/internal/drill-sets/${encodeURIComponent(setUuid)}`,
+      method: 'GET',
+      token,
+      internalToken: this.internalToken(),
+      timeoutMs: this.timeoutMs(),
+      upstream: UPSTREAM,
+    });
+  }
+
   /**
-   * NOT AVAILABLE UPSTREAM. Track A2 shipped create/approve/rate only — there is
-   * no route in content-service that replaces the items of an existing set
-   * (verified against src/drills/sets/sets.controller.ts on the Track A2 tree).
+   * NOT AVAILABLE UPSTREAM — see the note on updateSet below.
    *
-   * Task D.4's regeneration loop needs it. This throws rather than faking a
-   * success, because a regeneration that silently keeps the failed items would
-   * put unvalidated sentences in front of a student. Resolve by adding the route
-   * to content-service before wiring D.4.
+   * Replaces the items at `positions` (DrillSetItem.order values) with `items`,
+   * writing the outgoing rows to DrillItemRevision first. The revision model already
+   * exists in content-service's schema (Track A); only the HTTP route is missing.
    */
   async replaceSetItems(
     _setUuid: string,
     _positions: number[],
-    _itemIds: number[],
+    _items: ReplacementItem[],
+    _options: { recordRevisionReason: string },
     _token: string,
-  ): Promise<DrillSetDetailDTO> {
+  ): Promise<void> {
     throw new NotImplementedException(
       'content-service exposes no drill-set item replacement route; see Track D handoff notes',
+    );
+  }
+
+  /**
+   * NOT AVAILABLE UPSTREAM. Track A2 shipped create/approve/rate only — there is no
+   * route in content-service that mutates an existing set (verified against
+   * src/drills/sets/sets.controller.ts on the Track A2 tree).
+   *
+   * Task D.4's regeneration loop needs both this and replaceSetItems. They throw
+   * rather than faking success: a regeneration that silently kept the rejected items,
+   * or left an APPROVED set approved after its contents changed, would put
+   * unreviewed sentences in front of a student. All the orchestration logic around
+   * them is implemented and tested; adding the two routes to content-service is the
+   * only remaining work.
+   */
+  async updateSet(
+    _setUuid: string,
+    _patch: { reviewState?: DrillSetReviewState },
+    _token: string,
+  ): Promise<DrillSetDTO> {
+    throw new NotImplementedException(
+      'content-service exposes no drill-set update route; see Track D handoff notes',
     );
   }
 
