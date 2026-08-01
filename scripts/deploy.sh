@@ -97,14 +97,49 @@ fi
 deploy_timing_phase_end "Apply microservice manifests"
 
 deploy_timing_phase_start "Rollout restart (all services)"
-echo -e "${YELLOW}Triggering rollout restart for all speakasap deployments...${NC}"
-kubectl rollout restart deployment/"$SERVICE_NAME" -n "$NAMESPACE"
-for svc in "${SPEAKASAP_SERVICES[@]}"; do
-  if kubectl get deployment "$svc" -n "$NAMESPACE" >/dev/null 2>&1; then
-    kubectl rollout restart deployment/"$svc" -n "$NAMESPACE"
+# Serialized on purpose. Restarting every deployment at once creates one surge
+# pod per service simultaneously; this node runs at its pod ceiling (110), so
+# the surge pods cannot schedule until old pods terminate and the rollouts
+# deadlock on each other. That is the failure documented in
+# shared/docs/DEPLOY_STANDARD.md — FailedCreatePodSandBox / "name is reserved" /
+# "Too many pods". Observed 2026-08-01: a routine speakasap deploy took ~40
+# minutes and reported success while the old images were still serving.
+#
+# One at a time, each gated on real convergence. wait-for-rollout.sh is used
+# rather than `kubectl rollout status` because readyReplicas is satisfied by the
+# OLD pod mid-rollout, so status returns success before the new pod exists.
+WAIT_FOR_ROLLOUT="/home/ssf/Documents/Github/shared/scripts/wait-for-rollout.sh"
+ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300}"
+
+restart_and_wait() {
+  local svc="$1"
+  kubectl get deployment "$svc" -n "$NAMESPACE" >/dev/null 2>&1 || return 0
+  echo -e "${YELLOW}  ${svc}: restarting...${NC}"
+  kubectl rollout restart deployment/"$svc" -n "$NAMESPACE" >/dev/null
+  if [ -x "$WAIT_FOR_ROLLOUT" ]; then
+    if bash "$WAIT_FOR_ROLLOUT" -n "$NAMESPACE" -t "$ROLLOUT_TIMEOUT" "$svc" >/dev/null 2>&1; then
+      echo -e "${GREEN}  ${svc}: converged${NC}"
+    else
+      echo -e "${RED}  ${svc}: DID NOT CONVERGE within ${ROLLOUT_TIMEOUT}s${NC}"
+      return 1
+    fi
+  else
+    echo -e "${RED}  ${WAIT_FOR_ROLLOUT} missing — cannot gate on convergence${NC}"
+    return 1
   fi
+}
+
+echo -e "${YELLOW}Rolling speakasap deployments one at a time...${NC}"
+FAILED_SERVICES=()
+restart_and_wait "$SERVICE_NAME" || FAILED_SERVICES+=("$SERVICE_NAME")
+for svc in "${SPEAKASAP_SERVICES[@]}"; do
+  restart_and_wait "$svc" || FAILED_SERVICES+=("$svc")
 done
-echo -e "${GREEN}OK Rollout restarts triggered${NC}"
+if [ ${#FAILED_SERVICES[@]} -gt 0 ]; then
+  echo -e "${RED}Services that did not converge: ${FAILED_SERVICES[*]}${NC}"
+  exit 1
+fi
+echo -e "${GREEN}OK All speakasap deployments converged${NC}"
 deploy_timing_phase_end "Rollout restart (all services)"
 
 deploy_timing_phase_start "Wait for gateway rollout"
