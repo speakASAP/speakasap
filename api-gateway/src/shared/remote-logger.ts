@@ -13,6 +13,8 @@ export class RemoteLogger implements LoggerService {
   private readonly loggingTimeoutMs = Number(
     process.env.LOGGING_SERVICE_TIMEOUT || String(DEFAULT_LOGGING_TIMEOUT_MS),
   );
+  private readonly loggingToken =
+    process.env.LOGGING_SERVICE_TOKEN || process.env.JWT_TOKEN;
 
   log(message: unknown, context?: string): void {
     this.emit('info', message, context);
@@ -60,9 +62,15 @@ export class RemoteLogger implements LoggerService {
       const timeout = setTimeout(() => controller.abort(), this.loggingTimeoutMs);
       const base = this.loggingUrl.endsWith('/') ? this.loggingUrl.slice(0, -1) : this.loggingUrl;
       const path = this.loggingPath.startsWith('/') ? this.loggingPath : `/${this.loggingPath}`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (this.loggingToken) {
+        headers.Authorization = `Bearer ${this.loggingToken}`;
+      }
       fetch(`${base}${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
         signal: controller.signal,
       })
