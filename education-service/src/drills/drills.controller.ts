@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Logger,
   Param,
   Post,
@@ -50,7 +51,11 @@ export class DrillsController {
     private readonly runner: RunnerService,
     private readonly selfDrill: SelfDrillService,
     private readonly assignments: DrillAssignmentsService,
-    private readonly identity: DrillIdentityResolver,
+    // Track D: DrillIdentityResolver is a TypeScript interface, which erases at
+    // runtime and therefore carries no DI token of its own. This is the one line
+    // Track D added to a Track B2 file — without it the container cannot bind the
+    // resolver and the service does not start.
+    @Inject(DRILL_IDENTITY_RESOLVER) private readonly identity: DrillIdentityResolver,
   ) {}
 
   /** The student's own assignment list. */
