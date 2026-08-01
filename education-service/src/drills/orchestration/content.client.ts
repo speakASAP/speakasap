@@ -1,4 +1,4 @@
-import { Injectable, NotImplementedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   DrillBlank,
   DrillItemSearchRequest,
@@ -131,44 +131,47 @@ export class ContentClient {
   }
 
   /**
-   * NOT AVAILABLE UPSTREAM — see the note on updateSet below.
-   *
-   * Replaces the items at `positions` (DrillSetItem.order values) with `items`,
-   * writing the outgoing rows to DrillItemRevision first. The revision model already
-   * exists in content-service's schema (Track A); only the HTTP route is missing.
+   * Replaces the items at `positions` (DrillSetItem.order values) with `items`, writing
+   * the outgoing rows to DrillItemRevision first. Internal-only: the request body
+   * carries `blanks`, and `blanks` carries answers.
    */
   async replaceSetItems(
-    _setUuid: string,
-    _positions: number[],
-    _items: ReplacementItem[],
-    _options: { recordRevisionReason: string },
-    _token: string,
-  ): Promise<void> {
-    throw new NotImplementedException(
-      'content-service exposes no drill-set item replacement route; see Track D handoff notes',
-    );
+    setUuid: string,
+    positions: number[],
+    items: ReplacementItem[],
+    options: { recordRevisionReason: string },
+    token: string,
+  ): Promise<DrillSetDetailDTO> {
+    return requestUpstream<DrillSetDetailDTO>({
+      url: `${this.baseUrl()}/api/v1/internal/drill-sets/${encodeURIComponent(setUuid)}/replace-items`,
+      method: 'POST',
+      token,
+      internalToken: this.internalToken(),
+      body: { positions, items, recordRevisionReason: options.recordRevisionReason },
+      timeoutMs: this.timeoutMs(),
+      upstream: UPSTREAM,
+    });
   }
 
   /**
-   * NOT AVAILABLE UPSTREAM. Track A2 shipped create/approve/rate only — there is no
-   * route in content-service that mutates an existing set (verified against
-   * src/drills/sets/sets.controller.ts on the Track A2 tree).
-   *
-   * Task D.4's regeneration loop needs both this and replaceSetItems. They throw
-   * rather than faking success: a regeneration that silently kept the rejected items,
-   * or left an APPROVED set approved after its contents changed, would put
-   * unreviewed sentences in front of a student. All the orchestration logic around
-   * them is implemented and tested; adding the two routes to content-service is the
-   * only remaining work.
+   * Patches a set's review state. content-service refuses to grant APPROVED through
+   * this route — that decision belongs to the approve route, which is where the "no
+   * item is still FAIL" check lives.
    */
   async updateSet(
-    _setUuid: string,
-    _patch: { reviewState?: DrillSetReviewState },
-    _token: string,
+    setUuid: string,
+    patch: { reviewState?: DrillSetReviewState },
+    token: string,
   ): Promise<DrillSetDTO> {
-    throw new NotImplementedException(
-      'content-service exposes no drill-set update route; see Track D handoff notes',
-    );
+    return requestUpstream<DrillSetDTO>({
+      url: `${this.baseUrl()}/api/v1/internal/drill-sets/${encodeURIComponent(setUuid)}/update`,
+      method: 'POST',
+      token,
+      internalToken: this.internalToken(),
+      body: patch,
+      timeoutMs: this.timeoutMs(),
+      upstream: UPSTREAM,
+    });
   }
 
   private baseUrl(): string {

@@ -26,6 +26,7 @@ export const ROUTES: { prefix: string; envKey: string }[] = [
   // silently resolve to user-service and 404.
   { prefix: '/api/v1/internal/drill-items', envKey: 'CONTENT_SERVICE_URL' },
   { prefix: '/api/v1/internal/course-vocabulary', envKey: 'CONTENT_SERVICE_URL' },
+  { prefix: '/api/v1/internal/drill-sets', envKey: 'CONTENT_SERVICE_URL' },
   { prefix: '/api/v1/internal', envKey: 'USER_SERVICE_URL' },
 
   { prefix: '/api/v1/manager/user-questionnaires', envKey: 'CERTIFICATION_SERVICE_URL' },

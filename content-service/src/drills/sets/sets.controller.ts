@@ -10,8 +10,8 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { SetsService, CreateSetInput } from './sets.service';
-import { DrillSetDetailDTO, DrillSetDTO, DrillSetListResponse } from '../contracts';
+import { SetsService, CreateSetInput, ReplacementItem } from './sets.service';
+import { DrillSetDetailDTO, DrillSetDTO, DrillSetListResponse, DrillSetReviewState } from '../contracts';
 
 /** Identity of the caller, resolved upstream. Never read from the request body. */
 export interface RaterContext {
@@ -102,6 +102,48 @@ export class SetsController {
       throw new BadRequestException('itemIds is required (may be an empty array)');
     }
     return this.setsService.createSet(body);
+  }
+
+  /**
+   * Replaces items at given `order` positions. Internal-only for the same reason as the
+   * detail route above: the request body carries `blanks`, and `blanks` carries answers.
+   *
+   * Called by education-service's regeneration loop when a teacher rejects items.
+   */
+  @Post('internal/drill-sets/:uuid/replace-items')
+  @HttpCode(HttpStatus.OK)
+  async replaceSetItems(
+    @Param('uuid') uuid: string,
+    @Body()
+    body: {
+      positions?: number[];
+      items?: ReplacementItem[];
+      recordRevisionReason?: string;
+    },
+  ): Promise<DrillSetDetailDTO> {
+    if (!Array.isArray(body?.positions) || !Array.isArray(body?.items)) {
+      throw new BadRequestException('positions and items are required arrays');
+    }
+    if (!body.recordRevisionReason) {
+      // The revision reason is what makes the history readable later. An unlabelled
+      // revision row tells a teacher a sentence changed but not why.
+      throw new BadRequestException('recordRevisionReason is required');
+    }
+    return this.setsService.replaceSetItems(uuid, body.positions, body.items, {
+      recordRevisionReason: body.recordRevisionReason,
+    });
+  }
+
+  /**
+   * Patches a set's review state. APPROVED is not grantable here — see updateSet.
+   */
+  @Post('internal/drill-sets/:uuid/update')
+  @HttpCode(HttpStatus.OK)
+  async updateSet(
+    @Param('uuid') uuid: string,
+    @Body() body: { reviewState?: DrillSetReviewState },
+  ): Promise<DrillSetDTO> {
+    return this.setsService.updateSet(uuid, { reviewState: body?.reviewState });
   }
 
   @Post('internal/drill-sets/:uuid/approve')

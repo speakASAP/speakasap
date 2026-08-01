@@ -53,3 +53,52 @@ describe('SetsController', () => {
     });
   });
 });
+
+describe('SetsController replace and update routes', () => {
+  const setsService = {
+    replaceSetItems: jest.fn(),
+    updateSet: jest.fn(),
+  } as any;
+  const controller = new (require('./sets.controller').SetsController)(setsService);
+
+  beforeEach(() => jest.resetAllMocks());
+
+  const body = {
+    positions: [0],
+    items: [{ template: 'x', blanks: [], hint: null, topicSlug: 't' }],
+    recordRevisionReason: 'REGENERATED',
+  };
+
+  it('forwards a replacement to the service', async () => {
+    setsService.replaceSetItems.mockResolvedValue({ uuid: 's-1' });
+
+    await controller.replaceSetItems('s-1', body);
+
+    expect(setsService.replaceSetItems).toHaveBeenCalledWith('s-1', body.positions, body.items, {
+      recordRevisionReason: 'REGENERATED',
+    });
+  });
+
+  // An unlabelled revision row tells a teacher a sentence changed but not why, which is
+  // most of the value of keeping the history at all.
+  it('rejects a replacement with no revision reason', async () => {
+    await expect(
+      controller.replaceSetItems('s-1', { ...body, recordRevisionReason: undefined }),
+    ).rejects.toThrow(/recordRevisionReason/);
+    expect(setsService.replaceSetItems).not.toHaveBeenCalled();
+  });
+
+  it('rejects a replacement with non-array positions', async () => {
+    await expect(
+      controller.replaceSetItems('s-1', { ...body, positions: 0 as any }),
+    ).rejects.toThrow(/positions/);
+  });
+
+  it('forwards a review-state patch to the service', async () => {
+    setsService.updateSet.mockResolvedValue({ uuid: 's-1' });
+
+    await controller.updateSet('s-1', { reviewState: 'PENDING_REVIEW' });
+
+    expect(setsService.updateSet).toHaveBeenCalledWith('s-1', { reviewState: 'PENDING_REVIEW' });
+  });
+});

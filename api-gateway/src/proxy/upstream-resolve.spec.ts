@@ -43,6 +43,25 @@ describe('resolveUpstreamBaseUrl — drill routes', () => {
     expect(resolveUpstreamBaseUrl('/api/v1/internal/drill-items/search')).toBe('http://content:4201');
   });
 
+  // Every internal drill-set route carries answers: the detail route returns
+  // DrillSetDetailDTO (DrillBlank.answer for every item) and replace-items takes blanks
+  // in the request body. Without an explicit entry they fall through to the generic
+  // '/api/v1/internal' rule and resolve to user-service, which 404s — the exact failure
+  // the comment above that rule warns about.
+  it('routes internal drill-sets to content-service, NOT user-service', () => {
+    expect(resolveUpstreamBaseUrl('/api/v1/internal/drill-sets/s-1')).toBe('http://content:4201');
+    expect(resolveUpstreamBaseUrl('/api/v1/internal/drill-sets')).toBe('http://content:4201');
+    expect(resolveUpstreamBaseUrl('/api/v1/internal/drill-sets/s-1/replace-items')).toBe(
+      'http://content:4201',
+    );
+    expect(resolveUpstreamBaseUrl('/api/v1/internal/drill-sets/s-1/update')).toBe(
+      'http://content:4201',
+    );
+    expect(resolveUpstreamBaseUrl('/api/v1/internal/drill-sets/s-1/approve')).toBe(
+      'http://content:4201',
+    );
+  });
+
   it('routes internal course-vocabulary to content-service, NOT user-service', () => {
     expect(resolveUpstreamBaseUrl('/api/v1/internal/course-vocabulary')).toBe('http://content:4201');
   });

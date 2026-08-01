@@ -103,6 +103,36 @@ describe('ContentClient', () => {
     expect(url.searchParams.get('materialLanguage')).toBe('ru');
   });
 
+  it('replaces set items through the internal route', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ uuid: 'set-1' }) });
+    const items = [{ template: 'x', blanks: [], hint: null, topicSlug: 't' }];
+
+    await new ContentClient().replaceSetItems(
+      'set-1',
+      [0, 2],
+      items as any,
+      { recordRevisionReason: 'REGENERATED' },
+      'tok',
+    );
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://content:4201/api/v1/internal/drill-sets/set-1/replace-items');
+    expect(init.headers['x-internal-token']).toBe('internal-secret');
+    const body = JSON.parse(init.body);
+    expect(body.positions).toEqual([0, 2]);
+    expect(body.recordRevisionReason).toBe('REGENERATED');
+  });
+
+  it('patches a set review state through the internal route', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ uuid: 'set-1' }) });
+
+    await new ContentClient().updateSet('set-1', { reviewState: 'PENDING_REVIEW' }, 'tok');
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://content:4201/api/v1/internal/drill-sets/set-1/update');
+    expect(JSON.parse(init.body).reviewState).toBe('PENDING_REVIEW');
+  });
+
   it('creates a set through the internal route', async () => {
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({ uuid: 'set-1' }) });
 

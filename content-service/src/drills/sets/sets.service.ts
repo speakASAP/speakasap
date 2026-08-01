@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from '../../shared/prisma.service';
 import { computePopularityScore } from './popularity';
 import { buildSetListQuery, groupByLesson } from './sets.query';
+import { hashItem, parseTemplate } from '../template';
 import {
   DrillSetDetailDTO,
   DrillSetDTO,
@@ -12,6 +13,14 @@ import {
   ValidationIssue,
   ValidationState,
 } from '../contracts';
+
+/** A replacement drill item, not yet persisted — this service assigns the id. */
+export interface ReplacementItem {
+  template: string;
+  blanks: unknown[];
+  hint: string | null;
+  topicSlug: string;
+}
 
 /** A rating is a single up or down vote. Anything else is a client bug. */
 const ALLOWED_RATING_VALUES = [1, -1];
@@ -173,6 +182,166 @@ export class SetsService {
       });
       return this.toDTO(updated);
     });
+  }
+
+  /**
+   * Replaces the items at the given `order` positions, writing the outgoing rows to
+   * DrillItemRevision first. Called by education-service's regeneration loop
+   * (Track D) when a teacher rejects items and asks for new ones.
+   *
+   * One transaction throughout: a revision written without the swap, or a swap without
+   * the revision, is worse than neither — the first loses nothing but lies about
+   * history, the second destroys the sentence the teacher wanted to compare against.
+   *
+   * The replaced positions return to PENDING validation. They have not been through
+   * the validator in this set, and inheriting the old item's PASS would mark an
+   * unexamined sentence as checked.
+   */
+  async replaceSetItems(
+    uuid: string,
+    positions: number[],
+    replacements: ReplacementItem[],
+    options: { recordRevisionReason: string },
+  ): Promise<DrillSetDetailDTO> {
+    if (positions.length !== replacements.length) {
+      throw new BadRequestException(
+        `positions and replacements must be the same length (${positions.length} vs ${replacements.length})`,
+      );
+    }
+    if (positions.length === 0) {
+      throw new BadRequestException('at least one position is required');
+    }
+
+    await this.prisma.$transaction(async (tx: any) => {
+      const set = await tx.drillSet.findUnique({
+        where: { uuid },
+        include: { items: { include: { item: true } }, language: true },
+      });
+      if (!set) {
+        throw new NotFoundException(`Drill set ${uuid} not found`);
+      }
+
+      const languageCode = set.language?.code ?? '';
+
+      for (let i = 0; i < positions.length; i++) {
+        const position = positions[i];
+        const target = (set.items ?? []).find((row: any) => row.order === position);
+        if (!target) {
+          throw new BadRequestException(`Set ${uuid} has no item at position ${position}`);
+        }
+
+        // History first. If anything below fails, the transaction takes this with it.
+        await tx.drillItemRevision.create({
+          data: {
+            itemId: target.itemId,
+            template: target.item.template,
+            blanks: target.item.blanks ?? [],
+            hint: target.item.hint ?? null,
+            reason: options.recordRevisionReason,
+          },
+        });
+
+        const itemId = await this.upsertItem(tx, set, languageCode, replacements[i]);
+
+        await tx.drillSetItem.update({
+          where: { id: target.id },
+          data: {
+            itemId,
+            validationState: 'PENDING',
+            validationIssues: [],
+            validatedAt: null,
+          },
+        });
+      }
+    });
+
+    await this.updateSearchText(uuid);
+    return this.getSet(uuid);
+  }
+
+  /**
+   * DrillItem.hash is @unique, so a replacement that happens to match a sentence already
+   * in the bank must reuse that row rather than insert a colliding one. A blind create
+   * would fail the whole regeneration with a constraint error the teacher cannot act on.
+   */
+  private async upsertItem(
+    tx: any,
+    set: any,
+    languageCode: string,
+    replacement: ReplacementItem,
+  ): Promise<number> {
+    const parsed = parseTemplate(replacement.template);
+    const hash = hashItem(parsed.plainText, languageCode);
+
+    const existing = await tx.drillItem.findUnique({ where: { hash } });
+    if (existing) {
+      return existing.id;
+    }
+
+    const topic = replacement.topicSlug
+      ? await tx.drillTopic.findFirst({ where: { slug: replacement.topicSlug } })
+      : null;
+
+    const created = await tx.drillItem.create({
+      data: {
+        languageId: set.languageId,
+        materialLanguage: set.materialLanguage,
+        topicId: topic?.id ?? null,
+        level: set.level ?? null,
+        template: replacement.template,
+        blanks: replacement.blanks as any,
+        plainText: parsed.plainText,
+        hint: replacement.hint ?? null,
+        sourceType: 'AI',
+        courseKey: set.courseKey ?? null,
+        lessonOrder: set.lessonOrder ?? null,
+        unknownWords: [],
+        hash,
+      },
+    });
+    return created.id;
+  }
+
+  /**
+   * Patches a set's review state.
+   *
+   * APPROVED is deliberately NOT grantable here. It is the flag that makes a set visible
+   * to a student, and `approveSet` is where the "no item is still FAIL" check lives;
+   * allowing it through a generic patch would route around that check entirely.
+   */
+  async updateSet(
+    uuid: string,
+    patch: { reviewState?: DrillSetReviewState },
+  ): Promise<DrillSetDTO> {
+    const allowed: DrillSetReviewState[] = ['GENERATING', 'VALIDATING', 'PENDING_REVIEW'];
+    if (!patch.reviewState || !allowed.includes(patch.reviewState)) {
+      throw new BadRequestException(
+        `reviewState must be one of ${allowed.join(', ')} (use the approve route to approve a set)`,
+      );
+    }
+
+    const set = await this.prisma.drillSet.findUnique({ where: { uuid } });
+    if (!set) {
+      throw new NotFoundException(`Drill set ${uuid} not found`);
+    }
+
+    const updated = await this.prisma.drillSet.update({
+      where: { uuid },
+      data: {
+        reviewState: patch.reviewState,
+        // Clearing this matters: a set that fell out of APPROVED but kept its
+        // approvedAt reads as approved to anything that checks the timestamp.
+        approvedAt: null,
+        popularityScore: computePopularityScore({
+          teacherUpvotes: set.teacherUpvotes ?? 0,
+          studentUpvotes: set.studentUpvotes ?? 0,
+          timesAssigned: set.timesAssigned ?? 0,
+          timesSelfSelected: set.timesSelfSelected ?? 0,
+          reviewState: patch.reviewState,
+        }),
+      },
+    });
+    return this.toDTO(updated);
   }
 
   /**
