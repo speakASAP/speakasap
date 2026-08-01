@@ -1,8 +1,10 @@
 # Track D — Generation Orchestration
 
-**State:** COMPLETE — with three **upstream-blocked** boundaries, see §"Blocked upstream"
+**State:** COMPLETE — all upstream blockers cleared 2026-08-01 with owner approval
 **Service:** `speakasap/education-service` · **Branch:** `feat/drilling-assignments`
-**Commits:** `d12e8e3..1631b20` (D.1 → D.5 + wiring, five commits)
+**Commits:** `d12e8e3..34b4698` (D.1 → D.5, wiring, then the three unblocking routes)
+**Also touched, owner-approved:** `content-service` (two routes), `api-gateway` (one
+routing fix), `auth-microservice` on `main` (`7682bd0`, one route)
 **Plan:** [`../07-orchestration.md`](../07-orchestration.md) · **Unblocks:** Track F, and the
 deployability of education-service itself
 
@@ -14,14 +16,23 @@ deployability of education-service itself
 
 ```
 $ ./node_modules/.bin/jest                          # education-service
-Test Suites: 17 passed, 17 total
-Tests:       183 passed, 183 total   (114 from B2 + 69 new)
+Test Suites: 18 passed, 18 total
+Tests:       197 passed, 197 total   (114 from B2 + 83 new)
 
-$ ./node_modules/.bin/tsc --noEmit -p tsconfig.json
+$ ./node_modules/.bin/jest                          # content-service
+Tests:       130 passed, 130 total   (16 new)
+
+$ ./node_modules/.bin/jest                          # api-gateway
+Tests:       9 passed, 9 total       (1 new)
+
+$ ./node_modules/.bin/jest                          # auth-microservice
+Tests:       158 passed, 158 total   (10 new)
+
+$ ./node_modules/.bin/tsc --noEmit -p tsconfig.json  # all four
 exit 0 — clean
 ```
 
-Every suite was confirmed to fail first. **Twenty-five mutations were run** — the source
+Every suite was confirmed to fail first. **Forty-one mutations were run** — the source
 was deliberately broken, the test confirmed red, the source restored and diffed back to
 identical. Two of them exposed tests that proved nothing; both are recorded below.
 
@@ -33,6 +44,10 @@ identical. Two of them exposed tests that proved nothing; both are recorded belo
 | D.4 regeneration | 6 | yes |
 | D.5 job runner | 6 | yes |
 | module wiring | 2 | after one test fix |
+| identity + progress adapters | 6 | yes |
+| auth reverse lookup | 4 | yes |
+| gateway routing | 1 | yes |
+| content replace/update | 5 | yes |
 
 ## ⚠ The B2 boot blocker is cleared
 
@@ -70,37 +85,53 @@ empty drill straight past the teacher's review queue. Fixed, pinned by
 
 It surfaced from a log line (`origin=BANK kept=0/10`) while all thirteen tests were green.
 
-## Blocked upstream — REQUIRED before this feature works end to end
+## Upstream gaps — all three CLEARED (owner-approved, 2026-08-01)
 
-All three fail closed and log explicitly. None of them fake a success, because every
-plausible fake here puts unreviewed content or another student's data in front of a user.
+Track D originally shipped these three as fail-closed ports, because the routes they need
+did not exist. The owner approved implementing them directly rather than reopening the
+finished tracks. All three are now live and tested.
 
-| # | Boundary | Needs | Consequence today |
+| # | Boundary | Route added | Where |
 |---|---|---|---|
-| 1 | `ContentClient.replaceSetItems` | a content-service route replacing a set's items at given `order` positions, writing the outgoing rows to `DrillItemRevision` | `NotImplementedException`. **Task D.4 regeneration cannot run.** |
-| 2 | `ContentClient.updateSet` | a content-service route patching `reviewState` on an existing set | `NotImplementedException`. A regenerated set cannot be returned to `PENDING_REVIEW`. |
-| 3 | `DrillIdentityResolverAdapter` | an auth-microservice route mapping **authUserId → legacyUserId** | 503 `IDENTITY_UNRESOLVED`. **Every student-facing drill endpoint returns 503.** |
+| 1 | `ContentClient.replaceSetItems` | `POST /api/v1/internal/drill-sets/:uuid/replace-items` | content-service (Track A2's file) |
+| 2 | `ContentClient.updateSet` | `POST /api/v1/internal/drill-sets/:uuid/update` | content-service (Track A2's file) |
+| 3 | `DrillIdentityResolverAdapter` | `GET /internal/users/by-auth-user` | auth-microservice (Track H's file) |
 
-Notes on each:
+Design decisions worth carrying forward:
 
-1 and 2 are content-service (Track A2's files). Track A2 shipped `POST internal/drill-sets`,
-`POST …/approve` and `POST drill-sets/:uuid/ratings` and nothing that mutates an existing
-set. The `DrillItemRevision` model **already exists** in content-service's schema from
-Track A, so this is HTTP-route work, not a migration. All the orchestration logic around
-both calls is implemented and tested against the port.
+- **`updateSet` cannot grant `APPROVED`.** That flag is what makes a set student-visible,
+  and `approveSet` is where the "no item is still FAIL" check lives. A generic patch route
+  that could set it would route around that check entirely. It also clears `approvedAt`,
+  because a set that fell out of `APPROVED` while keeping its timestamp reads as approved
+  to anything that checks the timestamp instead of the state.
+- **`replaceSetItems` upserts on `hash`.** `DrillItem.hash` is `@unique`, so a regenerated
+  sentence that happens to match one already in the bank must reuse that row. A blind
+  create fails the whole regeneration with a constraint error the teacher cannot act on.
+- **Replaced positions return to `PENDING` validation** rather than inheriting the old
+  item's `PASS`, which would mark an unexamined sentence as checked.
+- **The identity route refuses to guess.** The unique key on `legacy_identity_mappings` is
+  `(legacySystem, legacyUserId)` and **not** `authUserId`, so one auth user mapping to
+  several legacy ids is representable — it happens where a legacy account was duplicated
+  before the merge. That is a 409, distinct from the 404 for "no mapping", because the two
+  need different human responses. education-service collapses both to 503
+  `IDENTITY_UNRESOLVED` (contract C7) since the caller's correct action is the same either
+  way, but the distinction survives in the logs.
 
-3 is the significant one. Track H shipped `GET /internal/users/by-legacy-id` and
-`POST /internal/users/resolve-or-provision-legacy`; **both map legacy id → auth UUID**,
-which is contract C9's direction. The runner needs the reverse, because the JWT carries
-`AuthContextUser.id` (a UUID) while `DrillAssignment.studentId` is the legacy Django
-integer. No shipped route returns it. Until one exists, `DrillsController` resolves no
-student and every student-facing endpoint 503s. The service **boots** — this is a runtime
-gap, not a startup one.
+### A gateway defect found while wiring these
 
-A fourth, smaller gap: `DrillSetsClientAdapter.incrementSelfSelected` has no
-content-service route either. It logs and returns rather than throwing — failing a
-student's drill start because a popularity counter could not be bumped would be the wrong
-trade, and the counter feeds library ranking only.
+`/api/v1/internal/drill-sets` had **no upstream entry** in
+`api-gateway/src/proxy/upstream-resolve.ts`. It fell through to the generic
+`/api/v1/internal` rule and resolved to **user-service**, which 404s. Every internal
+drill-set route was unreachable through the gateway — including Track A2's already-shipped
+`getSet` and `createSet`, which nothing had exercised end to end. This is exactly the
+failure the comment above that rule warns about. Fixed, with a test that fails when the
+entry is removed.
+
+### Still open, deliberately
+
+`DrillSetsClientAdapter.incrementSelfSelected` has no content-service route. It logs and
+returns rather than throwing — failing a student's drill start because a popularity counter
+could not be bumped would be the wrong trade, and the counter feeds library ranking only.
 
 ## Plan deviations — deliberate
 
@@ -182,6 +213,9 @@ trade, and the counter feeds library ranking only.
   AI item arrives `PENDING_REVIEW` and must pass through the review queue.
 - A set can arrive **short** of the requested count. `RunSummary.partial` records it today,
   but nothing teacher-facing surfaces it yet (deviation 4).
-- The regeneration endpoint will 501 until content-service ships the two routes above.
-- Every student-facing drill endpoint 503s until the identity route exists. Test with
-  teacher-facing paths first.
+- Regeneration and student-facing endpoints both work now — the three routes that blocked
+  them shipped on 2026-08-01. Nothing in this track is stubbed any more.
+- The AI path has still never run against the live agents (Track C's eval harness is
+  deferred behind the credential rotation), so the first real generation run is the first
+  real test of prompt quality, latency and cost. Everything here is verified against
+  contracts, not against a model.
