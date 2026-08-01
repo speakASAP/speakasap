@@ -8,6 +8,7 @@ import { SongsModule } from './songs/songs.module';
 import { LanguagesModule } from './languages/languages.module';
 import { SevenModule } from './seven/seven.module';
 import { DrillsModule } from './drills/drills.module';
+import { SetsModule } from './drills/sets/sets.module';
 import { RequestContextMiddleware } from './shared/request-context.middleware';
 import { SharedModule } from './shared/shared.module';
 
@@ -21,6 +22,7 @@ import { SharedModule } from './shared/shared.module';
     LanguagesModule,
     SevenModule,
     DrillsModule,
+    SetsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

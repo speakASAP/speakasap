@@ -1,9 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../shared/prisma.service';
 import { computePopularityScore } from './popularity';
+import { buildSetListQuery, groupByLesson } from './sets.query';
 import {
   DrillSetDetailDTO,
   DrillSetDTO,
+  DrillSetListQuery,
+  DrillSetListResponse,
   DrillSetOrigin,
   DrillSetReviewState,
   ValidationIssue,
@@ -74,6 +77,44 @@ export class SetsService {
 
     await this.updateSearchText(input.uuid);
     return this.getSet(input.uuid);
+  }
+
+  /**
+   * Library listing. Answer-free by construction: it returns DrillSetDTO, not
+   * DrillSetDetailDTO, so no item template or blank ever reaches the response.
+   *
+   * `maxLessonOrder` clamps to sets at or below the caller's position in the
+   * course; it is applied here rather than in buildSetListQuery because it is
+   * a caller-authorization concern, not a search filter.
+   */
+  async list(
+    query: DrillSetListQuery & { maxLessonOrder?: number },
+  ): Promise<DrillSetListResponse> {
+    const { where, orderBy, take, skip } = buildSetListQuery(query);
+    if (query.maxLessonOrder !== undefined) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        { OR: [{ lessonOrder: { lte: query.maxLessonOrder } }, { lessonOrder: null }] },
+      ];
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.drillSet.findMany({
+        where,
+        orderBy: orderBy as any,
+        take,
+        skip,
+        include: { language: true, _count: { select: { items: true } } },
+      }),
+      this.prisma.drillSet.count({ where }),
+    ]);
+
+    const sets = rows.map((row: any) => this.toDTO(row));
+    const response: DrillSetListResponse = { sets, total };
+    if (query.groupBy === 'lesson') {
+      response.groups = groupByLesson(sets);
+    }
+    return response;
   }
 
   async getSet(uuid: string): Promise<DrillSetDetailDTO> {
