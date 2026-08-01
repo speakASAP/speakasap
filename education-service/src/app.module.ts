@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AuthClientModule } from './auth-client/auth-client.module';
+import { DrillsModule } from './drills/drills.module';
 import { GroupsModule } from './groups/groups.module';
 import { HomeworksModule } from './homeworks/homeworks.module';
 import { InternalSalaryModule } from './internal-salary/internal-salary.module';
@@ -20,6 +21,7 @@ import { AppService } from './app.service';
     LessonsModule,
     LessonRecordsModule,
     HomeworksModule,
+    DrillsModule,
     InternalSalaryModule,
   ],
   controllers: [AppController],
