@@ -2,7 +2,7 @@
 
 **State:** COMPLETE
 **Service:** `speakasap/content-service` · **Branch:** `feat/drilling-assignments`
-**Commits:** `9a3e1c4..` (A2.1 schema → A2.5 controller, five commits)
+**Commits:** `0e4070f..5c4b7bd` (A2.1 schema → A2.5 controller, five commits)
 **Plan:** [`../06-library.md`](../06-library.md) · **Unblocks:** Tracks D, F
 
 ## Contract changes
