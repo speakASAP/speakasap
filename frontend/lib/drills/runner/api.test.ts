@@ -5,6 +5,7 @@ import {
   NetworkError,
   checkBlank,
   fetchRunner,
+  listAvailableSets,
   listMyAssignments,
   startSelfDrill,
 } from './api';
@@ -169,5 +170,16 @@ describe('startSelfDrill', () => {
       code: 'ASSIGNMENT_OUTSTANDING',
       blockingAssignmentUuid: 'b-1',
     });
+  });
+});
+
+describe('listAvailableSets', () => {
+  it('gets the student library route, which returns only approved in-range sets', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ sets: [], total: 0 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listAvailableSets();
+
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/api/v1/drill-sets/available-for-me');
   });
 });

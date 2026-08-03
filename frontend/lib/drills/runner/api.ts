@@ -5,6 +5,7 @@ import type {
   CheckBlankResponse,
   DrillAssignmentDTO,
   DrillErrorCode,
+  DrillSetListResponse,
   InternalStudentAssignmentsResponse,
   RunnerResponse,
 } from '@/lib/drills/contracts';
@@ -140,6 +141,17 @@ export function checkBlank(uuid: string, req: CheckBlankRequest): Promise<CheckB
  * completion and for bank statistics. Only the HTTP route is missing. Add the client
  * here when the route lands.
  */
+
+/**
+ * The sets this student may drill on their own.
+ *
+ * content-service enforces both rules server-side — APPROVED only, and nothing beyond
+ * the student's current lesson — and the response carries no answers. That is why the
+ * runner may call it, where the teacher client's `/drill-sets` is off limits.
+ */
+export function listAvailableSets(): Promise<DrillSetListResponse> {
+  return request('/drill-sets/available-for-me');
+}
 
 export function listMyAssignments(): Promise<InternalStudentAssignmentsResponse> {
   return request('/drill-assignments');

@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import type { DrillAssignmentDTO } from '@/lib/drills/contracts';
-import { listMyAssignments } from '@/lib/drills/runner/api';
+import type { DrillAssignmentDTO, DrillSetDTO } from '@/lib/drills/contracts';
+import { listAvailableSets, listMyAssignments } from '@/lib/drills/runner/api';
 import { SelfDrillBrowser } from '@/lib/drills/runner/SelfDrillBrowser';
 
 /**
@@ -16,18 +16,25 @@ import { SelfDrillBrowser } from '@/lib/drills/runner/SelfDrillBrowser';
 export default function PracticePage() {
   const [outstanding, setOutstanding] = useState<DrillAssignmentDTO[]>([]);
   const [allowed, setAllowed] = useState(false);
+  const [sets, setSets] = useState<DrillSetDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    listMyAssignments()
-      .then((response) => {
+    // The library is fetched alongside the assignments rather than after the gate is
+    // known: it is answer-free and lesson-scoped server-side, and waiting would put a
+    // second round trip in front of every student who is allowed to drill.
+    Promise.all([listMyAssignments(), listAvailableSets().catch(() => null)])
+      .then(([assignments, library]) => {
         if (!active) {
           return;
         }
-        setOutstanding(response.outstanding);
-        setAllowed(response.selfDrillingAllowed);
+        setOutstanding(assignments.outstanding);
+        setAllowed(assignments.selfDrillingAllowed);
+        // A failed library load leaves the list empty rather than failing the page —
+        // assigned work is the more important half and does not depend on it.
+        setSets(library?.sets ?? []);
       })
       .catch(() => {
         if (active) {
@@ -94,7 +101,7 @@ export default function PracticePage() {
             <SelfDrillBrowser
               allowed={allowed}
               blockingTitle={outstanding[0]?.title ?? null}
-              sets={[]}
+              sets={sets}
               onStarted={(uuid) => {
                 window.location.href = `/learner/practice/${uuid}`;
               }}
