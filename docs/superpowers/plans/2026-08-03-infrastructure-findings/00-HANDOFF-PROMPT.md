@@ -171,7 +171,7 @@ named there is skipped rather than guessed at.
 
 ---
 
-## Finding 4 — `education-service` cannot name its students (MEDIUM)
+## Finding 4 — `education-service` cannot name its students (FIXED 2026-08-03)
 
 **Evidence.** `TeacherRosterService.listForTeacher` returns
 `{ id, name, groupUuids }` with **`name` always empty** — education-service
@@ -184,19 +184,50 @@ production: teacher 10 has **656 students and 931 groups**, all unnamed.
 
 `DrillAssignmentsService.listForLesson` has the same hole (`studentName: ''`).
 
-**Task.** Resolve names for a batch of legacy student ids. auth-microservice
-owns the mapping (Track H added
-`POST /internal/users/resolve-or-provision-legacy` and
-`GET /internal/users/by-auth-user`); a batch lookup by legacy id is what is
-missing. Add it there, call it from `TeacherRosterService`, and fill
-`listForLesson`'s empty `studentName` from the same path.
+**RESOLVED**, but it took four fixes — the feature was written and committed
+without ever being run against production, and each defect hid the next.
 
-Also reconsider the response shape: 656 students in one payload is a lot for a
-picker. A search parameter or pagination probably belongs here — but confirm
-with the owner before changing a published contract.
+| Probe | Cause | Fix |
+|---|---|---|
+| **404** | auth-microservice was 7 commits behind; `names-by-legacy-ids` existed in source but not in the running image | deployed auth |
+| **401** | education sent `x-internal-token`/`INTERNAL_API_TOKEN` — the api-gateway's convention. auth's `InternalServiceGuard` wants `x-internal-service-token`/`INTERNAL_SERVICE_TOKEN` | `speakasap@885b1da` + Vault key + allowlist |
+| **500** | `findNamesByLegacyIds` passed quoted identifiers, so TypeORM emitted `"mapping"."mapping"."legacyUserId"` → `syntax error at or near "."` | `auth@16311eb` |
+| **401** | `x-service-name` read `process.env.SERVICE_NAME`, the K8s deployment name `speakasap-education`; the allowlist is keyed on `education-service` | `speakasap@3e4da71` |
 
-**Done when.** The wizard shows real names, and the roster response stays a
-sensible size for a teacher with hundreds of students.
+**Verified against production:**
+
+```
+total: 656 returned: 5 hasMore: true
+[{"id":114116,"name":"7soli23"},{"id":146622,"name":"Ada"},
+ {"id":146214,"name":"advena"},{"id":177152,"name":"Ainura"},
+ {"id":133384,"name":"AkaFose"}]
+PASS: 5/5 named
+
+page 2 (offset 3): ["Ainura","AkaFose","Akzharken Dakenovna Naribayeva"]
+search "ain" -> 3 matches: ["Ainura","goaindia","Kain"]  (substring, not prefix)
+groups: 931
+```
+
+**Two lessons worth carrying forward.**
+
+*The 500 fix was wrong the first time and shipped anyway.* Moving from the array
+form of `select()` to `addSelect` while keeping identifiers quoted reproduces the
+same double-prefix. It was only caught by reproducing on a scratch Postgres 16
+instead of reasoning about TypeORM's behaviour. Columns go in as
+**`alias.column`, unquoted** — TypeORM quotes each part itself.
+
+*The SQL shipped because nothing built the query.* `internal-users.controller.spec.ts`
+mocks the service, so a statement that could never execute passed CI.
+`users.service.legacy-names.spec.ts` now builds it and asserts the projection
+shape; both it and `auth-client.service.spec.ts` fail against the broken versions.
+
+**Latent, not a live bug:** auth caps a batch at 1000 legacy ids and
+`resolveLegacyNames` does not chunk. The largest roster measured is 656 and no
+teacher currently exceeds the cap — checked directly — but a teacher who does
+would get a 400 and lose every name at once. Chunk before that happens.
+
+Names come from auth and are not cached. Every roster open is one batch call;
+if that shows up in latency, cache it there rather than in education-service.
 
 ---
 
