@@ -2,7 +2,7 @@
 
 **State:** CODE COMPLETE — the handoff signs a student in end to end. Not deployed; see §"Not done".
 **Services:** `speakasap/frontend`, `speakasap-portal`, `auth-microservice`
-**Branches:** `feat/drilling-track-i` (speakasap, portal) · `feat/internal-session-endpoint` (auth)
+**Branches:** `feat/drilling-track-e` (speakasap — Track E and I share it, built in sequence) · `feat/drilling-track-i` (portal) · `feat/internal-session-endpoint` (auth)
 **Commits:** `31fb96d9` `e835893c` (portal) · `4072e38` `8df37c2` `a374e34` (frontend) · `0ca95f5` (auth)
 **Plan:** [`../12-sso-handoff.md`](../12-sso-handoff.md) · **Blocks:** Track J
 
@@ -185,8 +185,10 @@ ssh speakasap 'cd speakasap-portal && python3 manage.py test portal.tests.test_p
   `x-service-name` header in `resolve.ts` to a name already on the list. Adding the new
   name is the better fix: reusing `education-service`'s identity would make auth's audit
   log attribute frontend SSO calls to a different service.
-- **Nothing is deployed or merged.** Three branches: `feat/drilling-track-i` (speakasap,
-  portal) and `feat/internal-session-endpoint` (auth). auth-microservice must go out
+- **Nothing is deployed or merged.** Three branches: `feat/drilling-track-e` (speakasap —
+  Track E's frontend work and Track I's share one branch, having been built in sequence;
+  split them if the tracks need to ship independently), `feat/drilling-track-i` (portal)
+  and `feat/internal-session-endpoint` (auth). auth-microservice must go out
   **before** the frontend, or the exchange route calls a route that does not exist yet.
 - **No URL routes to `drill_redirect_view`.** The view and its guards are done and tested,
   but nothing in `urls.py` points at it and no template links to it. Wiring the entry
