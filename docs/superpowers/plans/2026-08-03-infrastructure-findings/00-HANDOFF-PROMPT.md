@@ -32,7 +32,7 @@ confirm the test goes red before trusting the green.
 
 ---
 
-## Finding 1 — `scripts/deploy.sh` builds nothing (HIGH)
+## Finding 1 — `scripts/deploy.sh` builds nothing (FIXED 2026-08-03)
 
 **Evidence.** `speakasap/scripts/deploy.sh` applies manifests and runs
 `kubectl rollout restart`. There is no `docker build` anywhere in it. Pods
@@ -55,12 +55,15 @@ two scripts where the more obvious name is the broken one.
 `scripts/deploy.sh` "the live, authoritative deploy path". That is now false —
 fix it in the same change.
 
-**Done when.** `speakasap/scripts/deploy.sh` cannot silently no-op, and no doc
-in the repo points at it as authoritative.
+**RESOLVED.** `speakasap/scripts/deploy.sh` now refuses and exits 1, naming the
+shared runner. A stub that silently `exec`d the runner was considered and
+rejected: the two take different arguments, and silently redirecting a deploy is
+how the wrong mental model survives. `speakasap/CLAUDE.md` was updated to point
+at `../shared/scripts/deploy.sh speakasap`.
 
 ---
 
-## Finding 2 — `DRY_RUN=1` is not honoured everywhere (HIGH)
+## Finding 2 — `DRY_RUN=1` is not honoured everywhere (FIXED 2026-08-03)
 
 **Evidence.** `CLAUDE.md` states `DRY_RUN=1 ./scripts/deploy.sh` is honoured. It
 is not universal: `ai-microservice/scripts/deploy.sh` contains no reference to
@@ -71,25 +74,59 @@ Running it expecting a dry run performed a **real build and deploy** to
 production (2026-08-03; harmless in that instance only because the code was
 already merged and no other deploy was in flight).
 
-**Task.** Audit every `scripts/deploy.sh` in the ecosystem for `DRY_RUN`
-support:
+**RESOLVED.** The scope was much narrower than first written, and the audit
+command originally given here was wrong — do not use it.
+
+```bash
+# WRONG — 36 false positives.
+grep -q 'DRY_RUN' "$f" || echo "NO DRY_RUN SUPPORT: $f"
+```
+
+34 of the 43 `scripts/deploy.sh` files are one-line shims that `exec` the shared
+runner:
+
+```bash
+exec "$(dirname "$0")/../../shared/scripts/deploy.sh" "<service>" "$@"
+```
+
+They **inherit** dry-run support rather than containing the string, so grepping
+for `DRY_RUN` reports them as broken when they are not. Verified by running one:
+`DRY_RUN=1 bash catalog-microservice/scripts/deploy.sh` emits 19 `[dry-run]`
+lines and executes no docker or kubectl command. The `--dry-run` flag form
+behaves identically.
+
+Only the hand-written scripts were ever at risk, and all of them are now guarded:
+
+| Script | State |
+|---|---|
+| ai-microservice | `deploy_dry_run_guard` — refuses rather than deploying |
+| database-server, minio-microservice, speakasap-portal, statex-ecosystem, vault-microservice, shared | already supported it |
+| speakasap | retired; refuses and exits 1 |
+| growth | shim into the shared runner |
+
+`shared/scripts/deploy-lib/dry-run-guard.sh` is the reusable guard. It refuses
+before anything runs, and strips `--dry-run` from the argument list so a script
+taking a positional tag can never mistake the flag for an image tag — the exact
+failure that produced `invalid tag "localhost:5000/ai-microservice:--dry-run"`
+*after* the build and push had already happened.
+
+**If you add a new hand-written deploy script**, source that guard immediately
+after `set -e`. The correct audit is "does this script contain real logic rather
+than `exec`ing the shared runner, and if so does it source the guard":
 
 ```bash
 for f in /home/ssf/Documents/Github/*/scripts/deploy.sh; do
-  grep -q 'DRY_RUN' "$f" || echo "NO DRY_RUN SUPPORT: $f"
+  grep -qE '^exec .*shared/scripts/deploy\.sh' "$f" && continue
+  grep -q 'dry_run_guard\|DRY_RUN' "$f" || echo "UNGUARDED: $f"
 done
 ```
 
-Add support to those missing it — the flag must return before the first
-`docker build`, `docker push`, `kubectl apply` or `kubectl set image`. Where a
-script takes a positional tag, `--dry-run` must not be parsable as that tag.
-
-**Done when.** Every deploy script either supports `DRY_RUN=1` or fails
-explicitly saying it does not. `CLAUDE.md`'s claim is then true.
+`CLAUDE.md`'s claim that `DRY_RUN=1 ./scripts/deploy.sh` is honoured is now
+true for every deploy script in the ecosystem.
 
 ---
 
-## Finding 3 — production DBs drift behind their schemas (HIGH)
+## Finding 3 — production DBs drift behind their schemas (FIXED 2026-08-03)
 
 **Evidence.** `speakasap_content_db` was missing **three** migrations —
 `20260730014739_drill_bank`, `20260730152915_course_vocabulary`,
@@ -100,21 +137,37 @@ Nothing in the deploy path runs `prisma migrate deploy`, and nothing warns. The
 new image would have started against a database with no drill tables. Both were
 applied by hand on 2026-08-03; every other speakasap DB was up to date.
 
-**Task.** Add a **preflight** that fails the deploy when the target DB has
-unapplied migrations, rather than an automatic apply — auto-migrating on deploy
-is how a bad migration reaches production unattended.
+**RESOLVED.** `shared/scripts/deploy-lib/migration-preflight.sh` checks every
+service named in a repo's `PRISMA_SERVICES` and **refuses** rather than applying
+— auto-migrating on deploy is how a bad migration reaches production unattended.
+It runs before the build, so a refusal costs nothing.
 
-`shared/scripts/deploy-lib/preflight.sh` is the natural home, invoked from the
-shared runner. For each service declaring a Prisma schema, run
-`prisma migrate status` against the live DSN and abort with the pending list if
-it is not clean.
+It asks two questions, because they fail differently: whether the live DB is
+behind the running image (answered by reading `_prisma_migrations` from inside
+the pod, so no DSN is printed and no port-forward is needed), and whether the
+working tree carries migrations the running image has never seen — the dangerous
+case, invisible to `migrate status` inside the old pod.
 
-Reaching the DB requires `kubectl port-forward` — direct connections to
-`db-server-postgres` are forbidden; read `CLAUDE.md` on this before writing it.
+**Proven to fire.** A throwaway migration was added to education-service and a
+real deploy run:
 
-**Done when.** A deploy with a pending migration fails preflight and names the
-migration. Prove it by adding a throwaway migration file, running the preflight,
-seeing it fail, then removing it.
+```
+Preflight: checking migration state of 10 database(s)...
+  speakasap-education: PENDING MIGRATIONS
+      29990101000000_preflight_probe
+Deploy refused: the database is behind the migrations being shipped.
+```
+
+Exit code 1, **zero build phases executed**. The probe was then removed and the
+preflight passes over all ten databases.
+
+One bug was found and fixed while proving it (`shared@964b68a`): the refusal
+used plain `echo` with colour variables, printing
+`\033[0;31mPENDING MIGRATIONS\033[0m` literally and burying the deployment name.
+
+**If you add a service with a Prisma schema**, declare it in that repo's
+`deploy.config.sh` as `PRISMA_SERVICES=("deployment|source-dir")`. A service not
+named there is skipped rather than guessed at.
 
 ---
 
