@@ -50,4 +50,4 @@ kubectl -n statex-apps exec deployment/speakasap -- sh -c 'curl -s -X POST http:
 | payments-microservice:3468 | Course payments |
 | notifications-microservice:3368 | Student emails |
 
-**Ops**: `kubectl logs -n statex-apps -l app=speakasap -f` · `kubectl rollout restart deployment/speakasap -n statex-apps` · `./scripts/deploy.sh`
+**Ops**: `kubectl logs -n statex-apps -l app=speakasap -f` · `kubectl rollout restart deployment/speakasap -n statex-apps` · `../shared/scripts/deploy.sh speakasap` (never `./scripts/deploy.sh` — retired, built nothing)

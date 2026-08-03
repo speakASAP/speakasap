@@ -1,25 +1,27 @@
 # deploy.config.sh — declaration consumed by shared/scripts/deploy.sh.
 # See shared/docs/DEPLOY_STANDARDIZATION_REPORT.md section 6/7 for the design.
-# scripts/deploy.sh is still the live, authoritative deploy path.
+# `shared/scripts/deploy.sh speakasap` is the live, authoritative deploy path.
+# scripts/deploy.sh is retired and now refuses to run — it built nothing.
 #
 # Why this exists: every speakasap deployment ran on a mutable :latest tag, so
 # the running version was not identifiable from the tag and there was nothing
 # to roll back to. The runner tags each image :$IMAGE_TAG and :latest, then
 # `kubectl set image` to the real tag.
 #
-# READ BEFORE FIRST USE — this changes deploy semantics:
+# History, and why the accumulated drift is large:
 #
-# scripts/deploy.sh does NOT build anything. It applies manifests and issues
-# `kubectl rollout restart`, so the pods re-pull whatever :latest already
-# pointed at. Nothing has rebuilt these images in weeks, and production is
-# running code substantially older than this repository (measured 2026-07-20:
-# the root speakasap image predates its source by ~3 months, financial by ~29
-# days, assessment/course by ~18). The first run through this runner rebuilds
-# all twelve from current source and ships that drift at once, across payment,
-# financial and user services simultaneously.
+# The retired scripts/deploy.sh built nothing. It applied manifests and issued
+# `kubectl rollout restart`, so the pods re-pulled whatever :latest already
+# pointed at, and nothing rebuilt these images for weeks while it reported
+# success. Measured 2026-07-20: the root speakasap image predated its source by
+# ~3 months, financial by ~29 days, assessment/course by ~18. Measured again
+# 2026-08-03: speakasap-education was 27 commits behind main.
 #
-# Do not treat the first runner deploy as routine. Deploy per service, or get
-# the owner's explicit sign-off on the accumulated diff first.
+# A run through this runner therefore rebuilds all twelve from current source
+# and ships that accumulated drift at once, across payment, financial and user
+# services simultaneously. Do not treat a first runner deploy after a long gap
+# as routine — deploy per service, or get the owner's explicit sign-off on the
+# accumulated diff first.
 
 SERVICE_NAME="speakasap"
 PORT="3000"
