@@ -6,8 +6,6 @@ import {
   checkBlank,
   fetchRunner,
   listMyAssignments,
-  rateAssignment,
-  revealBlank,
   startSelfDrill,
 } from './api';
 
@@ -124,30 +122,6 @@ describe('fetchRunner', () => {
 
     expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/api/v1/drill-assignments/a-1/runner');
     expect(fetchMock.mock.calls[0][1].method).toBe('GET');
-  });
-});
-
-describe('revealBlank', () => {
-  it('posts the item and blank index to the reveal route', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ...checkResponse, correct: false }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    await revealBlank('a-1', 'i-1', 2);
-
-    expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/api/v1/drill-assignments/a-1/reveal');
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ itemUuid: 'i-1', blankIndex: 2 });
-  });
-});
-
-describe('rateAssignment', () => {
-  it('posts the rating value', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
-    vi.stubGlobal('fetch', fetchMock);
-
-    await rateAssignment('a-1', 4);
-
-    expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/api/v1/drill-assignments/a-1/rate');
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ value: 4 });
   });
 });
 

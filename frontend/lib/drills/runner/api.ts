@@ -130,20 +130,16 @@ export function checkBlank(uuid: string, req: CheckBlankRequest): Promise<CheckB
   return request(assignmentPath(uuid, '/check'), { method: 'POST', body: req });
 }
 
-export function revealBlank(
-  uuid: string,
-  itemUuid: string,
-  blankIndex: number,
-): Promise<CheckBlankResponse> {
-  return request(assignmentPath(uuid, '/reveal'), {
-    method: 'POST',
-    body: { itemUuid, blankIndex },
-  });
-}
-
-export function rateAssignment(uuid: string, value: number): Promise<void> {
-  return request(assignmentPath(uuid, '/rate'), { method: 'POST', body: { value } });
-}
+/*
+ * `revealBlank` and `rateAssignment` are named in the Track E plan but deliberately
+ * absent here: education-service exposes no `/reveal` or `/rate` route, so a client for
+ * them would 404 while looking implemented.
+ *
+ * Reveal is the closer of the two — `DrillBlankAttempt.revealed` exists and
+ * `assignments.repository.ts` already defines what a revealed blank means for
+ * completion and for bank statistics. Only the HTTP route is missing. Add the client
+ * here when the route lands.
+ */
 
 export function listMyAssignments(): Promise<InternalStudentAssignmentsResponse> {
   return request('/drill-assignments');
