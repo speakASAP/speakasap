@@ -92,6 +92,23 @@ MANIFESTS=(
   services/user-service.yaml
 )
 
+# "deployment|source-dir" for every service owning a Prisma schema. Checked by
+# deploy_preflight_migrations, which refuses the deploy when the live database
+# is missing a migration present here — the state that shipped an image into a
+# database with no drill tables on 2026-08-03.
+PRISMA_SERVICES=(
+  "speakasap-assessment|assessment-service"
+  "speakasap-certification|certification-service"
+  "speakasap-content|content-service"
+  "speakasap-course|course-service"
+  "speakasap-education|education-service"
+  "speakasap-financial|financial-service"
+  "speakasap-notification|notification-service"
+  "speakasap-payment|payment-service"
+  "speakasap-salary|salary-service"
+  "speakasap-user|user-service"
+)
+
 deploy_preflight() {
   # check-hosted-auth-contract.py resolves its targets relative to the current
   # directory (Path("frontend/lib/auth-session.ts") and friends), so it must run
