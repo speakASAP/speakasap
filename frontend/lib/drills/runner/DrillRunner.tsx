@@ -1,0 +1,268 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import type { DrillAssignmentDTO, RunnerItemDTO } from '@/lib/drills/contracts';
+
+import { DrillBlank } from './DrillBlank';
+import { checkBlank } from './api';
+
+export interface DrillRunnerProps {
+  assignment: DrillAssignmentDTO;
+  items: RunnerItemDTO[];
+  onComplete: () => void;
+}
+
+interface BlankState {
+  value: string;
+  solved: boolean;
+  solvedText: string | null;
+  wrong: boolean;
+  pending: boolean;
+}
+
+function blankKey(itemUuid: string, index: number): string {
+  return `${itemUuid}:${index}`;
+}
+
+function initialState(items: RunnerItemDTO[]): Record<string, BlankState> {
+  const state: Record<string, BlankState> = {};
+  for (const item of items) {
+    for (const blank of item.blanks) {
+      state[blankKey(item.uuid, blank.index)] = {
+        value: '',
+        solved: blank.solved,
+        solvedText: blank.solvedText,
+        wrong: false,
+        pending: false,
+      };
+    }
+  }
+  return state;
+}
+
+const DEBOUNCE_MS = 250;
+
+/**
+ * The drill runner: type into a blank, and if it is right it becomes part of the sentence.
+ *
+ * Three rules drive the design, and each has a test that fails if it is broken.
+ *
+ * 1. Completion is the server's decision. `onComplete` fires on `assignmentCompleted`,
+ *    never on a local count of solved blanks — the assignment may span items this
+ *    component was not given.
+ * 2. Progress is the server's count. `blanksCorrect`/`blanksTotal` come from the response;
+ *    counting locally would disagree with the server the moment either is true.
+ * 3. A transport failure is not a wrong answer. `NetworkError` produces "not saved",
+ *    leaving the input untouched and editable, because the student did nothing wrong.
+ */
+export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps) {
+  const [blanks, setBlanks] = useState<Record<string, BlankState>>(() => initialState(items));
+  const [progress, setProgress] = useState({
+    correct: assignment.blanksCorrect,
+    total: assignment.blanksTotal,
+  });
+  const [announcement, setAnnouncement] = useState('');
+
+  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const inputs = useRef<Record<string, HTMLInputElement | null>>({});
+  const completed = useRef(false);
+  // Guards against the debounced check and an Enter press both firing for one edit.
+  const inFlight = useRef<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setBlanks(initialState(items));
+  }, [items]);
+
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const timer of Object.values(pending)) {
+        clearTimeout(timer);
+      }
+    };
+  }, []);
+
+  const order = useMemo(
+    () =>
+      [...items]
+        .sort((a, b) => a.order - b.order)
+        .flatMap((item) => item.blanks.map((blank) => blankKey(item.uuid, blank.index))),
+    [items],
+  );
+
+  const focusNextUnsolved = useCallback(
+    (fromKey: string, solvedKeys: Record<string, BlankState>) => {
+      const start = order.indexOf(fromKey);
+      for (const key of order.slice(start + 1).concat(order.slice(0, start))) {
+        if (!solvedKeys[key]?.solved) {
+          inputs.current[key]?.focus();
+          return;
+        }
+      }
+    },
+    [order],
+  );
+
+  const submit = useCallback(
+    async (itemUuid: string, index: number) => {
+      const key = blankKey(itemUuid, index);
+      const timer = timers.current[key];
+      if (timer) {
+        clearTimeout(timer);
+        delete timers.current[key];
+      }
+
+      const current = blanks[key];
+      if (!current || current.solved || inFlight.current[key]) {
+        return;
+      }
+      const value = current.value.trim();
+      if (!value) {
+        return;
+      }
+
+      inFlight.current[key] = true;
+      setBlanks((prev) => ({ ...prev, [key]: { ...prev[key], pending: true, wrong: false } }));
+
+      // One retry, because a single dropped request is the common case and asking the
+      // student to retype a correct answer over it is the wrong trade.
+      const attempt = () => checkBlank(assignment.uuid, { itemUuid, blankIndex: index, value });
+
+      try {
+        let response;
+        try {
+          response = await attempt();
+        } catch (error) {
+          if ((error as Error)?.name !== 'NetworkError') {
+            throw error;
+          }
+          response = await attempt();
+        }
+
+        setBlanks((prev) => {
+          const next = {
+            ...prev,
+            [key]: {
+              ...prev[key],
+              pending: false,
+              solved: response.correct,
+              solvedText: response.correct ? response.acceptedText : null,
+              wrong: !response.correct,
+            },
+          };
+          if (response.correct) {
+            queueMicrotask(() => focusNextUnsolved(key, next));
+          }
+          return next;
+        });
+
+        setProgress({ correct: response.blanksCorrect, total: response.blanksTotal });
+        setAnnouncement(response.correct ? `Correct: ${response.acceptedText}` : 'Not quite — try again');
+
+        if (response.assignmentCompleted && !completed.current) {
+          completed.current = true;
+          onComplete();
+        }
+      } catch (error) {
+        const isNetwork = (error as Error)?.name === 'NetworkError';
+        // A wrong answer is the student's; a dropped connection is ours. Only the former
+        // marks the input invalid.
+        setBlanks((prev) => ({
+          ...prev,
+          [key]: { ...prev[key], pending: false, wrong: !isNetwork },
+        }));
+        setAnnouncement(
+          isNetwork
+            ? 'Not saved — check your connection and try again'
+            : 'Something went wrong. Your answer was not saved',
+        );
+      } finally {
+        inFlight.current[key] = false;
+      }
+    },
+    [assignment.uuid, blanks, focusNextUnsolved, onComplete],
+  );
+
+  const change = useCallback(
+    (itemUuid: string, index: number, value: string) => {
+      const key = blankKey(itemUuid, index);
+      setBlanks((prev) => ({ ...prev, [key]: { ...prev[key], value, wrong: false } }));
+
+      const existing = timers.current[key];
+      if (existing) {
+        clearTimeout(existing);
+      }
+      timers.current[key] = setTimeout(() => {
+        delete timers.current[key];
+        void submit(itemUuid, index);
+      }, DEBOUNCE_MS);
+    },
+    [submit],
+  );
+
+  return (
+    <section aria-labelledby="drill-title">
+      <h1 id="drill-title" className="text-xl font-semibold">
+        {assignment.title}
+      </h1>
+
+      <div
+        role="progressbar"
+        aria-valuenow={progress.correct}
+        aria-valuemin={0}
+        aria-valuemax={progress.total}
+        aria-label="Blanks completed"
+        className="my-4 h-2 w-full overflow-hidden rounded bg-slate-200"
+      >
+        <div
+          className="h-full bg-green-600 transition-[width]"
+          style={{ width: progress.total ? `${(progress.correct / progress.total) * 100}%` : '0%' }}
+        />
+      </div>
+
+      <ol className="space-y-6">
+        {[...items]
+          .sort((a, b) => a.order - b.order)
+          .map((item, itemPosition) => (
+            <li key={item.uuid} className="text-lg leading-loose">
+              {item.segments.map((segment, segmentIndex) => {
+                if (segment.type === 'text') {
+                  return <span key={segmentIndex}>{segment.value}</span>;
+                }
+                const key = blankKey(item.uuid, segment.index);
+                const state = blanks[key];
+                const blank = item.blanks.find((candidate) => candidate.index === segment.index);
+                if (!state || !blank) {
+                  return null;
+                }
+                return (
+                  <DrillBlank
+                    key={key}
+                    ref={(element) => {
+                      inputs.current[key] = element;
+                    }}
+                    label={`Sentence ${itemPosition + 1}, blank ${segment.index + 1}`}
+                    prompt={blank.prompt}
+                    maxLength={blank.maxLength}
+                    value={state.value}
+                    solved={state.solved}
+                    solvedText={state.solvedText}
+                    wrong={state.wrong}
+                    pending={state.pending}
+                    onChange={(value) => change(item.uuid, segment.index, value)}
+                    onSubmit={() => void submit(item.uuid, segment.index)}
+                  />
+                );
+              })}
+              {item.hint ? <p className="mt-1 text-sm text-slate-500">{item.hint}</p> : null}
+            </li>
+          ))}
+      </ol>
+
+      <p role="status" aria-live="polite" className="sr-only mt-4 text-sm">
+        {announcement}
+      </p>
+    </section>
+  );
+}
