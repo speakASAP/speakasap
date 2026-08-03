@@ -75,8 +75,22 @@ function harness() {
     findOutstanding: jest.fn(async () => null),
   };
 
-  const svc = new RunnerService(prisma, repo);
-  return { svc, prisma, repo, assignment, counts, items, attempts: () => attemptRows };
+  const notifications: any = {
+    onAssigned: jest.fn(async () => undefined),
+    onCompleted: jest.fn(async () => undefined),
+  };
+
+  const svc = new RunnerService(prisma, repo, notifications);
+  return {
+    svc,
+    prisma,
+    repo,
+    assignment,
+    counts,
+    items,
+    notifications,
+    attempts: () => attemptRows,
+  };
 }
 
 describe('RunnerService.check', () => {
@@ -183,6 +197,59 @@ describe('RunnerService.check', () => {
     expect(r.assignmentCompleted).toBe(true);
     const statuses = prisma.drillAssignment.update.mock.calls.map((c: any) => c[0].data.status);
     expect(statuses).toEqual(['IN_PROGRESS', 'COMPLETED']);
+  });
+
+  // Track G. The hook is what turns a completion into the teacher's email; without
+  // this call the feature is wired but silent.
+  it('notifies on completion', async () => {
+    counts.blanksCorrect = 2;
+    counts.blanksTotal = 2;
+
+    const r = await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'auf' });
+
+    expect(r.assignmentCompleted).toBe(true);
+    expect(h.notifications.onCompleted).toHaveBeenCalledWith('a-1');
+  });
+
+  it('does not notify while the assignment is still short of complete', async () => {
+    counts.blanksCorrect = 1;
+    counts.blanksTotal = 2;
+
+    await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'auf' });
+
+    expect(h.notifications.onCompleted).not.toHaveBeenCalled();
+  });
+
+  // The notification is a side effect of a transition that has already been
+  // persisted. A failing hook must not turn a completed assignment into a 500 —
+  // the hook swallows its own errors, and this pins that the runner does not
+  // reintroduce the failure by awaiting it unguarded.
+  it('completes even when the notification hook rejects', async () => {
+    counts.blanksCorrect = 2;
+    counts.blanksTotal = 2;
+    h.notifications.onCompleted.mockRejectedValue(new Error('notification service down'));
+
+    const r = await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'auf' });
+
+    expect(r.assignmentCompleted).toBe(true);
+  });
+
+  // The email says "finished", so it must not go out before the row says so.
+  it('notifies only after the COMPLETED write has landed', async () => {
+    counts.blanksCorrect = 2;
+    counts.blanksTotal = 2;
+    const order: string[] = [];
+    prisma.drillAssignment.update.mockImplementation(async ({ data }: any) => {
+      order.push(`update:${data.status}`);
+      return Object.assign(assignment, data);
+    });
+    h.notifications.onCompleted.mockImplementation(async () => {
+      order.push('notify');
+    });
+
+    await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'auf' });
+
+    expect(order).toEqual(['update:COMPLETED', 'notify']);
   });
 
   it('never returns an answer field in the check response', async () => {

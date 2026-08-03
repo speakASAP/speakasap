@@ -34,7 +34,8 @@ other track's work is invalidated.
 - typecheck (notification-service): `./node_modules/.bin/tsc --noEmit -p tsconfig.json` → **pre-existing failure, not introduced here**:
   `error TS6059: File 'scripts/migrate-notification-data.ts' is not under rootDir 'src'`.
   `scripts/` and `tsconfig.json` are untouched since `d776bb4`, long before this track.
-- tests (education-service): `./node_modules/.bin/jest` → **19 suites passed, 209 passed, 0 failed**
+- tests (education-service): `./node_modules/.bin/jest` → **19 suites passed, 213 passed, 0 failed**
+  (209 before the completion call site; 4 added with it)
 - tests (notification-service): `./node_modules/.bin/jest` → **1 suite passed, 25 passed, 0 failed**
 - migration: all 6 migrations applied to a throwaway `postgres:16-alpine` from
   empty → "All migrations have been successfully applied"; `\d drill_assignment`
@@ -49,6 +50,9 @@ other track's work is invalidated.
 Each guard was broken and the suite re-run to confirm the tests actually catch it:
 
 - Removed the URL scheme check in `safeUrl` → **4 tests failed**. Restored → 25 pass.
+- Removed the `onCompleted` call from `RunnerService` → **2 tests failed**.
+  Restored → 16 pass. (Guarding it with `&& false` instead failed at typecheck
+  as unreachable code, which proves nothing, so the block was deleted outright.)
 - Removed `origin === 'SELF'` from the completion guard → **1 test failed**.
   This one mattered: the plan's original test set `origin: 'SELF'` *and*
   `teacherId: null`, so it passed on the null alone and did not pin the origin
@@ -110,14 +114,21 @@ would duplicate the record.
 
 ## Notes for the next track
 
-- **The hook is wired but never called.** `NotificationsHook` is provided and
-  exported by `DrillsModule`, but no caller invokes `onAssigned` or
-  `onCompleted`. The call sites belong at the two transitions in Track B2's
-  runner — assignment → ASSIGNED, and the completion the runner already decides
-  server-side. They were not added here: the ownership matrix gives this track
-  only `notifications.hook.ts` inside education-service, and those transitions
-  live in files Track B2 owns. **Without those two calls no email is ever sent**,
-  so this is the first thing to wire.
+- **`onCompleted` is wired; `onAssigned` has no call site yet.**
+  `RunnerService.check` calls `onCompleted` after the COMPLETED write lands, and
+  `DrillsModule` constructs the runner through a factory so the hook is actually
+  injected. The runner depends on a narrow `DrillCompletionNotifier` interface
+  rather than on `NotificationsHook` itself, and takes it as an optional third
+  constructor argument, so every existing construction still compiles.
+
+  `onAssigned` is **not** called anywhere, because there is nowhere correct to
+  call it from yet. The only write of `status: 'ASSIGNED'` in the service is
+  `SelfDrillService`, where `origin` is SELF — a student choosing their own
+  practice. Sending "your teacher assigned you work" there would be wrong.
+  The teacher-assign path that should fire it does not exist: the controller
+  exposes only `POST :uuid/check` and `POST self`. **Whoever builds the teacher
+  assign endpoint (Track F) must call `onAssigned` from it**, or students are
+  never told they have work.
 - `struggledWith` reports first-try misses only (`attemptNo: 1, isCorrect: false`),
   capped at 5, oldest first. It carries the sentence with blanks rendered as
   `___` and the blank's *prompt* — never the answer.

@@ -39,8 +39,20 @@ import { SelfDrillService } from './runner/self-drill.service';
   controllers: [DrillsController, InternalDrillsController],
   providers: [
     AssignmentsRepository,
-    RunnerService,
     DrillAssignmentsService,
+
+    // RunnerService takes the notifier as an optional third argument, which Nest
+    // cannot supply by reflection — an optional parameter typed as an interface has
+    // no token to resolve. Constructed explicitly so completion actually notifies.
+    {
+      provide: RunnerService,
+      useFactory: (
+        prisma: PrismaService,
+        assignments: AssignmentsRepository,
+        notifications: NotificationsHook,
+      ) => new RunnerService(prisma, assignments, notifications),
+      inject: [PrismaService, AssignmentsRepository, NotificationsHook],
+    },
 
     // Track D — upstream clients, adapters and the orchestration pipeline.
     ContentClient,

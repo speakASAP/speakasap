@@ -13,13 +13,29 @@ import { gradeBlank, gradingOptionsFor } from '../grading';
 import { assertTransition } from '../state-machine';
 import { CheckBlankRequest, CheckBlankResponse, DrillAssignmentStatus, DrillBlank } from '../contracts';
 
+/**
+ * The one thing the runner needs from Track G's hook. Declared as a narrow
+ * interface rather than importing `NotificationsHook`: the runner has no business
+ * with the assign side, and depending on the whole class would drag the
+ * notifications client into every test that constructs a runner.
+ */
+export interface DrillCompletionNotifier {
+  onCompleted(assignmentUuid: string): Promise<void>;
+}
+
 @Injectable()
 export class RunnerService {
   private readonly logger = new Logger(RunnerService.name);
 
+  /**
+   * `notifications` is optional so the two dozen existing constructions of this
+   * service — and Track E's, once it lands — keep working without it. A missing
+   * hook means no email, never a failure.
+   */
   constructor(
     private readonly prisma: PrismaService,
     private readonly assignments: AssignmentsRepository,
+    private readonly notifications?: DrillCompletionNotifier,
   ) {}
 
   /**
@@ -126,6 +142,23 @@ export class RunnerService {
       this.logger.log(
         `Drill assignment completed: uuid=${assignmentUuid} studentId=${studentId} blanks=${counts.blanksCorrect}/${counts.blanksTotal}`,
       );
+
+      // Track G. After the write, never before: the email says the student
+      // finished, so the row must already say so. Awaited rather than dangled so
+      // the send is ordered and testable, but wrapped — the hook already swallows
+      // its own errors, and this guarantees no future change there can turn a
+      // completed assignment into a 500. The completion stands either way.
+      if (this.notifications) {
+        try {
+          await this.notifications.onCompleted(assignmentUuid);
+        } catch (error) {
+          this.logger.warn(
+            `Completion notification failed for assignment ${assignmentUuid}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
     }
 
     return {
