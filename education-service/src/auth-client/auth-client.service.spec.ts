@@ -66,6 +66,18 @@ describe('AuthClientService.resolveLegacyNames', () => {
     expect(headersOf(f)['x-service-name']).toBe('education-service');
   });
 
+  // SERVICE_NAME is the Kubernetes deployment name, `speakasap-education`, which
+  // is NOT what the allowlist is keyed on. Reading it here sent the deployment
+  // name and every call 401'd with "Service is not trusted" — a message the
+  // caller sees only as a generic 401, indistinguishable from a bad token.
+  it('sends its caller identity, not the K8s deployment name', async () => {
+    process.env.SERVICE_NAME = 'speakasap-education';
+    const f = stubFetch();
+    await new AuthClientService().resolveLegacyNames([58]);
+    expect(headersOf(f)['x-service-name']).toBe('education-service');
+    expect(headersOf(f)['x-service-name']).not.toBe('speakasap-education');
+  });
+
   it('does NOT send the gateway header, which auth ignores', async () => {
     const f = stubFetch();
     await new AuthClientService().resolveLegacyNames([58]);

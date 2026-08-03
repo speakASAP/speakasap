@@ -1,6 +1,13 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import type { AuthContextUser } from '../shared/auth.types';
 
+/**
+ * How this service identifies itself to auth-microservice's
+ * TRUSTED_INTERNAL_SERVICES allowlist. Not the K8s deployment name
+ * (`speakasap-education`) — the allowlist is keyed on caller identity.
+ */
+const AUTH_CALLER_NAME = 'education-service';
+
 @Injectable()
 export class AuthClientService {
   private readonly logger = new Logger(AuthClientService.name);
@@ -49,7 +56,13 @@ export class AuthClientService {
           // returns `401 Invalid internal service token` on every call, and the
           // roster then degrades silently to ids.
           'x-internal-service-token': process.env.INTERNAL_SERVICE_TOKEN ?? '',
-          'x-service-name': process.env.SERVICE_NAME ?? 'education-service',
+          // Deliberately a constant, NOT process.env.SERVICE_NAME. That variable
+          // is `speakasap-education` — the Kubernetes deployment name — while the
+          // allowlist auth checks against is keyed on the caller's identity,
+          // `education-service`. Reading the env var sent the deployment name and
+          // every call 401'd with "Service is not trusted", which is
+          // indistinguishable from a bad token in the response.
+          'x-service-name': AUTH_CALLER_NAME,
         },
         body: JSON.stringify({ system: 'speakasap-portal', legacyUserIds }),
         signal: controller.signal,
