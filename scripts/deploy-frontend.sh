@@ -2,6 +2,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Hand-written script with real build/apply logic, so it needs the guard: without it
+# `DRY_RUN=1` here would perform a real production deploy while the caller believed
+# otherwise. See the 2026-08-03 findings, Finding 2.
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../../shared/scripts/deploy-lib/dry-run-guard.sh"
+deploy_dry_run_guard "$@"
+
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 NAMESPACE="${NAMESPACE:-statex-apps}"
 PUBLIC_URL="${PUBLIC_URL:-https://speakasap.alfares.cz}"
@@ -82,7 +89,9 @@ echo "Setting frontend image to $IMAGE"
 kubectl set image deployment/speakasap-frontend \
   "$(kubectl get deployment/speakasap-frontend -n "$NAMESPACE" -o jsonpath='{.spec.template.spec.containers[0].name}')=$IMAGE" \
   -n "$NAMESPACE"
-kubectl rollout status deployment/speakasap-frontend -n "$NAMESPACE" --timeout=180s
+# Not `kubectl rollout status`: it returns a stale error instantly once a deployment has
+# ever hit progressDeadlineExceeded, so it reports failure on a rollout that is fine.
+"$PROJECT_ROOT/../shared/scripts/wait-for-rollout.sh" -n "$NAMESPACE" -t 240 speakasap-frontend
 
 echo "Frontend pods"
 kubectl get pods -n "$NAMESPACE" -l app=speakasap-frontend -o wide
