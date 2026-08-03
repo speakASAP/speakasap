@@ -38,7 +38,18 @@ export class AuthClientService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-internal-token': process.env.INTERNAL_API_TOKEN ?? '',
+          // auth-microservice's InternalServiceGuard checks
+          // `x-internal-service-token` against INTERNAL_SERVICE_TOKEN, and
+          // `x-service-name` against the TRUSTED_INTERNAL_SERVICES allowlist.
+          //
+          // NOT `x-internal-token` / INTERNAL_API_TOKEN — that is the
+          // api-gateway's convention (gateway-auth.guard.ts), which is what
+          // drills/orchestration/http.ts correctly sends to content-service.
+          // Both conventions are legitimate; sending the gateway's to auth
+          // returns `401 Invalid internal service token` on every call, and the
+          // roster then degrades silently to ids.
+          'x-internal-service-token': process.env.INTERNAL_SERVICE_TOKEN ?? '',
+          'x-service-name': process.env.SERVICE_NAME ?? 'education-service',
         },
         body: JSON.stringify({ system: 'speakasap-portal', legacyUserIds }),
         signal: controller.signal,
