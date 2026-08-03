@@ -2,7 +2,7 @@
 
 **State:** CODE COMPLETE — not yet deployed or exercised against a real assignment
 **Service:** `speakasap/frontend` · **Branch:** `feat/drilling-track-e` (from `main`)
-**Commits:** `e3fd394` (E.2 api) · `67445d5` (E.3 DrillRunner) · `caf73e1` (E.4 pages) · `55f2bf7` (route removal) · self-drill library wiring
+**Commits:** `e3fd394` (E.2 api) · `67445d5` (E.3 DrillRunner) · `caf73e1` (E.4 pages) · `55f2bf7` (route removal) · `f6e9c32` (self-drill library)
 **Plan:** [`../09-frontend-learner.md`](../09-frontend-learner.md) · **Blocks:** nothing
 
 ## Verification on the final tree
