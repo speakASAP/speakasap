@@ -1,22 +1,24 @@
 # Track I — SSO Handoff
 
-**State:** CODE COMPLETE — **blocked on one missing auth-microservice route**, see §"The handoff cannot sign anyone in yet"
-**Services:** `speakasap/frontend`, `speakasap-portal`
-**Branches:** `feat/drilling-track-i` in both repos
-**Commits:** `31fb96d9` (portal, I.1) · `4072e38` (I.2 resolve) · `8df37c2` (I.3 handoff)
+**State:** CODE COMPLETE — the handoff signs a student in end to end. Not deployed; see §"Not done".
+**Services:** `speakasap/frontend`, `speakasap-portal`, `auth-microservice`
+**Branches:** `feat/drilling-track-i` (speakasap, portal) · `feat/internal-session-endpoint` (auth)
+**Commits:** `31fb96d9` `e835893c` (portal) · `4072e38` `8df37c2` `a374e34` (frontend) · `0ca95f5` (auth)
 **Plan:** [`../12-sso-handoff.md`](../12-sso-handoff.md) · **Blocks:** Track J
 
 ## Verification on the final tree
 
 ```
-Test Files  12 passed (12)
-     Tests  138 passed (138)
+Test Files  13 passed (13)
+     Tests  146 passed (146)
 
 > ./node_modules/.bin/tsc --noEmit -p tsconfig.json      (clean, no output)
 ```
 
-28 of those are new (14 resolve, 14 handoff). Portal-side: 10 assertions, run on the
-speakasap server's own Python 3.4.3 / PyJWT 1.4.2 — **10 passed, 0 failed**.
+36 of those are new (14 resolve, 14 handoff, 8 exchange route). auth-microservice:
+**180 passed, 23 suites**, typecheck clean, plus a live boot against the real database.
+Portal-side: 19 assertions on the speakasap server's own Python 3.4.3 / PyJWT 1.4.2 —
+**10 for the token issuer, 9 for the redirect view, 0 failed**.
 
 **Guards proven by breaking them:**
 
@@ -26,44 +28,67 @@ speakasap server's own Python 3.4.3 / PyJWT 1.4.2 — **10 passed, 0 failed**.
 | `safeNextPath` reduced to `startsWith('/')` | protocol-relative `//evil.example` and backslash `/\evil.example` |
 | portal issues a token for a user with no email | `None without an email` |
 | portal drops the PyJWT bytes→str normalization | `returns str not bytes` |
+| exchange route mints a token locally when auth fails | both exchange FAILS CLOSED tests |
+| portal `_safe_next` drops its `//` and `/\\` checks | `refuses protocol-relative next`, `refuses backslash next` |
 
 Each was reverted and the suite reconfirmed green.
 
-## The handoff cannot sign anyone in yet
+## Session minting — the former blocker, now built
 
-**This is the one thing to read before continuing the track.** Everything up to and
-including identity resolution works. Nothing mints a session.
+`resolve-or-provision-legacy` (Track H) answers *who* the student is and stops there.
+auth-microservice had **no internal route that issues an access token for an
+already-resolved user id**: `generateTokens` is `private`, and
+`POST auth/internal/magic-link/token` is keyed on **email**, returns a `verifyUrl` rather
+than a token, and **creates a user by email when none matches** — which would bypass the
+legacy mapping this whole flow exists to honour.
 
-`resolve-or-provision-legacy` (Track H) returns `{ authUserId, provisioned }` and stops.
-auth-microservice exposes **no internal route that issues an access token for an
-already-resolved user id**:
+**`POST /internal/users/:userId/session` was added** (`auth@0ca95f5`, branch
+`feat/internal-session-endpoint`), behind `InternalServiceGuard`, returning
+`{ accessToken, expiresIn, userId }`.
 
-- `generateTokens` is `private` in `auth.service.ts:621`.
-- `POST auth/internal/magic-link/token` is the only internal token route. It is keyed on
-  **email**, returns a `verifyUrl` to redirect to rather than a token, and **creates a
-  user by email when none matches** — which would bypass the legacy mapping this entire
-  flow exists to honour. It is the wrong instrument here.
+Two deliberate narrowings versus a password login, both tested:
 
-So the exchange route returns `authUserId` alone, and the page shows "we could not sign
-you in just now" rather than redirecting. A test asserts exactly that: resolution
-succeeding without a session must **not** redirect, because landing a student on a page
-that looks signed in and is not is worse than an honest error.
+- **No refresh token.** The session is established from a token in a URL, not from the
+  user authenticating to us. Returning a 30-day credential on that basis would widen a
+  redirect into standing access. The controller builds its response field by field, so a
+  refresh token added upstream later cannot leak through by accident.
+- **12 hours, not 7 days**, as a constant rather than an env var, so the blast radius
+  cannot drift upward by config.
 
-**What is needed:** an internal, `InternalServiceGuard`-protected route on
-auth-microservice that mints a session for a given `authUserId` — the natural shape being
-`POST /internal/users/:userId/session` returning `{ accessToken, refreshToken?, expiresIn }`.
-That is auth-microservice's code, outside this track's declared ownership
-(`frontend/app/auth/handoff/**`, `frontend/lib/drills/sso/**`,
-`portal/platform_sso.py`), so it was not written here.
+**Verified against the real auth database, not just mocks.** Adding `AuthService` to
+`InternalUsersController` makes `UsersModule` and `AuthModule` mutually dependent; a
+missing `forwardRef` fails at **boot**, which no mocked unit test would catch — the same
+blind spot as the 2026-08-03 Finding 4 post-mortem, where mocked SQL passed CI. So the
+built app was run against the `auth` database over a port-forward:
 
-Once it exists, `app/auth/handoff/exchange/route.ts` needs the call added and the page
-works unchanged — it already handles a present `accessToken`.
+```
+Mapped {/internal/users/:userId/session, POST} route
+Nest application successfully started          (zero circular-dependency errors)
+
+POST /internal/users/<resolved uuid>/session
+  keys: ['accessToken', 'expiresIn', 'userId']   expiresIn: 43200
+  claims: auth_method=portal_sso  ttl_s=43200  sub matches resolved user: True
+  unknown user -> 404      no internal service token -> 401
+```
+
+The user id came from resolving legacy id `310740` through `by-legacy-id` — a real
+mapping, so this exercised resolution and minting together.
+
+The frontend exchange route now makes both calls (`speakasap@a374e34`). A failure in
+either produces `IDENTITY_UNRESOLVED`: a resolved identity with no session is still no
+session, and a locally minted token would not be verifiable by any other service in the
+estate.
 
 ## What was built
 
 | File | Purpose |
 |---|---|
 | `portal/platform_sso.py` | Token issuer. Marathon's helper generalized with `aud` + identity claims. |
+| `portal/drill_redirect.py` | The drill link: mints the token, redirects to the platform handoff. |
+| `portal/tests/test_drill_redirect.py` | Django `TestCase` suite for the redirect. |
+| `auth/src/auth/auth.service.ts` | `createSessionForUser` — 12h, access token only. |
+| `auth/src/users/internal-users.controller.ts` | `POST /internal/users/:userId/session`. |
+| `frontend/app/auth/handoff/exchange/route.ts` | Resolves, then mints. Fails closed on either. |
 | `portal/tests/test_platform_sso.py` | Django `TestCase` suite (see §"How the portal tests were run"). |
 | `portal/local_settings_default.py` | Declares `SPEAKASAP_PLATFORM_JWT_SECRET`. |
 | `frontend/lib/drills/sso/resolve.ts` | Server-only verification + resolution. Fails closed. |
@@ -130,8 +155,6 @@ ssh speakasap 'cd speakasap-portal && python3 manage.py test portal.tests.test_p
 
 ## Not done
 
-- **Session minting** — the blocker above. Track J depends on this handoff working end to
-  end, so it should not start until that route exists.
 - **The frontend has no secret mount at all — verified against production.**
   `deployment/speakasap-frontend` takes `envFrom` a single ConfigMap,
   `speakasap-frontend-config`, whose entire key set is `NEXT_PUBLIC_API_URL`, `NODE_ENV`,
@@ -162,6 +185,16 @@ ssh speakasap 'cd speakasap-portal && python3 manage.py test portal.tests.test_p
   `x-service-name` header in `resolve.ts` to a name already on the list. Adding the new
   name is the better fix: reusing `education-service`'s identity would make auth's audit
   log attribute frontend SSO calls to a different service.
-- **Neither branch is deployed or merged.**
-- **No portal view calls `get_platform_bearer_token` yet.** That is Track J's work —
-  building the drill link in `cabinet/`.
+- **Nothing is deployed or merged.** Three branches: `feat/drilling-track-i` (speakasap,
+  portal) and `feat/internal-session-endpoint` (auth). auth-microservice must go out
+  **before** the frontend, or the exchange route calls a route that does not exist yet.
+- **No URL routes to `drill_redirect_view`.** The view and its guards are done and tested,
+  but nothing in `urls.py` points at it and no template links to it. Wiring the entry
+  point in `cabinet/` is Track J's work.
+- **`SPEAKASAP_PLATFORM_URL` defaults to `https://speakasap.alfares.cz`.** Verify that is
+  the intended target before the portal ships — `speakasap.alfares.cz` and
+  `speakasap.com` are different systems.
+- **The end-to-end path has never been walked in a browser.** Resolution and minting were
+  proven against the real database with curl, and every unit is tested, but no student has
+  actually clicked a portal drill link and landed on `/learner/practice`. That needs the
+  secrets, the allowlist entry, and all three deploys first.
