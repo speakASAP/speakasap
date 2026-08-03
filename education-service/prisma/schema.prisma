@@ -163,6 +163,13 @@ model DrillAssignment {
   startedAt          DateTime? @map("started_at")
   completedAt        DateTime? @map("completed_at")
 
+  // Track G. Separate from assignedAt/completedAt on purpose: those record when the
+  // transition happened, these record that the email for it was claimed. A conditional
+  // UPDATE on a null here is what makes the send at-most-once, so the two must not be
+  // conflated — a retried transition would otherwise resend.
+  notifiedAssignedAt  DateTime? @map("notified_assigned_at")
+  notifiedCompletedAt DateTime? @map("notified_completed_at")
+
   // studentCourseUuid and batchUuid carry FKs for the same reason lessonUuid does
   // (2026-07-31 ruling, applied to the class rather than the one instance): both
   // parents live in this schema and this database — DrillAssignmentBatch is created

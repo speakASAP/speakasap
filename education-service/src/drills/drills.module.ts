@@ -5,6 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AssignmentsRepository } from './assignments.repository';
 import { DrillsController, DRILL_IDENTITY_RESOLVER } from './drills.controller';
 import { InternalDrillsController } from './internal-drills.controller';
+import { NotificationsClientAdapter } from './notifications.client';
+import { NotificationsHook } from './notifications.hook';
 import {
   DrillIdentityResolverAdapter,
   DrillSetsClientAdapter,
@@ -51,6 +53,17 @@ import { SelfDrillService } from './runner/self-drill.service';
 
     { provide: DRILL_IDENTITY_RESOLVER, useExisting: DrillIdentityResolverAdapter },
 
+    // Track G. `NotificationsClient` is an interface and erases at runtime, so the hook
+    // is constructed explicitly rather than annotated — the same treatment
+    // SelfDrillService gets below, and for the same reason.
+    NotificationsClientAdapter,
+    {
+      provide: NotificationsHook,
+      useFactory: (prisma: PrismaService, client: NotificationsClientAdapter) =>
+        new NotificationsHook(prisma, client),
+      inject: [PrismaService, NotificationsClientAdapter],
+    },
+
     // JobRunner is the pipeline's ProgressSink and the pipeline is the runner's job, so
     // the two reference each other. The cycle is broken with a sink that forwards to the
     // runner once it exists, rather than with forwardRef() — one factory is easier to
@@ -85,6 +98,12 @@ import { SelfDrillService } from './runner/self-drill.service';
       ],
     },
   ],
-  exports: [AssignmentsRepository, DrillAssignmentsService, JobRunner, RegenerationService],
+  exports: [
+    AssignmentsRepository,
+    DrillAssignmentsService,
+    JobRunner,
+    RegenerationService,
+    NotificationsHook,
+  ],
 })
 export class DrillsModule {}
