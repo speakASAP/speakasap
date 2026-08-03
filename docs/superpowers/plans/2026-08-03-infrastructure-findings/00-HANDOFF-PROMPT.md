@@ -223,7 +223,7 @@ comment saying why.
 
 ---
 
-## Finding 6 — node runs near its pod ceiling (MEDIUM)
+## Finding 6 — node runs near its pod ceiling (FIXED 2026-08-03)
 
 **Evidence.** Ceiling is 110 pods; usage sat at **110/110** mid-deploy on
 2026-08-03, with eleven surge pods unable to schedule
@@ -236,23 +236,55 @@ Mitigated since: a `pod-janitor` CronJob now reclaims finished pods
 (`k8s-manifests/services/pod-janitor.yaml`), and four services were scaled from
 2 replicas to 1. Usage is ~100/110.
 
-**Task.** Ten pods of headroom is thin for a twelve-service rollout. Options,
-roughly in order of preference:
+**RESOLVED** by raising the kubelet ceiling, which was option 1 and the right
+one: 110 was a kubelet default, never a measured limit. The node measured 24 CPU
+at 17% requested and 62Gi at 17% while wedged at 110/110 — there was no resource
+reason for the ceiling to be where it was.
 
-1. Raise the kubelet `maxPods` ceiling if the node's CPU and memory allow it —
-   check actual utilisation first, since 110 is a default rather than a measured
-   limit.
-2. Give the twelve `speakasap-*` deployments a rollout strategy that does not
-   need a surge pod each (`maxSurge: 0, maxUnavailable: 1`), accepting brief
-   unavailability per service.
-3. Have the shared runner roll services in batches rather than setting all
-   twelve images at once.
+`/etc/rancher/k3s/config.yaml`:
 
-Note the interaction: the four services scaled to 1 replica still carry
-`maxUnavailable: 0`, so each now needs a free slot to roll at all.
+```yaml
+kubelet-arg:
+  - "max-pods=250"
+```
 
-**Done when.** A full twelve-service deploy completes without any pod entering
-Pending on `Too many pods`. Prove it with a real deploy, not by reasoning.
+250 is the per-node figure Kubernetes tests against. Node capacity and
+allocatable both now report 250.
+
+**Proven with a real deploy, not by reasoning.** A full twelve-service rollout
+was run after the change:
+
+| | old ceiling (110) | after (250) |
+|---|---|---|
+| Wait-for-rollout | **308.7s** | **226.8s** |
+| Pods unable to schedule | 11 | **0** |
+| Peak pods on node | 110 (wedged) | 119 |
+
+Peak hit 119 — nine above the old ceiling — with 12 old pods terminating while
+12 new ones started. That rollout could not have completed under 110. No
+`FailedScheduling` event was produced; the only ones in the cluster are 65
+minutes old, from before the change. Site served 200 throughout.
+
+**`maxSurge: 0` was tried and reverted, correctly.** Commit `443c4a8` set
+`maxSurge: 0, maxUnavailable: 1` across the thirteen deployments; `32ec869`
+reverted it. With 154 slots of headroom and a rollout needing 13 surge pods, the
+tradeoff no longer applies — `maxSurge: 1, maxUnavailable: 0` gives zero-downtime
+rollouts, which is strictly better when capacity allows. Do not reapply
+`maxSurge: 0` unless the ceiling is lowered again.
+
+**The one remaining risk is that this file is not in any repository.** A node
+rebuild or fresh k3s install silently returns to the 110 default and the failure
+resurfaces. `shared/docs/DEPLOY_STANDARD.md` documents the file, why 250, how to
+re-apply it, and the ~60s during which the node keeps reporting the old value
+after `systemctl restart k3s`. Verify with:
+
+```bash
+kubectl get node alfares -o jsonpath='{.status.capacity.pods}'   # want 250
+```
+
+Worth considering separately: image pulls now dominate the rollout (~42s per
+image, serialized through one containerd), not scheduling. That is the next
+constraint if deploy time matters.
 
 ---
 
@@ -364,7 +396,7 @@ not a replica count.
 
 | Fact | Value |
 |---|---|
-| Node | `alfares`, ceiling 110 pods, ~100 in use |
+| Node | `alfares`, ceiling **250** pods (raised 2026-08-03), ~102 in use |
 | Namespace | `statex-apps`, ~80 deployments |
 | Registry | `localhost:5000`, images tagged by git SHA |
 | speakasap services live on | `79659b6` → `4516fb7` after the auth fix |
