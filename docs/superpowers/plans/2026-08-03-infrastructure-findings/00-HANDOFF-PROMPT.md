@@ -203,7 +203,7 @@ Pending on `Too many pods`. Prove it with a real deploy, not by reasoning.
 
 ---
 
-## Finding 7 — AI-generated drill items are never persisted (CRITICAL)
+## Finding 7 — AI-generated drill items are never persisted (FIXED 2026-08-03)
 
 **Evidence.** The pipeline was driven end to end against production on
 2026-08-03 (after the ai-microservice auth fix, `speakasap@4516fb7`). It ran to
@@ -260,9 +260,23 @@ items are added after creation, make sure that decision still sees them.
 reading them back out of content-service, not by trusting the progress message —
 that message already says READY today while the set is empty.
 
-**Test-first note.** `generation.service.spec.ts` currently passes with this
-defect present, so it asserts nothing about item persistence. Add the failing
-test before the fix.
+**RESOLVED** in `speakasap@1dad456`. `CreateSetInput` gained `newItems`;
+AI candidates now travel whole and content-service creates the rows through its
+existing `upsertItem` (hash-deduped on plain text plus language) inside the same
+transaction as the set. `topicSlug` was also being dropped when building AI
+candidates and is now carried through — an item filed under no topic is
+invisible to every later bank search.
+
+`replace-items` turned out not to be usable for this after all: it swaps rows at
+existing `order` positions and rejects an empty set with "no item at position N".
+
+The existing generation suite passed with the defect present, asserting nothing
+about persistence. Six new tests fail if the fix is reverted.
+
+**Still unverified end to end.** The fix is deployed but no generation run has
+been driven through since. Confirm a run produces a set whose item count equals
+`generated`, and read the items back out of content-service rather than trusting
+the progress message — that message said READY while the set was empty.
 
 ## Finding 8 — one node, no HA (LOW, informational)
 
@@ -295,7 +309,7 @@ not a replica count.
 | Drill assignments in prod | 0 (test rows cleaned up) |
 | Drill sets in prod | 0 (test sets cleaned up) |
 | ai-microservice auth | FIXED — `speakasap@4516fb7`, AiClient mints a service JWT |
-| Pipeline status | reaches READY; produces empty sets (Finding 7) |
+| Pipeline status | reaches READY; item persistence fixed in `1dad456`, end-to-end run still pending |
 | Track F status | `speakasap/docs/superpowers/plans/2026-07-29-drilling-assignments/status/track-f.md` |
 | Pod janitor | `k8s-manifests/services/pod-janitor.yaml`, every 15 min |
 | Manual pod prune | `shared/scripts/k8s-prune-terminal-pods.sh` (dry run by default) |
