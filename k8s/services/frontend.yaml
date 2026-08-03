@@ -32,6 +32,11 @@ spec:
           envFrom:
             - configMapRef:
                 name: speakasap-frontend-config
+            # Server-side only. Next.js exposes NEXT_PUBLIC_* to the browser bundle and
+            # nothing else, so these stay on the server — which is why SSO token
+            # verification lives in a route handler rather than in client code.
+            - secretRef:
+                name: speakasap-frontend-secret
           startupProbe:
             httpGet:
               path: /
@@ -93,3 +98,45 @@ data:
   SERVICE_NAME: "frontend"
   PORT: "4211"
   NEXT_PUBLIC_API_URL: "https://speakasap.alfares.cz"
+---
+# Server-side secrets for the legacy SSO handoff (Track I).
+#
+# This is the first secret this deployment has ever had: it was a purely public-config
+# service until the handoff needed to verify a portal-signed token and call auth's
+# internal API, neither of which a browser may do.
+#
+# `x-service-name` is hardcoded to `speakasap-frontend` in the code rather than read from
+# SERVICE_NAME above (which is "frontend"), because auth's TRUSTED_INTERNAL_SERVICES
+# allowlist is keyed on the former. Finding 4 was exactly this mismatch, and it surfaces
+# as a 401 that reads like a bad token.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: speakasap-frontend-secret
+  namespace: statex-apps
+  labels:
+    app: speakasap-frontend
+    managed-by: k8s-migration
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: speakasap-frontend-secret
+    creationPolicy: Owner
+  data:
+    # Must equal the portal's own value, or every handoff token fails signature checks.
+    - secretKey: SPEAKASAP_PLATFORM_JWT_SECRET
+      remoteRef:
+        key: secret/prod/speakasap-frontend
+        property: SPEAKASAP_PLATFORM_JWT_SECRET
+    # Must equal auth-microservice's, or InternalServiceGuard rejects every call.
+    - secretKey: INTERNAL_SERVICE_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap-frontend
+        property: INTERNAL_SERVICE_TOKEN
+    - secretKey: AUTH_SERVICE_URL
+      remoteRef:
+        key: secret/prod/speakasap-frontend
+        property: AUTH_SERVICE_URL
