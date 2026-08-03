@@ -1,43 +1,49 @@
 # Track F — Teacher Wizard, Library and Review
 
-**State:** COMPLETE (frontend) — with **two backend routes that do not exist**, see
-§"Endpoints the client calls that no service serves"
+**State:** COMPLETE — frontend and the backend it needed
 
-**Service:** `speakasap/frontend` · **Branch:** `feat/drilling-track-f`
+**Services:** `speakasap/frontend`, `education-service`, `content-service`,
+`api-gateway`, `notification-service` · **Branch:** `feat/drilling-track-f`
 
-**Commits:** `4c44c70..37df7af`
+**Commits:** `8be7c44..0fac7e8`
 
+- `8be7c44` feat(notifications): seed drill templates and render them in code
 - `4c44c70` feat(frontend): teacher drill API client (F.1)
 - `5060333` feat(frontend): drill generation progress panel (F.2)
 - `fa18675` feat(frontend): drill creation wizard (F.3)
 - `37df7af` feat(frontend): drill library browser and review screen (F.4, F.5)
+- `0fac7e8` feat(drills): teacher assignment creation, roster and language lookup
 
-Preceded on the same branch by `8be7c44`, which clears Track G's seed handoff — see
-§"Track G's deployment blockers, cleared".
+Plus `ai-microservice@b766b12`, a contract re-sync only.
 
 ## Contract changes
 
-**None.** `lib/drills/contracts.ts` was not touched. C4, C5 and C6 are consumed as
-published.
+**C10 added — additive, nothing existing changed.** `shared/contracts/drills.contracts.ts`
+gained `DrillLanguageDTO`, `DrillTeacherStudentDTO`, `DrillTeacherRosterResponse`,
+`GenerateAssignmentsRequest/Response` and `AssignFromSetRequest/Response`, then
+`sync-drill-contracts.sh` vendored it to all five consumers. `--check` reports no drift.
+
+No existing type was modified or removed, so no other track's work is invalidated.
+ai-microservice consumes C5 only, which is untouched; its typecheck passes on the new
+copy.
 
 ## Verification run
 
-```
-$ ./node_modules/.bin/vitest run          # frontend
- ✓ lib/drills/teacher/api.test.ts (18 tests)
- ✓ lib/drills/teacher/GenerationProgress.test.tsx (13 tests)
- ✓ lib/drills/teacher/LibraryBrowser.test.tsx (9 tests)
- ✓ lib/drills/teacher/ReviewList.test.tsx (13 tests)
- ✓ lib/drills/teacher/WizardWho.test.tsx (6 tests)
- ✓ lib/drills/teacher/TopicPicker.test.tsx (8 tests)
- ✓ lib/drills/teacher/WizardWhat.test.tsx (8 tests)
+Every service touched, tests and typecheck:
 
- Test Files  7 passed (7)
-      Tests  75 passed (75)
+| Service | Tests | `tsc --noEmit` |
+|---|---|---|
+| frontend | **77 passed** (7 files) | clean |
+| education-service | **266 passed** (21 suites) | clean |
+| content-service | **134 passed** (17 suites) | clean |
+| api-gateway | **9 passed** (1 suite) | clean |
+| notification-service | **46 passed** (3 suites) | pre-existing `scripts/` rootDir error only |
 
-$ ./node_modules/.bin/tsc --noEmit -p tsconfig.json
-exit 0 — no output
-```
+`bash shared/scripts/sync-drill-contracts.sh --check` → exit 0, no drift.
+
+The frontend typecheck was confirmed to actually run: introducing `const broken: number =
+'not a number'` in `ReviewList.tsx` produced `error TS2322` at `ReviewList.tsx(52,9)`,
+and removing it returned exit 0.
 
 The typecheck was confirmed to actually run: introducing `const broken: number =
 'not a number'` in `ReviewList.tsx` produced `error TS2322` at `ReviewList.tsx(52,9)`,
@@ -46,6 +52,8 @@ and removing it returned exit 0.
 ### Falsification
 
 Each guard was broken, the suite confirmed red, and the source restored:
+
+**Frontend**
 
 | Mutation | Result |
 |---|---|
@@ -56,43 +64,69 @@ Each guard was broken, the suite confirmed red, and the source restored:
 | `hasUnresolvedFailure` hard-coded false | **1 failed** — approve enabled over an open FAIL |
 | "Keep anyway" calls back without recording the override | **3 failed** |
 
-## Endpoints the client calls that no service serves (BLOCKING for a working feature)
+**Backend**
 
-Task F.1 specifies `generateAssignments` and `assignFromSet`. **Neither route exists.**
-`education-service/src/drills/drills.controller.ts` exposes only `GET /`,
-`GET :uuid/runner`, `POST :uuid/check`, `POST self` and `GET teacher/summary`. There is
-no teacher-facing create path at all, and `GET /drill-assignments/:uuid` — which
-`GenerationProgress` polls — is also absent.
+| Mutation | Result |
+|---|---|
+| `reviewState !== 'APPROVED'` gate removed from `assignFromSet` | **2 failed** — unreviewed AI output reachable by a student |
+| `onAssigned` call removed | **2 failed** — students silently never told |
+| Lesson ceiling takes `Math.max` instead of `Math.min` | **1 failed** — furthest-behind student shown later vocabulary |
+| Duplicate `studentIds` check removed | **1 failed** |
+| `row.teacherId !== teacherId` dropped from `getForTeacher` | **1 failed** — any teacher reads any assignment |
 
-The machinery behind them exists: `JobRunnerService.enqueue(assignmentUuids, job)` and
-`GenerationService.run(job)` landed with Track D. What is missing is only the HTTP layer
-that creates the GENERATING assignment rows and enqueues the job.
+`DrillsModule` is compiled by a real Nest test container, so the new providers are proven
+to resolve rather than assumed to — `TeacherAssignmentsService` takes
+`StudentProgressReader` as an interface, which erases at runtime and would otherwise
+resolve to `undefined` and fail at the first progress lookup instead of at startup.
 
-This was left rather than built because it is outside Track F's declared ownership
-(`frontend/app/teacher/assignments/**`, `frontend/lib/drills/teacher/**`) and lands in
-`education-service`, which the file-ownership matrix assigns to Tracks B/B2/D. Building
-it here would have put a fourth writer in that file.
+## The backend Track F needed, now built
 
-**Three routes are needed:**
+Task F.1 specified `generateAssignments` and `assignFromSet` against routes that did not
+exist: `drills.controller.ts` had only `GET /`, `GET :uuid/runner`, `POST :uuid/check`,
+`POST self` and `GET teacher/summary`. The pipeline behind them was already there —
+`JobRunner.enqueue` and `GenerationService.run` landed with Track D — but nothing created
+the assignment rows or enqueued the job.
 
 | Route | Does |
 |---|---|
-| `POST /api/v1/drill-assignments/generate` | Creates one GENERATING assignment per student, enqueues the job, returns the uuids |
-| `POST /api/v1/drill-assignments/assign` | Assigns an existing APPROVED set to students |
+| `POST /api/v1/drill-assignments/generate` | One GENERATING row per student, queues the pipeline, returns uuids + setUuid + batchUuid |
+| `POST /api/v1/drill-assignments/assign` | Assigns an already-APPROVED set, copying its items |
 | `GET /api/v1/drill-assignments/:uuid` | One assignment including `generationProgress` |
+| `GET /api/v1/drill-assignments/teacher/students` | The roster the wizard had no source for |
+| `GET /api/v1/drill-languages` (content-service) | `{id, code, name}` — the numeric id `CreateSetInput` requires |
 
-**The assign path must call `NotificationsHook.onAssigned(assignmentUuid)`.** Track G
-wired `onCompleted` but left `onAssigned` with no call site, because the only existing
-write of `status: 'ASSIGNED'` is `SelfDrillService`, where sending "your teacher assigned
-you work" would be wrong. Without this call, students are never told they have work.
+All are staff-gated through the existing `isStaffUser` check; a student token is refused
+on every one. `GET :uuid` returns 404 rather than 403 for another teacher's assignment,
+matching the runner — a 403 confirms the assignment exists.
 
-## Also missing: a teacher's student roster
+**Decisions worth knowing about**
 
-`WizardWho` takes `students` and `groups` as props, and the wizard page currently passes
-`students={[]}`. No endpoint in the contracts returns the students a teacher teaches.
-`GET teacher/summary` returns counts and a review queue, not a roster. Whoever adds the
-routes above should say where the roster comes from; the component needs no change once
-there is a source.
+- **`generate` does not notify; `assignFromSet` does.** This is the call site Track G
+  left open. A generated set has no items and no approval, so "your teacher assigned you
+  work" would link to nothing; the notification belongs where real work reaches a student.
+  `onAssigned` fires after every row is committed, and the hook is at-most-once and
+  swallows its own failures, so a dead notification service cannot undo committed work.
+- **The lowest lesson ceiling in the batch wins.** One set is shared by every student in
+  the request, so the ceiling is `Math.min` across their progress. `Math.max` would show
+  the furthest-behind student vocabulary from a lesson they have not reached.
+- **Route declaration order is load-bearing.** `:uuid` matches any single segment, so
+  `generate`, `assign`, `teacher/summary` and `teacher/students` are all declared above
+  `GET :uuid`. A test asserts the ordering rather than trusting it to survive an edit.
+- **`languageId` came from a new content-service route** rather than an env map or a
+  request-body field, both of which would encode content-service's primary key somewhere
+  that cannot be kept in step with it. education-service caches the code→id map for the
+  process lifetime; a failed lookup is not cached.
+- **The teacher's bearer token is forwarded** to content-service and ai-microservice as
+  `GenerationJob.token`, not swapped for a service token. The routes carrying answers
+  additionally require `x-internal-token`, which the clients add themselves, so
+  forwarding keeps the request attributable without widening its reach.
+
+**Roster shape.** `Group` has no teacher column — the legacy Django shape puts the
+teacher on `Lesson` — so the roster walks lessons → student courses → groups → students.
+That makes it "students I have taught or am scheduled to teach", which is the right
+exclusion. education-service stores `studentId` integers and nothing about the person, so
+`name` comes back empty and the wizard falls back to `Student <id>`; a directory join is
+the remaining work if real names are wanted.
 
 ## Track G's deployment blockers, cleared
 
@@ -126,18 +160,37 @@ rootDir error documented in `track-g.md`.
 
 ## Deferred to orchestrator
 
-- Deploy of `frontend`, `education-service` and `notification-service`. Not run here.
+- **Deploy**, serialized: `content-service` and `api-gateway` first (the language route
+  and its gateway prefix), then `education-service`, then `frontend`. Assigning before
+  content-service is up fails the language lookup, which is the correct order to notice
+  it. `notification-service` too, for the seeded templates.
 - Confirm `NOTIFICATION_SERVICE_URL` and `INTERNAL_API_TOKEN` are in education-service's
   ExternalSecret before the first assignment is created, and that the token is one
   `dispatch/email`'s JWT guard accepts. Still unexercised, as `track-g.md` noted.
-- The three routes above, plus the roster source.
+- **Nothing has been exercised against a running service.** Every test here is a unit
+  test with mocked upstreams. The first real generate call is the first time the
+  pipeline, content-service and ai-microservice run end to end together.
+- Push `ai-microservice@b766b12` (contract sync, committed on `main`, not pushed).
 
-## One cross-track file touched
+## Cross-track files touched
 
-`frontend/vitest.config.ts` (Track 0's file) gained one line: `env: { NEXT_PUBLIC_API_URL:
-'https://api.test' }`. `lib/gateway.ts` reads that variable at module load, so without it
-the API client tests pass only when the developer's shell happens to define it. No other
-Track 0 file was touched.
+Track F's declared ownership is `frontend/app/teacher/assignments/**` and
+`frontend/lib/drills/teacher/**`. Building the backend it needed meant going outside that,
+deliberately and with the owner's approval:
+
+| File | Owner | Change |
+|---|---|---|
+| `shared/contracts/drills.contracts.ts` | Track 0 | C10 appended, additive; re-synced to 5 consumers |
+| `frontend/vitest.config.ts` | Track 0 | one line: `env: { NEXT_PUBLIC_API_URL }` — `lib/gateway.ts` reads it at module load |
+| `education-service/src/drills/drills.controller.ts` | B2 | four routes, two constructor deps, `bearer()` |
+| `education-service/src/drills/drills.module.ts` | B2/D | two providers |
+| `education-service/src/drills/orchestration/content.client.ts` | D | `listLanguages`, `resolveLanguageId` |
+| `content-service/src/drills/drills.{controller,service}.ts` | A | `drill-languages` route + `listLanguages` |
+| `api-gateway/src/proxy/upstream-resolve.ts` | Track 0 | one prefix entry |
+| `notification-service/src/dispatch/dispatch.service.ts` | G | renderer registry seam |
+
+New files live under `education-service/src/drills/teacher/`, a directory no track
+claimed, rather than being added to B2's or D's.
 
 ## Deviations from the plan
 
@@ -158,9 +211,12 @@ and an overridden item dropping out of the flagged regeneration batch.
 
 ## Track F completion checklist
 
-- [x] `vitest run` green (75), `tsc --noEmit` clean
+- [x] `vitest run` green (77), `tsc --noEmit` clean
 - [x] The no-score assertions pass in both the library and review tests
 - [x] Approve provably disabled on unresolved FAIL and enabled after override
 - [x] The stalled-progress test passes
 - [x] Status file at `status/track-f.md`
-- [ ] **Feature is not usable end to end** — the three routes above do not exist
+- [x] Every route the client calls exists and is staff-gated
+- [x] `onAssigned` has a call site
+- [x] Contract sync clean across all five consumers
+- [ ] Deployed and exercised against running services — orchestrator, see above
