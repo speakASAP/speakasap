@@ -15,14 +15,8 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      # maxSurge 0: this node ran at its 110-pod ceiling mid-deploy on 2026-08-03
-      # and eleven surge pods could not schedule ("Too many pods"), so a
-      # twelve-service rollout deadlocked until old pods terminated. Rolling in
-      # place needs no free slot. Costs brief unavailability per service, which
-      # a single-replica deployment on a single node has during any restart
-      # anyway.
-      maxUnavailable: 1
-      maxSurge: 0
+      maxUnavailable: 0
+      maxSurge: 1
   template:
     metadata:
       labels:
