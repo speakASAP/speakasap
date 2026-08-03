@@ -158,6 +158,56 @@ would resolve inherited `Object` members. notification-service: 46 tests pass; i
 `tsc` still reports the pre-existing unrelated `scripts/migrate-notification-data.ts`
 rootDir error documented in `track-g.md`.
 
+## End-to-end run against production (2026-08-03)
+
+Driven through the real NestJS container inside the running education pod, so
+every collaborator was production wiring. Only the HTTP auth guard was bypassed,
+and that was separately verified to return 401 on all four routes.
+
+**What worked**
+
+- `TeacherRosterService.listForTeacher(10)` → **656 students, 931 groups** from
+  live data. The lessons → courses → groups walk is correct against the real
+  legacy schema.
+- `TeacherAssignmentsService.generate` → created the assignment, the batch and
+  the set uuid, and queued the job. Returned in under a second, as intended.
+- The failure path behaved exactly as designed: the assignment recorded
+  `phase: FAILED` with the upstream's real message, and **no partial set was
+  created**.
+- `GET /api/v1/drill-languages` on content-service → **200** with live rows.
+
+**BLOCKER — ai-microservice rejects education-service's token**
+
+The pipeline reaches ai-microservice and is refused:
+
+```
+ai-microservice responded 401: {"message":"Malformed token", ...}
+```
+
+`TeacherAssistantController` is behind `ServiceAuthGuard`, which verifies a
+**service JWT signed with `JWT_SECRET`**. `AiClient.generate/validate` forward
+`job.token` — the *teacher's* bearer token, taken from the incoming request.
+Those are different credentials, so this fails for any real teacher, not just a
+test harness.
+
+education-service has neither `JWT_SECRET` nor `SERVICE_JWT` in its environment,
+so it currently cannot mint what the guard wants. `ContentClient` already solves
+the equivalent problem by sending `internalToken` alongside the bearer token;
+`AiClient` has no such second credential.
+
+This is Track C/D contract surface — deliberately not improvised in production.
+Whoever picks it up chooses between: give education-service `JWT_SECRET` and mint
+a service JWT in `AiClient` (mirroring `ContentClient.internalToken()`), or widen
+`ServiceAuthGuard` to accept the internal token that every other hop already uses.
+
+An earlier 404 on the same call was a separate problem, now fixed:
+ai-microservice was running an image 20 commits old that predated Track C's
+endpoints entirely. It is now on `b766b12` and `POST
+/api/teacher-assistant/generate-drill` returns 401 rather than 404.
+
+Both test assignments and both batches were deleted afterwards; production has
+zero drill assignments.
+
 ## Deferred to orchestrator
 
 - **Deploy**, serialized: `content-service` and `api-gateway` first (the language route
@@ -219,4 +269,6 @@ and an overridden item dropping out of the flagged regeneration batch.
 - [x] Every route the client calls exists and is staff-gated
 - [x] `onAssigned` has a call site
 - [x] Contract sync clean across all five consumers
-- [ ] Deployed and exercised against running services — orchestrator, see above
+- [x] Deployed — all 13 speakasap services on `79659b6`, ai-microservice on `b766b12`
+- [ ] **Feature not usable end to end** — ai-microservice rejects education-service's
+      token, see the end-to-end section above
