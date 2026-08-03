@@ -40,7 +40,23 @@ export interface CreateSetInput {
   instructions?: string | null;
   visibility?: 'SHARED' | 'PRIVATE';
   knownWordRatio?: number | null;
+  /** Existing bank rows to attach, in order. */
   itemIds: number[];
+  /**
+   * Items that have no bank row yet — AI output, essentially.
+   *
+   * Without this, an AI-generated set could not be created at all: `itemIds`
+   * references rows that already exist, which is true of bank items and never
+   * of generated ones. `GenerationService` filtered every AI candidate out and
+   * sent `itemIds: []`, so the set arrived empty while the pipeline reported
+   * READY, and the generated sentences were discarded after being paid for
+   * (production, 2026-08-03).
+   *
+   * Rows are created inside the same transaction as the set: a set that exists
+   * with no items looks identical to a finished one in a teacher's review
+   * queue, so the two writes must not be separable.
+   */
+  newItems?: ReplacementItem[];
 }
 
 @Injectable()
@@ -50,6 +66,34 @@ export class SetsService {
   async createSet(input: CreateSetInput): Promise<DrillSetDetailDTO> {
     const reviewState = input.reviewState ?? 'PENDING_REVIEW';
     const created = await this.prisma.$transaction(async (tx: any) => {
+      // Generated items become bank rows first, so the set can reference them by
+      // id like any other. `upsertItem` hashes on plain text plus language, so a
+      // sentence the bank already holds is reused rather than duplicated.
+      //
+      // `upsertItem` reads languageId, materialLanguage, level, courseKey and
+      // lessonOrder off the set, which does not exist yet — it is handed the
+      // input instead, which carries the same fields under the same names.
+      const newItemIds: number[] = [];
+      if (input.newItems?.length) {
+        // The hash is over plain text plus the language *code*, but CreateSetInput
+        // carries only the numeric id, so the code is resolved here. Getting this
+        // wrong would hash every language into the same bucket and make two
+        // different languages' identical sentences collide.
+        const language = await tx.language.findUnique({
+          where: { id: input.languageId },
+          select: { code: true },
+        });
+        const languageCode = language?.code ?? '';
+
+        for (const item of input.newItems) {
+          newItemIds.push(await this.upsertItem(tx, input, languageCode, item));
+        }
+      }
+
+      // Bank items keep the order the generator chose; generated ones follow.
+      // Interleaving them would reorder a set the pipeline already sequenced.
+      const itemIds = [...input.itemIds, ...newItemIds];
+
       const set = await tx.drillSet.create({
         data: {
           uuid: input.uuid,
@@ -76,7 +120,7 @@ export class SetsService {
             reviewState,
           }),
           items: {
-            create: input.itemIds.map((itemId, index) => ({ itemId, order: index })),
+            create: itemIds.map((itemId, index) => ({ itemId, order: index })),
           },
         },
         include: { items: { include: { item: true }, orderBy: { order: 'asc' } } },

@@ -280,3 +280,120 @@ describe('GenerationService.run', () => {
     expect(ai.generate.mock.calls[0][0].count).toBe(2);
   });
 });
+
+/**
+ * The set arrived empty in production while the pipeline reported READY: only
+ * `itemIds` was sent, `bankItemId` exists on bank candidates alone, and nothing
+ * created a row for AI output. The sentences were paid for and discarded.
+ *
+ * These tests pin the persistence, which the suite above never asserted — every
+ * one of them passed with the defect present.
+ */
+describe('GenerationService — AI items must reach content-service', () => {
+  let content: any;
+  let ai: any;
+  let progress: ProgressSink;
+  let svc: GenerationService;
+
+  const job = (over: Partial<GenerationJob> = {}): GenerationJob =>
+    ({
+      setUuid: 'set-1',
+      assignmentUuids: ['a-1'],
+      languageCode: 'de',
+      materialLanguage: 'ru',
+      languageId: 3,
+      level: 'A1',
+      topicSlugs: ['prepositions'],
+      topics: [{ slug: 'prepositions', title: 'Prepositions' }],
+      instructions: 'dative',
+      itemCount: 1,
+      courseKey: 'de-a1',
+      maxLessonOrder: 3,
+      teacherId: 7,
+      title: 'T',
+      token: 'tok',
+      correlationId: 'corr-1',
+      ...over,
+    }) as GenerationJob;
+
+  beforeEach(() => {
+    content = {
+      searchItems: jest.fn().mockResolvedValue({ items: [], totalAvailable: 0 }),
+      getBaseline: jest.fn().mockResolvedValue(null),
+      getTopics: jest.fn().mockResolvedValue([]),
+      createSet: jest.fn().mockResolvedValue({ uuid: 'set-1' }),
+    };
+    ai = {
+      generate: jest.fn().mockResolvedValue({ items: [aiItem()], meta: {} }),
+      validate: jest.fn().mockResolvedValue({
+        results: [{ itemRef: 0, state: 'PASS', issues: [], suggestedFix: null }],
+        meta: {},
+      }),
+    };
+    progress = { update: jest.fn() };
+    svc = new GenerationService(content, ai, progress);
+  });
+
+  it('sends the generated sentence, not just an empty itemIds array', async () => {
+    await svc.run(job());
+
+    const input = content.createSet.mock.calls[0][0];
+    expect(input.newItems).toHaveLength(1);
+    expect(input.newItems[0].template).toBe('Ich warte [на]{auf} den Bus.');
+  });
+
+  it('sends the blanks with it, or the item is unanswerable', async () => {
+    await svc.run(job());
+
+    const [blank] = content.createSet.mock.calls[0][0].newItems[0].blanks;
+    expect(blank).toMatchObject({ index: 0, answer: 'auf' });
+  });
+
+  it('carries a topic slug so the created row is filed somewhere', async () => {
+    await svc.run(job());
+
+    expect(content.createSet.mock.calls[0][0].newItems[0].topicSlug).toBe('prepositions');
+  });
+
+  // The model may omit the slug. Filing the item under nothing loses it to every
+  // future bank search, so the requested topic stands in.
+  it('falls back to the requested topic when the model omits one', async () => {
+    ai.generate.mockResolvedValue({ items: [{ ...aiItem(), topicSlug: '' }], meta: {} });
+
+    await svc.run(job({ topicSlugs: ['past-tense'] }));
+
+    expect(content.createSet.mock.calls[0][0].newItems[0].topicSlug).toBe('past-tense');
+  });
+
+  it('sends no newItems for a pure bank set', async () => {
+    content.searchItems.mockResolvedValue({ items: [bankItem(0)], totalAvailable: 1 });
+    ai.generate.mockResolvedValue({ items: [], meta: {} });
+
+    await svc.run(job());
+
+    const input = content.createSet.mock.calls[0][0];
+    expect(input.newItems).toEqual([]);
+    expect(input.itemIds).toEqual([100]);
+    expect(ai.generate).not.toHaveBeenCalled();
+  });
+
+  // The count the teacher is shown must match what the set actually contains.
+  it('sends as many items as it reports generating', async () => {
+    ai.generate.mockResolvedValue({
+      items: [aiItem('auf'), aiItem('an')],
+      meta: {},
+    });
+    ai.validate.mockResolvedValue({
+      results: [
+        { itemRef: 0, state: 'PASS', issues: [], suggestedFix: null },
+        { itemRef: 1, state: 'PASS', issues: [], suggestedFix: null },
+      ],
+      meta: {},
+    });
+
+    await svc.run(job({ itemCount: 2 }));
+
+    const input = content.createSet.mock.calls[0][0];
+    expect(input.itemIds.length + input.newItems.length).toBe(svc.lastRunSummary()!.itemsKept);
+  });
+});

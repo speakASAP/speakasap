@@ -32,7 +32,17 @@ export interface CreateSetInput {
   instructions?: string | null;
   visibility?: 'SHARED' | 'PRIVATE';
   knownWordRatio?: number | null;
+  /** Existing bank rows to attach, in order. */
   itemIds: number[];
+  /**
+   * Items with no bank row yet — AI output. content-service creates the rows
+   * inside the same transaction as the set.
+   *
+   * Required because `itemIds` can only reference rows that already exist,
+   * which is true of bank items and never of generated ones. Omitting these
+   * produced sets with zero items while the pipeline reported success.
+   */
+  newItems?: ReplacementItem[];
 }
 
 /** A replacement drill item, not yet persisted — content-service assigns the id. */

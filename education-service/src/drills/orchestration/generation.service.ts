@@ -63,6 +63,11 @@ interface Candidate extends PreCheckItem {
   source: 'BANK' | 'AI';
   /** Present for bank items only — content-service already has a row for them. */
   bankItemId?: number;
+  /**
+   * Present for AI items only. Carried through so the row content-service
+   * creates can be filed under the right topic; a bank item already has one.
+   */
+  topicSlug?: string;
   plainText: string;
 }
 
@@ -162,6 +167,10 @@ export class GenerationService {
           template: item.template,
           blanks: item.blanks,
           hint: item.hint,
+          // Kept so content-service can file the created row under a topic. The
+          // model is asked for one item per requested topic, but falls back to
+          // the first requested slug rather than filing the item under nothing.
+          topicSlug: item.topicSlug || job.topicSlugs[0] || '',
           plainText: parseTemplate(item.template).plainText,
         }));
         const preChecked = runPreChecks(fresh, {
@@ -217,7 +226,24 @@ export class GenerationService {
         createdByTeacherId: job.teacherId,
         instructions: job.instructions,
         knownWordRatio: null,
+        // Bank items are attached by id — content-service already holds them.
         itemIds: survivors.map((c) => c.bankItemId).filter((id): id is number => typeof id === 'number'),
+        // AI items have no row anywhere yet, so they travel whole and
+        // content-service creates them inside the same transaction as the set.
+        //
+        // Sending only `itemIds` was the defect that made every generated set
+        // arrive empty: `bankItemId` exists on bank candidates alone, so the
+        // filter above discarded every AI item and an all-AI set was created
+        // with no items at all, while the pipeline reported READY. The
+        // sentences had already been paid for.
+        newItems: survivors
+          .filter((c) => c.source === 'AI')
+          .map((c) => ({
+            template: c.template,
+            blanks: c.blanks,
+            hint: c.hint,
+            topicSlug: c.topicSlug ?? '',
+          })),
       };
       await this.content.createSet(input, job.token);
 
