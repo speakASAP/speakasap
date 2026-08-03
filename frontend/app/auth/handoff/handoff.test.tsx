@@ -61,10 +61,10 @@ describe('/auth/handoff', () => {
     expect(window.localStorage.getItem('speakasap.auth.tokens')).toContain('tok-1');
   });
 
-  it('does NOT redirect when resolution succeeded but no session was issued', async () => {
-    // auth-microservice has no route that mints a token for a resolved user id yet, so
-    // the exchange returns authUserId alone. Redirecting here would drop the student on
-    // a signed-out page that looks signed in.
+  it('does NOT redirect when the exchange returns no session', async () => {
+    // The exchange fails closed rather than returning a bare authUserId, but the page
+    // must not redirect on a malformed success either: landing a student on a page that
+    // looks signed in and is not is worse than an honest error.
     mockExchange({ authUserId: 'u-1' });
     setUrl('?sso=t&next=/learner/practice/a-1');
 

@@ -9,19 +9,11 @@ import { resolveSsoToken } from '@/lib/drills/sso/resolve';
  * auth's internal service token; the browser holds neither. The token arrives in the
  * request body rather than the URL so it stays out of access logs and referrers.
  *
- * ## Session minting is not wired up yet — see `status/track-i.md`
- *
- * Track H's `resolve-or-provision-legacy` returns `{ authUserId, provisioned }` and
- * stops there. auth-microservice exposes no internal route that mints an access token
- * for an already-resolved user id: `generateTokens` is private, and
- * `internal/magic-link/token` is keyed on email and returns a `verifyUrl` to redirect
- * to, not a token — and it would create a user by email, bypassing the legacy mapping
- * this whole flow exists to honour.
- *
- * Adding that route belongs to auth-microservice, outside this track's ownership. Until
- * it lands, resolution is exercised end to end and the response carries the resolved
- * `authUserId`, but `accessToken` is absent and the page reports the handoff as
- * unavailable rather than pretending a student is signed in.
+ * Two calls to auth, and both must succeed before a student is signed in:
+ * `resolve-or-provision-legacy` answers *who* the student is, then
+ * `POST /internal/users/:userId/session` issues the session. A failure in either one
+ * produces IDENTITY_UNRESOLVED — a resolved identity with no session is still no
+ * session, and we never mint one locally.
  */
 export async function POST(request: Request) {
   let token: string | undefined;
@@ -45,5 +37,54 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: result.error }, { status });
   }
 
-  return NextResponse.json({ authUserId: result.authUserId });
+  const session = await mintSession(result.authUserId);
+  if (!session) {
+    return NextResponse.json({ error: 'IDENTITY_UNRESOLVED' }, { status: 503 });
+  }
+
+  return NextResponse.json({
+    authUserId: result.authUserId,
+    accessToken: session.accessToken,
+    expiresIn: session.expiresIn,
+  });
+}
+
+/**
+ * Asks auth-microservice for a session for an already-resolved user.
+ *
+ * Returns null on any failure, which the caller turns into IDENTITY_UNRESOLVED — the
+ * same fail-closed rule as resolution itself. Nothing is minted locally: a session this
+ * service invented would not be verifiable by any other service in the estate.
+ */
+async function mintSession(
+  authUserId: string,
+): Promise<{ accessToken: string; expiresIn?: number } | null> {
+  const authUrl = (process.env.AUTH_SERVICE_URL || '').replace(/\/$/, '');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(
+      `${authUrl}/internal/users/${encodeURIComponent(authUserId)}/session`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-service-token': process.env.INTERNAL_SERVICE_TOKEN || '',
+          'x-service-name': 'speakasap-frontend',
+        },
+        signal: controller.signal,
+        cache: 'no-store',
+      },
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const body = (await response.json()) as { accessToken?: string; expiresIn?: number };
+    return body?.accessToken ? { accessToken: body.accessToken, expiresIn: body.expiresIn } : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
