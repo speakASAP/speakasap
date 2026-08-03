@@ -5,6 +5,7 @@ import {
   DrillItemSearchResponse,
   DrillSetDetailDTO,
   DrillSetDTO,
+  DrillLanguageDTO,
   DrillSetOrigin,
   DrillSetReviewState,
   DrillTemplate,
@@ -52,6 +53,9 @@ export interface ReplacementItem {
  */
 @Injectable()
 export class ContentClient {
+  /** code -> content-service Language.id. Populated on first resolve. */
+  private readonly languageIds = new Map<string, number>();
+
   timeoutMs(): number {
     return numericEnv('DRILL_CLIENT_TIMEOUT_MS', 30000);
   }
@@ -172,6 +176,50 @@ export class ContentClient {
       timeoutMs: this.timeoutMs(),
       upstream: UPSTREAM,
     });
+  }
+
+  async listLanguages(token: string): Promise<DrillLanguageDTO[]> {
+    return requestUpstream<DrillLanguageDTO[]>({
+      url: `${this.baseUrl()}/api/v1/drill-languages`,
+      method: 'GET',
+      token,
+      timeoutMs: this.timeoutMs(),
+      upstream: UPSTREAM,
+    });
+  }
+
+  /**
+   * Maps an ISO code to content-service's numeric `Language.id`, which `CreateSetInput`
+   * requires and this service has no table for.
+   *
+   * Cached for the process lifetime: the language list changes when a new language is
+   * added to the site, which is a deploy-scale event, and fetching it on every
+   * generation would put a network hop in front of every teacher request to answer a
+   * question whose answer never moves. A failed lookup is not cached, so a transient
+   * outage does not poison the map until the next restart.
+   *
+   * Throws rather than defaulting. Guessing an id here files a set under the wrong
+   * language, where it would surface in another language's library — silently wrong is
+   * worse than a failed request the teacher can retry.
+   */
+  async resolveLanguageId(languageCode: string, token: string): Promise<number> {
+    const cached = this.languageIds.get(languageCode);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const languages = await this.listLanguages(token);
+    for (const language of languages) {
+      this.languageIds.set(language.code, language.id);
+    }
+
+    const resolved = this.languageIds.get(languageCode);
+    if (resolved === undefined) {
+      throw new Error(
+        `content-service knows no language with code "${languageCode}"`,
+      );
+    }
+    return resolved;
   }
 
   private baseUrl(): string {

@@ -19,10 +19,17 @@ import { isStaffUser } from '../shared/staff-access';
 import { RunnerService } from './runner/runner.service';
 import { SelfDrillService } from './runner/self-drill.service';
 import { DrillAssignmentsService } from './runner/assignments.service';
+import { TeacherAssignmentsService } from './teacher/teacher-assignments.service';
+import { TeacherRosterService } from './teacher/roster.service';
 import {
+  AssignFromSetRequest,
+  AssignFromSetResponse,
   CheckBlankRequest,
   CheckBlankResponse,
   DrillAssignmentDTO,
+  DrillTeacherRosterResponse,
+  GenerateAssignmentsRequest,
+  GenerateAssignmentsResponse,
   InternalTeacherAssignmentsResponse,
   RunnerResponse,
 } from './contracts';
@@ -56,6 +63,8 @@ export class DrillsController {
     // Track D added to a Track B2 file — without it the container cannot bind the
     // resolver and the service does not start.
     @Inject(DRILL_IDENTITY_RESOLVER) private readonly identity: DrillIdentityResolver,
+    private readonly teacherAssignments: TeacherAssignmentsService,
+    private readonly roster: TeacherRosterService,
   ) {}
 
   /** The student's own assignment list. */
@@ -63,6 +72,43 @@ export class DrillsController {
   async listMine(@Req() req: Request) {
     const studentId = await this.studentId(req);
     return this.assignments.listForStudent(studentId);
+  }
+
+  /**
+   * Teacher-only. Queues generation and returns immediately with the assignment uuids.
+   *
+   * Declared before `:uuid/...` routes below: Nest matches in declaration order, so a
+   * parameterised route registered first would swallow `generate` as a uuid.
+   */
+  @Post('generate')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async generate(
+    @Body() body: GenerateAssignmentsRequest,
+    @Req() req: Request,
+  ): Promise<GenerateAssignmentsResponse> {
+    this.assertStaff(req);
+    const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
+    return this.teacherAssignments.generate(teacherId, body, this.bearer(req));
+  }
+
+  /** Teacher-only. Assigns an already-approved set, no generation. */
+  @Post('assign')
+  @HttpCode(HttpStatus.CREATED)
+  async assign(
+    @Body() body: AssignFromSetRequest,
+    @Req() req: Request,
+  ): Promise<AssignFromSetResponse> {
+    this.assertStaff(req);
+    const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
+    return this.teacherAssignments.assignFromSet(teacherId, body, this.bearer(req));
+  }
+
+  /** Teacher-only. The students this teacher may assign drilling to. */
+  @Get('teacher/students')
+  async teacherStudents(@Req() req: Request): Promise<DrillTeacherRosterResponse> {
+    this.assertStaff(req);
+    const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
+    return this.roster.listForTeacher(teacherId);
   }
 
   /**
@@ -115,6 +161,23 @@ export class DrillsController {
     return this.assignments.listForTeacher(teacherId);
   }
 
+  /**
+   * One assignment, for the teacher who created it — this is what the wizard polls for
+   * `generationProgress`.
+   *
+   * Declared last of the GETs: `:uuid` matches any single segment, so registering it
+   * above `teacher/summary` or `teacher/students` would capture both as uuids.
+   */
+  @Get(':uuid')
+  async getOne(
+    @Param('uuid') uuid: string,
+    @Req() req: Request,
+  ): Promise<DrillAssignmentDTO> {
+    this.assertStaff(req);
+    const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
+    return this.teacherAssignments.getForTeacher(uuid, teacherId);
+  }
+
   private assertStaff(req: Request): void {
     if (!isStaffUser(req.authUser)) {
       throw new ForbiddenException('Staff access required');
@@ -123,5 +186,19 @@ export class DrillsController {
 
   private async studentId(req: Request): Promise<number> {
     return this.identity.resolveStudentId(req.authUser!.id);
+  }
+
+  /**
+   * The caller's bearer token, forwarded to content-service and ai-microservice.
+   *
+   * The generation pipeline calls both on the teacher's behalf, and `GenerationJob.token`
+   * is that credential. Taken from the header the guard already validated rather than
+   * substituting a service token: the upstream routes that carry answers additionally
+   * require `x-internal-token`, which the clients add themselves, so forwarding the
+   * teacher's token keeps the request attributable without widening what it can reach.
+   */
+  private bearer(req: Request): string {
+    const header = req.headers?.authorization ?? '';
+    return header.startsWith('Bearer ') ? header.slice(7) : '';
   }
 }

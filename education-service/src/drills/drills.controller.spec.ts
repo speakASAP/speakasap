@@ -20,14 +20,29 @@ function harness() {
     listForLesson: jest.fn(async () => ({ assignments: [] })),
   };
   const identity: any = { resolveStudentId: jest.fn(async () => 42) };
+  const teacherAssignments: any = {
+    generate: jest.fn(async () => ({ assignmentUuids: ['a-1'], setUuid: 's-1', batchUuid: 'b-1' })),
+    assignFromSet: jest.fn(async () => ({ assignments: [] })),
+    getForTeacher: jest.fn(async () => ({ uuid: 'a-1' })),
+  };
+  const roster: any = { listForTeacher: jest.fn(async () => ({ students: [], groups: [] })) };
 
   return {
-    controller: new DrillsController(runner, selfDrill, assignments, identity),
+    controller: new DrillsController(
+      runner,
+      selfDrill,
+      assignments,
+      identity,
+      teacherAssignments,
+      roster,
+    ),
     internal: new InternalDrillsController(assignments),
     runner,
     selfDrill,
     assignments,
     identity,
+    teacherAssignments,
+    roster,
   };
 }
 
@@ -123,5 +138,102 @@ describe('InternalDrillsController', () => {
 
   it('rejects a non-numeric studentId', async () => {
     await expect(h.internal.byStudent('abc')).rejects.toThrow(/studentId/i);
+  });
+});
+
+describe('DrillsController — teacher write routes', () => {
+  let h: ReturnType<typeof harness>;
+
+  beforeEach(() => {
+    h = harness();
+  });
+
+  const withToken = (user: any) =>
+    ({ authUser: user, headers: { authorization: 'Bearer tok-123' } }) as any;
+
+  describe('POST generate', () => {
+    it('queues generation for a staff caller', async () => {
+      const res = await h.controller.generate({ count: 50 } as any, withToken(staff()));
+      expect(res.assignmentUuids).toEqual(['a-1']);
+      expect(h.teacherAssignments.generate).toHaveBeenCalledWith(42, { count: 50 }, 'tok-123');
+    });
+
+    // A student token reaching this route creates teacher-origin homework for anyone.
+    it('is refused for a student', async () => {
+      await expect(
+        h.controller.generate({ count: 50 } as any, withToken(student('u-42'))),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(h.teacherAssignments.generate).not.toHaveBeenCalled();
+    });
+
+    it('forwards an empty token rather than the literal header when it is absent', async () => {
+      await h.controller.generate({ count: 50 } as any, { authUser: staff(), headers: {} } as any);
+      expect(h.teacherAssignments.generate.mock.calls[0][2]).toBe('');
+    });
+
+    it('does not treat a non-Bearer scheme as a token', async () => {
+      await h.controller.generate(
+        { count: 50 } as any,
+        { authUser: staff(), headers: { authorization: 'Basic abc' } } as any,
+      );
+      expect(h.teacherAssignments.generate.mock.calls[0][2]).toBe('');
+    });
+  });
+
+  describe('POST assign', () => {
+    it('assigns for a staff caller', async () => {
+      await h.controller.assign({ setUuid: 's-1', studentIds: [7] } as any, withToken(staff()));
+      expect(h.teacherAssignments.assignFromSet).toHaveBeenCalledWith(
+        42,
+        { setUuid: 's-1', studentIds: [7] },
+        'tok-123',
+      );
+    });
+
+    it('is refused for a student', async () => {
+      await expect(
+        h.controller.assign({ setUuid: 's-1' } as any, withToken(student('u-42'))),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(h.teacherAssignments.assignFromSet).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET :uuid', () => {
+    it('returns the assignment for its teacher', async () => {
+      const res = await h.controller.getOne('a-1', withToken(staff()));
+      expect(res).toMatchObject({ uuid: 'a-1' });
+      expect(h.teacherAssignments.getForTeacher).toHaveBeenCalledWith('a-1', 42);
+    });
+
+    it('is refused for a student', async () => {
+      await expect(
+        h.controller.getOne('a-1', withToken(student('u-42'))),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('GET teacher/students', () => {
+    it('returns the roster for a staff caller', async () => {
+      await expect(h.controller.teacherStudents(withToken(staff()))).resolves.toEqual({
+        students: [],
+        groups: [],
+      });
+    });
+
+    it('is refused for a student', async () => {
+      await expect(
+        h.controller.teacherStudents(withToken(student('u-42'))),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  // `:uuid` matches any single segment, so route declaration order is what keeps
+  // `teacher/summary` and `teacher/students` from being read as assignment uuids.
+  it('declares the static teacher routes before the :uuid catch-all', () => {
+    const proto = Object.getPrototypeOf(h.controller);
+    const names = Object.getOwnPropertyNames(proto);
+    expect(names.indexOf('teacherStudents')).toBeLessThan(names.indexOf('getOne'));
+    expect(names.indexOf('teacherSummary')).toBeLessThan(names.indexOf('getOne'));
+    expect(names.indexOf('generate')).toBeLessThan(names.indexOf('getOne'));
   });
 });

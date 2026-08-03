@@ -12,7 +12,12 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { DrillsService } from './drills.service';
-import { DrillItemSearchRequest, DrillItemSearchResponse, DrillTopicDTO } from './contracts';
+import {
+  DrillItemSearchRequest,
+  DrillItemSearchResponse,
+  DrillLanguageDTO,
+  DrillTopicDTO,
+} from './contracts';
 
 // No @UseGuards here. content-service has no auth guard, no JWT/passport dependency,
 // and no `src/auth/` directory to begin with — every other controller in this service
@@ -25,6 +30,20 @@ export class DrillsController {
   private readonly logger = new Logger(DrillsController.name);
 
   constructor(private readonly drillsService: DrillsService) {}
+
+  /**
+   * Carries no answers — an id, a code and a display name — so it sits under the public
+   * prefix beside `drill-topics` rather than under `internal/`.
+   */
+  @Get('drill-languages')
+  async listLanguages(): Promise<DrillLanguageDTO[]> {
+    const start = Date.now();
+    const result = await this.drillsService.listLanguages();
+    this.logger.log(
+      `Drill languages response: count=${result.length} latencyMs=${Date.now() - start}`,
+    );
+    return result;
+  }
 
   @Get('drill-topics')
   async listTopics(

@@ -21,6 +21,8 @@ import { RegenerationService } from './orchestration/regeneration.service';
 import { DrillAssignmentsService } from './runner/assignments.service';
 import { RunnerService } from './runner/runner.service';
 import { SelfDrillService } from './runner/self-drill.service';
+import { TeacherAssignmentsService } from './teacher/teacher-assignments.service';
+import { TeacherRosterService } from './teacher/roster.service';
 
 /**
  * Track B shipped `AssignmentsRepository` with no module, so it was unreachable at
@@ -92,6 +94,30 @@ import { SelfDrillService } from './runner/self-drill.service';
         return runner;
       },
       inject: [ContentClient, AiClient, GenerationJobRepositoryAdapter],
+    },
+
+    // Track F backend. `StudentProgressReader` is an interface and erases at runtime, so
+    // this follows the same explicit-factory treatment as SelfDrillService below.
+    TeacherRosterService,
+    {
+      provide: TeacherAssignmentsService,
+      useFactory: (
+        prisma: PrismaService,
+        assignments: AssignmentsRepository,
+        content: ContentClient,
+        jobs: JobRunner,
+        progress: StudentProgressClientAdapter,
+        notifications: NotificationsHook,
+      ) =>
+        new TeacherAssignmentsService(prisma, assignments, content, jobs, progress, notifications),
+      inject: [
+        PrismaService,
+        AssignmentsRepository,
+        ContentClient,
+        JobRunner,
+        StudentProgressClientAdapter,
+        NotificationsHook,
+      ],
     },
 
     {

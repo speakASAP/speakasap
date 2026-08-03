@@ -3,9 +3,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DrillTopicDTO } from '@/lib/drills/contracts';
-import { DrillApiError, generateAssignments, listTopics } from '@/lib/drills/teacher/api';
+import {
+  DrillApiError,
+  generateAssignments,
+  listTeacherStudents,
+  listTopics,
+} from '@/lib/drills/teacher/api';
 import { GenerationProgress } from '@/lib/drills/teacher/GenerationProgress';
-import { WizardWho, type WizardWhoValue } from '@/lib/drills/teacher/WizardWho';
+import {
+  WizardWho,
+  type WizardGroup,
+  type WizardStudent,
+  type WizardWhoValue,
+} from '@/lib/drills/teacher/WizardWho';
 import { WizardWhat, type WizardWhatValue } from '@/lib/drills/teacher/WizardWhat';
 
 type Step = 'who' | 'what' | 'how' | 'generating';
@@ -24,6 +34,8 @@ export default function NewAssignmentPage() {
   const [who, setWho] = useState<WizardWhoValue | null>(null);
   const [what, setWhat] = useState<WizardWhatValue | null>(null);
   const [topics, setTopics] = useState<DrillTopicDTO[]>([]);
+  const [students, setStudents] = useState<WizardStudent[]>([]);
+  const [groups, setGroups] = useState<WizardGroup[]>([]);
   const [assignmentUuid, setAssignmentUuid] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,6 +53,41 @@ export default function NewAssignmentPage() {
       .catch(() => {
         if (!cancelled) {
           setTopics([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // The roster IS fatal, unlike the taxonomy: a wizard with no students to pick from
+  // cannot produce an assignment, so the failure is surfaced rather than absorbed.
+  useEffect(() => {
+    let cancelled = false;
+    listTeacherStudents()
+      .then((roster) => {
+        if (cancelled) {
+          return;
+        }
+        setStudents(
+          roster.students.map((student) => ({
+            id: student.id,
+            // education-service holds no names; until a directory join exists, the id is
+            // the only true label. Showing a blank row would be worse.
+            name: student.name || `Student ${student.id}`,
+          })),
+        );
+        setGroups(
+          roster.groups.map((group) => ({
+            id: group.uuid,
+            name: group.name,
+            studentIds: group.studentIds,
+          })),
+        );
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setError(e instanceof DrillApiError ? e.message : 'Could not load your students');
         }
       });
     return () => {
@@ -84,7 +131,8 @@ export default function NewAssignmentPage() {
 
       {step === 'who' ? (
         <WizardWho
-          students={[]}
+          students={students}
+          groups={groups}
           onNext={(value) => {
             setWho(value);
             setStep('what');

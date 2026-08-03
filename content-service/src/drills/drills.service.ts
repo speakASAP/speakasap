@@ -9,6 +9,7 @@ import {
   DrillItemDTO,
   DrillItemSearchRequest,
   DrillItemSearchResponse,
+  DrillLanguageDTO,
   DrillTopicDTO,
   VocabularyBaseline,
   VOCABULARY_MAX_NEW_WORDS_PER_SENTENCE,
@@ -81,6 +82,30 @@ export class DrillsService {
     const items = ordered.slice(0, request.limit).map((row) => this.toDTO(row, request));
 
     return { items, totalAvailable };
+  }
+
+  /**
+   * The languages a drill set can be created for.
+   *
+   * `CreateSetInput.languageId` is this service's numeric `Language.id`, but every
+   * caller upstream works in ISO codes — education-service has no Language table of its
+   * own, and the teacher UI has only a code. Without this route the id had to be
+   * duplicated in config or passed through a public request body, both of which encode
+   * a primary key of this database somewhere that cannot be kept in step with it.
+   *
+   * Ordered by the same `order` column the rest of the site lists languages by, so a
+   * picker built on this matches what a teacher sees elsewhere.
+   */
+  async listLanguages(): Promise<DrillLanguageDTO[]> {
+    const languages = await this.prisma.language.findMany({
+      orderBy: [{ order: 'asc' }, { code: 'asc' }],
+      select: { id: true, code: true, name: true },
+    });
+    return languages.map((language) => ({
+      id: language.id,
+      code: language.code,
+      name: language.name,
+    }));
   }
 
   async listTopics(languageCode?: string, materialLanguage?: string): Promise<DrillTopicDTO[]> {

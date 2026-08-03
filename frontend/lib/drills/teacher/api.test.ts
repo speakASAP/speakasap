@@ -7,7 +7,9 @@ import {
   generateAssignments,
   getAssignment,
   getSet,
+  listLanguages,
   listSets,
+  listTeacherStudents,
   listTopics,
   rateSet,
   regenerateItems,
@@ -188,5 +190,17 @@ describe('reads', () => {
     await listTopics('de', 'ru');
     expect(urlOf(f)).toContain('languageCode=de');
     expect(urlOf(f)).toContain('materialLanguage=ru');
+  });
+
+  it('lists languages', async () => {
+    const f = okFetch([{ id: 3, code: 'de', name: 'Немецкий' }]);
+    await expect(listLanguages()).resolves.toHaveLength(1);
+    expect(urlOf(f)).toContain('/drill-languages');
+  });
+
+  it('lists the teacher roster', async () => {
+    const f = okFetch({ students: [], groups: [] });
+    await expect(listTeacherStudents()).resolves.toEqual({ students: [], groups: [] });
+    expect(urlOf(f)).toContain('/drill-assignments/teacher/students');
   });
 });

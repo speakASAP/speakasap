@@ -1,16 +1,28 @@
 import { getAuthSession } from '@/lib/auth-session';
 import { getGatewayBaseUrl } from '@/lib/gateway';
 import type {
-  CefrLevel,
+  AssignFromSetRequest,
+  AssignFromSetResponse,
   DrillAssignmentDTO,
   DrillErrorCode,
+  DrillLanguageDTO,
   DrillSetDTO,
   DrillSetDetailDTO,
   DrillSetListQuery,
   DrillSetListResponse,
+  DrillTeacherRosterResponse,
   DrillTopicDTO,
+  GenerateAssignmentsRequest,
+  GenerateAssignmentsResponse,
   ValidationState,
 } from '@/lib/drills/contracts';
+
+export type {
+  AssignFromSetRequest,
+  AssignFromSetResponse,
+  GenerateAssignmentsRequest,
+  GenerateAssignmentsResponse,
+};
 
 /**
  * Teacher-facing calls for the drilling feature.
@@ -38,35 +50,6 @@ export class DrillApiError extends Error {
     this.status = status;
     this.code = code;
   }
-}
-
-export interface GenerateAssignmentsRequest {
-  studentIds: number[];
-  lessonUuid?: string | null;
-  languageCode: string;
-  materialLanguage: string;
-  level?: CefrLevel | null;
-  topicSlugs: string[];
-  instructions: string;
-  count: number;
-  courseKey?: string | null;
-  lessonOrder?: number | null;
-}
-
-export interface GenerateAssignmentsResponse {
-  assignmentUuids: string[];
-  setUuid: string | null;
-}
-
-export interface AssignFromSetRequest {
-  setUuid: string;
-  studentIds: number[];
-  lessonUuid?: string | null;
-  dueAt?: string | null;
-}
-
-export interface AssignFromSetResponse {
-  assignments: DrillAssignmentDTO[];
 }
 
 export interface SetItemPatch {
@@ -219,4 +202,13 @@ export function listTopics(
   materialLanguage: string,
 ): Promise<DrillTopicDTO[]> {
   return request(`/drill-topics${queryString({ languageCode, materialLanguage })}`);
+}
+
+export function listLanguages(): Promise<DrillLanguageDTO[]> {
+  return request('/drill-languages');
+}
+
+/** The students this teacher may assign to, with their groups. */
+export function listTeacherStudents(): Promise<DrillTeacherRosterResponse> {
+  return request('/drill-assignments/teacher/students');
 }

@@ -70,6 +70,9 @@ export const ROUTES: { prefix: string; envKey: string }[] = [
   // public-prefix entry for them here. drill-topics carries no answers and stays
   // public for Track F's teacher UI.
   { prefix: '/api/v1/drill-topics', envKey: 'CONTENT_SERVICE_URL' },
+  // Language id/code/name only, no answers. Distinct from /api/v1/languages, which is
+  // the site's own language controller — prefix matching gives them separate entries.
+  { prefix: '/api/v1/drill-languages', envKey: 'CONTENT_SERVICE_URL' },
 
   { prefix: '/api/v1/webhooks/payments', envKey: 'PAYMENT_SERVICE_URL' },
   { prefix: '/api/v1/discounts', envKey: 'PAYMENT_SERVICE_URL' },

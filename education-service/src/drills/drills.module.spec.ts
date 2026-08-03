@@ -5,6 +5,8 @@ import { DrillsController, DRILL_IDENTITY_RESOLVER } from './drills.controller';
 import { SelfDrillService } from './runner/self-drill.service';
 import { JobRunner } from './orchestration/job-runner.service';
 import { RegenerationService } from './orchestration/regeneration.service';
+import { TeacherAssignmentsService } from './teacher/teacher-assignments.service';
+import { TeacherRosterService } from './teacher/roster.service';
 
 /**
  * Track B2 shipped DrillsModule with three cross-service providers deliberately
@@ -62,5 +64,44 @@ describe('DrillsModule', () => {
   it('resolves the regeneration service', async () => {
     const moduleRef = await compile();
     expect(moduleRef.get(RegenerationService)).toBeInstanceOf(RegenerationService);
+  });
+});
+
+/**
+ * Track F's backend. `TeacherAssignmentsService` takes `StudentProgressReader` as a
+ * plain interface, which erases at runtime and so carries no DI token — the same shape
+ * that made SelfDrillService need an explicit factory. If that factory is ever replaced
+ * with plain class registration, the container resolves `undefined` for it and every
+ * generate call fails at the first progress lookup rather than at startup.
+ */
+describe('DrillsModule — teacher write path', () => {
+  const compile = () =>
+    Test.createTestingModule({ imports: [DrillsModule] })
+      .overrideProvider(PrismaService)
+      .useValue({})
+      .compile();
+
+  it('resolves TeacherAssignmentsService with all six dependencies supplied', async () => {
+    const moduleRef = await compile();
+    const svc = moduleRef.get(TeacherAssignmentsService);
+
+    expect(svc).toBeInstanceOf(TeacherAssignmentsService);
+    expect((svc as any).content).toBeDefined();
+    expect((svc as any).jobs).toBeDefined();
+    expect((svc as any).progress).toBeDefined();
+    expect((svc as any).notifications).toBeDefined();
+    expect((svc as any).assignments).toBeDefined();
+  });
+
+  it('resolves TeacherRosterService', async () => {
+    const moduleRef = await compile();
+    expect(moduleRef.get(TeacherRosterService)).toBeInstanceOf(TeacherRosterService);
+  });
+
+  it('gives the controller both teacher collaborators', async () => {
+    const moduleRef = await compile();
+    const controller = moduleRef.get(DrillsController);
+    expect((controller as any).teacherAssignments).toBeInstanceOf(TeacherAssignmentsService);
+    expect((controller as any).roster).toBeInstanceOf(TeacherRosterService);
   });
 });
