@@ -200,7 +200,7 @@ sensible size for a teacher with hundreds of students.
 
 ---
 
-## Finding 5 — `catalog-contract-monitor` fails every run (MEDIUM)
+## Finding 5 — `catalog-contract-monitor` fails every run (FIXED 2026-08-03)
 
 **Evidence.** Its CronJob has been failing continuously; four Error pods were on
 the node at once. The pod logs give the reason directly:
@@ -212,14 +212,45 @@ category inputs to run this side-effect-risk check.
 
 Unrelated to the drilling work — found while investigating node capacity.
 
-**Task.** Decide with the owner whether this check should run at all. If yes,
-supply `CATALOG_SMOKE_ENABLE_BAZOS_AUTHORIZED` and the approved Bazos inputs
-through the normal ExternalSecret path. If no, suspend the CronJob
-(`spec.suspend: true`) rather than leaving it failing every 30 minutes — a
-permanently red job trains everyone to ignore red jobs.
+**RESOLVED**, in two steps — the second undoing an overcorrection in the first.
 
-**Done when.** The CronJob either succeeds or is explicitly suspended with a
-comment saying why.
+The failing contract, `authorized-bazos-draft`, posts **real Bazos drafts**. It
+is genuinely not something to enable by default, and it is now gated off by
+`CATALOG_MONITOR_INCLUDE_BAZOS_AUTHORIZED=false`.
+
+The job was then suspended entirely. That fixed the noise but **stopped the
+other eleven contract checks with it** — and a monitor that does not run reports
+nothing, which is indistinguishable from a monitor reporting no problems. It has
+been un-suspended (`catalog-microservice@2530a1b`); the schedule
+`14,44 * * * *` is live again.
+
+**Measured, not assumed.** A manual run with the current configuration:
+
+```
+"passed": 11, "skipped": 4, "failed": 0, "failedContracts": []
+```
+
+The four skips, with their own stated reasons:
+
+| Contract | Why skipped | Side effects |
+|---|---|---|
+| `authorized-bazos-draft` | needs approved Bazos identity/category inputs | **writes** — posts real drafts |
+| `authorized-channel-status` | `CATALOG_SMOKE_ENABLE_CHANNEL_STATUS` unset | read-only, live third-party call |
+| `authorized-heureka-readiness` | `CATALOG_SMOKE_ENABLE_HEUREKA_READINESS` unset | read-only, live third-party call |
+| `authorized-stock-consistency` | `CATALOG_SMOKE_ASSERT_STOCK` unset | read-only, compares Warehouse vs channel stock |
+
+**Open decision for the owner, not a defect.** The three read-only checks are
+off by default. Enabling them means live calls to Heureka and the channel APIs
+on every run, twice an hour — cheap if those APIs tolerate it, rude if they
+rate-limit. `authorized-stock-consistency` is the most valuable of the three: a
+Warehouse/channel stock divergence is the kind of thing that silently oversells.
+
+To enable any of them, set the variable in
+`catalog-microservice/k8s/contract-monitor-cronjob.yaml`; the bazos one
+additionally needs approved inputs through `secret/prod/catalog-microservice`.
+
+Watch the next scheduled runs (`:14` and `:44`) to confirm it stays green
+unattended — the manual run proves the configuration, not the schedule.
 
 ---
 
