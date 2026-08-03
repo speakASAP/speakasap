@@ -1,6 +1,7 @@
 # Track I — SSO Handoff
 
-**State:** CODE COMPLETE — the handoff signs a student in end to end. Not deployed; see §"Not done".
+**State:** **DEPLOYED AND WORKING IN PRODUCTION** on the platform side, verified end to
+end with a real portal-signed token. The portal half is not deployed — see §"Not done".
 **Services:** `speakasap/frontend`, `speakasap-portal`, `auth-microservice`
 **Branches:** `feat/drilling-track-e` (speakasap — Track E and I share it, built in sequence) · `feat/drilling-track-i` (portal) · `feat/internal-session-endpoint` (auth)
 **Commits:** `31fb96d9` `e835893c` (portal) · `4072e38` `8df37c2` `a374e34` (frontend) · `0ca95f5` (auth)
@@ -153,50 +154,82 @@ runner** — do that in Track K, once the branch is deployed, with:
 ssh speakasap 'cd speakasap-portal && python3 manage.py test portal.tests.test_platform_sso'
 ```
 
+## Verified in production, 2026-08-03
+
+`auth-microservice:0ca95f5` and `speakasap-frontend:46b4097` are live. A real
+portal-signed token for legacy id `310740`, minted with the production secret from
+Vault, was POSTed to the live exchange route:
+
+```
+POST https://speakasap.alfares.cz/auth/handoff/exchange
+  -> 200  keys: ['accessToken','authUserId','expiresIn']
+          authUserId e9c0e180…   expiresIn 43200
+```
+
+Signature verification, legacy-id resolution and session minting all worked against the
+real estate — not a mock between them.
+
+**Every fail-closed guard holds against the live stack**, each returning 401 rather than
+a session:
+
+| Attack | Result |
+|---|---|
+| expired token | 401 |
+| wrong audience (`marathon`) | 401 |
+| `alg: none` bypass | 401 |
+| token signed with the wrong secret | 401 |
+| garbage / non-JWT | 401 `INVALID_TOKEN` |
+| no token at all | 400 |
+
+And auth's allowlist, probed from inside the auth pod:
+
+| Call | Result |
+|---|---|
+| `speakasap-frontend`, unknown user | 404 — passed the allowlist, reached the handler |
+| service name not on the allowlist | 401 |
+| no internal service token | 401 |
+
+The 404-vs-401 split is what proves the `speakasap-frontend` allowlist entry is load
+bearing.
+
+**Secrets are provisioned.** `secret/prod/speakasap-frontend` was created in Vault and
+reaches the pod through a new `speakasap-frontend-secret` ExternalSecret. Fingerprints
+confirm the values match their counterparts: `INTERNAL_SERVICE_TOKEN` equals auth's, and
+`SPEAKASAP_PLATFORM_JWT_SECRET` equals the portal's — they must, or every token fails
+verification. `TRUSTED_INTERNAL_SERVICES` was extended in **Vault**, not by patching the
+K8s secret, which ESO would have reverted within its 5m refresh.
+
+**Secrets stay server-side.** Checked against the real build output: neither secret name
+appears anywhere in `.next/static/`, only in `.next/server/`. `/auth/handoff/exchange`
+builds as a dynamic server route.
+
 ## Not done
 
-- **The frontend has no secret mount at all — verified against production.**
-  `deployment/speakasap-frontend` takes `envFrom` a single ConfigMap,
-  `speakasap-frontend-config`, whose entire key set is `NEXT_PUBLIC_API_URL`, `NODE_ENV`,
-  `PORT`, `SERVICE_NAME`. There is no `speakasap-frontend-secret`.
+- **The portal half is not deployed, and it needs two decisions that are yours.**
+  `feat/drilling-track-i` in `speakasap-portal` is committed but unpushed; the server
+  deploy pulls from GitHub `main`, so shipping it means pushing and merging.
 
-  All three server-side values this track needs are therefore absent:
-  `SPEAKASAP_PLATFORM_JWT_SECRET`, `INTERNAL_SERVICE_TOKEN` and `AUTH_SERVICE_URL`.
-  A secret sourced from Vault (`secret/prod/speakasap-frontend`) has to be created and
-  mounted before the handoff can work.
+  More importantly, **`SPEAKASAP_PLATFORM_JWT_SECRET` is absent from the server's
+  `.env`** (checked: it holds `MARATHON_PORTAL_JWT_SECRET` but not this one). The value
+  already exists in Vault at `secret/prod/speakasap-portal` with fingerprint `b960e67a`,
+  matching the platform. Adding it is a write to a host these rules mark **READ ONLY**,
+  so it was left for the owner rather than done unilaterally.
 
-  Note this is a genuine change in what the frontend deployment *is*: it has been a
-  purely public-config service until now, and this track is what first gives it a server
-  secret. `resolve.ts` is server-only for exactly that reason — importing it from a
-  client component would put both secrets in the browser bundle.
+  Until both happen the portal cannot mint a token, so no student can start the flow —
+  even though the platform end is live and proven.
 
-  The portal side needs the **same** `SPEAKASAP_PLATFORM_JWT_SECRET` value in its own
-  environment. It defaults to `''`, which disables the handoff rather than issuing
-  unsigned tokens.
-- **`speakasap-frontend` is NOT in auth's `TRUSTED_INTERNAL_SERVICES` — verified against
-  production, not assumed.** The allowlist in `auth-microservice-secret` is non-empty and
-  holds exactly three names: `orders-microservice`, `marathon`, `education-service`. The
-  guard enforces the allowlist whenever it is non-empty, so resolution would fail with
-  **401 "Service is not trusted"** today — a failure that reads like a bad token. This is
-  the same trap as Finding 4, where `x-service-name` carried the K8s deployment name
-  instead of the allowlisted one.
+- **No URL routes to `drill_redirect_view`.** The view and its guards are done and
+  tested, but nothing in `urls.py` points at it and no template links to it. Wiring the
+  entry point in `cabinet/` is Track J's work.
 
-  Add `speakasap-frontend` to that secret before deploying, or change the
-  `x-service-name` header in `resolve.ts` to a name already on the list. Adding the new
-  name is the better fix: reusing `education-service`'s identity would make auth's audit
-  log attribute frontend SSO calls to a different service.
-- **Nothing is deployed or merged.** Three branches: `feat/drilling-track-e` (speakasap —
-  Track E's frontend work and Track I's share one branch, having been built in sequence;
-  split them if the tracks need to ship independently), `feat/drilling-track-i` (portal)
-  and `feat/internal-session-endpoint` (auth). auth-microservice must go out
-  **before** the frontend, or the exchange route calls a route that does not exist yet.
-- **No URL routes to `drill_redirect_view`.** The view and its guards are done and tested,
-  but nothing in `urls.py` points at it and no template links to it. Wiring the entry
-  point in `cabinet/` is Track J's work.
-- **`SPEAKASAP_PLATFORM_URL` defaults to `https://speakasap.alfares.cz`.** Verify that is
-  the intended target before the portal ships — `speakasap.alfares.cz` and
+- **`SPEAKASAP_PLATFORM_URL` defaults to `https://speakasap.alfares.cz`.** Confirm that
+  is the intended target before the portal ships — `speakasap.alfares.cz` and
   `speakasap.com` are different systems.
-- **The end-to-end path has never been walked in a browser.** Resolution and minting were
-  proven against the real database with curl, and every unit is tested, but no student has
-  actually clicked a portal drill link and landed on `/learner/practice`. That needs the
-  secrets, the allowlist entry, and all three deploys first.
+
+- **No browser has walked the flow.** Every hop is proven with curl against production,
+  but nobody has clicked a real portal drill link and watched a session land in
+  `localStorage`. That needs the portal half first.
+
+- **The speakasap branch still carries both tracks.** Tracks E and I share
+  `feat/drilling-track-e`, now deployed as `speakasap-frontend:46b4097`. Split them if
+  the tracks need to be revertible independently.
