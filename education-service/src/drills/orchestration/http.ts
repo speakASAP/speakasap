@@ -8,6 +8,8 @@ export interface UpstreamRequest {
   token: string;
   /** Present on gateway `internal/` routes only. */
   internalToken?: string;
+  /** Sent as `idempotency-key`. Upstreams that honour it replay rather than repeat. */
+  idempotencyKey?: string;
   body?: unknown;
   timeoutMs: number;
   /** Used verbatim in every thrown message so the failing upstream is unambiguous. */
@@ -33,6 +35,9 @@ export async function requestUpstream<T>(req: UpstreamRequest): Promise<T> {
   };
   if (req.internalToken) {
     headers['x-internal-token'] = req.internalToken;
+  }
+  if (req.idempotencyKey) {
+    headers['idempotency-key'] = req.idempotencyKey;
   }
   if (req.body !== undefined) {
     headers['Content-Type'] = 'application/json';
