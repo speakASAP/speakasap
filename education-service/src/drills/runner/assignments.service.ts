@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AssignmentsRepository } from '../assignments.repository';
+import { AuthClientService } from '../../auth-client/auth-client.service';
 import { toAssignmentDTO } from '../assignment.mapper';
 import { toRunnerResponse } from './runner.projection';
 import {
@@ -18,6 +19,7 @@ export class DrillAssignmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly assignments: AssignmentsRepository,
+    private readonly auth: AuthClientService,
   ) {}
 
   /**
@@ -118,11 +120,18 @@ export class DrillAssignmentsService {
       orderBy: { createdAt: 'desc' },
     });
     const counts = await this.assignments.countBlanksFor(rows.map((r) => r.uuid));
+
+    // Names live in auth-microservice; this service stores only legacy student ids. One
+    // batch call for the whole lesson rather than one per assignment. An unresolved id
+    // stays empty, which is what this returned for every row before.
+    const names = await this.auth.resolveLegacyNames(
+      Array.from(new Set(rows.map((row) => row.studentId))),
+    );
+
     return {
       assignments: rows.map((row) => ({
         ...toAssignmentDTO(row, counts.get(row.uuid)!),
-        // Resolved by the caller/portal; education-service does not own student names.
-        studentName: '',
+        studentName: names.get(row.studentId) ?? '',
       })),
     };
   }

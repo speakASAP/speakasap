@@ -208,7 +208,21 @@ export function listLanguages(): Promise<DrillLanguageDTO[]> {
   return request('/drill-languages');
 }
 
-/** The students this teacher may assign to, with their groups. */
-export function listTeacherStudents(): Promise<DrillTeacherRosterResponse> {
-  return request('/drill-assignments/teacher/students');
+/**
+ * The students this teacher may assign to, with their groups.
+ *
+ * Paged: a teacher with hundreds of students (656 in production) is not a dropdown.
+ * `search` matches the student's name server-side, across the whole roster rather than
+ * the current page. Passing no options returns the first page.
+ */
+export function listTeacherStudents(
+  options: { search?: string; limit?: number; offset?: number } = {},
+): Promise<DrillTeacherRosterResponse> {
+  return request(
+    `/drill-assignments/teacher/students${queryString({
+      search: options.search,
+      limit: options.limit,
+      offset: options.offset,
+    })}`,
+  );
 }

@@ -10,6 +10,7 @@ import {
   Logger,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -103,12 +104,28 @@ export class DrillsController {
     return this.teacherAssignments.assignFromSet(teacherId, body, this.bearer(req));
   }
 
-  /** Teacher-only. The students this teacher may assign drilling to. */
+  /**
+   * Teacher-only. The students this teacher may assign drilling to.
+   *
+   * Paged: a teacher with 656 students (production, teacher 10) is not a dropdown.
+   * `search` matches the resolved name, falling back to the id for students auth has
+   * no mapping for. Omitting all three returns the first page, so callers written
+   * against the unpaged version keep working.
+   */
   @Get('teacher/students')
-  async teacherStudents(@Req() req: Request): Promise<DrillTeacherRosterResponse> {
+  async teacherStudents(
+    @Req() req: Request,
+    @Query('search') search?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ): Promise<DrillTeacherRosterResponse> {
     this.assertStaff(req);
     const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
-    return this.roster.listForTeacher(teacherId);
+    return this.roster.listForTeacher(teacherId, {
+      search,
+      limit: limit === undefined ? undefined : Number(limit),
+      offset: offset === undefined ? undefined : Number(offset),
+    });
   }
 
   /**

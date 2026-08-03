@@ -72,8 +72,9 @@ export default function NewAssignmentPage() {
         setStudents(
           roster.students.map((student) => ({
             id: student.id,
-            // education-service holds no names; until a directory join exists, the id is
-            // the only true label. Showing a blank row would be worse.
+            // Names are resolved from auth-microservice by education-service. The id
+            // fallback still covers a student with no auth mapping, and the case where
+            // auth is unreachable and the roster degrades to ids rather than failing.
             name: student.name || `Student ${student.id}`,
           })),
         );
