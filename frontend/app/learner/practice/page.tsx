@@ -1,0 +1,107 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
+import type { DrillAssignmentDTO } from '@/lib/drills/contracts';
+import { listMyAssignments } from '@/lib/drills/runner/api';
+import { SelfDrillBrowser } from '@/lib/drills/runner/SelfDrillBrowser';
+
+/**
+ * The student's practice home: assigned work first, self-drilling second.
+ *
+ * The ordering is the feature. Teacher-assigned drills are what gate self-drilling, so
+ * showing them first makes the lock below self-explanatory.
+ */
+export default function PracticePage() {
+  const [outstanding, setOutstanding] = useState<DrillAssignmentDTO[]>([]);
+  const [allowed, setAllowed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    listMyAssignments()
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+        setOutstanding(response.outstanding);
+        setAllowed(response.selfDrillingAllowed);
+      })
+      .catch(() => {
+        if (active) {
+          setError('Could not load your practice. Please refresh.');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <main className="min-h-full bg-zinc-50 px-4 py-10 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6">
+      <div className="mx-auto w-full max-w-3xl space-y-8">
+        <header>
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Learner portal</p>
+          <h1 className="mt-2 text-2xl font-semibold">Practice</h1>
+        </header>
+
+        {error ? (
+          <p role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-red-800">
+            {error}
+          </p>
+        ) : null}
+
+        {loading ? (
+          <p className="text-slate-600">Loading…</p>
+        ) : (
+          <>
+            <section>
+              <h2 className="text-lg font-semibold">Assigned to you</h2>
+              {outstanding.length === 0 ? (
+                <p className="mt-2 text-slate-600">Nothing assigned right now.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {outstanding.map((assignment) => (
+                    <li
+                      key={assignment.uuid}
+                      className="flex items-center justify-between rounded border p-3"
+                    >
+                      <span>
+                        <span className="font-medium">{assignment.title}</span>{' '}
+                        <span className="text-sm text-slate-500">
+                          {assignment.blanksCorrect} of {assignment.blanksTotal} blanks
+                        </span>
+                      </span>
+                      <Link
+                        href={`/learner/practice/${assignment.uuid}`}
+                        className="rounded bg-sky-600 px-3 py-1 text-white"
+                      >
+                        Continue
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <SelfDrillBrowser
+              allowed={allowed}
+              blockingTitle={outstanding[0]?.title ?? null}
+              sets={[]}
+              onStarted={(uuid) => {
+                window.location.href = `/learner/practice/${uuid}`;
+              }}
+            />
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
