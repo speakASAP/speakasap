@@ -1,0 +1,222 @@
+import { getAuthSession } from '@/lib/auth-session';
+import { getGatewayBaseUrl } from '@/lib/gateway';
+import type {
+  CefrLevel,
+  DrillAssignmentDTO,
+  DrillErrorCode,
+  DrillSetDTO,
+  DrillSetDetailDTO,
+  DrillSetListQuery,
+  DrillSetListResponse,
+  DrillTopicDTO,
+  ValidationState,
+} from '@/lib/drills/contracts';
+
+/**
+ * Teacher-facing calls for the drilling feature.
+ *
+ * Every response here is teacher-authenticated and may carry answers, which is exactly
+ * why it is a separate module from the runner client: nothing in `lib/drills/runner`
+ * should be able to reach these routes by importing a shared helper.
+ */
+
+/**
+ * A failed drill call, carrying the server's typed `code` when there is one.
+ *
+ * The UI branches on specific codes — approve must explain that validation failures are
+ * still open rather than showing a generic "request failed" — so the code has to survive
+ * the boundary. A non-JSON body (a gateway 502 returns HTML) leaves `code` null rather
+ * than swallowing the failure: the call still rejects.
+ */
+export class DrillApiError extends Error {
+  readonly status: number;
+  readonly code: DrillErrorCode | null;
+
+  constructor(status: number, code: DrillErrorCode | null, message: string) {
+    super(message);
+    this.name = 'DrillApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+export interface GenerateAssignmentsRequest {
+  studentIds: number[];
+  lessonUuid?: string | null;
+  languageCode: string;
+  materialLanguage: string;
+  level?: CefrLevel | null;
+  topicSlugs: string[];
+  instructions: string;
+  count: number;
+  courseKey?: string | null;
+  lessonOrder?: number | null;
+}
+
+export interface GenerateAssignmentsResponse {
+  assignmentUuids: string[];
+  setUuid: string | null;
+}
+
+export interface AssignFromSetRequest {
+  setUuid: string;
+  studentIds: number[];
+  lessonUuid?: string | null;
+  dueAt?: string | null;
+}
+
+export interface AssignFromSetResponse {
+  assignments: DrillAssignmentDTO[];
+}
+
+export interface SetItemPatch {
+  template?: string;
+  hint?: string | null;
+  validationState?: ValidationState;
+}
+
+type Query = Record<string, string | number | boolean | string[] | undefined | null>;
+
+/**
+ * Builds the query string, dropping what the server should treat as "no filter".
+ *
+ * Empty strings and nulls are dropped; `0` and `false` are not. `lessonOrder=0` is a real
+ * lesson, and a truthiness check would silently turn it into "all lessons" — a filter that
+ * quietly widens is worse than one that errors.
+ */
+function queryString(query: Query): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null || value === '') {
+      continue;
+    }
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (entry !== '') {
+          params.append(key, entry);
+        }
+      }
+      continue;
+    }
+    params.append(key, String(value));
+  }
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : '';
+}
+
+function url(path: string): string {
+  const base = getGatewayBaseUrl();
+  if (!base) {
+    throw new DrillApiError(0, null, 'NEXT_PUBLIC_API_URL is missing');
+  }
+  return `${base}/api/v1${path}`;
+}
+
+async function request<T>(
+  path: string,
+  init: { method?: string; body?: unknown } = {},
+): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (init.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const token = getAuthSession()?.accessToken;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(url(path), {
+    method: init.method ?? 'GET',
+    headers,
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    // The body is the server's typed error when the route produced it, and anything at
+    // all when a proxy produced it. Both paths throw; only the detail differs.
+    let code: DrillErrorCode | null = null;
+    let message = `Request failed with status ${response.status}`;
+    try {
+      const body = (await response.json()) as { code?: DrillErrorCode; message?: string };
+      code = body?.code ?? null;
+      message = body?.message ?? message;
+    } catch {
+      // Non-JSON error body; the status is all there is to report.
+    }
+    throw new DrillApiError(response.status, code, message);
+  }
+
+  return (await response.json()) as T;
+}
+
+export function generateAssignments(
+  req: GenerateAssignmentsRequest,
+): Promise<GenerateAssignmentsResponse> {
+  return request('/drill-assignments/generate', { method: 'POST', body: req });
+}
+
+export function assignFromSet(req: AssignFromSetRequest): Promise<AssignFromSetResponse> {
+  return request('/drill-assignments/assign', { method: 'POST', body: req });
+}
+
+export function getAssignment(uuid: string): Promise<DrillAssignmentDTO> {
+  return request(`/drill-assignments/${encodeURIComponent(uuid)}`);
+}
+
+export function listSets(query: DrillSetListQuery): Promise<DrillSetListResponse> {
+  return request(`/drill-sets${queryString(query as Query)}`);
+}
+
+export function getSet(uuid: string): Promise<DrillSetDetailDTO> {
+  return request(`/drill-sets/${encodeURIComponent(uuid)}`);
+}
+
+export function updateSetItem(
+  setUuid: string,
+  itemId: number,
+  patch: SetItemPatch,
+): Promise<DrillSetDetailDTO> {
+  return request(`/drill-sets/${encodeURIComponent(setUuid)}/items/${itemId}`, {
+    method: 'PATCH',
+    body: patch,
+  });
+}
+
+export function deleteSetItem(setUuid: string, itemId: number): Promise<void> {
+  return request(`/drill-sets/${encodeURIComponent(setUuid)}/items/${itemId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function regenerateItems(
+  setUuid: string,
+  itemIds: number[],
+  note?: string,
+): Promise<DrillSetDetailDTO> {
+  // The note is omitted rather than sent as null, so the server sees "no note" the same
+  // way whether the teacher left the field blank or the caller never had one.
+  const body = note === undefined ? { itemIds } : { itemIds, note };
+  return request(`/drill-sets/${encodeURIComponent(setUuid)}/regenerate`, {
+    method: 'POST',
+    body,
+  });
+}
+
+export function approveSet(setUuid: string): Promise<DrillSetDTO> {
+  return request(`/drill-sets/${encodeURIComponent(setUuid)}/approve`, { method: 'POST' });
+}
+
+export function rateSet(setUuid: string, value: number): Promise<DrillSetDTO> {
+  return request(`/drill-sets/${encodeURIComponent(setUuid)}/rate`, {
+    method: 'POST',
+    body: { value },
+  });
+}
+
+export function listTopics(
+  languageCode: string,
+  materialLanguage: string,
+): Promise<DrillTopicDTO[]> {
+  return request(`/drill-topics${queryString({ languageCode, materialLanguage })}`);
+}
