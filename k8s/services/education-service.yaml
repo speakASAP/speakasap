@@ -167,6 +167,14 @@ spec:
       remoteRef:
         key: secret/prod/speakasap
         property: JWT_TOKEN
+    # ai-microservice's ServiceAuthGuard verifies an HS256 service JWT signed
+    # with ITS OWN JWT_SECRET, so this reads from ai-microservice's Vault path
+    # rather than speakasap's. Without it, AiClient cannot mint a token the
+    # generator accepts and every drill generation fails with 401.
+    - secretKey: AI_SERVICE_JWT_SECRET
+      remoteRef:
+        key: secret/prod/ai-microservice
+        property: JWT_SECRET
     - secretKey: LESSON_RECORD_MEDIA_TOKEN_SECRET
       remoteRef:
         key: secret/prod/speakasap/education

@@ -164,6 +164,9 @@ describe('AiClient', () => {
     jest.resetAllMocks();
     global.fetch = fetchMock as any;
     process.env.AI_SERVICE_URL = 'http://ai-microservice:3380';
+    // Required since AiClient mints its own service JWT rather than forwarding
+    // the caller's token; without it every call throws before reaching fetch.
+    process.env.AI_SERVICE_JWT_SECRET = 'test-secret';
     delete process.env.DRILL_AI_CLIENT_TIMEOUT_MS;
   });
 
@@ -174,7 +177,12 @@ describe('AiClient', () => {
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('http://ai-microservice:3380/api/teacher-assistant/generate-drill');
-    expect(init.headers.Authorization).toBe('Bearer tok-ai');
+    // NOT `Bearer tok-ai`. This assertion previously required the caller's token
+    // to be forwarded, which is exactly the defect that made every drill
+    // generation fail with `401 Malformed token` in production: ai-microservice
+    // verifies a service JWT, not a user token. See ai.client.spec.ts.
+    expect(init.headers.Authorization).not.toBe('Bearer tok-ai');
+    expect(init.headers.Authorization).toMatch(/^Bearer [\w-]+\.[\w-]+\.[\w-]+$/);
     expect(JSON.parse(init.body).correlationId).toBe('corr-1');
   });
 
