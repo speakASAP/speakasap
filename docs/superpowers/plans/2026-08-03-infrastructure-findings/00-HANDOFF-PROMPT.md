@@ -203,45 +203,66 @@ Pending on `Too many pods`. Prove it with a real deploy, not by reasoning.
 
 ---
 
-## Finding 7 — the drilling feature has never completed a run (MEDIUM)
+## Finding 7 — AI-generated drill items are never persisted (CRITICAL)
 
-**Evidence.** As of 2026-08-03 the generation pipeline was driven end to end
-against production for the first time. Roster and assignment creation both work
-on live data. The pipeline then failed at ai-microservice with
-`401 Malformed token`, which has since been fixed (`speakasap@4516fb7`:
-`AiClient` now mints a service JWT).
+**Evidence.** The pipeline was driven end to end against production on
+2026-08-03 (after the ai-microservice auth fix, `speakasap@4516fb7`). It ran to
+completion:
 
-**Nothing has yet run past that point.** Bank search, the generator agent, the
-validator agent, set creation in content-service, and the READY transition are
-all unexercised in production.
-
-**Task.** Drive one full generation and confirm each stage. Use a teacher with
-real students (teacher id `10` works) and a **small `count`** — 3, not 50 — so a
-failure is cheap.
-
-Run it inside the education pod without writing files:
-
-```bash
-POD=$(kubectl get pods -n statex-apps --no-headers | grep speakasap-education | grep Running | awk '{print $1}' | head -1)
-kubectl exec -i -n statex-apps "$POD" -c app -- node --input-type=commonjs -e "$(cat your-script.js)"
+```
+generationProgress: {"phase":"READY","total":3,"generated":2,
+                     "message":"Ready with 2 of 3 requested item(s)"}
 ```
 
-Build the context with `NestFactory.createApplicationContext(AppModule)` and
-resolve `TeacherAssignmentsService` / `TeacherRosterService` from it, so every
-collaborator is the production wiring.
+Bank search, the generator agent, the validator agent and set creation all
+worked. The set was created in content-service with `origin: AI`,
+`reviewState: PENDING_REVIEW` — both correct.
 
-Watch `generationProgress.phase` move `RESOLVING → BANK → GENERATING →
-VALIDATING → READY`, then confirm the set exists in content-service and the
-assignment left `GENERATING`.
+**But the set contains zero items**, despite the pipeline reporting two
+generated and validated.
 
-**Clean up afterwards.** Delete the test `DrillAssignment` and
-`DrillAssignmentBatch` rows. Production had **zero** drill assignments before
-this work; leave it that way.
+**Root cause.** `education-service/src/drills/orchestration/generation.service.ts:220`:
 
-**Done when.** One assignment reaches READY with real generated items, and the
-row count is back to zero.
+```ts
+itemIds: survivors.map((c) => c.bankItemId).filter((id): id is number => typeof id === 'number'),
+```
 
----
+`bankItemId` is documented on the `Candidate` type as *"Present for bank items
+only — content-service already has a row for them."* AI-generated candidates
+have no `bankItemId`, so `.filter()` drops every one. An all-AI set therefore
+sends `itemIds: []`.
+
+Nothing anywhere creates a `DrillItem` row for AI output — grep for
+`replaceSetItems`, `createItems` or `source === 'AI'` in that file returns
+nothing. **The generated sentences are discarded after validation**, having been
+paid for.
+
+This is why the feature produces empty sets even when everything reports
+success. It is a Track D gap, unrelated to the auth fix.
+
+**The mechanism already exists.** content-service exposes
+`POST internal/drill-sets/:uuid/replace-items`, which accepts full
+`ReplacementItem` objects (`template`, `blanks`, `hint`, `topicSlug`) and
+creates the rows — Track A2 built it for regeneration. `ContentClient` already
+wraps it as `replaceSetItems`. It is simply never called after generation.
+
+**Task.** Persist AI survivors. Either extend `CreateSetInput` to accept new
+items alongside `itemIds`, or call `replaceSetItems` immediately after
+`createSet` with the AI candidates. Prefer whichever keeps set creation atomic —
+a set that exists with no items is exactly the state observed here, and it looks
+identical to a finished one in a teacher's review queue.
+
+Watch the ordering: `reviewState` is `APPROVED` only for a pure-bank set. If AI
+items are added after creation, make sure that decision still sees them.
+
+**Done when.** A generation run produces a set whose item count equals
+`generated`, and the items carry the sentences the model returned. Verify by
+reading them back out of content-service, not by trusting the progress message —
+that message already says READY today while the set is empty.
+
+**Test-first note.** `generation.service.spec.ts` currently passes with this
+defect present, so it asserts nothing about item persistence. Add the failing
+test before the fix.
 
 ## Finding 8 — one node, no HA (LOW, informational)
 
@@ -272,6 +293,9 @@ not a replica count.
 | ai-microservice port | 3380, **no** global prefix |
 | ai-microservice JWT secret | Vault `secret/prod/ai-microservice`, key `JWT_SECRET` |
 | Drill assignments in prod | 0 (test rows cleaned up) |
+| Drill sets in prod | 0 (test sets cleaned up) |
+| ai-microservice auth | FIXED — `speakasap@4516fb7`, AiClient mints a service JWT |
+| Pipeline status | reaches READY; produces empty sets (Finding 7) |
 | Track F status | `speakasap/docs/superpowers/plans/2026-07-29-drilling-assignments/status/track-f.md` |
 | Pod janitor | `k8s-manifests/services/pod-janitor.yaml`, every 15 min |
 | Manual pod prune | `shared/scripts/k8s-prune-terminal-pods.sh` (dry run by default) |
