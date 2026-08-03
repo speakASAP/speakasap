@@ -6,6 +6,7 @@
   "scripts": {
     "build": "prisma generate && tsc -p tsconfig.build.json",
     "migrate:notification-data": "tsx scripts/migrate-notification-data.ts",
+    "seed:drill-templates": "tsx prisma/seed-drill-templates.ts",
     "start": "node dist/main.js",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",

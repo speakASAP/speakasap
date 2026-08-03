@@ -8,6 +8,7 @@ import { UserLookupService } from '../user-lookup/user-lookup.service';
 import { canonicalJson } from '../shared/canonical-json';
 import { notificationHttpException } from '../shared/notification-http.exception';
 import { renderTemplateHtml } from '../shared/template-render';
+import { drillRendererFor } from '../templates/drills/renderers';
 import type { DispatchEmailDto } from './dto/dispatch-email.dto';
 import type { DispatchEmailGroupDto } from './dto/dispatch-email-group.dto';
 import { logOperationalFailure } from '../shared/operational-log';
@@ -33,6 +34,32 @@ export class DispatchService {
     private readonly transport: NotificationsTransportService,
     private readonly userLookup: UserLookupService,
   ) {}
+
+  /**
+   * Produces the email body, and a subject when the renderer owns one.
+   *
+   * Most templates are a `bodyHtml` row rendered with `{{key}}` substitution. The two
+   * drill templates are not: their bodies carry arrays (the topic list, the sentences a
+   * student struggled with), and `renderTemplateHtml` collapses any non-scalar to an
+   * empty string, so a seeded row would email a body with those parts silently missing.
+   * For those machine names the body comes from code instead, and the row supplies only
+   * the title, visibility and preference wiring the rest of dispatch needs.
+   *
+   * The subject is returned separately because a code-rendered template also owns its
+   * localized subject line, which the row's single `title` cannot express per recipient.
+   */
+  private renderBody(
+    templateMachineName: string,
+    bodyHtml: string,
+    ctx: Record<string, unknown>,
+  ): { html: string; subject: string | null } {
+    const renderer = drillRendererFor(templateMachineName);
+    if (!renderer) {
+      return { html: renderTemplateHtml(bodyHtml, ctx), subject: null };
+    }
+    const rendered = renderer(ctx);
+    return { html: rendered.html, subject: rendered.subject };
+  }
 
   async pruneIdempotency(): Promise<void> {
     await this.prisma.dispatchIdempotency.deleteMany({
@@ -182,7 +209,8 @@ export class DispatchService {
     if (dto.userId) {
       ctx.userId = dto.userId;
     }
-    const rendered = renderTemplateHtml(template.bodyHtml, ctx);
+    const body = this.renderBody(dto.templateMachineName, template.bodyHtml, ctx);
+    const rendered = body.html;
     const renderedHash = sha256(rendered);
 
     const letter = await this.prisma.letter.create({
@@ -196,7 +224,9 @@ export class DispatchService {
       },
     });
 
-    const subject = dto.subject?.trim() || template.title;
+    // An explicit subject from the caller still wins; the renderer's localized subject
+    // only stands in for the row's single-language title.
+    const subject = dto.subject?.trim() || body.subject || template.title;
 
     try {
       await this.transport.sendEmail({
@@ -273,9 +303,10 @@ export class DispatchService {
     if (dto.actorUserId) {
       ctx.actorUserId = dto.actorUserId;
     }
-    const rendered = renderTemplateHtml(template.bodyHtml, ctx);
+    const body = this.renderBody(dto.templateMachineName, template.bodyHtml, ctx);
+    const rendered = body.html;
     const renderedHash = sha256(rendered);
-    const subject = template.title;
+    const subject = body.subject || template.title;
 
     const results: { dispatchRequestId: string; recipient: string; sentAt: string }[] = [];
 
