@@ -273,10 +273,25 @@ existing `order` positions and rejects an empty set with "no item at position N"
 The existing generation suite passed with the defect present, asserting nothing
 about persistence. Six new tests fail if the fix is reverted.
 
-**Still unverified end to end.** The fix is deployed but no generation run has
-been driven through since. Confirm a run produces a set whose item count equals
-`generated`, and read the items back out of content-service rather than trusting
-the progress message — that message said READY while the set was empty.
+**Verified end to end in production 2026-08-03**, reading the set back out of
+content-service rather than trusting the progress message:
+
+```
+progress: {"phase":"READY","generated":3,"total":3,"message":"Ready"}
+SET origin=AI reviewState=PENDING_REVIEW itemCount=3
+  Ich gehe [в]{durch} den Park.
+  Das Geschenk ist [для]{für} dich.
+  Wir fahren [вокруг]{um} die Stadt.
+PASS: 3 generated, 3 persisted
+```
+
+Bank search, generator, validator, set creation and item persistence all work.
+Test rows were deleted afterwards; production holds zero assignments, sets and
+AI items.
+
+**What remains untested:** the student runner (Track E is not built), the
+teacher review screen against a real set, approval, and the assign-to-student
+path that fires `onAssigned`.
 
 ## Finding 8 — one node, no HA (LOW, informational)
 
@@ -309,7 +324,7 @@ not a replica count.
 | Drill assignments in prod | 0 (test rows cleaned up) |
 | Drill sets in prod | 0 (test sets cleaned up) |
 | ai-microservice auth | FIXED — `speakasap@4516fb7`, AiClient mints a service JWT |
-| Pipeline status | reaches READY; item persistence fixed in `1dad456`, end-to-end run still pending |
+| Pipeline status | **working end to end** — 3 generated, 3 persisted, verified 2026-08-03 |
 | Track F status | `speakasap/docs/superpowers/plans/2026-07-29-drilling-assignments/status/track-f.md` |
 | Pod janitor | `k8s-manifests/services/pod-janitor.yaml`, every 15 min |
 | Manual pod prune | `shared/scripts/k8s-prune-terminal-pods.sh` (dry run by default) |
