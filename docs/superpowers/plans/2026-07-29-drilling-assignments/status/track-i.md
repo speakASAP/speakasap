@@ -220,6 +220,25 @@ K8s secret, which ESO would have reverted within its 5m refresh.
 appears anywhere in `.next/static/`, only in `.next/server/`. `/auth/handoff/exchange`
 builds as a dynamic server route.
 
+## Correction, 2026-08-04 — a defect this track's testing missed
+
+Track J's deploy exposed one: `SPEAKASAP_PLATFORM_JWT_SECRET` and
+`SPEAKASAP_PLATFORM_URL` were declared only in `portal/local_settings_default.py`, and
+**production loads `local_settings.py` instead**, so `portal/settings.py` never exposed
+them. The Django app could not have minted a token.
+
+This was invisible here because every probe in this track read `.env` directly rather
+than going through `django.conf.settings` — they proved the *logic* and skipped the
+*wiring*. Fixed in `speakasap-portal@845acc59`, and re-verified through the Django app:
+
+```
+django app can mint a token: True
+redirect -> https://speakasap.alfares.cz/auth/handoff?next=%2Flearner%2F... sso present
+```
+
+**Lesson:** a probe that bypasses the framework's configuration proves less than it
+appears to. Load settings the way the application loads them.
+
 ## Not done
 
 - **The Django test suite has still never run under a real test runner.**
