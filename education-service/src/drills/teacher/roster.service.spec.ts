@@ -2,7 +2,7 @@ import { TeacherRosterService } from './roster.service';
 
 function harness(names: Map<number, string> = new Map()) {
   const prisma: any = {
-    lesson: { findMany: jest.fn(async () => []) },
+    lesson: { findMany: jest.fn(async () => []), findFirst: jest.fn(async () => null) },
     studentCourse: { findMany: jest.fn(async () => []) },
     group: { findMany: jest.fn(async () => []) },
   };
@@ -200,5 +200,73 @@ describe('TeacherRosterService', () => {
     expect(h.prisma.lesson.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ distinct: ['studentCourseUuid'] }),
     );
+  });
+
+  /**
+   * Scoping by lesson, for a teacher arriving from a portal lesson page.
+   *
+   * `Lesson.teacherId` is the legacy **Teacher profile pk** (182), not the user id (3).
+   * Education-service resolves a login to the user id and has no table mapping one to the
+   * other — `employees_teacher` lives in the portal's database, not this one. Reading the
+   * teacher off the lesson sidesteps that entirely: the lesson names its own teacher and
+   * its own students.
+   *
+   * The caller is already proven staff by the JWT (`assertStaff`), so this narrows a
+   * staff member to one lesson's roster rather than widening anyone's access.
+   */
+  describe('scoped to a lesson', () => {
+    function lessonHarness() {
+      const h = harness(new Map([[3, 'Сергей Партизанов']]));
+      h.prisma.lesson.findFirst.mockResolvedValue({
+        uuid: 'l-1',
+        teacherId: 182,
+        studentCourseUuid: 'c-1',
+      });
+      h.prisma.studentCourse.findMany.mockResolvedValue([{ groupUuid: 'g-1' }]);
+      h.prisma.group.findMany.mockResolvedValue([
+        { uuid: 'g-1', title: 'B1 individual', groupStudents: [{ studentId: 3 }] },
+      ]);
+      return h;
+    }
+
+    it('returns the students of that lesson without knowing the teacher id', async () => {
+      const h = lessonHarness();
+
+      const roster = await h.service.listForLesson('l-1');
+
+      expect(roster.students.map((s) => s.id)).toEqual([3]);
+      expect(roster.students[0].name).toBe('Сергей Партизанов');
+    });
+
+    it('never queries lessons by teacherId, which is the id-space bug', async () => {
+      const h = lessonHarness();
+
+      await h.service.listForLesson('l-1');
+
+      expect(h.prisma.lesson.findMany).not.toHaveBeenCalled();
+    });
+
+    it('reports the lesson teacher so the caller can attribute the assignment', async () => {
+      const h = lessonHarness();
+
+      const roster = await h.service.listForLesson('l-1');
+
+      expect(roster.teacherId).toBe(182);
+    });
+
+    it('returns an empty roster for a lesson that does not exist', async () => {
+      const h = lessonHarness();
+      h.prisma.lesson.findFirst.mockResolvedValue(null);
+
+      const roster = await h.service.listForLesson('missing');
+
+      expect(roster).toEqual({
+        students: [],
+        groups: [],
+        total: 0,
+        hasMore: false,
+        teacherId: null,
+      });
+    });
   });
 });

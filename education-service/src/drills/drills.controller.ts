@@ -118,8 +118,25 @@ export class DrillsController {
     @Query('search') search?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('lessonUuid') lessonUuid?: string,
   ): Promise<DrillTeacherRosterResponse> {
     this.assertStaff(req);
+
+    // Scoped to a lesson when the caller names one. `Lesson.teacherId` is the legacy
+    // Teacher profile pk (182) while `resolveStudentId` returns the user id (3), and this
+    // service holds no mapping between them — so a teacher arriving from a lesson page
+    // would otherwise be matched against the wrong id space and see someone else's
+    // roster, or an empty one. The lesson names its own teacher and students.
+    if (lessonUuid) {
+      const scoped = await this.roster.listForLesson(lessonUuid, {
+        search,
+        limit: limit === undefined ? undefined : Number(limit),
+        offset: offset === undefined ? undefined : Number(offset),
+      });
+      const { teacherId: _lessonTeacherId, ...response } = scoped;
+      return response;
+    }
+
     const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
     return this.roster.listForTeacher(teacherId, {
       search,

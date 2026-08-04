@@ -36,6 +36,36 @@ export class TeacherRosterService {
     private readonly auth: AuthClientService,
   ) {}
 
+  /**
+   * The roster of one lesson, derived from the lesson itself.
+   *
+   * Exists because `Lesson.teacherId` is the legacy **Teacher profile pk** (182 for the
+   * user whose auth id resolves to 3), and this service has no table mapping one to the
+   * other — `employees_teacher` lives in the portal's database, not this one. Asking the
+   * lesson who teaches it, and who attends it, sidesteps the id-space mismatch without
+   * writing anything to production.
+   *
+   * The caller is already proven staff by the JWT before this runs, so scoping to a
+   * lesson narrows a staff member to that lesson's students rather than widening access.
+   */
+  async listForLesson(
+    lessonUuid: string,
+    query: DrillTeacherRosterQuery = {},
+  ): Promise<DrillTeacherRosterResponse & { teacherId: number | null }> {
+    const lesson = await this.prisma.lesson.findFirst({
+      where: { uuid: lessonUuid },
+      select: { uuid: true, teacherId: true, studentCourseUuid: true },
+    });
+
+    if (!lesson) {
+      this.logger.warn(`Lesson ${lessonUuid} not found; roster is empty`);
+      return { students: [], groups: [], total: 0, hasMore: false, teacherId: null };
+    }
+
+    const roster = await this.rosterForCourses([lesson.studentCourseUuid], query);
+    return { ...roster, teacherId: lesson.teacherId ?? null };
+  }
+
   async listForTeacher(
     teacherId: number,
     query: DrillTeacherRosterQuery = {},
@@ -51,8 +81,19 @@ export class TeacherRosterService {
       return { students: [], groups: [], total: 0, hasMore: false };
     }
 
+    return this.rosterForCourses(
+      lessons.map((lesson) => lesson.studentCourseUuid),
+      query,
+    );
+  }
+
+  /** Shared tail of both entry points: student courses -> groups -> named students. */
+  private async rosterForCourses(
+    studentCourseUuids: string[],
+    query: DrillTeacherRosterQuery,
+  ): Promise<DrillTeacherRosterResponse> {
     const courses = await this.prisma.studentCourse.findMany({
-      where: { uuid: { in: lessons.map((lesson) => lesson.studentCourseUuid) } },
+      where: { uuid: { in: studentCourseUuids } },
       select: { groupUuid: true },
       distinct: ['groupUuid'],
     });
@@ -121,7 +162,7 @@ export class TeacherRosterService {
     const page = sorted.slice(offset, offset + limit);
 
     this.logger.log(
-      `Roster for teacher ${teacherId}: total=${sorted.length} named=${names.size} returned=${page.length} offset=${offset}`,
+      `Roster: total=${sorted.length} named=${names.size} returned=${page.length} offset=${offset}`,
     );
 
     return {

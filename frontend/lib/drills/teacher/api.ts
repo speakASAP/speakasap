@@ -216,13 +216,17 @@ export function listLanguages(): Promise<DrillLanguageDTO[]> {
  * the current page. Passing no options returns the first page.
  */
 export function listTeacherStudents(
-  options: { search?: string; limit?: number; offset?: number } = {},
+  options: { search?: string; limit?: number; offset?: number; lessonUuid?: string } = {},
 ): Promise<DrillTeacherRosterResponse> {
   return request(
     `/drill-assignments/teacher/students${queryString({
       search: options.search,
       limit: options.limit,
       offset: options.offset,
+      // Scopes the roster to one lesson's students. Needed because Lesson.teacherId is
+      // the legacy Teacher profile pk while the JWT resolves to the user id, so an
+      // unscoped roster matches the wrong id space for a teacher arriving from a lesson.
+      lessonUuid: options.lessonUuid,
     })}`,
   );
 }

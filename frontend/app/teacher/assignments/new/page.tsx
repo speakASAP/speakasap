@@ -105,7 +105,7 @@ function NewAssignmentWizard() {
   // cannot produce an assignment, so the failure is surfaced rather than absorbed.
   useEffect(() => {
     let cancelled = false;
-    listTeacherStudents()
+    listTeacherStudents(initialLessonUuid ? { lessonUuid: initialLessonUuid } : {})
       .then((roster) => {
         if (cancelled) {
           return;
@@ -135,7 +135,7 @@ function NewAssignmentWizard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialLessonUuid]);
 
   const generate = useCallback(async () => {
     if (!who || !what) {
