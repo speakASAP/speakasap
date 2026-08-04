@@ -270,6 +270,65 @@ export class TeacherAssignmentsService {
    * other — `employees_teacher` lives in the portal's database — so ownership accepts
    * either rather than 404ing a teacher out of their own review screen.
    */
+  /**
+   * Deliver an approved set to the students it was generated for.
+   *
+   * Generation creates the assignment rows and puts the sentences on the **set**; nothing
+   * ever copied them onto the assignments, so approving left rows in PENDING_REVIEW with
+   * zero items and the student received nothing. `assignFromSet` does copy items, but
+   * only while creating new rows — a different flow, for reusing a set later.
+   *
+   * Idempotent by construction: only PENDING_REVIEW rows are touched, so re-approving
+   * cannot re-deliver a drill a student has already started.
+   */
+  async assignApprovedSet(setUuid: string, teacherId: number, token: string): Promise<number> {
+    const set: any = await this.content.getSet(setUuid, token);
+    const items: any[] = set?.items ?? [];
+
+    if (items.length === 0) {
+      // An assignment with no items looks identical to a finished one in the runner, so
+      // refusing here beats delivering an empty drill.
+      throw new BadRequestException(`Set ${setUuid} has no items to assign`);
+    }
+
+    const pending = await this.prisma.drillAssignment.findMany({
+      where: { setUuid, status: 'PENDING_REVIEW' },
+      select: { uuid: true, studentId: true },
+    });
+
+    if (pending.length === 0) {
+      this.logger.log(`Approved set ${setUuid}: no pending assignments to deliver`);
+      return 0;
+    }
+
+    const now = new Date();
+    for (const assignment of pending) {
+      await this.prisma.drillAssignment.update({
+        where: { uuid: assignment.uuid },
+        data: {
+          status: 'ASSIGNED',
+          assignedAt: now,
+          items: {
+            create: items.map((setItem: any, index: number) => ({
+              uuid: randomUUID(),
+              order: typeof setItem.order === 'number' ? setItem.order : index,
+              sourceItemId: setItem.item?.id ?? setItem.id ?? null,
+              template: setItem.item?.template ?? setItem.template,
+              blanks: setItem.item?.blanks ?? setItem.blanks,
+              hint: setItem.item?.hint ?? setItem.hint ?? null,
+              topicSlug: setItem.item?.topicSlug ?? setItem.topicSlug ?? null,
+            })),
+          },
+        },
+      });
+      this.logger.log(
+        `Assigned ${assignment.uuid} to student ${assignment.studentId}: ${items.length} items from set ${setUuid} (teacher ${teacherId})`,
+      );
+    }
+
+    return pending.length;
+  }
+
   /** The lesson an assignment belongs to, for resolving which teacher owns it. */
   async lessonUuidFor(assignmentUuid: string): Promise<string | null> {
     const row = await this.prisma.drillAssignment.findUnique({

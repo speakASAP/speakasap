@@ -300,7 +300,23 @@ export class DrillsController {
     this.assertStaff(req);
     const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
     this.logger.log(`Approving set ${setUuid} for teacher ${teacherId}`);
-    return this.sets.approveSet(setUuid, teacherId, this.bearer(req));
+    const approved = await this.sets.approveSet(setUuid, teacherId, this.bearer(req));
+
+    // Approve also assigns. Generation creates the assignment rows and leaves the
+    // sentences on the set, so without this the teacher approved, saw success, and the
+    // student received an assignment with no items — or never saw it at all, because a
+    // PENDING_REVIEW row is not in their list.
+    //
+    // Strictly after approval: delivering a drill from a set that failed to approve
+    // would put unreviewed sentences in front of a student.
+    const delivered = await this.teacherAssignments.assignApprovedSet(
+      setUuid,
+      teacherId,
+      this.bearer(req),
+    );
+    this.logger.log(`Set ${setUuid} approved and delivered to ${delivered} assignment(s)`);
+
+    return approved;
   }
 
   private assertStaff(req: Request): void {

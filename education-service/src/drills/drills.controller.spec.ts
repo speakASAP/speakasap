@@ -25,6 +25,7 @@ function harness() {
     assignFromSet: jest.fn(async () => ({ assignments: [] })),
     getForTeacher: jest.fn(async () => ({ uuid: 'a-1' })),
     lessonUuidFor: jest.fn(async () => null),
+    assignApprovedSet: jest.fn(async () => 1),
   };
   const roster: any = {
     listForTeacher: jest.fn(async () => ({ students: [], groups: [] })),
@@ -365,6 +366,29 @@ describe('DrillsController — teacher write routes', () => {
         ForbiddenException,
       );
       expect(h.sets.approveSet).not.toHaveBeenCalled();
+    });
+
+    // Approving used to stop at the set, leaving the assignments it came from in
+    // PENDING_REVIEW with no items — the teacher saw success and the student got nothing.
+    it('delivers the set to the students it was generated for', async () => {
+      const h = harness();
+
+      await h.controller.approveSet('s-1', req(staff()));
+
+      expect(h.teacherAssignments.assignApprovedSet).toHaveBeenCalledWith(
+        's-1', 42, expect.anything(),
+      );
+    });
+
+    it('assigns only after the set is approved, never before', async () => {
+      const h = harness();
+      const order: string[] = [];
+      h.sets.approveSet.mockImplementation(async () => { order.push('approve'); return {}; });
+      h.teacherAssignments.assignApprovedSet.mockImplementation(async () => { order.push('assign'); return 1; });
+
+      await h.controller.approveSet('s-1', req(staff()));
+
+      expect(order).toEqual(['approve', 'assign']);
     });
   });
 });

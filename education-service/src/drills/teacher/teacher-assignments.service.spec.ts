@@ -53,6 +53,7 @@ function harness(overrides: Record<string, unknown> = {}) {
       }),
       findUnique: jest.fn(async () => null),
       findMany: jest.fn(async () => []),
+      update: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ ...data })),
     },
   };
 
@@ -416,6 +417,77 @@ describe('TeacherAssignmentsService.getForTeacher', () => {
       });
 
       await expect(h.service.getForTeacher('a-1', [182, 3])).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  /**
+   * Approving a set left the assignments it came from in PENDING_REVIEW with **zero
+   * items** — the sentences live on the set, and nothing ever copied them onto the
+   * assignment. The teacher approved, saw success, and the student never received the
+   * drill. `assignFromSet` copies items but only while creating *new* rows, which is a
+   * different flow.
+   */
+  describe('assignApprovedSet', () => {
+    function setWithItems(count: number) {
+      return {
+        uuid: 's-1', title: 'Present perfect', languageCode: 'de', materialLanguage: 'ru',
+        items: Array.from({ length: count }, (_, i) => ({
+          order: i, template: `Ich habe [x]{y} ${i}.`, blanks: [], hint: null, topicSlug: null,
+        })),
+      };
+    }
+
+    it('copies the set items onto every pending assignment and assigns it', async () => {
+      const h = harness();
+      h.content.getSet.mockResolvedValue(setWithItems(3));
+      h.prisma.drillAssignment.findMany.mockResolvedValue([
+        { uuid: 'a-1', studentId: 3, status: 'PENDING_REVIEW' },
+      ]);
+
+      await h.service.assignApprovedSet('s-1', 182, 'tok');
+
+      const update = h.prisma.drillAssignment.update.mock.calls[0][0];
+      expect(update.where).toEqual({ uuid: 'a-1' });
+      expect(update.data.status).toBe('ASSIGNED');
+      expect(update.data.assignedAt).toBeInstanceOf(Date);
+      expect(update.data.items.create).toHaveLength(3);
+    });
+
+    it('does not touch assignments that are already assigned', async () => {
+      // Re-approving must not re-deliver a drill a student has begun.
+      const h = harness();
+      h.content.getSet.mockResolvedValue(setWithItems(3));
+      h.prisma.drillAssignment.findMany.mockResolvedValue([]);
+
+      await h.service.assignApprovedSet('s-1', 182, 'tok');
+
+      expect(h.prisma.drillAssignment.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses to assign a set with no items', async () => {
+      // An empty assignment is indistinguishable from a finished one in the runner.
+      const h = harness();
+      h.content.getSet.mockResolvedValue(setWithItems(0));
+      h.prisma.drillAssignment.findMany.mockResolvedValue([
+        { uuid: 'a-1', studentId: 3, status: 'PENDING_REVIEW' },
+      ]);
+
+      await expect(h.service.assignApprovedSet('s-1', 182, 'tok')).rejects.toThrow(/no items/i);
+      expect(h.prisma.drillAssignment.update).not.toHaveBeenCalled();
+    });
+
+    it('only assigns rows belonging to this set', async () => {
+      const h = harness();
+      h.content.getSet.mockResolvedValue(setWithItems(2));
+      h.prisma.drillAssignment.findMany.mockResolvedValue([]);
+
+      await h.service.assignApprovedSet('s-1', 182, 'tok');
+
+      expect(h.prisma.drillAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ setUuid: 's-1', status: 'PENDING_REVIEW' }),
+        }),
+      );
     });
   });
 });
