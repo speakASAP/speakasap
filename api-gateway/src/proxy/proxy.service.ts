@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Readable } from 'stream';
+import { applyInternalHopToken } from './internal-hop';
 import { resolveUpstreamBaseUrl } from './upstream-resolve';
 import { logOperationalFailure } from '../shared/operational-log';
 
@@ -42,6 +43,10 @@ export class ProxyService {
 
     try {
       const headers = this.buildForwardHeaders(req);
+      // The gateway guard has already validated the caller against
+      // GATEWAY_INTERNAL_API_TOKEN. Swap in the upstream's own credential for the second
+      // hop so the caller never needs to hold it. See internal-hop.ts.
+      applyInternalHopToken(headers, pathname);
       const body = await this.readRequestBody(req);
 
       const upstream = await fetch(targetUrl, {

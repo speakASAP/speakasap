@@ -41,6 +41,10 @@ spec:
                 name: speakasap-api-gateway-config
             - secretRef:
                 name: speakasap-secret
+            # Two-hop internal auth, see src/proxy/internal-hop.ts. Kept out of the
+            # shared speakasap-secret so these credentials reach the gateway only.
+            - secretRef:
+                name: speakasap-api-gateway-internal
           startupProbe:
             httpGet:
               path: /health
@@ -128,3 +132,35 @@ data:
   ASSETS_BASE_URL: "https://assets.alfares.cz"
   FRONTEND_URL: "https://speakasap.alfares.cz"
   CORS_ORIGIN: "https://speakasap.alfares.cz"
+---
+# Internal-route credentials for the gateway (Track J).
+#
+# GATEWAY_INTERNAL_API_TOKEN is what a caller must present on x-internal-token to use
+# /api/v1/internal/* from outside the cluster. INTERNAL_API_TOKEN is what the gateway
+# re-stamps onto the request for the upstream hop, so a caller never holds the
+# upstream's own credential. Both guards read the same header name against different
+# values, which is why the swap in internal-hop.ts exists.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: speakasap-api-gateway-internal
+  namespace: statex-apps
+  labels:
+    app: speakasap-api-gateway
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: speakasap-api-gateway-internal
+    creationPolicy: Owner
+  data:
+    - secretKey: GATEWAY_INTERNAL_API_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap/gateway
+        property: GATEWAY_INTERNAL_API_TOKEN
+    - secretKey: INTERNAL_API_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap/gateway
+        property: INTERNAL_API_TOKEN
