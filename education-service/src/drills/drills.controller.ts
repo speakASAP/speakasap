@@ -222,6 +222,23 @@ export class DrillsController {
   }
 
   /**
+   * One assignment's progress, for the teacher: every blank, its answer, whether the
+   * student solved it, and the wrong answers they typed.
+   *
+   * Ownership accepts both id spaces, same as `getForTeacher`.
+   */
+  @Get('teacher/progress/:uuid')
+  async teacherProgress(@Param('uuid') uuid: string, @Req() req: Request): Promise<unknown> {
+    this.assertStaff(req);
+    const userId = await this.identity.resolveStudentId(req.authUser!.id);
+    const lessonTeacherId = await this.teacherIdForAssignment(uuid);
+    return this.teacherAssignments.progressForTeacher(
+      uuid,
+      lessonTeacherId === null ? [userId] : [userId, lessonTeacherId],
+    );
+  }
+
+  /**
    * A drill set with its answers, for the teacher review screen.
    *
    * Proxies content-service's `internal/drill-sets/:uuid`, which the gateway gates on

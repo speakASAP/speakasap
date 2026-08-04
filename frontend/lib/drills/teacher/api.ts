@@ -220,6 +220,39 @@ export function getTeacherSummary(): Promise<InternalTeacherAssignmentsResponse>
   return request('/drill-assignments/teacher/summary');
 }
 
+export interface TeacherProgressBlank {
+  index: number;
+  prompt: string;
+  answer: string;
+  solved: boolean;
+  revealed: boolean;
+  attemptCount: number;
+  wrongAttempts: string[];
+}
+
+export interface TeacherProgress {
+  uuid: string;
+  title: string;
+  status: string;
+  studentId: number;
+  lessonUuid: string | null;
+  items: {
+    uuid: string;
+    order: number;
+    template: string;
+    hint: string | null;
+    blanks: TeacherProgressBlank[];
+  }[];
+}
+
+/**
+ * What the student has done with one assignment. Teacher-only, and it carries the
+ * answers — seeing what was expected next to what the student typed is the point.
+ */
+export function getTeacherProgress(uuid: string): Promise<TeacherProgress> {
+  return request(`/drill-assignments/teacher/progress/${encodeURIComponent(uuid)}`);
+}
+
 export function listTopics(
   languageCode: string,
   materialLanguage: string,

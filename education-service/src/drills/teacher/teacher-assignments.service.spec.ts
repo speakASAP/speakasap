@@ -549,4 +549,77 @@ describe('TeacherAssignmentsService.getForTeacher', () => {
       await expect(h.service.revokeAssignment('missing', [182])).rejects.toThrow(NotFoundException);
     });
   });
+
+  /**
+   * The teacher's view of one assignment: what the student solved, what they got wrong,
+   * and what they actually typed. A teacher asked "what is finished and what are the
+   * errors there" — counts alone cannot answer that, and the runner payload is
+   * deliberately answer-free, so it cannot either.
+   *
+   * This is teacher-only and DOES carry answers: seeing that a student typed "gegangen"
+   * where "gegangen" was expected is the entire point.
+   */
+  describe('progressForTeacher', () => {
+    function withAttempts(attempts: any[]) {
+      const h = harness();
+      h.prisma.drillAssignment.findUnique.mockResolvedValue({
+        uuid: 'a-1', teacherId: 182, studentId: 3, status: 'IN_PROGRESS',
+        title: 'Present perfect', createdAt: new Date(),
+        items: [
+          { uuid: 'i-1', order: 0, template: 'Ich [have]{habe} [done]{gemacht}.',
+            blanks: [{ index: 0, answer: 'habe', prompt: 'have' },
+                     { index: 1, answer: 'gemacht', prompt: 'done' }], hint: null },
+        ],
+      });
+      h.prisma.drillAttempt = { findMany: jest.fn(async () => attempts) };
+      return h;
+    }
+
+    it('reports each blank with its answer and whether it is solved', async () => {
+      const h = withAttempts([
+        { itemUuid: 'i-1', blankIndex: 0, submittedValue: 'habe', isCorrect: true, attemptNo: 1, revealed: false },
+      ]);
+
+      const result = await h.service.progressForTeacher('a-1', [182]);
+
+      const blanks = result.items[0].blanks;
+      expect(blanks[0]).toMatchObject({ answer: 'habe', solved: true });
+      expect(blanks[1]).toMatchObject({ answer: 'gemacht', solved: false });
+    });
+
+    it('lists the wrong answers a student actually typed', async () => {
+      const h = withAttempts([
+        { itemUuid: 'i-1', blankIndex: 1, submittedValue: 'gemachen', isCorrect: false, attemptNo: 1, revealed: false },
+        { itemUuid: 'i-1', blankIndex: 1, submittedValue: 'gemacht', isCorrect: true, attemptNo: 2, revealed: false },
+      ]);
+
+      const result = await h.service.progressForTeacher('a-1', [182]);
+
+      const blank = result.items[0].blanks[1];
+      expect(blank.solved).toBe(true);
+      expect(blank.wrongAttempts).toEqual(['gemachen']);
+      expect(blank.attemptCount).toBe(2);
+    });
+
+    it('marks a revealed blank as revealed, not as solved by the student', async () => {
+      // A revealed answer is not knowledge. Counting it as solved would tell the teacher
+      // the student knew something they were shown.
+      const h = withAttempts([
+        { itemUuid: 'i-1', blankIndex: 0, submittedValue: '', isCorrect: false, attemptNo: 1, revealed: true },
+      ]);
+
+      const result = await h.service.progressForTeacher('a-1', [182]);
+
+      expect(result.items[0].blanks[0]).toMatchObject({ revealed: true, solved: false });
+    });
+
+    it("refuses another teacher's assignment", async () => {
+      const h = withAttempts([]);
+      h.prisma.drillAssignment.findUnique.mockResolvedValue({
+        uuid: 'a-1', teacherId: 999, items: [],
+      });
+
+      await expect(h.service.progressForTeacher('a-1', [182])).rejects.toThrow(NotFoundException);
+    });
+  });
 });

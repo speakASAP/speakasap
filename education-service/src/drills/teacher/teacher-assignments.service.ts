@@ -368,6 +368,83 @@ export class TeacherAssignmentsService {
     this.logger.log(`Revoked assignment ${assignmentUuid} (was ${row.status})`);
   }
 
+  /**
+   * One assignment as the teacher needs to see it: every blank, its answer, whether the
+   * student solved it, and what they typed when they did not.
+   *
+   * Teacher-only, and it DOES carry answers — that is the point. The runner payload is
+   * deliberately answer-free, and `getForTeacher` returns counts, so neither can answer
+   * "what is finished and what are the errors there".
+   *
+   * A revealed blank is reported as `revealed`, never as `solved`: an answer the student
+   * was shown is not something they knew.
+   */
+  async progressForTeacher(
+    assignmentUuid: string,
+    teacherIds: number | number[],
+  ): Promise<any> {
+    const allowed = (Array.isArray(teacherIds) ? teacherIds : [teacherIds]).filter(
+      (id): id is number => Number.isInteger(id),
+    );
+
+    const row: any = await this.prisma.drillAssignment.findUnique({
+      where: { uuid: assignmentUuid },
+      include: { items: { orderBy: { order: 'asc' } } },
+    });
+
+    if (!row || row.teacherId === null || !allowed.includes(row.teacherId)) {
+      throw new NotFoundException('Drill assignment not found');
+    }
+
+    const attempts: any[] = await (this.prisma as any).drillAttempt.findMany({
+      where: { assignmentUuid },
+      orderBy: { attemptNo: 'asc' },
+    });
+
+    const byBlank = new Map<string, any[]>();
+    for (const attempt of attempts) {
+      const key = `${attempt.itemUuid}:${attempt.blankIndex}`;
+      const list = byBlank.get(key);
+      if (list) {
+        list.push(attempt);
+      } else {
+        byBlank.set(key, [attempt]);
+      }
+    }
+
+    const items = (row.items ?? []).map((item: any) => ({
+      uuid: item.uuid,
+      order: item.order,
+      template: item.template,
+      hint: item.hint ?? null,
+      blanks: (item.blanks ?? []).map((blank: any) => {
+        const tries = byBlank.get(`${item.uuid}:${blank.index}`) ?? [];
+        const revealed = tries.some((t) => t.revealed);
+        return {
+          index: blank.index,
+          prompt: blank.prompt,
+          answer: blank.answer,
+          solved: tries.some((t) => t.isCorrect),
+          revealed,
+          attemptCount: tries.length,
+          // Only the wrong ones, in the order the student tried them — the shape of the
+          // mistakes is what a teacher acts on.
+          wrongAttempts: tries.filter((t) => !t.isCorrect && !t.revealed).map((t) => t.submittedValue),
+        };
+      }),
+    }));
+
+    return {
+      uuid: row.uuid,
+      title: row.title,
+      status: row.status,
+      studentId: row.studentId,
+      lessonUuid: row.lessonUuid ?? null,
+      createdAt: row.createdAt,
+      items,
+    };
+  }
+
   /** The lesson an assignment belongs to, for resolving which teacher owns it. */
   async lessonUuidFor(assignmentUuid: string): Promise<string | null> {
     const row = await this.prisma.drillAssignment.findUnique({
