@@ -30,6 +30,12 @@ export interface WizardWhoProps {
   initialStudentIds?: number[];
   /** Lesson to preselect — from `?lessonUuid=`. */
   initialLessonUuid?: string | null;
+  /**
+   * Human title for `initialLessonUuid`. The wizard does not fetch a lesson list — a
+   * teacher's is large and only the lesson they arrived from matters — so without this
+   * the preselected lesson would have no visible option to render.
+   */
+  initialLessonTitle?: string | null;
   onNext: (value: WizardWhoValue) => void;
 }
 
@@ -52,11 +58,20 @@ export function WizardWho({
   lessons = [],
   initialStudentIds = [],
   initialLessonUuid = null,
+  initialLessonTitle = null,
   onNext,
 }: WizardWhoProps) {
   const [studentIds, setStudentIds] = useState<number[]>(() =>
     initialStudentIds.filter((id) => students.some((s) => s.id === id)),
   );
+
+  // A studentId arrived but matched nobody: this teacher does not teach that student, so
+  // the lesson belongs to someone else. Saying so beats rendering an unfiltered picker
+  // that looks as though the parameter was never passed.
+  const preselectionMissed =
+    initialStudentIds.length > 0 &&
+    students.length > 0 &&
+    !initialStudentIds.some((id) => students.some((s) => s.id === id));
   const [lessonUuid, setLessonUuid] = useState(initialLessonUuid ?? '');
 
   const toggleStudent = (id: number) => {
@@ -84,6 +99,16 @@ export function WizardWho({
         onNext({ studentIds, lessonUuid: lessonUuid || null });
       }}
     >
+      {preselectionMissed ? (
+        <p
+          role="status"
+          className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+        >
+          That student is not on your roster, so nothing was preselected. You only see
+          students from lessons you teach — this lesson may belong to another teacher.
+        </p>
+      ) : null}
+
       <fieldset className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <legend className="px-1 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
           Students
@@ -167,6 +192,16 @@ export function WizardWho({
           onChange={(e) => setLessonUuid(e.target.value)}
         >
           <option value="">No lesson</option>
+          {/*
+            The lesson the teacher arrived from, when it is not in `lessons`. Without an
+            option carrying this value the select renders as "No lesson" while state still
+            holds the uuid — the control would contradict what gets submitted.
+          */}
+          {initialLessonUuid && !lessons.some((l) => l.uuid === initialLessonUuid) ? (
+            <option value={initialLessonUuid}>
+              {initialLessonTitle || 'The lesson you came from'}
+            </option>
+          ) : null}
           {lessons.map((lesson) => (
             <option key={lesson.uuid} value={lesson.uuid}>
               {lesson.title}

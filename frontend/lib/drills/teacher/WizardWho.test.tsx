@@ -156,4 +156,86 @@ describe('WizardWho', () => {
       expect(screen.getByRole('button', { name: /next/i })).toBeDisabled();
     });
   });
+
+  /**
+   * The lesson dropdown is populated from `lessons`, which the page does not fetch — a
+   * teacher's lesson list is large and the wizard only ever needs the one they came from.
+   * So a preselected uuid with no matching option silently fell back to "No lesson" and
+   * the assignment lost its lesson link.
+   */
+  describe('a preselected lesson that is not in the list', () => {
+    it('keeps the lesson rather than falling back to "No lesson"', async () => {
+      const onNext = vi.fn();
+      render(
+        <WizardWho
+          students={students}
+          lessons={[]}
+          initialStudentIds={[1]}
+          initialLessonUuid="l-from-url"
+          onNext={onNext}
+        />,
+      );
+
+      await userEvent.click(screen.getByRole('button', { name: /next/i }));
+
+      expect(onNext).toHaveBeenCalledWith({ studentIds: [1], lessonUuid: 'l-from-url' });
+    });
+
+    it('shows the lesson so the teacher can see it is attached', () => {
+      render(
+        <WizardWho
+          students={students}
+          lessons={[]}
+          initialStudentIds={[1]}
+          initialLessonUuid="l-from-url"
+          initialLessonTitle="Lesson 16"
+          onNext={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByRole('combobox', { name: /lesson/i })).toHaveValue('l-from-url');
+      expect(screen.getByRole('option', { name: /Lesson 16/ })).toBeInTheDocument();
+    });
+
+    it('still lets the teacher detach it', async () => {
+      const onNext = vi.fn();
+      render(
+        <WizardWho
+          students={students}
+          lessons={[]}
+          initialStudentIds={[1]}
+          initialLessonUuid="l-from-url"
+          onNext={onNext}
+        />,
+      );
+
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: /lesson/i }), '');
+      await userEvent.click(screen.getByRole('button', { name: /next/i }));
+
+      expect(onNext).toHaveBeenCalledWith({ studentIds: [1], lessonUuid: null });
+    });
+  });
+
+  /**
+   * A studentId in the URL that is not on this teacher's roster means the teacher does
+   * not teach that student — the lesson belongs to a different teacher. Silently showing
+   * an unfiltered picker looks like the parameter worked.
+   */
+  describe('a preselected student who is not on the roster', () => {
+    it('says so, rather than looking like nothing was passed', () => {
+      render(
+        <WizardWho students={students} initialStudentIds={[9999]} onNext={vi.fn()} />,
+      );
+
+      expect(screen.getByRole('status')).toHaveTextContent(/not on your roster/i);
+    });
+
+    it('says nothing when the preselection worked', () => {
+      render(
+        <WizardWho students={students} initialStudentIds={[1]} onNext={vi.fn()} />,
+      );
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+  });
 });

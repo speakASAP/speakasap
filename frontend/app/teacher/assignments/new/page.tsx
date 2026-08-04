@@ -65,6 +65,11 @@ function NewAssignmentWizard() {
     return Number.isInteger(raw) && raw > 0 ? [raw] : [];
   }, [searchParams]);
   const initialLessonUuid = searchParams.get('lessonUuid');
+  // The wizard does not fetch a lesson list, so there is no title to look up. A short
+  // prefix is enough for the teacher to recognise that the lesson came with them.
+  const initialLessonTitle = initialLessonUuid
+    ? `Lesson from the portal (${initialLessonUuid.slice(0, 8)}…)`
+    : null;
 
   const [step, setStep] = useState<Step>('who');
   const [who, setWho] = useState<WizardWhoValue | null>(null);
@@ -218,6 +223,7 @@ function NewAssignmentWizard() {
               groups={groups}
               initialStudentIds={initialStudentIds}
               initialLessonUuid={initialLessonUuid}
+              initialLessonTitle={initialLessonTitle}
               onNext={(value) => {
                 setWho(value);
                 setStep('what');
