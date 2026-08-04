@@ -1,7 +1,8 @@
 # Track I — SSO Handoff
 
-**State:** **DEPLOYED AND WORKING IN PRODUCTION** on the platform side, verified end to
-end with a real portal-signed token. The portal half is not deployed — see §"Not done".
+**State:** **COMPLETE AND LIVE IN PRODUCTION, BOTH SIDES.** The portal's own deployed
+code, signing with its live `.env` secret, mints a token the platform verifies, resolves
+and exchanges for a real session. Verified across both systems 2026-08-04.
 **Services:** `speakasap/frontend`, `speakasap-portal`, `auth-microservice`
 **Branches:** `feat/drilling-track-e` (speakasap — Track E and I share it, built in sequence) · `feat/drilling-track-i` (portal) · `feat/internal-session-endpoint` (auth)
 **Commits:** `31fb96d9` `e835893c` (portal) · `4072e38` `8df37c2` `a374e34` (frontend) · `0ca95f5` (auth)
@@ -154,6 +155,22 @@ runner** — do that in Track K, once the branch is deployed, with:
 ssh speakasap 'cd speakasap-portal && python3 manage.py test portal.tests.test_platform_sso'
 ```
 
+## The full cross-system flow, verified 2026-08-04
+
+The decisive test, run after both halves were deployed: the **portal's own
+`platform_sso.py` on the speakasap server**, loading the secret from its live `.env`,
+minted a token for legacy id `310740`. That token was POSTed to the live platform:
+
+```
+POST https://speakasap.alfares.cz/auth/handoff/exchange
+  -> 200   authUserId e9c0e180…   expiresIn 43200   session issued
+```
+
+Nothing was stubbed between the two systems: portal code, portal secret, platform
+verification, auth resolution, auth session minting. The secrets agree across three
+places (portal `.env`, `secret/prod/speakasap-frontend`, `secret/prod/speakasap-portal`),
+which is exactly what a fingerprint check cannot prove on its own and a real exchange can.
+
 ## Verified in production, 2026-08-03
 
 `auth-microservice:0ca95f5` and `speakasap-frontend:46b4097` are live. A real
@@ -205,18 +222,17 @@ builds as a dynamic server route.
 
 ## Not done
 
-- **The portal half is not deployed, and it needs two decisions that are yours.**
-  `feat/drilling-track-i` in `speakasap-portal` is committed but unpushed; the server
-  deploy pulls from GitHub `main`, so shipping it means pushing and merging.
+- **The Django test suite has still never run under a real test runner.**
+  `manage.py test` fails on the speakasap server with
+  `permission denied to create database` — the portal's DB user cannot create
+  `test_portal_db`. That is an environment limitation, not a code failure, and granting
+  CREATE DATABASE on the production role for a test run was not worth doing unasked.
 
-  More importantly, **`SPEAKASAP_PLATFORM_JWT_SECRET` is absent from the server's
-  `.env`** (checked: it holds `MARATHON_PORTAL_JWT_SECRET` but not this one). The value
-  already exists in Vault at `secret/prod/speakasap-portal` with fingerprint `b960e67a`,
-  matching the platform. Adding it is a write to a host these rules mark **READ ONLY**,
-  so it was left for the owner rather than done unilaterally.
-
-  Until both happen the portal cannot mint a token, so no student can start the flow —
-  even though the platform end is live and proven.
+  The same behaviours are covered by stdin probes run against the **deployed** files on
+  that server's own Python 3.4.3 / PyJWT 1.4.2 (5 assertions post-deploy, 19 pre-deploy,
+  with falsification). `portal/tests/test_platform_sso.py` and
+  `portal/tests/test_drill_redirect.py` remain the durable suites for whenever a test
+  database becomes available.
 
 - **No URL routes to `drill_redirect_view`.** The view and its guards are done and
   tested, but nothing in `urls.py` points at it and no template links to it. Wiring the
