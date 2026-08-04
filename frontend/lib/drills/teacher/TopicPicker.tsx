@@ -69,26 +69,38 @@ export function TopicPicker({ topics, selected, onChange, allowCreate }: TopicPi
   };
 
   return (
-    <fieldset>
-      <legend>Topics</legend>
+    <fieldset className="border-0 p-0">
+      <legend className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Topics</legend>
 
-      <ul>
+      {topics.length === 0 ? (
+        <p className="mt-2 text-sm text-zinc-500">
+          No topics yet — type one below and press Enter.
+        </p>
+      ) : null}
+
+      <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto">
         {topics.map((topic) => (
-          <li key={topic.slug}>
-            <label>
+          <li key={topic.slug} className="flex items-center justify-between gap-2">
+            <label className="flex flex-1 cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800">
               <input
                 type="checkbox"
+                className="h-4 w-4 shrink-0 accent-sky-600"
                 checked={selectedSlugs.has(topic.slug)}
                 onChange={() => toggle(topic)}
               />
-              {topic.title}
+              <span className="truncate">{topic.title}</span>
             </label>
             {/*
               A topic with no mapped grammar page renders as plain text. An anchor with an
               empty href would look like a link and go to the current page instead.
             */}
             {topic.publicUrl ? (
-              <a href={topic.publicUrl} target="_blank" rel="noreferrer">
+              <a
+                href={topic.publicUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="shrink-0 text-xs text-sky-700 underline hover:text-sky-900 dark:text-sky-400"
+              >
                 {topic.slug}
               </a>
             ) : null}
@@ -97,9 +109,10 @@ export function TopicPicker({ topics, selected, onChange, allowCreate }: TopicPi
       </ul>
 
       {allowCreate ? (
-        <label>
+        <label className="mt-3 block text-sm text-zinc-700 dark:text-zinc-300">
           Add a topic
           <input
+            className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
             role="combobox"
             aria-expanded={false}
             aria-label="Add a topic"
@@ -114,9 +127,10 @@ export function TopicPicker({ topics, selected, onChange, allowCreate }: TopicPi
           />
         </label>
       ) : (
-        <label>
+        <label className="mt-3 block text-sm text-zinc-700 dark:text-zinc-300">
           Filter topics
           <input
+            className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
             role="combobox"
             aria-expanded={false}
             aria-label="Filter topics"

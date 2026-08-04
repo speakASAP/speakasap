@@ -76,8 +76,14 @@ export function ReviewList({
   };
 
   return (
-    <section>
-      <ul>
+    <section className="space-y-4">
+      {ordered.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+          This set has no items yet.
+        </p>
+      ) : null}
+
+      <ul className="space-y-3">
         {ordered.map((item) => (
           <ReviewItem
             key={item.id}
@@ -91,15 +97,32 @@ export function ReviewList({
         ))}
       </ul>
 
-      {flaggedIds.length > 0 && onRegenerate ? (
-        <button type="button" onClick={() => onRegenerate(flaggedIds)}>
-          Regenerate all flagged
-        </button>
-      ) : null}
+      <div className="flex flex-col gap-3 border-t border-zinc-200 pt-4 sm:flex-row sm:justify-end dark:border-zinc-800">
+        {flaggedIds.length > 0 && onRegenerate ? (
+          <button
+            type="button"
+            className="rounded-md border border-amber-400 px-4 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:text-amber-300 dark:hover:bg-amber-950"
+            onClick={() => onRegenerate(flaggedIds)}
+          >
+            Regenerate all flagged ({flaggedIds.length})
+          </button>
+        ) : null}
 
-      <button type="button" disabled={hasUnresolvedFailure} onClick={onApprove}>
-        Approve
-      </button>
+        <button
+          type="button"
+          className="rounded-md bg-green-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={hasUnresolvedFailure}
+          onClick={onApprove}
+        >
+          Approve
+        </button>
+      </div>
+
+      {hasUnresolvedFailure ? (
+        <p className="text-right text-xs text-zinc-500">
+          Resolve the flagged items before approving.
+        </p>
+      ) : null}
     </section>
   );
 }

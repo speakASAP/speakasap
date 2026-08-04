@@ -44,6 +44,7 @@ export function WizardWhat({ onNext, topics = [] }: WizardWhatProps) {
 
   return (
     <form
+      className="space-y-6"
       onSubmit={(e) => {
         e.preventDefault();
         if (!canContinue) {
@@ -52,29 +53,57 @@ export function WizardWhat({ onNext, topics = [] }: WizardWhatProps) {
         onNext({ topics: selected, instructions: instructions.trim(), count: parsedCount });
       }}
     >
-      <TopicPicker topics={topics} selected={selected} onChange={setSelected} allowCreate />
+      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <TopicPicker topics={topics} selected={selected} onChange={setSelected} allowCreate />
+      </div>
 
-      <label htmlFor="drill-instructions">Instructions</label>
-      <textarea
-        id="drill-instructions"
-        value={instructions}
-        onChange={(e) => setInstructions(e.target.value)}
-        placeholder="Anything the generator should know — a focus, a context, mistakes to drill."
-      />
+      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <label
+          htmlFor="drill-instructions"
+          className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300"
+        >
+          Instructions
+        </label>
+        <textarea
+          id="drill-instructions"
+          rows={3}
+          className="mt-2 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          placeholder="Anything the generator should know — a focus, a context, mistakes to drill."
+        />
+      </div>
 
-      <label htmlFor="drill-count">Number of exercises</label>
-      <input
-        id="drill-count"
-        type="number"
-        min={MIN_ITEM_COUNT}
-        max={MAX_ITEM_COUNT}
-        value={count}
-        onChange={(e) => setCount(e.target.value)}
-      />
+      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <label
+          htmlFor="drill-count"
+          className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300"
+        >
+          Number of exercises
+        </label>
+        <input
+          id="drill-count"
+          type="number"
+          min={MIN_ITEM_COUNT}
+          max={MAX_ITEM_COUNT}
+          className="mt-2 w-28 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
+          value={count}
+          onChange={(e) => setCount(e.target.value)}
+        />
+        <p className="mt-1 text-xs text-zinc-500">
+          Between {MIN_ITEM_COUNT} and {MAX_ITEM_COUNT}.
+        </p>
+      </div>
 
-      <button type="submit" disabled={!canContinue}>
-        Next
-      </button>
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          className="rounded-md bg-sky-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!canContinue}
+        >
+          Next
+        </button>
+      </div>
     </form>
   );
 }

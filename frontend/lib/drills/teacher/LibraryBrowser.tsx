@@ -55,28 +55,36 @@ export function LibraryBrowser({ sets, groups, onQuery, onAssign }: LibraryBrows
   };
 
   const renderSet = (set: DrillSetDTO) => (
-    <li key={set.uuid}>
-      <label>
+    <li key={set.uuid} className="rounded-md px-2 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+      <label className="flex cursor-pointer items-center gap-3 text-sm">
         <input
           type="checkbox"
+          className="h-4 w-4 shrink-0 accent-sky-600"
           checked={selected.includes(set.uuid)}
           onChange={() => toggle(set.uuid)}
         />
-        {set.title}
+        <span className="font-medium">{set.title}</span>
       </label>
-      <span>{set.topicSlugs.join(', ')}</span>
-      <span>{set.itemCount} exercises</span>
-      <span>Used {set.timesAssigned} times</span>
+      <span className="ml-7 mr-2 text-xs text-zinc-500">{set.topicSlugs.join(', ')}</span>
+      <span className="mr-2 text-xs text-zinc-500">{set.itemCount} exercises</span>
+      <span className="text-xs text-zinc-500">Used {set.timesAssigned} times</span>
       <span>★ {set.popularityScore}</span>
     </li>
   );
 
   return (
-    <section>
-      <label htmlFor="library-search">Search sentences</label>
+    <section className="space-y-4">
+      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <label
+          htmlFor="library-search"
+          className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300"
+        >
+          Search sentences
+        </label>
       <input
         id="library-search"
         type="search"
+        className="mt-2 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
         value={term}
         onChange={(e) => setTerm(e.target.value)}
         onKeyDown={(e) => {
@@ -86,12 +94,25 @@ export function LibraryBrowser({ sets, groups, onQuery, onAssign }: LibraryBrows
           }
         }}
       />
+      </div>
+
+      {sets.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+          No approved sets match. Try a different search, or generate a new set.
+        </p>
+      ) : null}
 
       {groupKeys.length > 0 ? (
         groupKeys.map((key) => (
-          <fieldset key={key} aria-label={groupLabel(key)}>
-            <legend>{groupLabel(key)}</legend>
-            <ul>
+          <fieldset
+            key={key}
+            aria-label={groupLabel(key)}
+            className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <legend className="px-1 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+              {groupLabel(key)}
+            </legend>
+            <ul className="mt-2 space-y-1">
               {groups[key]
                 .map((uuid) => byUuid.get(uuid))
                 .filter((set): set is DrillSetDTO => Boolean(set))
@@ -100,11 +121,14 @@ export function LibraryBrowser({ sets, groups, onQuery, onAssign }: LibraryBrows
           </fieldset>
         ))
       ) : (
-        <ul>{sets.map(renderSet)}</ul>
+        <ul className="space-y-1 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          {sets.map(renderSet)}
+        </ul>
       )}
 
       <button
         type="button"
+        className="rounded-md bg-sky-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={selected.length === 0}
         onClick={() => onAssign?.(selected)}
       >

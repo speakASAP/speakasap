@@ -38,10 +38,19 @@ export function GenerationProgressView({
 }: GenerationProgressViewProps) {
   if (progress.phase === 'FAILED') {
     return (
-      <section aria-label="Generation progress">
-        <p role="alert">{progress.message || 'Generation failed'}</p>
+      <section
+        aria-label="Generation progress"
+        className="space-y-3 rounded-lg border border-red-300 bg-red-50 p-5 dark:border-red-900 dark:bg-red-950"
+      >
+        <p role="alert" className="text-sm text-red-800 dark:text-red-200">
+          {progress.message || 'Generation failed'}
+        </p>
         {onRetry ? (
-          <button type="button" onClick={onRetry}>
+          <button
+            type="button"
+            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+            onClick={onRetry}
+          >
             Retry
           </button>
         ) : null}
@@ -50,9 +59,36 @@ export function GenerationProgressView({
   }
 
   return (
-    <section aria-label="Generation progress">
-      <p>{progress.message}</p>
-      <p data-testid="generation-count">
+    <section
+      aria-label="Generation progress"
+      className="space-y-3 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
+    >
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden="true"
+          className="h-4 w-4 animate-spin rounded-full border-2 border-sky-600 border-t-transparent"
+        />
+        <p className="text-sm font-medium">{progress.message}</p>
+      </div>
+
+      <div
+        role="progressbar"
+        aria-valuenow={progress.generated}
+        aria-valuemin={0}
+        aria-valuemax={progress.total || 1}
+        className="h-2 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800"
+      >
+        <div
+          className="h-full bg-sky-600 transition-[width]"
+          style={{
+            width: progress.total
+              ? `${(progress.generated / progress.total) * 100}%`
+              : '0%',
+          }}
+        />
+      </div>
+
+      <p data-testid="generation-count" className="text-sm text-zinc-600 dark:text-zinc-400">
         {progress.generated} of {progress.total}
       </p>
       {/*
@@ -61,14 +97,18 @@ export function GenerationProgressView({
         what is true, so the estimate is replaced rather than floored at zero.
       */}
       {progress.stalled ? (
-        <p>This is taking longer than expected.</p>
+        <p className="text-sm text-amber-700 dark:text-amber-400">
+          This is taking longer than expected.
+        </p>
       ) : progress.etaSeconds !== null && progress.etaSeconds > 0 ? (
-        <p>{progress.etaSeconds} s</p>
+        <p className="text-sm text-zinc-500">{progress.etaSeconds} s</p>
       ) : null}
       {items && items.length > 0 ? (
-        <ul>
+        <ul className="space-y-1 border-t border-zinc-100 pt-3 text-sm dark:border-zinc-800">
           {items.map((item) => (
-            <li key={item.id}>{item.template}</li>
+            <li key={item.id} className="text-zinc-600 dark:text-zinc-400">
+              {item.template}
+            </li>
           ))}
         </ul>
       ) : null}

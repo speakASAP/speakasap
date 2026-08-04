@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { DrillTopicDTO } from '@/lib/drills/contracts';
 import {
   DrillApiError,
@@ -27,8 +27,44 @@ type Step = 'who' | 'what' | 'how' | 'generating';
  * State lives here rather than in the URL because a half-filled wizard is not something
  * to link to or restore — the teacher either finishes it or starts again.
  */
+/**
+ * `useSearchParams` opts the tree into client-side rendering, which Next requires to sit
+ * behind a Suspense boundary — without it the production build fails on prerender even
+ * though every unit test passes.
+ */
 export default function NewAssignmentPage() {
+  return (
+    <Suspense fallback={<WizardFallback />}>
+      <NewAssignmentWizard />
+    </Suspense>
+  );
+}
+
+function WizardFallback() {
+  return (
+    <main className="min-h-full bg-zinc-50 px-4 py-8 dark:bg-zinc-950 sm:px-6 sm:py-10">
+      <div className="mx-auto w-full max-w-2xl space-y-4">
+        <div className="h-8 w-64 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
+        <div className="h-40 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+      </div>
+    </main>
+  );
+}
+
+function NewAssignmentWizard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Arriving from a portal lesson page: /teacher/assignments/new?lessonUuid=…&studentId=…
+  //
+  // Both were previously ignored, so a teacher who clicked "create drilling assignment"
+  // for one student landed on an empty picker and had to find them again among 656
+  // names. WizardWho drops an id that is not on the roster.
+  const initialStudentIds = useMemo(() => {
+    const raw = Number(searchParams.get('studentId'));
+    return Number.isInteger(raw) && raw > 0 ? [raw] : [];
+  }, [searchParams]);
+  const initialLessonUuid = searchParams.get('lessonUuid');
 
   const [step, setStep] = useState<Step>('who');
   const [who, setWho] = useState<WizardWhoValue | null>(null);
@@ -125,51 +161,117 @@ export default function NewAssignmentPage() {
     }
   }, [assignmentUuid, router]);
 
+  const stepLabels: { key: Step; label: string }[] = [
+    { key: 'who', label: 'Who' },
+    { key: 'what', label: 'What' },
+    { key: 'how', label: 'How' },
+  ];
+  const currentIndex = stepLabels.findIndex((s) => s.key === step);
+
   return (
-    <main>
-      <h1>New drilling assignment</h1>
-      {error ? <p role="alert">{error}</p> : null}
+    <main className="min-h-full bg-zinc-50 px-4 py-8 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6 sm:py-10">
+      <div className="mx-auto w-full max-w-2xl space-y-6">
+        <header>
+          <h1 className="text-2xl font-semibold">New drilling assignment</h1>
+          <ol className="mt-3 flex flex-wrap gap-2 text-xs">
+            {stepLabels.map((s, i) => (
+              <li
+                key={s.key}
+                aria-current={s.key === step ? 'step' : undefined}
+                className={`rounded-full px-3 py-1 ${
+                  i === currentIndex || step === 'generating'
+                    ? 'bg-sky-600 text-white'
+                    : i < currentIndex
+                      ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200'
+                      : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+                }`}
+              >
+                {i + 1}. {s.label}
+              </li>
+            ))}
+          </ol>
+        </header>
 
-      {step === 'who' ? (
-        <WizardWho
-          students={students}
-          groups={groups}
-          onNext={(value) => {
-            setWho(value);
-            setStep('what');
-          }}
-        />
-      ) : null}
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+          >
+            {error}
+          </p>
+        ) : null}
 
-      {step === 'what' ? (
-        <WizardWhat
-          topics={topics}
-          onNext={(value) => {
-            setWhat(value);
-            setStep('how');
-          }}
-        />
-      ) : null}
+        {step === 'who' ? (
+          students.length === 0 && !error ? (
+            // Loading skeleton: the roster is one call away and a bare page reads as broken.
+            <div className="space-y-2" aria-busy="true" aria-label="Loading your students">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-10 animate-pulse rounded-md bg-zinc-200 dark:bg-zinc-800"
+                />
+              ))}
+            </div>
+          ) : (
+            <WizardWho
+              students={students}
+              groups={groups}
+              initialStudentIds={initialStudentIds}
+              initialLessonUuid={initialLessonUuid}
+              onNext={(value) => {
+                setWho(value);
+                setStep('what');
+              }}
+            />
+          )
+        ) : null}
 
-      {step === 'how' ? (
-        <section>
-          <h2>How should it be built?</h2>
-          <button type="button" onClick={generate}>
-            Generate new
-          </button>
-          <button type="button" onClick={() => router.push('/teacher/assignments/library')}>
-            Pick from library
-          </button>
-        </section>
-      ) : null}
+        {step === 'what' ? (
+          <WizardWhat
+            topics={topics}
+            onNext={(value) => {
+              setWhat(value);
+              setStep('how');
+            }}
+          />
+        ) : null}
 
-      {step === 'generating' && assignmentUuid ? (
-        <GenerationProgress
-          assignmentUuid={assignmentUuid}
-          onReady={onReady}
-          onRetry={generate}
-        />
-      ) : null}
+        {step === 'how' ? (
+          <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+            <h2 className="text-lg font-semibold">How should it be built?</h2>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                className="flex-1 rounded-md bg-sky-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-sky-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                onClick={generate}
+              >
+                Generate new
+                <span className="mt-0.5 block text-xs font-normal opacity-90">
+                  The AI writes sentences for this topic
+                </span>
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-md border border-zinc-300 px-4 py-3 text-sm font-medium transition-colors hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                onClick={() => router.push('/teacher/assignments/library')}
+              >
+                Pick from library
+                <span className="mt-0.5 block text-xs font-normal text-zinc-500">
+                  Reuse a set you or a colleague approved
+                </span>
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        {step === 'generating' && assignmentUuid ? (
+          <GenerationProgress
+            assignmentUuid={assignmentUuid}
+            onReady={onReady}
+            onRetry={generate}
+          />
+        ) : null}
+      </div>
     </main>
   );
 }
