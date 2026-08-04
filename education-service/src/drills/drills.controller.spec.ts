@@ -25,7 +25,13 @@ function harness() {
     assignFromSet: jest.fn(async () => ({ assignments: [] })),
     getForTeacher: jest.fn(async () => ({ uuid: 'a-1' })),
   };
-  const roster: any = { listForTeacher: jest.fn(async () => ({ students: [], groups: [] })) };
+  const roster: any = {
+    listForTeacher: jest.fn(async () => ({ students: [], groups: [] })),
+    listForLesson: jest.fn(async () => ({ students: [], groups: [], total: 0, hasMore: false, teacherId: 182 })),
+  };
+  const sets: any = {
+    getSet: jest.fn(async () => ({ uuid: 's-1', title: 'Present perfect', items: [] })),
+  };
 
   return {
     controller: new DrillsController(
@@ -35,6 +41,7 @@ function harness() {
       identity,
       teacherAssignments,
       roster,
+      sets,
     ),
     internal: new InternalDrillsController(assignments),
     runner,
@@ -43,6 +50,7 @@ function harness() {
     identity,
     teacherAssignments,
     roster,
+    sets,
   };
 }
 
@@ -235,5 +243,35 @@ describe('DrillsController — teacher write routes', () => {
     expect(names.indexOf('teacherStudents')).toBeLessThan(names.indexOf('getOne'));
     expect(names.indexOf('teacherSummary')).toBeLessThan(names.indexOf('getOne'));
     expect(names.indexOf('generate')).toBeLessThan(names.indexOf('getOne'));
+  });
+
+  /**
+   * The review screen needs a set WITH answers — that is what reviewing is. Those live on
+   * content-service behind `internal/drill-sets/:uuid`, which the gateway gates on
+   * `x-internal-token`, a credential no browser may hold. So the teacher screen 404'd.
+   *
+   * It cannot simply be made public on content-service: that service has no auth guard
+   * and the gateway validates a token without checking any role, so a public prefix there
+   * would let any authenticated student harvest the answer bank. Proxying through this
+   * controller adds the staff check the other path lacks.
+   */
+  describe('teacherSet', () => {
+    it('returns the set with its answers for a staff caller', async () => {
+      const h = harness();
+
+      const result = await h.controller.teacherSet('s-1', req(staff()));
+
+      expect(h.sets.getSet).toHaveBeenCalledWith('s-1', expect.anything());
+      expect(result).toMatchObject({ uuid: 's-1' });
+    });
+
+    it('refuses a student, who must never read the answer bank', async () => {
+      const h = harness();
+
+      await expect(h.controller.teacherSet('s-1', req(student('u-42')))).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(h.sets.getSet).not.toHaveBeenCalled();
+    });
   });
 });

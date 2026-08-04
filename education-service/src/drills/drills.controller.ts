@@ -22,12 +22,14 @@ import { SelfDrillService } from './runner/self-drill.service';
 import { DrillAssignmentsService } from './runner/assignments.service';
 import { TeacherAssignmentsService } from './teacher/teacher-assignments.service';
 import { TeacherRosterService } from './teacher/roster.service';
+import { ContentClient } from './orchestration/content.client';
 import {
   AssignFromSetRequest,
   AssignFromSetResponse,
   CheckBlankRequest,
   CheckBlankResponse,
   DrillAssignmentDTO,
+  DrillSetDetailDTO,
   DrillTeacherRosterResponse,
   GenerateAssignmentsRequest,
   GenerateAssignmentsResponse,
@@ -66,6 +68,7 @@ export class DrillsController {
     @Inject(DRILL_IDENTITY_RESOLVER) private readonly identity: DrillIdentityResolver,
     private readonly teacherAssignments: TeacherAssignmentsService,
     private readonly roster: TeacherRosterService,
+    private readonly sets: ContentClient,
   ) {}
 
   /** The student's own assignment list. */
@@ -210,6 +213,28 @@ export class DrillsController {
     this.assertStaff(req);
     const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
     return this.teacherAssignments.getForTeacher(uuid, teacherId);
+  }
+
+  /**
+   * A drill set with its answers, for the teacher review screen.
+   *
+   * Proxies content-service's `internal/drill-sets/:uuid`, which the gateway gates on
+   * `x-internal-token` — a credential a browser cannot hold, so the review screen 404'd
+   * against the public path.
+   *
+   * The route cannot simply be exposed on content-service: that service has no auth
+   * guard, and the gateway validates a token without checking any role, so a public
+   * prefix there would let any authenticated student read the answer bank. Here the
+   * staff check happens first, and the service's own internal token is used for the
+   * upstream hop.
+   */
+  @Get('teacher/sets/:setUuid')
+  async teacherSet(
+    @Param('setUuid') setUuid: string,
+    @Req() req: Request,
+  ): Promise<DrillSetDetailDTO> {
+    this.assertStaff(req);
+    return this.sets.getSet(setUuid, this.bearer(req));
   }
 
   private assertStaff(req: Request): void {

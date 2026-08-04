@@ -151,8 +151,16 @@ export function listSets(query: DrillSetListQuery): Promise<DrillSetListResponse
   return request(`/drill-sets${queryString(query as Query)}`);
 }
 
+/**
+ * A set with its answers, for the review screen.
+ *
+ * Goes through education-service rather than content-service's own `drill-sets/:uuid`:
+ * the detail route there carries answers and lives behind `internal/`, which the gateway
+ * gates on a token no browser holds — calling it from here 404'd. education-service
+ * checks the caller is staff first, then makes the internal hop itself.
+ */
 export function getSet(uuid: string): Promise<DrillSetDetailDTO> {
-  return request(`/drill-sets/${encodeURIComponent(uuid)}`);
+  return request(`/drill-assignments/teacher/sets/${encodeURIComponent(uuid)}`);
 }
 
 export function updateSetItem(

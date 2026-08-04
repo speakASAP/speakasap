@@ -179,10 +179,14 @@ describe('reads', () => {
     expect(urlOf(f)).toContain('/drill-assignments/a-1');
   });
 
-  it('gets one set', async () => {
+  it('gets one set through education-service, not content-service directly', async () => {
+    // content-service's own `drill-sets/:uuid` carries answers and sits behind the
+    // gateway's internal-token prefix, which a browser cannot satisfy — calling it from
+    // here 404'd the review screen. education-service checks the caller is staff and
+    // makes the internal hop itself.
     const f = okFetch({ uuid: 's-1' });
     await getSet('s-1');
-    expect(urlOf(f)).toContain('/drill-sets/s-1');
+    expect(urlOf(f)).toContain('/drill-assignments/teacher/sets/s-1');
   });
 
   it('lists topics for a language pair', async () => {
