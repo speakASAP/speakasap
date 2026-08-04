@@ -6,6 +6,12 @@ import { GenerationJobRepository } from './job-runner.service';
 import { numericEnv, requestUpstream, requiredEnv } from './http';
 
 /**
+ * The name auth-microservice's TRUSTED_INTERNAL_SERVICES allowlist is keyed on.
+ * Mirrors auth-client.service.ts; see the note in resolveStudentId.
+ */
+const AUTH_CALLER_NAME = 'education-service';
+
+/**
  * Track D's implementations of the boundaries Track B2 left unbound.
  *
  * B2 declared them as interfaces and deliberately did not provide them, so the module
@@ -124,14 +130,39 @@ export class DrillIdentityResolverAdapter {
 
     let response: { legacyUserId?: unknown };
     try {
-      response = await requestUpstream<{ legacyUserId?: unknown }>({
-        url: `${base}/internal/users/by-auth-user?${query}`,
-        method: 'GET',
-        token: requiredEnv('INTERNAL_API_TOKEN', 'auth-microservice'),
-        internalToken: requiredEnv('INTERNAL_API_TOKEN', 'auth-microservice'),
-        timeoutMs: numericEnv('AUTH_SERVICE_TIMEOUT', 10000),
-        upstream: 'auth-microservice',
-      });
+      // Deliberately NOT requestUpstream: that helper sends `x-internal-token`, the
+      // api-gateway's convention, which is correct for content-service and ai-microservice
+      // but wrong for auth. auth-microservice's InternalServiceGuard reads
+      // `x-internal-service-token` against INTERNAL_SERVICE_TOKEN, plus `x-service-name`
+      // against the TRUSTED_INTERNAL_SERVICES allowlist.
+      //
+      // Sending the gateway's convention here 401'd every call, and because this resolver
+      // fails closed, the teacher wizard rendered "Request failed with status 503" with an
+      // empty student list. Same class of mix-up as the 2026-08-03 Finding 4.
+      const controller = new AbortController();
+      const timer = setTimeout(
+        () => controller.abort(),
+        numericEnv('AUTH_SERVICE_TIMEOUT', 10000),
+      );
+      try {
+        const res = await fetch(`${base}/internal/users/by-auth-user?${query}`, {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            'x-internal-service-token': requiredEnv('INTERNAL_SERVICE_TOKEN', 'auth-microservice'),
+            // A constant, not process.env.SERVICE_NAME: that is the K8s deployment name
+            // `speakasap-education`, while the allowlist is keyed on `education-service`.
+            'x-service-name': AUTH_CALLER_NAME,
+          },
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          throw new Error(`by-auth-user failed with status ${res.status}`);
+        }
+        response = (await res.json()) as { legacyUserId?: unknown };
+      } finally {
+        clearTimeout(timer);
+      }
     } catch (error) {
       // Covers 404 (no mapping), 409 (ambiguous — a duplicate-account data defect) and
       // transport failures alike. They are distinguished in the log, never in the
