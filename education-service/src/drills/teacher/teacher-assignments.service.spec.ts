@@ -375,4 +375,47 @@ describe('TeacherAssignmentsService.getForTeacher', () => {
     expect(JSON.stringify(dto)).not.toContain('0.62');
     expect(dto).not.toHaveProperty('firstTryAccuracy');
   });
+
+  /**
+   * An assignment is attributed to the lesson's Teacher profile pk (182), while the
+   * caller's JWT resolves to their legacy user id (3). Both identify the same person, and
+   * this service cannot map between them — `employees_teacher` lives in the portal's
+   * database. So ownership accepts either id rather than 404ing the teacher out of their
+   * own review screen.
+   */
+  describe('ownership across both teacher id spaces', () => {
+    it('accepts the Teacher profile pk', async () => {
+      const h = harness();
+      h.prisma.drillAssignment.findUnique.mockResolvedValue({
+        uuid: 'a-1', teacherId: 182, studentId: 3, items: [], status: 'PENDING_REVIEW',
+        resourceLinks: [], generationProgress: null, createdAt: new Date(),
+      });
+
+      await expect(h.service.getForTeacher('a-1', [182, 3])).resolves.toMatchObject({
+        uuid: 'a-1',
+      });
+    });
+
+    it('accepts the legacy user id for the same person', async () => {
+      const h = harness();
+      h.prisma.drillAssignment.findUnique.mockResolvedValue({
+        uuid: 'a-1', teacherId: 3, studentId: 3, items: [], status: 'PENDING_REVIEW',
+        resourceLinks: [], generationProgress: null, createdAt: new Date(),
+      });
+
+      await expect(h.service.getForTeacher('a-1', [182, 3])).resolves.toMatchObject({
+        uuid: 'a-1',
+      });
+    });
+
+    it('still refuses another teacher\'s assignment', async () => {
+      const h = harness();
+      h.prisma.drillAssignment.findUnique.mockResolvedValue({
+        uuid: 'a-1', teacherId: 999, studentId: 3, items: [], status: 'PENDING_REVIEW',
+        resourceLinks: [], generationProgress: null,
+      });
+
+      await expect(h.service.getForTeacher('a-1', [182, 3])).rejects.toThrow(NotFoundException);
+    });
+  });
 });

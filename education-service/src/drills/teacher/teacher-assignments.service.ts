@@ -263,14 +263,36 @@ export class TeacherAssignmentsService {
    * This is what the wizard polls for `generationProgress`, so it must be readable while
    * the assignment is still GENERATING and has no items.
    */
-  async getForTeacher(assignmentUuid: string, teacherId: number): Promise<DrillAssignmentDTO> {
+  /**
+   * `teacherIds` is a list because the same teacher exists under two ids: the legacy
+   * Teacher profile pk that `Lesson.teacherId` and new assignments carry (182), and the
+   * legacy user id the caller's JWT resolves to (3). This service cannot map one to the
+   * other — `employees_teacher` lives in the portal's database — so ownership accepts
+   * either rather than 404ing a teacher out of their own review screen.
+   */
+  /** The lesson an assignment belongs to, for resolving which teacher owns it. */
+  async lessonUuidFor(assignmentUuid: string): Promise<string | null> {
+    const row = await this.prisma.drillAssignment.findUnique({
+      where: { uuid: assignmentUuid },
+      select: { lessonUuid: true },
+    });
+    return row?.lessonUuid ?? null;
+  }
+
+  async getForTeacher(
+    assignmentUuid: string,
+    teacherIds: number | number[],
+  ): Promise<DrillAssignmentDTO> {
+    const allowed = (Array.isArray(teacherIds) ? teacherIds : [teacherIds]).filter(
+      (id): id is number => Number.isInteger(id),
+    );
     const row = await this.prisma.drillAssignment.findUnique({
       where: { uuid: assignmentUuid },
       include: { items: { select: { uuid: true } } },
     });
     // Same 404 for missing and not-yours, matching the runner: distinguishing them
     // confirms another teacher's assignment exists.
-    if (!row || row.teacherId !== teacherId) {
+    if (!row || row.teacherId === null || !allowed.includes(row.teacherId)) {
       throw new NotFoundException('Drill assignment not found');
     }
     const counts = await this.assignments.countBlanks(assignmentUuid);

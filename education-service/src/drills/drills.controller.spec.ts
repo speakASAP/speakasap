@@ -24,6 +24,7 @@ function harness() {
     generate: jest.fn(async () => ({ assignmentUuids: ['a-1'], setUuid: 's-1', batchUuid: 'b-1' })),
     assignFromSet: jest.fn(async () => ({ assignments: [] })),
     getForTeacher: jest.fn(async () => ({ uuid: 'a-1' })),
+    lessonUuidFor: jest.fn(async () => null),
   };
   const roster: any = {
     listForTeacher: jest.fn(async () => ({ students: [], groups: [] })),
@@ -210,7 +211,8 @@ describe('DrillsController — teacher write routes', () => {
     it('returns the assignment for its teacher', async () => {
       const res = await h.controller.getOne('a-1', withToken(staff()));
       expect(res).toMatchObject({ uuid: 'a-1' });
-      expect(h.teacherAssignments.getForTeacher).toHaveBeenCalledWith('a-1', 42);
+      // An array now: ownership accepts the legacy user id and the lesson's Teacher pk.
+    expect(h.teacherAssignments.getForTeacher).toHaveBeenCalledWith('a-1', [42]);
     });
 
     it('is refused for a student', async () => {
@@ -272,6 +274,69 @@ describe('DrillsController — teacher write routes', () => {
         ForbiddenException,
       );
       expect(h.sets.getSet).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * `Lesson.teacherId` is the legacy **Teacher profile pk** (182); `resolveStudentId`
+   * returns the **user id** (3). Storing the user id in `DrillAssignment.teacherId` made
+   * that column mean something different from the identically-named one on Lesson — two
+   * id spaces in one database, waiting to be joined by accident.
+   *
+   * When the request names a lesson, the teacher is taken from the lesson itself, which
+   * is authoritative and needs no cross-database mapping.
+   */
+  describe('teacher id on the write path', () => {
+    it('attributes a generated assignment to the lesson teacher, not the user id', async () => {
+      const h = harness();
+
+      await h.controller.generate(
+        { studentIds: [3], lessonUuid: 'l-1', topics: [], instructions: '', count: 3 } as any,
+        req(staff()),
+      );
+
+      expect(h.roster.listForLesson).toHaveBeenCalledWith('l-1');
+      expect(h.teacherAssignments.generate).toHaveBeenCalledWith(
+        182,
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it('falls back to the resolved user id when no lesson is named', async () => {
+      // Without a lesson there is nothing authoritative to read the teacher pk from, so
+      // the previous behaviour stands rather than guessing.
+      const h = harness();
+
+      await h.controller.generate(
+        { studentIds: [3], lessonUuid: null, topics: [], instructions: '', count: 3 } as any,
+        req(staff()),
+      );
+
+      expect(h.roster.listForLesson).not.toHaveBeenCalled();
+      expect(h.teacherAssignments.generate).toHaveBeenCalledWith(
+        42,
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it('falls back when the lesson has no teacher recorded', async () => {
+      const h = harness();
+      h.roster.listForLesson.mockResolvedValue({
+        students: [], groups: [], total: 0, hasMore: false, teacherId: null,
+      });
+
+      await h.controller.generate(
+        { studentIds: [3], lessonUuid: 'l-1', topics: [], instructions: '', count: 3 } as any,
+        req(staff()),
+      );
+
+      expect(h.teacherAssignments.generate).toHaveBeenCalledWith(
+        42,
+        expect.anything(),
+        expect.anything(),
+      );
     });
   });
 });

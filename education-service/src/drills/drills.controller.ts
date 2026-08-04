@@ -91,7 +91,7 @@ export class DrillsController {
     @Req() req: Request,
   ): Promise<GenerateAssignmentsResponse> {
     this.assertStaff(req);
-    const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
+    const teacherId = await this.resolveTeacherId(req, body?.lessonUuid ?? null);
     return this.teacherAssignments.generate(teacherId, body, this.bearer(req));
   }
 
@@ -103,7 +103,7 @@ export class DrillsController {
     @Req() req: Request,
   ): Promise<AssignFromSetResponse> {
     this.assertStaff(req);
-    const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
+    const teacherId = await this.resolveTeacherId(req, body?.lessonUuid ?? null);
     return this.teacherAssignments.assignFromSet(teacherId, body, this.bearer(req));
   }
 
@@ -211,8 +211,14 @@ export class DrillsController {
     @Req() req: Request,
   ): Promise<DrillAssignmentDTO> {
     this.assertStaff(req);
-    const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
-    return this.teacherAssignments.getForTeacher(uuid, teacherId);
+    // Both id spaces: assignments created before the lesson-teacher fix carry the legacy
+    // user id, newer ones carry the Teacher profile pk. Same person either way.
+    const userId = await this.identity.resolveStudentId(req.authUser!.id);
+    const lessonTeacherId = await this.teacherIdForAssignment(uuid);
+    return this.teacherAssignments.getForTeacher(
+      uuid,
+      lessonTeacherId === null ? [userId] : [userId, lessonTeacherId],
+    );
   }
 
   /**
@@ -235,6 +241,46 @@ export class DrillsController {
   ): Promise<DrillSetDetailDTO> {
     this.assertStaff(req);
     return this.sets.getSet(setUuid, this.bearer(req));
+  }
+
+  /**
+   * The id to attribute an assignment to.
+   *
+   * `Lesson.teacherId` is the legacy **Teacher profile pk** (182 for the user whose auth
+   * id resolves to 3), so storing `resolveStudentId`'s answer made
+   * `DrillAssignment.teacherId` mean something different from the identically-named
+   * column on Lesson — two id spaces in one database.
+   *
+   * When a lesson is named it is authoritative and needs no cross-database mapping.
+   * Without one there is nothing to read the profile pk from, so the previous behaviour
+   * stands rather than guessing: `employees_teacher` lives in the portal's database,
+   * which this service cannot reach.
+   */
+  private async resolveTeacherId(req: Request, lessonUuid: string | null): Promise<number> {
+    if (lessonUuid) {
+      const scoped = await this.roster.listForLesson(lessonUuid);
+      if (scoped.teacherId) {
+        return scoped.teacherId;
+      }
+      this.logger.warn(
+        `Lesson ${lessonUuid} records no teacher; attributing to the caller's legacy user id`,
+      );
+    }
+    return this.identity.resolveStudentId(req.authUser!.id);
+  }
+
+  /**
+   * The Teacher profile pk recorded on the assignment's lesson, if it has one. Lets
+   * ownership accept an assignment attributed to the lesson teacher as well as one
+   * attributed to the caller's legacy user id.
+   */
+  private async teacherIdForAssignment(assignmentUuid: string): Promise<number | null> {
+    const lessonUuid = await this.teacherAssignments.lessonUuidFor(assignmentUuid);
+    if (!lessonUuid) {
+      return null;
+    }
+    const scoped = await this.roster.listForLesson(lessonUuid);
+    return scoped.teacherId ?? null;
   }
 
   private assertStaff(req: Request): void {
