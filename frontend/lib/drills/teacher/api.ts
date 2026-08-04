@@ -11,6 +11,7 @@ import type {
   DrillSetListQuery,
   DrillSetListResponse,
   DrillTeacherRosterResponse,
+  InternalTeacherAssignmentsResponse,
   DrillTopicDTO,
   GenerateAssignmentsRequest,
   GenerateAssignmentsResponse,
@@ -210,6 +211,13 @@ export function rateSet(setUuid: string, value: number): Promise<DrillSetDTO> {
     method: 'POST',
     body: { value },
   });
+}
+
+/**
+ * The teacher's own drilling summary: counts plus the sets waiting on their review.
+ */
+export function getTeacherSummary(): Promise<InternalTeacherAssignmentsResponse> {
+  return request('/drill-assignments/teacher/summary');
 }
 
 export function listTopics(

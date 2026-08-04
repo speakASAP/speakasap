@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DrillApiError,
   approveSet,
+  getTeacherSummary,
   assignFromSet,
   deleteSetItem,
   generateAssignments,
@@ -206,5 +207,15 @@ describe('reads', () => {
     const f = okFetch({ students: [], groups: [] });
     await expect(listTeacherStudents()).resolves.toEqual({ students: [], groups: [] });
     expect(urlOf(f)).toContain('/drill-assignments/teacher/students');
+  });
+
+  /**
+   * Approving redirected to /teacher/assignments, which was never built — a plain Next
+   * 404 with no way back. The page needs the teacher's own summary.
+   */
+  it('gets the teacher summary', async () => {
+    const f = okFetch({ awaitingReview: 0, assigned: 0, completedThisWeek: 0, reviewQueue: [] });
+    await getTeacherSummary();
+    expect(urlOf(f)).toContain('/drill-assignments/teacher/summary');
   });
 });
