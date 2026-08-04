@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import type { DrillSetDetailDTO } from '@/lib/drills/contracts';
 import {
   DrillApiError,
@@ -11,6 +11,7 @@ import {
   regenerateItems,
   updateSetItem,
 } from '@/lib/drills/teacher/api';
+import { safeReturnUrl } from '@/lib/drills/teacher/safe-return-url';
 import { ReviewList } from '@/lib/drills/teacher/ReviewList';
 import type { ReviewItemData } from '@/lib/drills/teacher/ReviewItem';
 
@@ -24,6 +25,7 @@ import type { ReviewItemData } from '@/lib/drills/teacher/ReviewItem';
 export default function ReviewPage() {
   const params = useParams<{ uuid: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [set, setSet] = useState<DrillSetDetailDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +63,15 @@ export default function ReviewPage() {
     setError(null);
     try {
       await approveSet(set.uuid);
+      // Back where the teacher came from, when the portal told us: they opened this
+      // from a student's lesson page and expect to land back on that card, not on a
+      // platform index they never asked for. Absolute, because it is another host —
+      // and only honoured for the hosts we know.
+      const returnTo = safeReturnUrl(searchParams.get('returnTo'));
+      if (returnTo) {
+        window.location.href = returnTo;
+        return;
+      }
       router.push('/teacher/assignments');
     } catch (e) {
       // UNRESOLVED_VALIDATION_FAILURES is the server re-checking what the button already
