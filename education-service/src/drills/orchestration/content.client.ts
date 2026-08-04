@@ -172,6 +172,22 @@ export class ContentClient {
    * this route — that decision belongs to the approve route, which is where the "no
    * item is still FAIL" check lives.
    */
+  /**
+   * Approve a set for assignment. `teacherId` is supplied by the caller of this method,
+   * never taken from a browser request body — the route it wraps trusts it outright.
+   */
+  async approveSet(setUuid: string, teacherId: number, token: string): Promise<unknown> {
+    return requestUpstream<unknown>({
+      url: `${this.baseUrl()}/api/v1/internal/drill-sets/${encodeURIComponent(setUuid)}/approve`,
+      method: 'POST',
+      body: { teacherId },
+      token,
+      internalToken: this.internalToken(),
+      timeoutMs: this.timeoutMs(),
+      upstream: UPSTREAM,
+    });
+  }
+
   async updateSet(
     setUuid: string,
     patch: { reviewState?: DrillSetReviewState },

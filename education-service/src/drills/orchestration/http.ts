@@ -1,4 +1,4 @@
-import { ServiceUnavailableException } from '@nestjs/common';
+import { Logger, ServiceUnavailableException } from '@nestjs/common';
 
 export interface UpstreamRequest {
   /** Absolute URL, already query-encoded. */
@@ -25,7 +25,15 @@ export interface UpstreamRequest {
  * has no items", after which the orchestrator generates a full set of AI items
  * nobody asked for and bills the owner for it.
  */
+/**
+ * Every cross-service call in the generation pipeline goes through here, so this is the
+ * only place a hang or a slow upstream can be seen. Without it a stuck run showed nothing
+ * at all in the logs — which is exactly what happened to the first two drill jobs.
+ */
+const upstreamLogger = new Logger('UpstreamRequest');
+
 export async function requestUpstream<T>(req: UpstreamRequest): Promise<T> {
+  const startedAt = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), req.timeoutMs);
 
@@ -55,6 +63,9 @@ export async function requestUpstream<T>(req: UpstreamRequest): Promise<T> {
     const reason = controller.signal.aborted
       ? `timed out after ${req.timeoutMs}ms`
       : (error as Error).message;
+    upstreamLogger.error(
+      `${req.method} ${req.upstream} FAILED after ${Date.now() - startedAt}ms — ${reason} (${req.url})`,
+    );
     throw new ServiceUnavailableException(`${req.upstream} request failed: ${reason}`);
   } finally {
     clearTimeout(timer);
@@ -62,11 +73,17 @@ export async function requestUpstream<T>(req: UpstreamRequest): Promise<T> {
 
   if (!res.ok) {
     const detail = await safeText(res);
+    upstreamLogger.error(
+      `${req.method} ${req.upstream} responded ${res.status} after ${Date.now() - startedAt}ms (${req.url})${detail ? ` — ${detail}` : ''}`,
+    );
     throw new ServiceUnavailableException(
       `${req.upstream} responded ${res.status}${detail ? `: ${detail}` : ''}`,
     );
   }
 
+  upstreamLogger.log(
+    `${req.method} ${req.upstream} ${res.status} in ${Date.now() - startedAt}ms (${req.url})`,
+  );
   return (await res.json()) as T;
 }
 

@@ -1,4 +1,8 @@
-import { DrillIdentityResolverAdapter, StudentProgressClientAdapter } from './adapters';
+import {
+  DrillIdentityResolverAdapter,
+  GenerationJobRepositoryAdapter,
+  StudentProgressClientAdapter,
+} from './adapters';
 
 describe('DrillIdentityResolverAdapter', () => {
   const fetchMock = jest.fn();
@@ -156,5 +160,53 @@ describe('StudentProgressClientAdapter', () => {
     await new StudentProgressClientAdapter(prisma as any).getStudentProgress(42);
 
     expect(prisma.lesson.findFirst.mock.calls[0][0].where.isFinished).toBe(true);
+  });
+});
+
+/**
+ * A generation that finished successfully left the assignment in GENERATING forever:
+ * `updateProgress` wrote the progress blob and never touched `status`, and `cancel` was
+ * the only method that did. The teacher saw "Ready, 10 of 10" on a row still marked as
+ * generating, and it never reached their review queue, which counts PENDING_REVIEW.
+ */
+describe('GenerationJobRepositoryAdapter status transitions', () => {
+  function harness() {
+    const update: jest.Mock = jest.fn(async () => ({}));
+    const prisma: any = { drillAssignment: { update } };
+    return { adapter: new GenerationJobRepositoryAdapter(prisma), update };
+  }
+
+  const progress = (phase: string, generated = 10, total = 10) => ({
+    phase, generated, total, etaSeconds: null, message: 'x', stalled: false,
+  }) as any;
+
+  it('moves the assignment to PENDING_REVIEW when the run reaches READY', async () => {
+    const h = harness();
+
+    await h.adapter.updateProgress('a-1', progress('READY'));
+
+    expect(h.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'PENDING_REVIEW' }),
+      }),
+    );
+  });
+
+  it('leaves the status alone while the run is still in flight', async () => {
+    const h = harness();
+
+    await h.adapter.updateProgress('a-1', progress('VALIDATING', 4));
+
+    const data = (h.update.mock.calls[0] as any[])[0].data;
+    expect(data.status).toBeUndefined();
+    expect(data.generationProgress).toBeDefined();
+  });
+
+  it('does not mark a FAILED run as ready for review', async () => {
+    const h = harness();
+
+    await h.adapter.updateProgress('a-1', progress('FAILED', 0, 10));
+
+    expect((h.update.mock.calls[0] as any[])[0].data.status).toBeUndefined();
   });
 });

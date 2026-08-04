@@ -107,6 +107,10 @@ export class GenerationService {
     this.summary = null;
     let generateCalls = 0;
 
+    this.logger.log(
+      `Generation start: set=${job.setUuid} assignments=${job.assignmentUuids.length} requested=${job.itemCount} lang=${job.languageCode}/${job.materialLanguage} topics=${(job.topics ?? []).length}`,
+    );
+
     try {
       await this.report(job, 'RESOLVING', 0, job.itemCount, 'Resolving topics and student progress');
       const baseline = await this.resolveBaseline(job);
@@ -128,6 +132,11 @@ export class GenerationService {
 
       const candidates: Candidate[] = bank.items.map((item) => toBankCandidate(item));
       const seenHashes = new Set<string>(bank.items.map((i) => i.hash));
+      // The bank covering the request is the cheap path and looks identical to a stall
+      // from outside, so say how many it covered.
+      this.logger.log(
+        `Generation bank: set=${job.setUuid} reusable=${candidates.length}/${job.itemCount} shortfall=${Math.max(0, job.itemCount - candidates.length)}`,
+      );
 
       // Only when short. A bank that covers the request costs nothing and needs no model.
       let attempt = 0;
@@ -142,6 +151,9 @@ export class GenerationService {
         );
 
         generateCalls++;
+        this.logger.log(
+          `Generation model call ${generateCalls}/${MAX_GENERATION_ATTEMPTS}: set=${job.setUuid} asking=${shortfall}`,
+        );
         const generated = await this.ai.generate(
           {
             languageCode: job.languageCode,
@@ -274,7 +286,12 @@ export class GenerationService {
       // Deliberately does NOT create a partial set on failure: a half-built set sitting
       // in a teacher's review queue looks exactly like a finished one.
       const message = (error as Error).message || 'Generation failed';
-      this.logger.error(`Generation failed: set=${job.setUuid} — ${message}`);
+      // Stack included: the message alone ("Request failed with status 500") does not say
+      // which upstream produced it, and this is the one place the whole run can fail.
+      this.logger.error(
+        `Generation failed: set=${job.setUuid} generateCalls=${generateCalls} latencyMs=${Date.now() - started} — ${message}`,
+        (error as Error).stack,
+      );
       await this.report(job, 'FAILED', 0, job.itemCount, message);
     }
   }
@@ -334,6 +351,13 @@ export class GenerationService {
     total: number,
     message: string,
   ): Promise<void> {
+    // Logged on every transition, not only at the end: a run that hangs leaves its last
+    // phase in the log, which is the only way to tell "stuck resolving the bank" from
+    // "stuck waiting on the model". Progress lives in a JSON column that a later phase
+    // overwrites, so without this the previous phases are unrecoverable.
+    this.logger.log(
+      `Generation phase=${phase} set=${job.setUuid} assignments=${job.assignmentUuids.length} ${generated}/${total} — ${message}`,
+    );
     await this.progress.update(job.assignmentUuids, {
       phase,
       generated,

@@ -283,6 +283,26 @@ export class DrillsController {
     return scoped.teacherId ?? null;
   }
 
+  /**
+   * Approve a set, for the teacher review screen.
+   *
+   * Proxies content-service's `internal/drill-sets/:uuid/approve`, which the gateway
+   * gates on `x-internal-token` — the browser called the public path and got a bare 404
+   * with nothing on screen.
+   *
+   * That route trusts `teacherId` from its body outright, so the value comes from this
+   * service's own resolution of the caller. Accepting it from the browser would let a
+   * teacher approve a set in someone else's name.
+   */
+  @Post('teacher/sets/:setUuid/approve')
+  @HttpCode(HttpStatus.OK)
+  async approveSet(@Param('setUuid') setUuid: string, @Req() req: Request): Promise<unknown> {
+    this.assertStaff(req);
+    const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
+    this.logger.log(`Approving set ${setUuid} for teacher ${teacherId}`);
+    return this.sets.approveSet(setUuid, teacherId, this.bearer(req));
+  }
+
   private assertStaff(req: Request): void {
     if (!isStaffUser(req.authUser)) {
       throw new ForbiddenException('Staff access required');

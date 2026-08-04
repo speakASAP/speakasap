@@ -94,18 +94,44 @@ export default function ReviewPage() {
   };
 
   return (
-    <main>
-      <h1>{set ? set.title : 'Review'}</h1>
-      {error ? <p role="alert">{error}</p> : null}
-      {loading ? <p>Loading…</p> : null}
-      {set ? (
-        <ReviewList
-          items={items}
-          onApprove={() => void approve()}
-          onRegenerate={(ids) => void regenerate(ids)}
-          onOverride={(id) => void override(id)}
-        />
-      ) : null}
+    <main className="min-h-full bg-zinc-50 px-4 py-8 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6 sm:py-10">
+      <div className="mx-auto w-full max-w-2xl space-y-5">
+        <button
+          type="button"
+          className="text-sm text-sky-700 underline hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-sky-400"
+          onClick={() => router.back()}
+        >
+          ← Back
+        </button>
+
+        <h1 className="text-2xl font-semibold">{set ? set.title : 'Review'}</h1>
+
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+          >
+            {error}
+          </p>
+        ) : null}
+
+        {loading ? (
+          <div className="space-y-2" aria-busy="true" aria-label="Loading the set">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+            ))}
+          </div>
+        ) : null}
+
+        {set ? (
+          <ReviewList
+            items={items}
+            onApprove={() => void approve()}
+            onRegenerate={(ids) => void regenerate(ids)}
+            onOverride={(id) => void override(id)}
+          />
+        ) : null}
+      </div>
     </main>
   );
 }

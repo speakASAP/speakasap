@@ -32,6 +32,7 @@ function harness() {
   };
   const sets: any = {
     getSet: jest.fn(async () => ({ uuid: 's-1', title: 'Present perfect', items: [] })),
+    approveSet: jest.fn(async () => ({ uuid: 's-1', reviewState: 'APPROVED' })),
   };
 
   return {
@@ -337,6 +338,33 @@ describe('DrillsController — teacher write routes', () => {
         expect.anything(),
         expect.anything(),
       );
+    });
+  });
+
+  /**
+   * Approve lived at content-service's `internal/drill-sets/:uuid/approve`, gated by the
+   * gateway on a token no browser holds — clicking Approve produced a bare 404 in the
+   * console and nothing on screen.
+   *
+   * It also trusts `teacherId` from the request body outright, so that value must come
+   * from the server's own resolution of the caller, never from the browser.
+   */
+  describe('approveSet', () => {
+    it('approves for a staff caller, attributing to the resolved teacher', async () => {
+      const h = harness();
+
+      await h.controller.approveSet('s-1', req(staff()));
+
+      expect(h.sets.approveSet).toHaveBeenCalledWith('s-1', 42, expect.anything());
+    });
+
+    it('refuses a student', async () => {
+      const h = harness();
+
+      await expect(h.controller.approveSet('s-1', req(student('u-9')))).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(h.sets.approveSet).not.toHaveBeenCalled();
     });
   });
 });

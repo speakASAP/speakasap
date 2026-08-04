@@ -194,8 +194,15 @@ export function regenerateItems(
   });
 }
 
+/**
+ * Approve a set. Routed through education-service for the same reason as `getSet`: the
+ * content-service route is internal-only, and it trusts `teacherId` from its body, which
+ * must therefore be resolved server-side rather than sent from here.
+ */
 export function approveSet(setUuid: string): Promise<DrillSetDTO> {
-  return request(`/drill-sets/${encodeURIComponent(setUuid)}/approve`, { method: 'POST' });
+  return request(`/drill-assignments/teacher/sets/${encodeURIComponent(setUuid)}/approve`, {
+    method: 'POST',
+  });
 }
 
 export function rateSet(setUuid: string, value: number): Promise<DrillSetDTO> {

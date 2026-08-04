@@ -203,10 +203,29 @@ export class GenerationJobRepositoryAdapter implements GenerationJobRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async updateProgress(assignmentUuid: string, progress: GenerationProgress): Promise<void> {
+    // A run that reached READY leaves GENERATING here, and nowhere else: `cancel` was the
+    // only method that touched `status`, so a *successful* generation left the assignment
+    // marked as generating forever. The teacher saw "Ready, 10 of 10" on a row still
+    // flagged as in-flight, and it never reached the review queue, which counts
+    // PENDING_REVIEW.
+    //
+    // Only READY promotes. FAILED is left alone so a failed run does not land in a
+    // teacher's queue looking reviewable.
+    const data: Record<string, unknown> = { generationProgress: progress as any };
+    if (progress.phase === 'READY') {
+      data.status = 'PENDING_REVIEW';
+    }
+
     await (this.prisma as any).drillAssignment.update({
       where: { uuid: assignmentUuid },
-      data: { generationProgress: progress as any },
+      data,
     });
+
+    if (progress.phase === 'READY') {
+      this.logger.log(
+        `Assignment ${assignmentUuid} generated ${progress.generated}/${progress.total}; status -> PENDING_REVIEW`,
+      );
+    }
   }
 
   async cancel(assignmentUuid: string, reason: string): Promise<void> {
