@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { assertTransition } from '../state-machine';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AssignmentsRepository } from '../assignments.repository';
 import { toAssignmentDTO } from '../assignment.mapper';
@@ -16,6 +17,7 @@ import {
   AssignFromSetRequest,
   AssignFromSetResponse,
   DrillAssignmentDTO,
+  DrillAssignmentStatus,
   GenerateAssignmentsRequest,
   GenerateAssignmentsResponse,
 } from '../contracts';
@@ -327,6 +329,43 @@ export class TeacherAssignmentsService {
     }
 
     return pending.length;
+  }
+
+  /**
+   * Revoke an assignment: take a drill back before, or while, a student works on it.
+   *
+   * `assertTransition` is the authority on what may be revoked — it already permits
+   * `-> CANCELLED` from every non-terminal state and refuses COMPLETED, where the student
+   * has done the work and undoing it is not this action's business.
+   *
+   * `teacherIds` carries both id spaces for the same reason as `getForTeacher`: rows
+   * created before the lesson-teacher fix hold the legacy user id, newer ones the Teacher
+   * profile pk.
+   */
+  async revokeAssignment(assignmentUuid: string, teacherIds: number | number[]): Promise<void> {
+    const allowed = (Array.isArray(teacherIds) ? teacherIds : [teacherIds]).filter(
+      (id): id is number => Number.isInteger(id),
+    );
+
+    const row = await this.prisma.drillAssignment.findUnique({
+      where: { uuid: assignmentUuid },
+      select: { uuid: true, teacherId: true, status: true },
+    });
+
+    // Same 404 for missing and not-yours, matching getForTeacher: distinguishing them
+    // confirms another teacher's assignment exists.
+    if (!row || row.teacherId === null || !allowed.includes(row.teacherId)) {
+      throw new NotFoundException('Drill assignment not found');
+    }
+
+    assertTransition(row.status as DrillAssignmentStatus, 'CANCELLED');
+
+    await this.prisma.drillAssignment.update({
+      where: { uuid: assignmentUuid },
+      data: { status: 'CANCELLED' },
+    });
+
+    this.logger.log(`Revoked assignment ${assignmentUuid} (was ${row.status})`);
   }
 
   /** The lesson an assignment belongs to, for resolving which teacher owns it. */

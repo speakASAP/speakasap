@@ -26,6 +26,7 @@ function harness() {
     getForTeacher: jest.fn(async () => ({ uuid: 'a-1' })),
     lessonUuidFor: jest.fn(async () => null),
     assignApprovedSet: jest.fn(async () => 1),
+    revokeAssignment: jest.fn(async () => undefined),
   };
   const roster: any = {
     listForTeacher: jest.fn(async () => ({ students: [], groups: [] })),
@@ -46,7 +47,7 @@ function harness() {
       roster,
       sets,
     ),
-    internal: new InternalDrillsController(assignments),
+    internal: new InternalDrillsController(assignments, teacherAssignments, sets),
     runner,
     selfDrill,
     assignments,
@@ -391,4 +392,45 @@ describe('DrillsController — teacher write routes', () => {
       expect(order).toEqual(['approve', 'assign']);
     });
   });
+
+/**
+ * The portal's write routes.
+ *
+ * `InternalTokenGuard` proves the *portal* is calling, not which teacher — the token is
+ * one shared service credential. So these take the acting teacher explicitly and the
+ * service verifies ownership: without that, anyone holding the internal token could
+ * revoke any teacher's assignment.
+ */
+describe('InternalDrillsController write routes', () => {
+  it('revokes an assignment for the teacher the portal names', async () => {
+    const h = harness();
+
+    await h.internal.revoke('a-1', { teacherId: 182 } as any);
+
+    expect(h.teacherAssignments.revokeAssignment).toHaveBeenCalledWith('a-1', [182]);
+  });
+
+  it('rejects a missing teacherId rather than revoking unattributed', async () => {
+    const h = harness();
+
+    await expect(h.internal.revoke('a-1', {} as any)).rejects.toThrow(/teacherId/);
+    expect(h.teacherAssignments.revokeAssignment).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-numeric teacherId', async () => {
+    const h = harness();
+
+    await expect(h.internal.revoke('a-1', { teacherId: 'x' } as any)).rejects.toThrow(/teacherId/);
+    expect(h.teacherAssignments.revokeAssignment).not.toHaveBeenCalled();
+  });
+
+  it('approves and assigns for the teacher the portal names', async () => {
+    const h = harness();
+
+    await h.internal.approve('s-1', { teacherId: 182 } as any);
+
+    expect(h.sets.approveSet).toHaveBeenCalledWith('s-1', 182, expect.anything());
+    expect(h.teacherAssignments.assignApprovedSet).toHaveBeenCalledWith('s-1', 182, expect.anything());
+  });
+});
 });

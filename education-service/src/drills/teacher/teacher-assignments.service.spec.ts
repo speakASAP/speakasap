@@ -490,4 +490,63 @@ describe('TeacherAssignmentsService.getForTeacher', () => {
       );
     });
   });
+
+  /**
+   * Revoke — a teacher assigned the wrong drill, or wants it back before the student
+   * starts. The state machine already allows `-> CANCELLED` from every non-terminal
+   * state; this is the first caller of that edge outside the generation sweeper.
+   */
+  describe('revokeAssignment', () => {
+    it('cancels an assigned drill', async () => {
+      const h = harness();
+      h.prisma.drillAssignment.findUnique.mockResolvedValue({
+        uuid: 'a-1', teacherId: 182, status: 'ASSIGNED',
+      });
+
+      await h.service.revokeAssignment('a-1', [182]);
+
+      const update = h.prisma.drillAssignment.update.mock.calls[0][0];
+      expect(update.where).toEqual({ uuid: 'a-1' });
+      expect(update.data.status).toBe('CANCELLED');
+    });
+
+    it('cancels one still awaiting review', async () => {
+      const h = harness();
+      h.prisma.drillAssignment.findUnique.mockResolvedValue({
+        uuid: 'a-1', teacherId: 182, status: 'PENDING_REVIEW',
+      });
+
+      await h.service.revokeAssignment('a-1', [182]);
+
+      expect(h.prisma.drillAssignment.update).toHaveBeenCalled();
+    });
+
+    it('refuses to revoke a completed drill', async () => {
+      // The student already did the work; erasing it is not a teacher's to undo here.
+      const h = harness();
+      h.prisma.drillAssignment.findUnique.mockResolvedValue({
+        uuid: 'a-1', teacherId: 182, status: 'COMPLETED',
+      });
+
+      await expect(h.service.revokeAssignment('a-1', [182])).rejects.toThrow();
+      expect(h.prisma.drillAssignment.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses another teacher's assignment", async () => {
+      const h = harness();
+      h.prisma.drillAssignment.findUnique.mockResolvedValue({
+        uuid: 'a-1', teacherId: 999, status: 'ASSIGNED',
+      });
+
+      await expect(h.service.revokeAssignment('a-1', [182])).rejects.toThrow(NotFoundException);
+      expect(h.prisma.drillAssignment.update).not.toHaveBeenCalled();
+    });
+
+    it('404s on an assignment that does not exist', async () => {
+      const h = harness();
+      h.prisma.drillAssignment.findUnique.mockResolvedValue(null);
+
+      await expect(h.service.revokeAssignment('missing', [182])).rejects.toThrow(NotFoundException);
+    });
+  });
 });
