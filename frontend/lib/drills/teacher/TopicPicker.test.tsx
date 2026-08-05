@@ -98,4 +98,43 @@ describe('TopicPicker', () => {
     await userEvent.type(screen.getByRole('combobox'), 'subjunctive{Enter}');
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  /**
+   * A topic typed but not confirmed with Enter was silently discarded: the teacher saw
+   * their words in the box, pressed Next, and the request went out with no topics at all.
+   * Same class of loss as the runner checking only on Enter — a field that looks filled
+   * must not be treated as empty.
+   */
+  it('keeps a typed topic when the teacher moves on without pressing Enter', async () => {
+    const onChange = vi.fn();
+    render(<TopicPicker topics={[]} selected={[]} onChange={onChange} allowCreate />);
+
+    await userEvent.type(screen.getByRole('combobox'), 'настоящее время');
+    await userEvent.tab();
+
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ title: 'настоящее время' }),
+    ]);
+  });
+
+  it('still commits on Enter', async () => {
+    const onChange = vi.fn();
+    render(<TopicPicker topics={[]} selected={[]} onChange={onChange} allowCreate />);
+
+    await userEvent.type(screen.getByRole('combobox'), 'прилагательные{Enter}');
+
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ title: 'прилагательные' }),
+    ]);
+  });
+
+  it('does not commit an empty box on blur', async () => {
+    const onChange = vi.fn();
+    render(<TopicPicker topics={[]} selected={[]} onChange={onChange} allowCreate />);
+
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.tab();
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

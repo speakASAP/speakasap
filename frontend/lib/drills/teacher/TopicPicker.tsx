@@ -118,6 +118,11 @@ export function TopicPicker({ topics, selected, onChange, allowCreate }: TopicPi
             aria-label="Add a topic"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            // Also on blur, not only on Enter. A teacher who typed a topic and pressed
+            // Next had it silently discarded, and the request went out with no topics —
+            // which is what produced an empty generated set. A field that looks filled
+            // must never be treated as empty. commitDraft ignores a blank box.
+            onBlur={commitDraft}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
