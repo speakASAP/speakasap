@@ -42,7 +42,26 @@ export function TopicPicker({ topics, selected, onChange, allowCreate }: TopicPi
   const [draft, setDraft] = useState('');
   const selectedSlugs = new Set(selected.map((t) => t.slug));
 
-  const toggle = (topic: DrillTopicDTO) => {
+  /**
+   * The taxonomy plus anything the teacher typed themselves.
+   *
+   * The list used to render `topics` alone, so a newly typed topic was accepted and sent
+   * but never appeared: the box cleared and the panel still read "No topics yet", which
+   * looked exactly like the input had been discarded. Own topics come first — the teacher
+   * just added them, and hunting for one at the bottom of a long taxonomy is its own kind
+   * of "did that work?".
+   */
+  const visibleTopics = [
+    ...selected.filter((s) => !topics.some((t) => t.slug === s.slug)),
+    ...topics,
+  ];
+
+  /**
+   * Takes the narrow shape, not the full DTO: the list now also contains topics the
+   * teacher typed, which have a slug and a title and none of the taxonomy's id,
+   * languageCode, materialLanguage or level. Only slug and title are ever used here.
+   */
+  const toggle = (topic: SelectedTopic) => {
     if (selectedSlugs.has(topic.slug)) {
       onChange(selected.filter((t) => t.slug !== topic.slug));
       return;
@@ -72,14 +91,14 @@ export function TopicPicker({ topics, selected, onChange, allowCreate }: TopicPi
     <fieldset className="border-0 p-0">
       <legend className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Topics</legend>
 
-      {topics.length === 0 ? (
+      {visibleTopics.length === 0 ? (
         <p className="mt-2 text-sm text-zinc-500">
           No topics yet — type one below and press Enter.
         </p>
       ) : null}
 
       <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto">
-        {topics.map((topic) => (
+        {visibleTopics.map((topic) => (
           <li key={topic.slug} className="flex items-center justify-between gap-2">
             <label className="flex flex-1 cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800">
               <input

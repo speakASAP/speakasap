@@ -137,4 +137,51 @@ describe('TopicPicker', () => {
 
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  /**
+   * The list rendered only the server taxonomy, never `selected`. A topic the teacher
+   * typed themselves was accepted, sent, and invisible — the box cleared and the panel
+   * still said "No topics yet", so it read as though the input had been thrown away.
+   */
+  it('shows a topic the teacher typed, not only ones from the taxonomy', async () => {
+    render(
+      <TopicPicker
+        topics={[]}
+        selected={[{ slug: 'nastoyashchee-vremya', title: 'настоящее время', isNew: true }]}
+        onChange={vi.fn()}
+        allowCreate
+      />,
+    );
+
+    expect(screen.getByText('настоящее время')).toBeInTheDocument();
+  });
+
+  it('stops saying "no topics yet" once one has been chosen', () => {
+    render(
+      <TopicPicker
+        topics={[]}
+        selected={[{ slug: 'x', title: 'настоящее время', isNew: true }]}
+        onChange={vi.fn()}
+        allowCreate
+      />,
+    );
+
+    expect(screen.queryByText(/No topics yet/i)).not.toBeInTheDocument();
+  });
+
+  it('lets the teacher remove a topic they added by mistake', async () => {
+    const onChange = vi.fn();
+    render(
+      <TopicPicker
+        topics={[]}
+        selected={[{ slug: 'x', title: 'опечатка', isNew: true }]}
+        onChange={onChange}
+        allowCreate
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /опечатка/i }));
+
+    expect(onChange).toHaveBeenCalledWith([]);
+  });
 });
