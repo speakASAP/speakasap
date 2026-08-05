@@ -447,4 +447,25 @@ describe('GenerationService — AI items must reach content-service', () => {
 
     expect(content.createSet).not.toHaveBeenCalled();
   });
+
+  /**
+   * ai-microservice's DTO requires a non-empty `correlationId`, and nothing in the
+   * pipeline ever set one — every generate call 400'd, so no run could ever produce an
+   * item. The AI client spec passed one by hand, which is why the gap survived: it tested
+   * the client's behaviour given a correlationId, never that the caller supplies it.
+   */
+  it('sends a correlationId with every AI call', async () => {
+    await svc.run(job());
+
+    expect(ai.generate.mock.calls[0][0].correlationId).toEqual(expect.any(String));
+    expect(ai.generate.mock.calls[0][0].correlationId).not.toBe('');
+  });
+
+  it('uses the same correlationId for generate and validate, so one run is traceable', async () => {
+    await svc.run(job());
+
+    expect(ai.validate.mock.calls[0][0].correlationId).toBe(
+      ai.generate.mock.calls[0][0].correlationId,
+    );
+  });
 });
