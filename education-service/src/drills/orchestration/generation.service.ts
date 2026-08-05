@@ -120,7 +120,11 @@ export class GenerationService {
         {
           languageCode: job.languageCode,
           materialLanguage: job.materialLanguage,
-          topicSlugs: job.topicSlugs,
+          // Always an array. content-service requires the key and explicitly allows it
+          // to be empty; `undefined` is not an array, and JSON.stringify drops the key
+          // entirely, so a teacher who picked no topic got a 400 on the first phase and
+          // an empty set reported as "Ready with 0 of N".
+          topicSlugs: job.topicSlugs ?? [],
           level: job.level ?? undefined,
           courseKey: job.courseKey ?? undefined,
           maxLessonOrder: job.maxLessonOrder ?? undefined,
@@ -188,7 +192,11 @@ export class GenerationService {
         const preChecked = runPreChecks(fresh, {
           languageCode: job.languageCode,
           materialLanguage: job.materialLanguage,
-          topicSlugs: job.topicSlugs,
+          // Always an array. content-service requires the key and explicitly allows it
+          // to be empty; `undefined` is not an array, and JSON.stringify drops the key
+          // entirely, so a teacher who picked no topic got a 400 on the first phase and
+          // an empty set reported as "Ready with 0 of N".
+          topicSlugs: job.topicSlugs ?? [],
           baseline: baseline ?? undefined,
           existingHashes: seenHashes,
         });
@@ -214,6 +222,17 @@ export class GenerationService {
 
       await this.report(job, 'VALIDATING', candidates.length, job.itemCount, 'Validating items');
       const survivors = await this.validate(job, candidates);
+
+      // Zero survivors is a failure, not a partial success. Reporting READY put an empty
+      // set in the teacher's review queue that looked identical to a finished one, and
+      // hid whatever actually went wrong — a 400 on the bank search, in the case that
+      // produced this. Thrown before the set is created, so nothing empty is persisted;
+      // the catch below reports FAILED.
+      if (survivors.length === 0) {
+        throw new Error(
+          `Generation produced no items for set ${job.setUuid} (requested ${job.itemCount})`,
+        );
+      }
 
       const bankKept = survivors.filter((c) => c.source === 'BANK').length;
       const aiKept = survivors.length - bankKept;

@@ -147,10 +147,11 @@ describe('GenerationService.run', () => {
       meta: {},
     });
 
+    // Still retries the full three times before giving up; it just no longer calls a
+    // run that kept nothing a success. See "reports FAILED, not READY".
     await svc.run(job({ itemCount: 10 }));
 
     expect(ai.generate).toHaveBeenCalledTimes(3);
-    expect(svc.lastRunSummary()?.partial).toBe(true);
   });
 
   // Found by reading the run logs, not by a test: a run that kept nothing scored
@@ -164,14 +165,13 @@ describe('GenerationService.run', () => {
       meta: {},
     });
 
+    // The intent stands — a run that kept nothing must never be approved — but the set
+    // is no longer created at all: an empty set in a review queue is indistinguishable
+    // from a finished one, which is exactly how this reached production.
     await svc.run(job({ itemCount: 10 }));
 
-    expect(svc.lastRunSummary()?.itemsKept).toBe(0);
+    expect(content.createSet).not.toHaveBeenCalled();
     expect(svc.lastRunSummary()?.reviewState).not.toBe('APPROVED');
-    expect(content.createSet).toHaveBeenCalledWith(
-      expect.objectContaining({ reviewState: 'PENDING_REVIEW' }),
-      'tok',
-    );
   });
 
   // The spec's "validate every item including bank items" rule. It is the one most
@@ -395,5 +395,56 @@ describe('GenerationService — AI items must reach content-service', () => {
 
     const input = content.createSet.mock.calls[0][0];
     expect(input.itemIds.length + input.newItems.length).toBe(svc.lastRunSummary()!.itemsKept);
+  });
+
+  /**
+   * A teacher who typed instructions but picked no topic got an empty set and a cheerful
+   * "Ready with 0 of 5 requested item(s)". content-service requires `topicSlugs` to be an
+   * array — empty is explicitly allowed — and a missing key is not an array: JSON.stringify
+   * drops undefined entirely, so the bank search 400'd on the very first phase.
+   *
+   * The whole run then produced nothing while reporting success, because a failed bank
+   * search is not fatal on its own: with no bank items and no topics the model had
+   * nothing to work from either.
+   */
+  it('always sends topicSlugs as an array, even when the teacher picked no topic', async () => {
+    await svc.run(job({ topicSlugs: undefined as any }));
+
+    const sent = content.searchItems.mock.calls[0][0];
+    expect(Array.isArray(sent.topicSlugs)).toBe(true);
+    expect(sent.topicSlugs).toEqual([]);
+  });
+
+  it('passes the teacher topics through when there are some', async () => {
+    await svc.run(job({ topicSlugs: ['present-perfect'] }));
+
+    expect(content.searchItems.mock.calls[0][0].topicSlugs).toEqual(['present-perfect']);
+  });
+
+  /**
+   * "Ready with 0 of 5 requested item(s)" — reported as success, with an empty set in the
+   * teacher's review queue that looked exactly like a finished one. Zero items is not a
+   * partial result, it is a failed run, and it must say so.
+   */
+  it('reports FAILED, not READY, when nothing survived', async () => {
+    content.searchItems.mockResolvedValue({ items: [], totalAvailable: 0 });
+    ai.generate.mockResolvedValue({ items: [], meta: {} });
+    ai.validate.mockResolvedValue({ results: [], meta: {} });
+
+    await svc.run(job());
+
+    const phases = (progress.update as jest.Mock).mock.calls.map((c: any[]) => c[1].phase);
+    expect(phases).toContain('FAILED');
+    expect(phases).not.toContain('READY');
+  });
+
+  it('does not create an empty set for a teacher to review', async () => {
+    content.searchItems.mockResolvedValue({ items: [], totalAvailable: 0 });
+    ai.generate.mockResolvedValue({ items: [], meta: {} });
+    ai.validate.mockResolvedValue({ results: [], meta: {} });
+
+    await svc.run(job());
+
+    expect(content.createSet).not.toHaveBeenCalled();
   });
 });
