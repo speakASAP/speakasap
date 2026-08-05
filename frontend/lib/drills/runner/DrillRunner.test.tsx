@@ -248,4 +248,73 @@ describe('DrillRunner', () => {
 
     expect(screen.getByPlaceholderText('на')).toHaveAttribute('maxLength', '9');
   });
+
+  /**
+   * Checking was debounced at 250 ms, so every pause while typing counted as a wrong
+   * attempt: "geg" then "gesp" then "gespro" were three failures against a student who
+   * had made none. That also drove the hint escalation, which offered to reveal the
+   * answer before the student had finished their first real try.
+   *
+   * The check now runs when the student leaves the field, or presses Enter.
+   */
+  it('does not check while the student is still typing', async () => {
+    const spy = vi.spyOn(api, 'checkBlank').mockResolvedValue({
+      correct: false, acceptedText: null, attemptNo: 1,
+      blanksCorrect: 0, blanksTotal: 1, assignmentCompleted: false,
+    });
+    render(<DrillRunner assignment={assignment} items={items as any} onComplete={vi.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText('на'), 'auf');
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('checks when the field loses focus', async () => {
+    const spy = vi.spyOn(api, 'checkBlank').mockResolvedValue({
+      correct: true, acceptedText: 'auf', attemptNo: 1,
+      blanksCorrect: 1, blanksTotal: 1, assignmentCompleted: false,
+    });
+    render(<DrillRunner assignment={assignment} items={items as any} onComplete={vi.fn()} />);
+
+    const input = screen.getByPlaceholderText('на');
+    await userEvent.type(input, 'auf');
+    await userEvent.tab();
+
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+  });
+
+  it('shows the server hint after a wrong answer', async () => {
+    vi.spyOn(api, 'checkBlank').mockResolvedValue({
+      correct: false, acceptedText: null, attemptNo: 1, hint: 'Не то. В ответе 3 буквы.',
+      blanksCorrect: 0, blanksTotal: 1, assignmentCompleted: false,
+    } as any);
+    render(<DrillRunner assignment={assignment} items={items as any} onComplete={vi.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText('на'), 'bei{Enter}');
+
+    await waitFor(() => expect(screen.getByText(/В ответе 3 буквы/)).toBeInTheDocument());
+  });
+
+  it('clears the hint once the blank is solved', async () => {
+    const spy = vi.spyOn(api, 'checkBlank')
+      .mockResolvedValueOnce({
+        correct: false, acceptedText: null, attemptNo: 1, hint: 'Не то. В ответе 3 буквы.',
+        blanksCorrect: 0, blanksTotal: 1, assignmentCompleted: false,
+      } as any)
+      .mockResolvedValueOnce({
+        correct: true, acceptedText: 'auf', attemptNo: 2, hint: null,
+        blanksCorrect: 1, blanksTotal: 1, assignmentCompleted: false,
+      } as any);
+    render(<DrillRunner assignment={assignment} items={items as any} onComplete={vi.fn()} />);
+
+    const input = screen.getByPlaceholderText('на');
+    await userEvent.type(input, 'bei{Enter}');
+    await waitFor(() => expect(screen.getByText(/В ответе 3 буквы/)).toBeInTheDocument());
+
+    await userEvent.clear(input);
+    await userEvent.type(input, 'auf{Enter}');
+
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText(/В ответе 3 буквы/)).not.toBeInTheDocument();
+  });
 });

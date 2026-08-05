@@ -350,6 +350,13 @@ export interface CheckBlankResponse {
    */
   acceptedText: string | null;
   attemptNo: number;
+  /**
+   * A nudge shown after a wrong answer — the answer's length, then its first letter,
+   * then an offer to reveal. Derived on the server precisely because `acceptedText` is
+   * null here: anything the client could compute would need the answer sent to a student
+   * who has not solved the blank. Null when the answer was correct.
+   */
+  hint?: string | null;
   blanksCorrect: number;
   blanksTotal: number;
   /** Server-decided. The client must not infer completion itself. */

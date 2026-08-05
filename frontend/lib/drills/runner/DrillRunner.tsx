@@ -19,6 +19,8 @@ interface BlankState {
   solvedText: string | null;
   wrong: boolean;
   pending: boolean;
+  /** The server's nudge after a wrong answer. Never derived here — see the service. */
+  hint: string | null;
 }
 
 function blankKey(itemUuid: string, index: number): string {
@@ -35,13 +37,12 @@ function initialState(items: RunnerItemDTO[]): Record<string, BlankState> {
         solvedText: blank.solvedText,
         wrong: false,
         pending: false,
+        hint: null,
       };
     }
   }
   return state;
 }
-
-const DEBOUNCE_MS = 250;
 
 /**
  * The drill runner: type into a blank, and if it is right it becomes part of the sentence.
@@ -64,7 +65,6 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
   });
   const [announcement, setAnnouncement] = useState('');
 
-  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const inputs = useRef<Record<string, HTMLInputElement | null>>({});
   const completed = useRef(false);
   // Guards against the debounced check and an Enter press both firing for one edit.
@@ -73,15 +73,6 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
   useEffect(() => {
     setBlanks(initialState(items));
   }, [items]);
-
-  useEffect(() => {
-    const pending = timers.current;
-    return () => {
-      for (const timer of Object.values(pending)) {
-        clearTimeout(timer);
-      }
-    };
-  }, []);
 
   const order = useMemo(
     () =>
@@ -107,12 +98,6 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
   const submit = useCallback(
     async (itemUuid: string, index: number) => {
       const key = blankKey(itemUuid, index);
-      const timer = timers.current[key];
-      if (timer) {
-        clearTimeout(timer);
-        delete timers.current[key];
-      }
-
       const current = blanks[key];
       if (!current || current.solved || inFlight.current[key]) {
         return;
@@ -149,6 +134,8 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
               solved: response.correct,
               solvedText: response.correct ? response.acceptedText : null,
               wrong: !response.correct,
+              // Cleared on success: a solved blank has nothing left to nudge towards.
+              hint: response.correct ? null : ((response as { hint?: string | null }).hint ?? null),
             },
           };
           if (response.correct) {
@@ -184,22 +171,19 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
     [assignment.uuid, blanks, focusNextUnsolved, onComplete],
   );
 
-  const change = useCallback(
-    (itemUuid: string, index: number, value: string) => {
-      const key = blankKey(itemUuid, index);
-      setBlanks((prev) => ({ ...prev, [key]: { ...prev[key], value, wrong: false } }));
-
-      const existing = timers.current[key];
-      if (existing) {
-        clearTimeout(existing);
-      }
-      timers.current[key] = setTimeout(() => {
-        delete timers.current[key];
-        void submit(itemUuid, index);
-      }, DEBOUNCE_MS);
-    },
-    [submit],
-  );
+  /**
+   * Typing only records the value — it never checks.
+   *
+   * Checking used to be debounced at 250 ms, so every pause while typing was graded:
+   * "geg", "gesp", "gespro" counted as three wrong attempts from a student who had made
+   * none. That also drove the hint escalation, offering to reveal the answer before the
+   * first real try was finished. The check now happens on blur or Enter, when the
+   * student has actually decided what their answer is.
+   */
+  const change = useCallback((itemUuid: string, index: number, value: string) => {
+    const key = blankKey(itemUuid, index);
+    setBlanks((prev) => ({ ...prev, [key]: { ...prev[key], value, wrong: false, hint: null } }));
+  }, []);
 
   return (
     <section aria-labelledby="drill-title">
@@ -256,6 +240,24 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
                 );
               })}
               {item.hint ? <p className="mt-1 text-sm text-slate-500">{item.hint}</p> : null}
+
+              {/*
+                The server's nudge after a wrong answer — length, then first letter, then
+                an offer to reveal. Shown per item, under the sentence it belongs to.
+                role="status" so a screen reader hears it without losing the input focus.
+              */}
+              {item.blanks
+                .map((blank) => blanks[blankKey(item.uuid, blank.index)])
+                .filter((state): state is BlankState => Boolean(state?.hint))
+                .map((state, i) => (
+                  <p
+                    key={i}
+                    role="status"
+                    className="mt-1 text-sm text-amber-700 dark:text-amber-400"
+                  >
+                    {state.hint}
+                  </p>
+                ))}
             </li>
           ))}
       </ol>

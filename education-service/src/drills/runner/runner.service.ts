@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { buildWrongAnswerHint } from '../wrong-answer-hint';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AssignmentsRepository } from '../assignments.repository';
 import { gradeBlank, gradingOptionsFor } from '../grading';
@@ -165,6 +166,9 @@ export class RunnerService {
       correct: grade.correct,
       acceptedText: grade.acceptedText,
       attemptNo,
+      // Built here, from the answer this service can see and the response deliberately
+      // cannot carry. Null when correct — there is nothing to nudge towards.
+      hint: grade.correct ? null : buildWrongAnswerHint(String((blank as any).answer ?? ''), attemptNo),
       blanksCorrect: counts.blanksCorrect,
       blanksTotal: counts.blanksTotal,
       assignmentCompleted: completed,

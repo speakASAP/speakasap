@@ -258,4 +258,27 @@ describe('RunnerService.check', () => {
     expect(json).not.toContain('auf');
     expect(json).not.toContain('alternatives');
   });
+
+  /**
+   * The nudge after a wrong answer. It is built here rather than on the client because
+   * `acceptedText` is contractually null on a wrong attempt — a client-side hint would
+   * need the answer sent to a student who has not solved the blank.
+   */
+  describe('wrong-answer hint', () => {
+    it('returns a hint on a wrong answer and none on a correct one', async () => {
+      const wrong = await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'bei' });
+      expect(wrong.hint).toBeTruthy();
+
+      const right = await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'auf' });
+      expect(right.hint).toBeFalsy();
+    });
+
+    it('never sends the answer or an accepted alternative in the hint', async () => {
+      const res = await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'bei' });
+
+      expect(res.hint).not.toContain('auf');
+      expect(res.hint).not.toContain('aufs');
+      expect(res.acceptedText).toBeNull();
+    });
+  });
 });
