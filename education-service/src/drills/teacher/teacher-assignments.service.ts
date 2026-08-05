@@ -506,12 +506,23 @@ export class TeacherAssignmentsService {
   }
 
   /** A title a teacher recognises in a list, derived from what they asked for. */
+  /**
+   * The name every teacher and student sees in every list.
+   *
+   * The teacher's own words come first. Topic slugs used to win, which turned a drill a
+   * teacher had named "тренировка на прошедшее время со словарным запасом уровня B2"
+   * into "прошедшее-время, настоящее-время, словарыи-запас-в1" — machinery, not a name.
+   * Slugs are the fallback for a teacher who chose topics and wrote nothing.
+   */
   private titleFor(request: GenerateAssignmentsRequest): string {
+    const instructions = (request.instructions ?? '').trim();
+    if (instructions) {
+      return instructions.slice(0, 120).slice(0, 255);
+    }
     const topics = request.topicSlugs ?? [];
     if (topics.length > 0) {
       return topics.slice(0, 3).join(', ').slice(0, 255);
     }
-    const instructions = (request.instructions ?? '').trim();
-    return (instructions.slice(0, 120) || 'Grammar practice').slice(0, 255);
+    return 'Grammar practice';
   }
 }

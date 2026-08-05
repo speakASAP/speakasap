@@ -214,6 +214,11 @@ export class GenerationJobRepositoryAdapter implements GenerationJobRepository {
     const data: Record<string, unknown> = { generationProgress: progress as any };
     if (progress.phase === 'READY') {
       data.status = 'PENDING_REVIEW';
+    } else if (progress.phase === 'FAILED') {
+      // A failed run used to stay GENERATING forever, indistinguishable from one still
+      // running. CANCELLED is a terminal state the state machine already allows from
+      // every non-terminal one, and it keeps the row out of the review queue.
+      data.status = 'CANCELLED';
     }
 
     await (this.prisma as any).drillAssignment.update({

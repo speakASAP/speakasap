@@ -207,6 +207,19 @@ describe('GenerationJobRepositoryAdapter status transitions', () => {
 
     await h.adapter.updateProgress('a-1', progress('FAILED', 0, 10));
 
-    expect((h.update.mock.calls[0] as any[])[0].data.status).toBeUndefined();
+    expect((h.update.mock.calls[0] as any[])[0].data.status).not.toBe('PENDING_REVIEW');
+  });
+
+  /**
+   * A failed run left the row in GENERATING forever: only READY moved the status, so the
+   * teacher saw a drill stuck mid-generation with a FAILED progress blob underneath it,
+   * and no way to tell it apart from one still running.
+   */
+  it('marks a FAILED run as CANCELLED so it stops looking in-flight', async () => {
+    const h = harness();
+
+    await h.adapter.updateProgress('a-1', progress('FAILED', 0, 10));
+
+    expect((h.update.mock.calls[0] as any[])[0].data.status).toBe('CANCELLED');
   });
 });

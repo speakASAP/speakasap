@@ -622,4 +622,38 @@ describe('TeacherAssignmentsService.getForTeacher', () => {
       await expect(h.service.progressForTeacher('a-1', [182])).rejects.toThrow(NotFoundException);
     });
   });
+
+  /**
+   * The title is what the teacher and the student read in every list. It used to come
+   * from the teacher's own words and was fine — "тренировка на прошедшее время со
+   * словарным запасом уровня B2". Once topics started reaching the backend, slugs won the
+   * precedence and drills began appearing as "прошедшее-время, настоящее-время,
+   * словарыи-запас-в1", which is machinery, not a name.
+   */
+  describe('titleFor', () => {
+    const svcAny = () => Object.create(TeacherAssignmentsService.prototype);
+    const req = (over: any = {}) => ({
+      studentIds: [3], count: 5, instructions: '', topicSlugs: [], ...over,
+    });
+
+    it('uses the teacher\'s own words, even when topics were chosen', () => {
+      const title = (svcAny() as any).titleFor(
+        req({ instructions: 'тренировка на прошедшее время', topicSlugs: ['proshedshee-vremya'] }),
+      );
+
+      expect(title).toBe('тренировка на прошедшее время');
+    });
+
+    it('falls back to the topics when the teacher wrote nothing', () => {
+      const title = (svcAny() as any).titleFor(
+        req({ instructions: '', topicSlugs: ['present-tense', 'adjectives'] }),
+      );
+
+      expect(title).toContain('present-tense');
+    });
+
+    it('falls back again when there is neither', () => {
+      expect((svcAny() as any).titleFor(req())).toBe('Grammar practice');
+    });
+  });
 });
