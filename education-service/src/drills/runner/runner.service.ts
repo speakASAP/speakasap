@@ -53,6 +53,104 @@ export class RunnerService {
    * 3. **Ownership is checked before anything else.** A student may only ever
    *    touch their own assignment.
    */
+  /**
+   * Reveal the answer for one blank — spec §9.6.
+   *
+   * Writes `{ isCorrect: false, revealed: true }`. The position RESOLVES, so the
+   * assignment can reach COMPLETED and the student is not blocked from self-drilling
+   * forever; but it never counts as a correct answer, and `attemptNo = 1 AND isCorrect`
+   * still governs first-try accuracy, so bank statistics stay clean.
+   *
+   * Exists because the hint escalation ends by offering it — a sentence promising
+   * something the student cannot do is worse than no hint at all.
+   */
+  async reveal(
+    assignmentUuid: string,
+    studentId: number,
+    req: { itemUuid: string; blankIndex: number },
+  ): Promise<CheckBlankResponse> {
+    const { blank } = await this.loadBlank(assignmentUuid, studentId, req.itemUuid, req.blankIndex);
+
+    const priorAttempts = await this.prisma.drillAttempt.count({
+      where: { assignmentUuid, itemUuid: req.itemUuid, blankIndex: req.blankIndex },
+    });
+
+    await this.prisma.drillAttempt.create({
+      data: {
+        uuid: randomUUID(),
+        assignmentUuid,
+        itemUuid: req.itemUuid,
+        blankIndex: req.blankIndex,
+        submittedValue: '',
+        isCorrect: false,
+        attemptNo: priorAttempts + 1,
+        revealed: true,
+      },
+    });
+
+    const counts = await this.assignments.countBlanks(assignmentUuid);
+    const answer = String((blank as any).answer ?? '');
+    this.logger.log(
+      `Blank revealed: assignment=${assignmentUuid} item=${req.itemUuid} blank=${req.blankIndex}`,
+    );
+
+    return {
+      correct: false,
+      // The answer, deliberately — the student asked for it. This is the only response
+      // on which a wrong attempt carries acceptedText, and the reason the field is not
+      // simply "the text you typed".
+      acceptedText: answer,
+      attemptNo: priorAttempts + 1,
+      blanksCorrect: counts.blanksCorrect,
+      blanksTotal: counts.blanksTotal,
+      assignmentCompleted: counts.blanksTotal > 0 && counts.blanksCorrect >= counts.blanksTotal,
+      hint: null,
+    };
+  }
+
+  /**
+   * The access checks `check` and `reveal` share: the assignment is this student's, it
+   * is in a state that accepts attempts, and the blank exists on it.
+   */
+  private async loadBlank(
+    assignmentUuid: string,
+    studentId: number,
+    itemUuid: string,
+    blankIndex: number,
+  ): Promise<{ blank: DrillBlank }> {
+    const assignment = await this.prisma.drillAssignment.findUnique({
+      where: { uuid: assignmentUuid },
+    });
+    if (!assignment || assignment.studentId !== studentId) {
+      throw new NotFoundException('Drill assignment not found');
+    }
+    const status = assignment.status as DrillAssignmentStatus;
+    if (status === 'COMPLETED' || status === 'CANCELLED') {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'GENERATION_IN_PROGRESS',
+        message: `Assignment is ${status} and no longer accepts attempts`,
+      });
+    }
+    if (status === 'GENERATING' || status === 'PENDING_REVIEW') {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'GENERATION_IN_PROGRESS',
+        message: `Assignment is ${status} and cannot be answered yet`,
+      });
+    }
+    const item = await this.prisma.drillAssignmentItem.findUnique({ where: { uuid: itemUuid } });
+    if (!item || item.assignmentUuid !== assignmentUuid) {
+      throw new NotFoundException('Drill item not found on this assignment');
+    }
+    const blanks: DrillBlank[] = Array.isArray(item.blanks) ? (item.blanks as any) : [];
+    const blank = blanks.find((b, i) => (typeof b?.index === 'number' ? b.index : i) === blankIndex);
+    if (!blank) {
+      throw new BadRequestException(`blankIndex ${blankIndex} does not exist on this item`);
+    }
+    return { blank };
+  }
+
   async check(
     assignmentUuid: string,
     studentId: number,

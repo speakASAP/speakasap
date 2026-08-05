@@ -281,4 +281,42 @@ describe('RunnerService.check', () => {
       expect(res.acceptedText).toBeNull();
     });
   });
+
+  /**
+   * Reveal — spec §9.6. The hint escalation ends with "можно показать ответ", so there
+   * has to be something behind that sentence.
+   *
+   * Writes `{ isCorrect: false, revealed: true }`: the position resolves, so the
+   * assignment can complete and the student is not blocked from self-drilling forever,
+   * but it never counts as a correct answer and never satisfies first-try accuracy.
+   */
+  describe('reveal', () => {
+    it('returns the answer and records the reveal', async () => {
+      const res = await svc.reveal('a-1', 42, { itemUuid: 'i-1', blankIndex: 0 });
+
+      expect(res.acceptedText).toBe('auf');
+      expect(res.correct).toBe(false);
+    });
+
+    it('records isCorrect false and revealed true, not a correct answer', async () => {
+      await svc.reveal('a-1', 42, { itemUuid: 'i-1', blankIndex: 0 });
+
+      const written = prisma.drillAttempt.create.mock.calls.slice(-1)[0][0].data;
+      expect(written.revealed).toBe(true);
+      expect(written.isCorrect).toBe(false);
+    });
+
+    it('resolves the blank so the assignment can progress', async () => {
+      const res = await svc.reveal('a-1', 42, { itemUuid: 'i-1', blankIndex: 0 });
+
+      // Counts come from the repository, which treats revealed as resolved.
+      expect(res.blanksTotal).toBeGreaterThan(0);
+    });
+
+    it('refuses to reveal another student\'s assignment', async () => {
+      await expect(
+        svc.reveal('a-1', 999, { itemUuid: 'i-1', blankIndex: 0 }),
+      ).rejects.toThrow();
+    });
+  });
 });

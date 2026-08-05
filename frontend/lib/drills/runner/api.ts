@@ -131,16 +131,26 @@ export function checkBlank(uuid: string, req: CheckBlankRequest): Promise<CheckB
   return request(assignmentPath(uuid, '/check'), { method: 'POST', body: req });
 }
 
-/*
- * `revealBlank` and `rateAssignment` are named in the Track E plan but deliberately
- * absent here: education-service exposes no `/reveal` or `/rate` route, so a client for
- * them would 404 while looking implemented.
+/**
+ * Show the answer for one blank — spec §9.6.
  *
- * Reveal is the closer of the two — `DrillBlankAttempt.revealed` exists and
- * `assignments.repository.ts` already defines what a revealed blank means for
- * completion and for bank statistics. Only the HTTP route is missing. Add the client
- * here when the route lands.
+ * The only student-facing call that returns an answer, and it costs the student the
+ * blank: the position resolves so the assignment can complete, but it never counts as
+ * correct and never satisfies first-try accuracy.
+ *
+ * `rateAssignment` is still absent — education-service exposes no `/rate` route, and a
+ * client for it would 404 while looking implemented.
  */
+export function revealBlank(
+  uuid: string,
+  itemUuid: string,
+  blankIndex: number,
+): Promise<CheckBlankResponse> {
+  return request(assignmentPath(uuid, '/reveal'), {
+    method: 'POST',
+    body: { itemUuid, blankIndex },
+  });
+}
 
 /**
  * The sets this student may drill on their own.

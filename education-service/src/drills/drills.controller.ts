@@ -176,6 +176,33 @@ export class DrillsController {
     return this.runner.check(uuid, studentId, body);
   }
 
+  /**
+   * Reveal one blank's answer — spec §9.6.
+   *
+   * The only student-facing route that deliberately returns an answer, and only for the
+   * blank the student explicitly asked about. It costs them the blank: the position
+   * resolves without ever counting as correct.
+   */
+  @Post(':uuid/reveal')
+  @HttpCode(HttpStatus.OK)
+  async reveal(
+    @Param('uuid') uuid: string,
+    @Body() body: { itemUuid?: string; blankIndex?: number },
+    @Req() req: Request,
+  ): Promise<CheckBlankResponse> {
+    if (!body?.itemUuid) {
+      throw new BadRequestException('itemUuid is required');
+    }
+    if (typeof body?.blankIndex !== 'number') {
+      throw new BadRequestException('numeric blankIndex is required');
+    }
+    const studentId = await this.studentId(req);
+    return this.runner.reveal(uuid, studentId, {
+      itemUuid: body.itemUuid,
+      blankIndex: body.blankIndex,
+    });
+  }
+
   /** Self-selected drilling. The gate lives in SelfDrillService, server-side. */
   @Post('self')
   @HttpCode(HttpStatus.CREATED)

@@ -317,4 +317,55 @@ describe('DrillRunner', () => {
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
     expect(screen.queryByText(/В ответе 3 буквы/)).not.toBeInTheDocument();
   });
+
+  /**
+   * The third hint offers to show the answer. Until now that was only a sentence — there
+   * was no button, so the runner promised something the student could not do.
+   */
+  describe('reveal', () => {
+    const wrongThrice = {
+      correct: false, acceptedText: null, attemptNo: 3,
+      hint: 'Не получается? Можно показать ответ.',
+      blanksCorrect: 0, blanksTotal: 1, assignmentCompleted: false,
+    } as any;
+
+    it('offers a reveal button once the server suggests it', async () => {
+      vi.spyOn(api, 'checkBlank').mockResolvedValue(wrongThrice);
+      render(<DrillRunner assignment={assignment} items={items as any} onComplete={vi.fn()} />);
+
+      await userEvent.type(screen.getByPlaceholderText('на'), 'bei{Enter}');
+
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /показать ответ/i })).toBeInTheDocument(),
+      );
+    });
+
+    it('does not offer it before the student has struggled', async () => {
+      vi.spyOn(api, 'checkBlank').mockResolvedValue({
+        ...wrongThrice, attemptNo: 1, hint: 'Не то. В ответе 3 буквы.',
+      });
+      render(<DrillRunner assignment={assignment} items={items as any} onComplete={vi.fn()} />);
+
+      await userEvent.type(screen.getByPlaceholderText('на'), 'bei{Enter}');
+
+      await waitFor(() => expect(screen.getByText(/3 буквы/)).toBeInTheDocument());
+      expect(screen.queryByRole('button', { name: /показать ответ/i })).not.toBeInTheDocument();
+    });
+
+    it('shows the answer in the sentence when pressed', async () => {
+      vi.spyOn(api, 'checkBlank').mockResolvedValue(wrongThrice);
+      const revealSpy = vi.spyOn(api, 'revealBlank').mockResolvedValue({
+        correct: false, acceptedText: 'auf', attemptNo: 4,
+        blanksCorrect: 1, blanksTotal: 1, assignmentCompleted: false,
+      } as any);
+      render(<DrillRunner assignment={assignment} items={items as any} onComplete={vi.fn()} />);
+
+      await userEvent.type(screen.getByPlaceholderText('на'), 'bei{Enter}');
+      await waitFor(() => screen.getByRole('button', { name: /показать ответ/i }));
+      await userEvent.click(screen.getByRole('button', { name: /показать ответ/i }));
+
+      await waitFor(() => expect(revealSpy).toHaveBeenCalledWith('a-1', 'i-1', 0));
+      await waitFor(() => expect(screen.getByText('auf')).toBeInTheDocument());
+    });
+  });
 });

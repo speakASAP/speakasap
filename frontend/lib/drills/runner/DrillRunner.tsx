@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DrillAssignmentDTO, RunnerItemDTO } from '@/lib/drills/contracts';
 
 import { DrillBlank } from './DrillBlank';
-import { checkBlank } from './api';
+import { checkBlank, revealBlank } from './api';
 
 export interface DrillRunnerProps {
   assignment: DrillAssignmentDTO;
@@ -21,6 +21,12 @@ interface BlankState {
   pending: boolean;
   /** The server's nudge after a wrong answer. Never derived here — see the service. */
   hint: string | null;
+  /**
+   * True once the server's hint offers a reveal. Driven by the hint text rather than a
+   * local attempt count so the escalation lives in one place — the service that knows
+   * the answer.
+   */
+  canReveal: boolean;
 }
 
 function blankKey(itemUuid: string, index: number): string {
@@ -38,6 +44,7 @@ function initialState(items: RunnerItemDTO[]): Record<string, BlankState> {
         wrong: false,
         pending: false,
         hint: null,
+        canReveal: false,
       };
     }
   }
@@ -136,6 +143,9 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
               wrong: !response.correct,
               // Cleared on success: a solved blank has nothing left to nudge towards.
               hint: response.correct ? null : ((response as { hint?: string | null }).hint ?? null),
+              canReveal:
+                !response.correct &&
+                Boolean((response as { hint?: string | null }).hint?.includes('показать')),
             },
           };
           if (response.correct) {
@@ -169,6 +179,40 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
       }
     },
     [assignment.uuid, blanks, focusNextUnsolved, onComplete],
+  );
+
+  /**
+   * Show the answer for one blank, at the student's explicit request.
+   *
+   * The response carries `acceptedText` even though `correct` is false — the only place
+   * that happens — so the blank renders as resolved text exactly like a solved one.
+   */
+  const reveal = useCallback(
+    async (itemUuid: string, index: number) => {
+      const key = blankKey(itemUuid, index);
+      setBlanks((prev) => ({ ...prev, [key]: { ...prev[key], pending: true } }));
+      try {
+        const response = await revealBlank(assignment.uuid, itemUuid, index);
+        setBlanks((prev) => ({
+          ...prev,
+          [key]: {
+            ...prev[key],
+            pending: false,
+            solved: true,
+            solvedText: response.acceptedText,
+            wrong: false,
+            hint: null,
+            canReveal: false,
+          },
+        }));
+        setProgress({ correct: response.blanksCorrect, total: response.blanksTotal });
+        setAnnouncement(`Ответ: ${response.acceptedText}`);
+      } catch {
+        setBlanks((prev) => ({ ...prev, [key]: { ...prev[key], pending: false } }));
+        setAnnouncement('Не удалось показать ответ. Попробуйте ещё раз.');
+      }
+    },
+    [assignment.uuid],
   );
 
   /**
@@ -256,6 +300,22 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
                     className="mt-1 text-sm text-amber-700 dark:text-amber-400"
                   >
                     {state.hint}
+                    {state.canReveal ? (
+                      <button
+                        type="button"
+                        className="ml-2 rounded border border-amber-400 px-2 py-0.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:text-amber-300 dark:hover:bg-amber-950"
+                        onClick={() => {
+                          const blank = item.blanks.find(
+                            (b) => blanks[blankKey(item.uuid, b.index)] === state,
+                          );
+                          if (blank) {
+                            void reveal(item.uuid, blank.index);
+                          }
+                        }}
+                      >
+                        Показать ответ
+                      </button>
+                    ) : null}
                   </p>
                 ))}
             </li>
