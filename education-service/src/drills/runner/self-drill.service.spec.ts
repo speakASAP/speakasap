@@ -122,6 +122,39 @@ describe('SelfDrillService.startSelfDrill', () => {
     );
   });
 
+  // A student practising from inside a lesson's homework should see that work in the
+  // lesson, alongside what their teacher assigned. The row therefore carries the lesson
+  // it was started from. Starting from the drills menu instead has no lesson, so the
+  // column stays nullable.
+  it('records the lesson a self-drill was started from', async () => {
+    repo.findOutstanding.mockResolvedValue(null);
+    content.getSet.mockResolvedValue(approvedSet());
+    await svc.startSelfDrill(42, 's-1', 'lesson-7');
+    expect(prisma.drillAssignment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ lessonUuid: 'lesson-7', origin: 'SELF', teacherId: null }),
+      }),
+    );
+  });
+
+  it('leaves the lesson null when started from the menu rather than a lesson', async () => {
+    repo.findOutstanding.mockResolvedValue(null);
+    content.getSet.mockResolvedValue(approvedSet());
+    await svc.startSelfDrill(42, 's-1');
+    expect(prisma.drillAssignment.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ lessonUuid: null }) }),
+    );
+  });
+
+  // A lesson does not buy the student past the gates.
+  it('still refuses an outstanding assignment even when a lesson is named', async () => {
+    repo.findOutstanding.mockResolvedValue({ uuid: 'blocking-1' });
+    await expect(svc.startSelfDrill(42, 's-1', 'lesson-7')).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'ASSIGNMENT_OUTSTANDING' }),
+    });
+    expect(prisma.drillAssignment.create).not.toHaveBeenCalled();
+  });
+
   it('increments timesSelfSelected on the set', async () => {
     repo.findOutstanding.mockResolvedValue(null);
     content.getSet.mockResolvedValue(approvedSet());

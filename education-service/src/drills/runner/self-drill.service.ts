@@ -40,7 +40,11 @@ export class SelfDrillService {
    * A GENERATING or PENDING_REVIEW assignment is not something the student can
    * act on, so it must not block them.
    */
-  async startSelfDrill(studentId: number, setUuid: string): Promise<DrillAssignmentDTO> {
+  async startSelfDrill(
+    studentId: number,
+    setUuid: string,
+    lessonUuid: string | null = null,
+  ): Promise<DrillAssignmentDTO> {
     const blocking = await this.assignments.findOutstanding(studentId);
     if (blocking) {
       throw new ConflictException({
@@ -89,7 +93,10 @@ export class SelfDrillService {
         // it out of teacher review queues.
         teacherId: null,
         origin: 'SELF',
-        lessonUuid: null,
+        // The lesson the student started from, so their own practice shows up in that
+        // lesson's homework next to the work their teacher assigned. Null when they
+        // started from the drills menu instead, which carries no lesson.
+        lessonUuid: lessonUuid ?? null,
         title: set.title,
         languageCode: set.languageCode,
         materialLanguage: set.materialLanguage,

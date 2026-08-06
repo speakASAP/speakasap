@@ -91,7 +91,8 @@ export class DrillsController {
     @Req() req: Request,
   ): Promise<GenerateAssignmentsResponse> {
     this.assertStaff(req);
-    const teacherId = await this.resolveTeacherId(req, body?.lessonUuid ?? null);
+    const lessonUuid = this.assertLesson(body?.lessonUuid);
+    const teacherId = await this.resolveTeacherId(req, lessonUuid);
     return this.teacherAssignments.generate(teacherId, body, this.bearer(req));
   }
 
@@ -103,7 +104,8 @@ export class DrillsController {
     @Req() req: Request,
   ): Promise<AssignFromSetResponse> {
     this.assertStaff(req);
-    const teacherId = await this.resolveTeacherId(req, body?.lessonUuid ?? null);
+    const lessonUuid = this.assertLesson(body?.lessonUuid);
+    const teacherId = await this.resolveTeacherId(req, lessonUuid);
     return this.teacherAssignments.assignFromSet(teacherId, body, this.bearer(req));
   }
 
@@ -207,14 +209,18 @@ export class DrillsController {
   @Post('self')
   @HttpCode(HttpStatus.CREATED)
   async startSelfDrill(
-    @Body() body: { setUuid?: string },
+    @Body() body: { setUuid?: string; lessonUuid?: string | null },
     @Req() req: Request,
   ): Promise<DrillAssignmentDTO> {
     if (!body?.setUuid) {
       throw new BadRequestException('setUuid is required');
     }
     const studentId = await this.studentId(req);
-    return this.selfDrill.startSelfDrill(studentId, body.setUuid);
+    // Optional, unlike teacher-origin work: a student starting from a lesson's homework
+    // names it so the drill appears there, while one starting from the drills menu has
+    // no lesson to name.
+    const lessonUuid = typeof body.lessonUuid === 'string' ? body.lessonUuid.trim() : '';
+    return this.selfDrill.startSelfDrill(studentId, body.setUuid, lessonUuid || null);
   }
 
   /** Teacher-only. Staff role required — a student token is refused. */
@@ -300,6 +306,37 @@ export class DrillsController {
    * stands rather than guessing: `employees_teacher` lives in the portal's database,
    * which this service cannot reach.
    */
+  /**
+   * Teacher-origin work is created *within* a lesson, and this is where that is
+   * enforced.
+   *
+   * A teacher assigns drilling from a lesson page: the student roster itself is
+   * lesson-scoped (`roster.listForLesson`), so with no lesson there is no principled
+   * set of students to assign to. Attribution is the sharper problem — without a
+   * lesson, `resolveTeacherId` used to fall back to the caller's legacy user id, which
+   * writes a different numbering space into `teacher_id` than the Teacher profile pk
+   * every other row holds. `teacherIdForAssignment` then derives the teacher from the
+   * lesson, finds none, and the ownership check that accepts "the lesson's teacher" has
+   * nothing to match against.
+   *
+   * Hiding the wizard is not this gate. Track J's legacy portal and a hand-crafted POST
+   * both reach these methods directly.
+   *
+   * SELF origin is deliberately out of scope: a student practising from the drills menu
+   * has no lesson, and `startSelfDrill` has its own gates.
+   */
+  private assertLesson(lessonUuid: unknown): string {
+    const value = typeof lessonUuid === 'string' ? lessonUuid.trim() : '';
+    if (!value) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'LESSON_REQUIRED',
+        message: 'Choose a lesson before assigning drilling',
+      });
+    }
+    return value;
+  }
+
   private async resolveTeacherId(req: Request, lessonUuid: string | null): Promise<number> {
     if (lessonUuid) {
       const scoped = await this.roster.listForLesson(lessonUuid);

@@ -163,29 +163,85 @@ describe('DrillsController — teacher write routes', () => {
   const withToken = (user: any) =>
     ({ authUser: user, headers: { authorization: 'Bearer tok-123' } }) as any;
 
+  // Teacher-origin work is created *within* a lesson: the roster is lesson-scoped, and
+  // without a lesson `resolveTeacherId` falls back to the caller's legacy user id, which
+  // writes a different numbering space into `teacher_id` than every other row holds.
+  // `teacherIdForAssignment` then derives the teacher from the lesson and finds none, so
+  // the ownership check has nothing to match. The UI disabling a button is not this gate:
+  // the legacy portal and a hand-crafted POST both reach these methods.
+  describe('the lesson requirement for teacher-origin work', () => {
+    it('refuses generate with no lesson', async () => {
+      await expect(h.controller.generate({ count: 50 } as any, withToken(staff()))).rejects.toMatchObject(
+        { response: { code: 'LESSON_REQUIRED' } },
+      );
+      expect(h.teacherAssignments.generate).not.toHaveBeenCalled();
+    });
+
+    it('refuses generate with an explicitly null lesson', async () => {
+      await expect(
+        h.controller.generate({ count: 50, lessonUuid: null } as any, withToken(staff())),
+      ).rejects.toMatchObject({ response: { code: 'LESSON_REQUIRED' } });
+      expect(h.teacherAssignments.generate).not.toHaveBeenCalled();
+    });
+
+    it('refuses assign with no lesson', async () => {
+      await expect(
+        h.controller.assign({ setUuid: 's-1', studentIds: [7] } as any, withToken(staff())),
+      ).rejects.toMatchObject({ response: { code: 'LESSON_REQUIRED' } });
+      expect(h.teacherAssignments.assignFromSet).not.toHaveBeenCalled();
+    });
+
+    it('refuses a blank lesson uuid rather than treating it as present', async () => {
+      await expect(
+        h.controller.generate({ count: 50, lessonUuid: '   ' } as any, withToken(staff())),
+      ).rejects.toMatchObject({ response: { code: 'LESSON_REQUIRED' } });
+      expect(h.teacherAssignments.generate).not.toHaveBeenCalled();
+    });
+
+    it('allows generate once a lesson is given', async () => {
+      const res = await h.controller.generate(
+        { count: 50, lessonUuid: 'l-1' } as any,
+        withToken(staff()),
+      );
+      expect(res.assignmentUuids).toEqual(['a-1']);
+    });
+  });
+
   describe('POST generate', () => {
     it('queues generation for a staff caller', async () => {
-      const res = await h.controller.generate({ count: 50 } as any, withToken(staff()));
+      const res = await h.controller.generate(
+        { count: 50, lessonUuid: 'l-1' } as any,
+        withToken(staff()),
+      );
       expect(res.assignmentUuids).toEqual(['a-1']);
-      expect(h.teacherAssignments.generate).toHaveBeenCalledWith(42, { count: 50 }, 'tok-123');
+      // 182, not the caller's 42: with a lesson present the teacher comes from the
+      // lesson's own record.
+      expect(h.teacherAssignments.generate).toHaveBeenCalledWith(
+        182,
+        { count: 50, lessonUuid: 'l-1' },
+        'tok-123',
+      );
     });
 
     // A student token reaching this route creates teacher-origin homework for anyone.
     it('is refused for a student', async () => {
       await expect(
-        h.controller.generate({ count: 50 } as any, withToken(student('u-42'))),
+        h.controller.generate({ count: 50, lessonUuid: 'l-1' } as any, withToken(student('u-42'))),
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(h.teacherAssignments.generate).not.toHaveBeenCalled();
     });
 
     it('forwards an empty token rather than the literal header when it is absent', async () => {
-      await h.controller.generate({ count: 50 } as any, { authUser: staff(), headers: {} } as any);
+      await h.controller.generate(
+        { count: 50, lessonUuid: 'l-1' } as any,
+        { authUser: staff(), headers: {} } as any,
+      );
       expect(h.teacherAssignments.generate.mock.calls[0][2]).toBe('');
     });
 
     it('does not treat a non-Bearer scheme as a token', async () => {
       await h.controller.generate(
-        { count: 50 } as any,
+        { count: 50, lessonUuid: 'l-1' } as any,
         { authUser: staff(), headers: { authorization: 'Basic abc' } } as any,
       );
       expect(h.teacherAssignments.generate.mock.calls[0][2]).toBe('');
@@ -194,10 +250,15 @@ describe('DrillsController — teacher write routes', () => {
 
   describe('POST assign', () => {
     it('assigns for a staff caller', async () => {
-      await h.controller.assign({ setUuid: 's-1', studentIds: [7] } as any, withToken(staff()));
+      await h.controller.assign(
+        { setUuid: 's-1', studentIds: [7], lessonUuid: 'l-1' } as any,
+        withToken(staff()),
+      );
+      // 182, not the caller's 42: with a lesson present the teacher comes from the
+      // lesson's own record.
       expect(h.teacherAssignments.assignFromSet).toHaveBeenCalledWith(
-        42,
-        { setUuid: 's-1', studentIds: [7] },
+        182,
+        { setUuid: 's-1', studentIds: [7], lessonUuid: 'l-1' },
         'tok-123',
       );
     });
@@ -306,22 +367,22 @@ describe('DrillsController — teacher write routes', () => {
       );
     });
 
-    it('falls back to the resolved user id when no lesson is named', async () => {
-      // Without a lesson there is nothing authoritative to read the teacher pk from, so
-      // the previous behaviour stands rather than guessing.
+    // Replaces "falls back to the resolved user id when no lesson is named". That
+    // fallback wrote the caller's legacy user id into `teacher_id`, a different
+    // numbering space from the Teacher profile pk every other row holds. It is now
+    // unreachable for teacher-origin work: the request is refused before it.
+    it('refuses rather than falling back to the caller id when no lesson is named', async () => {
       const h = harness();
 
-      await h.controller.generate(
-        { studentIds: [3], lessonUuid: null, topics: [], instructions: '', count: 3 } as any,
-        req(staff()),
-      );
+      await expect(
+        h.controller.generate(
+          { studentIds: [3], lessonUuid: null, topics: [], instructions: '', count: 3 } as any,
+          req(staff()),
+        ),
+      ).rejects.toMatchObject({ response: { code: 'LESSON_REQUIRED' } });
 
       expect(h.roster.listForLesson).not.toHaveBeenCalled();
-      expect(h.teacherAssignments.generate).toHaveBeenCalledWith(
-        42,
-        expect.anything(),
-        expect.anything(),
-      );
+      expect(h.teacherAssignments.generate).not.toHaveBeenCalled();
     });
 
     it('falls back when the lesson has no teacher recorded', async () => {
