@@ -530,10 +530,14 @@ complete and its commits are in the running image, despite its own status file
 still saying "not yet deployed".
 
 Track K: **K.1, K.2, K.3, K.5 complete** at deploy tag `faffc0f` — see
-[`status/track-k.md`](status/track-k.md). **K.4, the browser reproduction of the
-whole user journey, has not been run and is the one remaining piece of this
-plan.** It includes the answer-leak check that step K.4.5 calls the single most
-important verification in the track.
+[`status/track-k.md`](status/track-k.md).
+
+**K.4 is partial.** Step 5, the answer-leak check that the plan calls the single
+most important verification in the track, **passes** — verified against a real
+production row through the deployed projection, and proven by breaking the guard.
+Step 7's server-side gate passes too. Steps 1–4 and 6 need a signed-in teacher and
+student; no test identity exists and minting a session for a real user's account
+was refused, so they are **blocked on an owner decision**.
 
 ---
 

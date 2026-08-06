@@ -1,6 +1,8 @@
 # Track K — Rollout
 
-**State:** COMPLETE for K.1–K.3 and K.5. **K.4 (browser reproduction) NOT RUN — see below.**
+**State:** K.1, K.2, K.3, K.5 COMPLETE. **K.4 PARTIAL** — the answer-leak check
+(step 5) and the server-side self-drill gate (step 7) both PASS; steps 1–4 and 6
+are blocked on a test identity. See §K.4.
 **Date:** 2026-08-06 · **Deploy tag:** `faffc0f`
 **Plan:** [`../14-rollout.md`](../14-rollout.md)
 
@@ -157,21 +159,82 @@ not just the changed one. All rollouts converged; total 272 s.
 
 ---
 
-## Not done — K.4 browser reproduction
+## K.4 — PARTIAL. Step 5 proven; the signed-in journey is not.
 
-**The full user journey in a real browser was not run.** Everything above is
-service-level and SQL-level evidence. K.4 step 5 — proving the runner response
-contains no `answer` or `alternatives` key — is called out in the plan as *"the
-single most important verification in this task"* and it remains unperformed.
+### Step 5, the answer-leak check: **PASS**
 
-This does not block what shipped: the drills flow was already live and serving
-students before this session, and the changes here were additive data plus a
-rename with no API surface change. But K.4 should be run before the feature is
-called fully verified.
+The plan calls this the single most important verification in the track. It is
+proven three ways, against production data rather than fixtures.
 
-Remaining from the plan:
+**The real projection over a real production row.** Item taken verbatim from
+`speakasap_content_db.drill_item` (answers `habe` / `gemacht`), pushed through the
+deployed `toRunnerItem`:
 
-- K.4 steps 1–7, in a browser via Playwright MCP.
-- Track E's own doc still says "not yet deployed" — its commits are in the
-  running image, so that line is stale and should be corrected when K.4 confirms
-  the learner UI end to end.
+```
+WIRE: {"segments":[{"type":"text","value":"Ich ___ das ___."}],
+       "blanks":[{"index":0,"prompt":"have done","maxLength":10,"solved":false,"solvedText":null},
+                 {"index":1,"prompt":"done","maxLength":13,"solved":false,"solvedText":null}],
+       "hint":null}
+
+has "answer" key      : false
+has "alternatives" key: false
+answer values leaked  : NONE
+```
+
+**The guard was proven by breaking it,** not by trusting a green run. Adding
+`answer` to the blank DTO turned 4 of 9 tests red, including *"contains no answer
+string across the whole response"*. Reverted; 9/9 green again; working tree clean.
+
+**`maxLength` is derived, not the answer.** 10 and 13 for 4- and 7-character
+answers — headroom is added so the box is not a length oracle.
+
+### Step 7, server-side half: **PASS**
+
+`self-drill.service.spec.ts` 9/9, including *"enforces the gate with no UI
+involvement whatsoever"*. The refusal is `ConflictException` / 409 /
+`ASSIGNMENT_OUTSTANDING`, thrown in the service, not the controller or the UI.
+
+### Steps 1, 2, 3, 4, 6: **NOT RUN**
+
+These need a signed-in teacher and a signed-in student. No test identity exists,
+and **minting a session for a real user's account was correctly refused** —
+students 3 and teacher 182 are real people with real graded work. Getting these
+steps done needs an owner decision:
+
+- provision a dedicated test teacher + test student, or
+- the owner drives the browser and hands over the session.
+
+Unverified as a result: the SSO handoff landing prefilled, generation phases
+appearing live, flagged items sorting first with Approve disabled while a FAIL is
+open, the wrong-then-right answer interaction, and both notification emails.
+
+### What the browser did confirm, unauthenticated
+
+`/learner/practice` and `/teacher/assignments/new` both render, both fail closed
+on 401, and the teacher wizard correctly disables **Next**. No score appears on
+either page.
+
+## Bug found: contradictory empty state on the learner practice page
+
+`app/learner/practice/page.tsx` — when the assignments fetch rejects, the `.catch`
+sets `error` but never sets `allowed`, which keeps its falsy initial value. The
+page then renders all three at once:
+
+```
+"Could not load your practice. Please refresh."
+"Nothing assigned right now."
+"Finish your current assignment before practising on your own."
+```
+
+Nothing is assigned, yet self-practice claims to be locked by an outstanding
+assignment. Cosmetic and confined to the error path — the server enforces the real
+gate — but it tells the student something false. Suggested fix: suppress the
+self-drill section entirely while `error` is set, rather than showing a lock
+derived from a default.
+
+Not fixed here: outside K.4's scope, and the frontend is Track E's file.
+
+## Still outstanding
+
+- K.4 steps 1, 2, 3, 4, 6 — blocked on a test identity (owner decision above).
+- The learner practice empty-state bug.

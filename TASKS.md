@@ -19,9 +19,22 @@ vocabulary baseline was empty, which made generation over-trigger regeneration.
   Prisma's auto-diff would have dropped 72,700 rows).
 - Backup before any write: `backups/speakasap_content_db-pre-k2-20260806-142727.sql`.
 
-**Deferred:** Track K.4, the browser reproduction of the full journey, including
-the answer-leak check. Not a regression and not blocking — the flow was already
-serving students — but the feature is not fully verified until it runs.
+**K.4 partial.** The answer-leak check — the plan's most important verification —
+**passes**: the runner payload carries no `answer` or `alternatives` for a real
+production item, confirmed by breaking the guard and watching tests go red. The
+server-side self-drilling gate passes too (409 `ASSIGNMENT_OUTSTANDING`).
+
+**Blocked on you:** K.4 steps 1–4 and 6 need a signed-in teacher and student.
+No test identity exists, and minting a session for a real user's account was
+refused — students 3 / teacher 182 are real people with real graded work. Either
+provision a dedicated test teacher + student, or drive the browser yourself and
+hand over the session.
+
+**Bug found, not fixed** (Track E's file, outside this scope):
+`frontend/app/learner/practice/page.tsx` shows "Nothing assigned right now" and
+"Finish your current assignment before practising on your own" simultaneously
+when the fetch fails — the `.catch` sets `error` but leaves `allowed` at its
+falsy default. Cosmetic; the server enforces the real gate.
 
 ## Active Task
 
