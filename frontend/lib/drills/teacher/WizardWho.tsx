@@ -15,7 +15,8 @@ export interface WizardGroup {
 
 export interface WizardWhoValue {
   studentIds: number[];
-  lessonUuid: string | null;
+  /** Never null: the form cannot be submitted without a lesson. */
+  lessonUuid: string;
 }
 
 export interface WizardWhoProps {
@@ -93,10 +94,13 @@ export function WizardWho({
       className="space-y-6"
       onSubmit={(e) => {
         e.preventDefault();
-        if (studentIds.length === 0) {
+        // Both are required. The server refuses a lesson-less teacher create with 400
+        // LESSON_REQUIRED, so submitting without one would only produce an error the
+        // teacher can do nothing about here.
+        if (studentIds.length === 0 || !lessonUuid) {
           return;
         }
-        onNext({ studentIds, lessonUuid: lessonUuid || null });
+        onNext({ studentIds, lessonUuid });
       }}
     >
       {preselectionMissed ? (
@@ -183,7 +187,7 @@ export function WizardWho({
           htmlFor="drill-lesson"
           className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300"
         >
-          Lesson (optional)
+          Lesson
         </label>
         <select
           id="drill-lesson"
@@ -191,7 +195,13 @@ export function WizardWho({
           value={lessonUuid}
           onChange={(e) => setLessonUuid(e.target.value)}
         >
-          <option value="">No lesson</option>
+          {/*
+            No "no lesson" option: teacher-origin work is created within a lesson, and
+            the server refuses a missing one with 400 LESSON_REQUIRED. The empty option
+            is a prompt to choose, not a choice — Next stays disabled while it is
+            selected.
+          */}
+          <option value="">Choose a lesson…</option>
           {/*
             The lesson the teacher arrived from, when it is not in `lessons`. Without an
             option carrying this value the select renders as "No lesson" while state still
@@ -214,7 +224,7 @@ export function WizardWho({
         <button
           type="submit"
           className="rounded-md bg-sky-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
-          disabled={studentIds.length === 0}
+          disabled={studentIds.length === 0 || !lessonUuid}
         >
           Next
         </button>

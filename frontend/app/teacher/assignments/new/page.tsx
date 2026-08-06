@@ -40,6 +40,35 @@ export default function NewAssignmentPage() {
   );
 }
 
+/**
+ * Reached without `?lessonUuid=` — typed, bookmarked, or linked from somewhere that
+ * dropped the parameter.
+ *
+ * Drilling is assigned from inside a lesson: that is where the student roster comes from
+ * (it is lesson-scoped server-side) and where the teacher is read from. Rendering the
+ * wizard here would walk the teacher through picking students only to have the server
+ * refuse the submission with 400 LESSON_REQUIRED at the end, so the wizard is not
+ * rendered at all.
+ */
+function LessonRequiredNotice() {
+  return (
+    <main className="min-h-full bg-zinc-50 px-4 py-8 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6 sm:py-10">
+      <div className="mx-auto w-full max-w-2xl space-y-4">
+        <h1 className="text-2xl font-semibold">Choose a lesson first</h1>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Drilling is assigned from within a lesson. Open the lesson in the portal and use{' '}
+          <span className="font-medium">Create drilling assignment</span> there — the
+          student and the lesson come with you.
+        </p>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Assignments belong to a lesson so they appear in the student&apos;s homework for
+          it, and so the work is attributed to the lesson&apos;s teacher.
+        </p>
+      </div>
+    </main>
+  );
+}
+
 function WizardFallback() {
   return (
     <main className="min-h-full bg-zinc-50 px-4 py-8 dark:bg-zinc-950 sm:px-6 sm:py-10">
@@ -65,12 +94,14 @@ function NewAssignmentWizard() {
     return Number.isInteger(raw) && raw > 0 ? [raw] : [];
   }, [searchParams]);
   const initialLessonUuid = searchParams.get('lessonUuid');
+  const hasLesson = Boolean(initialLessonUuid && initialLessonUuid.trim());
   // The wizard does not fetch a lesson list, so there is no title to look up. A short
   // prefix is enough for the teacher to recognise that the lesson came with them.
   const initialLessonTitle = initialLessonUuid
     ? `Lesson from the portal (${initialLessonUuid.slice(0, 8)}…)`
     : null;
 
+  // Declared before the early return so hook order stays stable across renders.
   const [step, setStep] = useState<Step>('who');
   const [who, setWho] = useState<WizardWhoValue | null>(null);
   const [what, setWhat] = useState<WizardWhatValue | null>(null);
@@ -172,6 +203,12 @@ function NewAssignmentWizard() {
     { key: 'how', label: 'How' },
   ];
   const currentIndex = stepLabels.findIndex((s) => s.key === step);
+
+  // After every hook, so hook order stays stable: React requires the same sequence on
+  // each render, and an early return above the hooks would change it.
+  if (!hasLesson) {
+    return <LessonRequiredNotice />;
+  }
 
   return (
     <main className="min-h-full bg-zinc-50 px-4 py-8 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6 sm:py-10">

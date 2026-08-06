@@ -18,19 +18,19 @@ describe('WizardWho', () => {
 
   it('assigns to one student', async () => {
     const onNext = vi.fn();
-    render(<WizardWho students={students} onNext={onNext} />);
+    render(<WizardWho students={students} initialLessonUuid="l-1" onNext={onNext} />);
     await userEvent.click(screen.getByRole('checkbox', { name: /anna/i }));
     await userEvent.click(screen.getByRole('button', { name: /next/i }));
-    expect(onNext).toHaveBeenCalledWith({ studentIds: [1], lessonUuid: null });
+    expect(onNext).toHaveBeenCalledWith({ studentIds: [1], lessonUuid: 'l-1' });
   });
 
   it('assigns to several students', async () => {
     const onNext = vi.fn();
-    render(<WizardWho students={students} onNext={onNext} />);
+    render(<WizardWho students={students} initialLessonUuid="l-1" onNext={onNext} />);
     await userEvent.click(screen.getByRole('checkbox', { name: /anna/i }));
     await userEvent.click(screen.getByRole('checkbox', { name: /boris/i }));
     await userEvent.click(screen.getByRole('button', { name: /next/i }));
-    expect(onNext).toHaveBeenCalledWith({ studentIds: [1, 2], lessonUuid: null });
+    expect(onNext).toHaveBeenCalledWith({ studentIds: [1, 2], lessonUuid: 'l-1' });
   });
 
   // The group expands now rather than travelling as a reference, so a later membership
@@ -41,13 +41,14 @@ describe('WizardWho', () => {
       <WizardWho
         students={students}
         groups={[{ id: 'g-1', name: 'Tuesday A2', studentIds: [1, 2] }]}
+        initialLessonUuid="l-1"
         onNext={onNext}
       />,
     );
     await userEvent.click(screen.getByRole('checkbox', { name: /anna/i }));
     await userEvent.click(screen.getByRole('button', { name: /add tuesday a2/i }));
     await userEvent.click(screen.getByRole('button', { name: /next/i }));
-    expect(onNext).toHaveBeenCalledWith({ studentIds: [1, 2], lessonUuid: null });
+    expect(onNext).toHaveBeenCalledWith({ studentIds: [1, 2], lessonUuid: 'l-1' });
   });
 
   it('passes the chosen lesson through', async () => {
@@ -65,7 +66,12 @@ describe('WizardWho', () => {
     expect(onNext).toHaveBeenCalledWith({ studentIds: [1], lessonUuid: 'l-1' });
   });
 
-  it('sends null rather than an empty string when no lesson is chosen', async () => {
+  /**
+   * Replaces "sends null rather than an empty string when no lesson is chosen".
+   * Teacher-origin work is created within a lesson, and the server refuses a missing one
+   * with 400 LESSON_REQUIRED — so the wizard must not offer to submit without it.
+   */
+  it('cannot continue without a lesson, however many students are picked', async () => {
     const onNext = vi.fn();
     render(
       <WizardWho
@@ -75,8 +81,36 @@ describe('WizardWho', () => {
       />,
     );
     await userEvent.click(screen.getByRole('checkbox', { name: /anna/i }));
-    await userEvent.click(screen.getByRole('button', { name: /next/i }));
-    expect(onNext).toHaveBeenCalledWith({ studentIds: [1], lessonUuid: null });
+    expect(screen.getByRole('button', { name: /next/i })).toBeDisabled();
+    expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('enables Next only once both a student and a lesson are chosen', async () => {
+    const onNext = vi.fn();
+    render(
+      <WizardWho
+        students={students}
+        lessons={[{ uuid: 'l-1', title: 'Lesson 5' }]}
+        onNext={onNext}
+      />,
+    );
+    const next = () => screen.getByRole('button', { name: /next/i });
+    expect(next()).toBeDisabled();
+    await userEvent.click(screen.getByRole('checkbox', { name: /anna/i }));
+    expect(next()).toBeDisabled();
+    await userEvent.selectOptions(screen.getByLabelText(/lesson/i), 'l-1');
+    expect(next()).toBeEnabled();
+  });
+
+  it('offers no "no lesson" escape hatch', () => {
+    render(
+      <WizardWho
+        students={students}
+        lessons={[{ uuid: 'l-1', title: 'Lesson 5' }]}
+        onNext={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('option', { name: /no lesson/i })).toBeNull();
   });
 
   /**
@@ -97,12 +131,17 @@ describe('WizardWho', () => {
     it('can continue immediately, without touching the picker', async () => {
       const onNext = vi.fn();
       render(
-        <WizardWho students={students} initialStudentIds={[2]} onNext={onNext} />,
+        <WizardWho
+          students={students}
+          initialStudentIds={[2]}
+          initialLessonUuid="l-1"
+          onNext={onNext}
+        />,
       );
 
       await userEvent.click(screen.getByRole('button', { name: /next/i }));
 
-      expect(onNext).toHaveBeenCalledWith({ studentIds: [2], lessonUuid: null });
+      expect(onNext).toHaveBeenCalledWith({ studentIds: [2], lessonUuid: 'l-1' });
     });
 
     it('preselects the lesson too', async () => {
@@ -125,13 +164,18 @@ describe('WizardWho', () => {
     it('still lets the teacher add someone else', async () => {
       const onNext = vi.fn();
       render(
-        <WizardWho students={students} initialStudentIds={[1]} onNext={onNext} />,
+        <WizardWho
+          students={students}
+          initialStudentIds={[1]}
+          initialLessonUuid="l-1"
+          onNext={onNext}
+        />,
       );
 
       await userEvent.click(screen.getByRole('checkbox', { name: /boris/i }));
       await userEvent.click(screen.getByRole('button', { name: /next/i }));
 
-      expect(onNext).toHaveBeenCalledWith({ studentIds: [1, 2], lessonUuid: null });
+      expect(onNext).toHaveBeenCalledWith({ studentIds: [1, 2], lessonUuid: 'l-1' });
     });
 
     it('still lets the teacher deselect the preselected student', async () => {
@@ -197,7 +241,10 @@ describe('WizardWho', () => {
       expect(screen.getByRole('option', { name: /Lesson 16/ })).toBeInTheDocument();
     });
 
-    it('still lets the teacher detach it', async () => {
+    // Replaces "still lets the teacher detach it". Detaching is still possible — the
+    // teacher may have arrived from the wrong lesson — but it can no longer be
+    // submitted, because teacher-origin work without a lesson is refused server-side.
+    it('lets the teacher detach it, but then refuses to continue', async () => {
       const onNext = vi.fn();
       render(
         <WizardWho
@@ -210,9 +257,9 @@ describe('WizardWho', () => {
       );
 
       await userEvent.selectOptions(screen.getByRole('combobox', { name: /lesson/i }), '');
-      await userEvent.click(screen.getByRole('button', { name: /next/i }));
 
-      expect(onNext).toHaveBeenCalledWith({ studentIds: [1], lessonUuid: null });
+      expect(screen.getByRole('button', { name: /next/i })).toBeDisabled();
+      expect(onNext).not.toHaveBeenCalled();
     });
   });
 
