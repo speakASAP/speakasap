@@ -28,9 +28,14 @@ no-op in the browser for exactly that reason.
 
 ### Still to do
 
-- Owner: deploy the portal, then run the durable test that has never been through a
-  Django runner:
-  `ssh speakasap 'cd speakasap-portal && python3 manage.py test cabinet.tests.test_student_drills_menu'`
+- Owner: deploy the portal.
+
+**Never run `manage.py test` against the speakasap-portal host, and do not add test files
+to that repo.** It is legacy production. The test runner creates a test database and
+prompts to clobber an existing one — that is not a read-only operation, and this was
+attempted once before being stopped. Verify portal logic by piping a module and its
+checks into `python3 -` over ssh, which writes nothing. The test file added alongside the
+drills menu has been removed for this reason.
 - The learner practice-page empty-state bug from K.4 is still unfixed (Track E's file).
 - `ai-microservice` contract sync is committed on `main`, unpushed — speakasap's work is
   on a feature branch, so those two want reconciling before either is pushed.
