@@ -3,6 +3,38 @@
 **Date:** 2026-08-06 · **Owner decision:** full scope, all three parts
 **Repos:** `speakasap` (frontend, education-service), `speakasap-portal`
 
+---
+
+## STATUS: Parts 1 and 2 DEPLOYED (`098d74f`). Part 3 committed, awaiting owner deploy.
+
+| Part | State |
+|---|---|
+| 1 — TEACHER requires a lesson | **Live.** Server gate + wizard + bare-URL notice, verified in production. |
+| 2 — self-drills carry their lesson | **Live.** `lessonUuid ?? null` confirmed in the running image. |
+| 3 — portal drills menu | **Committed** on `feat/drilling-student-menu`. `ssh speakasap` is read-only; the deploy is yours. |
+
+Verified in the browser after deploy:
+
+- `/teacher/assignments/new` bare → "Choose a lesson first", no wizard.
+- Prefilled portal link → student and lesson preselected, label reads "Lesson",
+  the empty option reads "Choose a lesson…", **Next** enabled.
+- Detaching the lesson in that same page → **Next** goes disabled, student still selected.
+- `LESSON_REQUIRED` and `lessonUuid ?? null` both present in the deployed bundles.
+
+**Note on deploying the frontend:** `shared/scripts/deploy.sh speakasap` deploys the 13
+backend services but **not** the frontend, which has its own
+`PUBLIC_URL=… ./scripts/deploy-frontend.sh`. The first deploy of this work looked like a
+no-op in the browser for exactly that reason.
+
+### Still to do
+
+- Owner: deploy the portal, then run the durable test that has never been through a
+  Django runner:
+  `ssh speakasap 'cd speakasap-portal && python3 manage.py test cabinet.tests.test_student_drills_menu'`
+- The learner practice-page empty-state bug from K.4 is still unfixed (Track E's file).
+- `ai-microservice` contract sync is committed on `main`, unpushed — speakasap's work is
+  on a feature branch, so those two want reconciling before either is pushed.
+
 ## Why
 
 `/teacher/assignments/new` lets a teacher reach the wizard with no lesson and no
