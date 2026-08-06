@@ -523,6 +523,18 @@ Wave 6  ─ Track K (rollout, one deploy at a time, orchestrating session only)
 
 **Critical path:** 0 → A → A2 → F. Start Track A first inside Wave 2.
 
+### Status as of 2026-08-06
+
+Tracks 0, A, A2, B, B2, C, D, E, F, G, H, I, J: **COMPLETE**. Track E is code
+complete and its commits are in the running image, despite its own status file
+still saying "not yet deployed".
+
+Track K: **K.1, K.2, K.3, K.5 complete** at deploy tag `faffc0f` — see
+[`status/track-k.md`](status/track-k.md). **K.4, the browser reproduction of the
+whole user journey, has not been run and is the one remaining piece of this
+plan.** It includes the answer-leak check that step K.4.5 calls the single most
+important verification in the track.
+
 ---
 
 ## Per-Session Handoff Protocol

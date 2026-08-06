@@ -1,5 +1,17 @@
 # Track K — Rollout (Wave 6, orchestrating session only)
 
+> **STATUS 2026-08-06: K.1, K.2, K.3 and K.5 are DONE — see [`status/track-k.md`](status/track-k.md).**
+> **K.4 (browser reproduction) is still outstanding and is the remaining work in this track.**
+>
+> Two corrections were applied to this file after it was found to misdescribe production:
+> the databases are `speakasap_content_db` / `speakasap_education_db` (the `_db` suffix was
+> missing), and `backups-microservice/scripts/backup-db.sh` does not exist — use the
+> `pg_dump` fallback, with pod superuser `dbadmin` (not `postgres`).
+>
+> `content-service` tables were PascalCase when this plan was written, so the verification
+> SQL below returned empty against a populated database. They are snake_case as of
+> migration `20260806143845_snake_case_table_names`, and the SQL here is now correct.
+
 > **For agentic workers:** This track is **not** for subagents. Subagents must not deploy. The orchestrating session runs every step here, one at a time.
 
 **Goal:** Get it into production in an order where each step is verifiable and reversible.
@@ -28,9 +40,9 @@ vocabulary, sets), education-service ×2 (assignments, notifiedAt).
 
 ```bash
 rtk /home/ssf/Documents/Github/shared/scripts/with-deploy-lock.sh \
-  /home/ssf/Documents/Github/backups-microservice/scripts/backup-db.sh speakasap_content
+  /home/ssf/Documents/Github/backups-microservice/scripts/backup-db.sh speakasap_content_db
 rtk /home/ssf/Documents/Github/shared/scripts/with-deploy-lock.sh \
-  /home/ssf/Documents/Github/backups-microservice/scripts/backup-db.sh speakasap_education
+  /home/ssf/Documents/Github/backups-microservice/scripts/backup-db.sh speakasap_education_db
 ```
 
 If those script paths do not exist, take a `pg_dump` through the postgres MCP
@@ -56,8 +68,8 @@ cd /home/ssf/Documents/Github/speakasap/education-service && rtk npm run prisma:
 
 - [ ] **Step 4: Verify the tables exist**
 
-Use `postgres_query` (read-only) against `speakasap_content` and
-`speakasap_education`:
+Use `postgres_query` (read-only) against `speakasap_content_db` and
+`speakasap_education_db`:
 
 ```sql
 SELECT tablename FROM pg_tables WHERE tablename LIKE 'drill%' ORDER BY tablename;

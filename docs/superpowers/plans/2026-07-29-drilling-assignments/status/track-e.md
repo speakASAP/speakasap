@@ -1,6 +1,9 @@
 # Track E — Student Runner UI
 
-**State:** CODE COMPLETE — not yet deployed or exercised against a real assignment
+**State:** CODE COMPLETE and **DEPLOYED** — these commits are in the running
+`speakasap-frontend` image. Still **not exercised against a real assignment in a
+browser**; that is Track K.4, which remains outstanding. (Corrected 2026-08-06 —
+this line previously read "not yet deployed", which production contradicted.)
 **Service:** `speakasap/frontend` · **Branch:** `feat/drilling-track-e` (from `main`)
 **Commits:** `e3fd394` (E.2 api) · `67445d5` (E.3 DrillRunner) · `caf73e1` (E.4 pages) · `55f2bf7` (route removal) · `f6e9c32` (self-drill library)
 **Plan:** [`../09-frontend-learner.md`](../09-frontend-learner.md) · **Blocks:** nothing

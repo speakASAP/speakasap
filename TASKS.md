@@ -2,6 +2,27 @@
 
 This file is the root task index for the SpeakASAP master orchestrator. Detailed goals and chunk status live in `docs/orchestrator/GOALS.md`; runtime state lives in `docs/orchestrator/IMPLEMENTATION_STATE.md`, `docs/orchestrator/STATE.json`, and root `STATE.json`.
 
+## Shipped — Drilling Assignments (2026-08-06, tag `faffc0f`)
+
+Feature is live. Evidence per track in
+`docs/superpowers/plans/2026-07-29-drilling-assignments/status/`.
+
+This session ran rollout Track K.2, the data migrations, which had never been
+executed — before it, every drill item in production was AI-generated and the
+vocabulary baseline was empty, which made generation over-trigger regeneration.
+
+- Imported 24,102 grammar + 3,477 seven bank items; both importers proven
+  idempotent on a second run (`inserted: 0`).
+- Built 45,077 course-vocabulary rows over 19 courses; no course is thin at
+  lesson 5.
+- Renamed all 20 `content-service` tables to snake_case (hand-written migration —
+  Prisma's auto-diff would have dropped 72,700 rows).
+- Backup before any write: `backups/speakasap_content_db-pre-k2-20260806-142727.sql`.
+
+**Deferred:** Track K.4, the browser reproduction of the full journey, including
+the answer-leak check. Not a regression and not blocking — the flow was already
+serving students — but the feature is not fully verified until it runs.
+
 ## Active Task
 
 - Goal 9.6: review draft salary calculation run V2; payout/payment/finalize gates remain closed.
