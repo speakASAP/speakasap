@@ -65,9 +65,13 @@ export default function PracticePage() {
           </p>
         ) : null}
 
-        {loading ? (
-          <p className="text-slate-600">Loading…</p>
-        ) : (
+        {loading ? <p className="text-slate-600">Loading…</p> : null}
+
+        {/* A failed load knows neither what is assigned nor whether self-drilling is
+            allowed. Rendering either section from those defaults tells the student
+            something false — "nothing assigned" beside a lock claiming an assignment is
+            outstanding — so the error message stands alone until a refresh succeeds. */}
+        {loading || error ? null : (
           <>
             <section>
               <h2 className="text-lg font-semibold">Assigned to you</h2>
