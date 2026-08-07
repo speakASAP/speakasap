@@ -1,11 +1,9 @@
 # Track K — Rollout
 
-**State:** K.1, K.2, K.3, K.5 COMPLETE. **K.4 PARTIAL** — the answer-leak check
-(step 5) and the server-side self-drill gate (step 7) both PASS; steps 1–4 and 6
-are still NOT RUN. The blocker is no longer consent — the owner is both the real
-teacher and the real student and has authorised using their own account — it is
-that no browser has been reachable to drive. See §K.4.
-**Date:** 2026-08-07 · **Deploy tag:** `fcd349d`
+**State:** K.1, K.2, K.3, K.5 COMPLETE. **K.4 COMPLETE** — every step now has
+evidence. Steps 1–4 and 6 were driven through the owner's own signed-in session
+on 2026-08-07; steps 5 and 7 were already proven. See §K.4.
+**Date:** 2026-08-07 · **Deploy tag:** `bec78df`
 **Plan:** [`../14-rollout.md`](../14-rollout.md)
 
 ---
@@ -227,30 +225,57 @@ answers — headroom is added so the box is not a length oracle.
 involvement whatsoever"*. The refusal is `ConflictException` / 409 /
 `ASSIGNMENT_OUTSTANDING`, thrown in the service, not the controller or the UI.
 
-### Steps 1, 2, 3, 4, 6: **NOT RUN**
+### Steps 1, 2, 3, 4, 6: **PASS** (2026-08-07)
 
-These need a signed-in teacher and a signed-in student.
+Driven through the owner's own signed-in Chrome. The owner is both the real
+teacher and the real student here and authorised using their account, so no
+dedicated test identity was needed.
 
-**The identity question is settled (2026-08-07).** The owner is both the real
-teacher and the real student on this platform and has authorised driving their
-own account for these steps. No dedicated test identity needs provisioning.
+**Connecting the browser.** The Playwright plugin ships as bare
+`npx @playwright/mcp@latest`, which launches its own empty browser and ignores
+the user's. It must be given the DevTools endpoint —
+`--cdp-endpoint http://127.0.0.1:9222` in
+`~/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/playwright/.mcp.json`
+— against a Chrome started with `--remote-debugging-port=9222`. Without this the
+session looks logged out and every probe returns 401.
 
-**What blocks them now is purely mechanical: no reachable browser.** Playwright
-attaches over a Chrome DevTools port; across three attempts on 2026-08-07 the
-port was unreachable (`curl 127.0.0.1:9222/json/version` failed,
-`ps aux | grep chrome` counted zero processes). Chrome must be started as:
+| Step | Evidence |
+|---|---|
+| 1. SSO handoff | «Создать тренировку» → `/auth/handoff?sso=…` → wizard landed **prefilled and authenticated**: student pre-checked, lesson pre-selected, Next enabled |
+| 2. Topics | 74 topics loaded; Next correctly disabled until one is picked |
+| 3. Generation phases | Live: "Generating 6 more item(s)", progress bar, "0 of 6", then redirect to review |
+| 4. Review + approve | 6 items, all PENDING, Approve enabled, approval delivered the set to the student |
+| 6. Runner | Wrong answer `habe geverstehen` → hint "Не получается? Можно показать ответ"; correct `habe verstanden` → "Correct", progress 1/6 |
 
-```
-google-chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.config/google-chrome"
-```
+Generation quality was sound: all six verbs were genuinely untrennbar without
+`ge-` (verstehen, erklären, besuchen, versprechen, vergessen, bezahlen), exactly
+the lesson's topic.
 
-signed in, before these steps can run.
+**Answer-leak re-checked against this live assignment.** The runner payload
+carries no `answer` and no `alternatives`; `solvedText` is null. The string
+`vergessen` does appear, but as the infinitive inside the glossary hint
+(`(vergessen – забывать)`) while the answer is `hast vergessen` — a deliberate
+partial overlap, not a leak.
 
-**One step-1 half did verify** during the brief window a browser was attached:
-the legacy-portal → alfares SSO handoff URL is generated correctly, arriving as
-`/teacher/assignments/new?lessonUuid=9278f5da-b535-416c-a1ff-8d355e3b63b3&studentId=3&returnTo=…`.
-The other half of step 1 — that the wizard *lands prefilled and authenticated* —
-is still unverified, as are steps 2, 3, 4 and 6.
+**The self-drill gate reads correctly in the UI too**, naming the blocking
+assignment: "Finish your assignment "…" before practising on your own."
+
+### Flag sorting and the Approve gate: proven by test, not by browser
+
+Step 4's remaining assertions — FAIL items sorting first, Approve disabled while
+a FAIL is open — could not be driven in the browser because generation never
+produced a FAIL. Rather than write a FAIL into production by hand, they were
+verified where they are already covered:
+`frontend/lib/drills/teacher/ReviewList.test.tsx`, 13/13 green.
+
+Both tests were confirmed to *fail* when the logic is broken — `byState` forced
+to 0 and `hasUnresolvedFailure` forced to false turned exactly
+*"orders FAIL, then WARN, then PASS"* and *"disables approve while any FAIL is
+unresolved"* red, and nothing else. File restored, tree clean.
+
+**Correction:** commit `3efbb83` records "no test runner" for the frontend. That
+is wrong — `frontend` runs **vitest** (`npm test` → `vitest run`). The runner
+exists and these tests were run with it.
 
 ### Correction: there is no token-attachment bug
 
@@ -305,8 +330,54 @@ code path regardless — any fetch rejection (gateway 502, dropped connection,
 expired token) reaches the same `.catch`, which sets `error` while leaving
 `allowed` false and `outstanding` empty.
 
+## Bug found and fixed: the assignment email was never sent
+
+Driving step 6 surfaced a real production defect. `notified_assigned_at` was
+**null on every row the table had ever held**, while `notified_completed_at` was
+populated on completed ones.
+
+Cause: `assignApprovedSet` flipped rows to `ASSIGNED` without ever calling
+`notifications.onAssigned`. The hook was only wired into `assignSet` — the
+reuse-an-existing-set flow. Generate-then-approve, the path a teacher actually
+takes, delivered every assignment silently. The hook itself was fine.
+
+Fixed in `bec78df` (`teacher-assignments.service.ts`), with a regression test
+that was confirmed to fail without the fix. Verified live: a fresh assignment
+recorded `notified_assigned_at = 2026-08-07 10:38:31.373` — the first non-null
+value in the table's history.
+
+### Notification policy, owner's decision (2026-08-07)
+
+**Exactly one email leaves the system: the student's, on assign.** The teacher is
+no longer emailed on completion.
+
+While verifying this, a stale comment turned out to be wrong in a way worth
+recording: `NotificationsClientAdapter.createInApp()` is a **no-op stub**.
+notification-service exposes `POST dispatch/email` and nothing else — its
+`in-app` controller reads and marks read but cannot create, and
+`in_app_notifications` is empty. So "in-app only" was never a real channel;
+`onCompleted` now delivers nothing at all, which is what the owner chose once
+this was clear. A genuine in-app route would be new work in two services.
+
+## Test data cleanup
+
+The two assignments created during this verification were deleted on 2026-08-07:
+`79e63ea4` (IN_PROGRESS, 1/6) and `a67f85fc` (ASSIGNED). Removed 2 assignments,
+8 items, 4 attempts in one transaction. Backup taken first:
+`backups/drill-test-assignments-pre-delete-20260807-210505.sql` (353 inserts).
+The owner's real work is untouched — 5 COMPLETED and 1 CANCELLED remain.
+
 ## Still outstanding
 
-- K.4 steps 1, 2, 3, 4, 6 — need a Chrome reachable on `--remote-debugging-port=9222`,
-  signed in as the owner. Identity is authorised; only the browser is missing.
-- Nothing else. The learner practice empty-state bug is fixed and live.
+**Nothing in Track K.** Every step of K.1–K.5 has evidence, the learner practice
+empty-state bug is fixed and live, and the assignment-email bug found during
+verification is fixed and confirmed in production.
+
+Two notes for whoever picks this up next, neither blocking:
+
+- No FAIL item has ever been observed from live generation, so the flagged-item
+  path is proven by test rather than in production. If one appears naturally,
+  it is worth walking the review screen once.
+- A real in-app notification channel does not exist. If the teacher should ever
+  learn about completions in the portal, that is new work in notification-service
+  plus a caller change here.
