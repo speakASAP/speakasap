@@ -3,7 +3,21 @@ import { DrillBlank, DrillTemplate, ParsedTemplate, DRILL_BLANK_PATTERN } from '
 
 const HTML_TAG = /<[^>]+>/g;
 
-const blankRe = () => new RegExp(DRILL_BLANK_PATTERN.source, 'g');
+/**
+ * A fresh regex per call, because `g` patterns carry mutable `lastIndex` and sharing
+ * one instance across `replace`/`matchAll` would make parsing depend on call order.
+ *
+ * Every flag on the shared constant is carried over, not just `g` — hard-coding the
+ * flag list silently drops any other, so the parser would stop honouring the pattern
+ * it is built from. `g` is unioned in because `matchAll` throws without it.
+ */
+const blankRe = () =>
+  new RegExp(
+    DRILL_BLANK_PATTERN.source,
+    DRILL_BLANK_PATTERN.flags.includes('g')
+      ? DRILL_BLANK_PATTERN.flags
+      : `${DRILL_BLANK_PATTERN.flags}g`,
+  );
 
 export function parseTemplate(template: DrillTemplate): ParsedTemplate {
   const blanks: DrillBlank[] = [];

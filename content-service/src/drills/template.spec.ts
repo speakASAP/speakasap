@@ -88,3 +88,41 @@ describe('Idempotency', () => {
     expect(segs1).toEqual(segs2);
   });
 });
+
+/**
+ * `blankRe()` rebuilds the pattern from `DRILL_BLANK_PATTERN.source` and hard-codes
+ * `'g'`, so any other flag on the shared constant is silently dropped.
+ *
+ * `template.drift.spec.ts` cannot catch this: both vendored copies would be equally
+ * wrong, so they stay byte-identical while parsing markup differently from what the
+ * constant declares.
+ *
+ * The probe pattern uses `s` (dotAll) with `.` because that flag has an observable
+ * effect on this grammar — a blank spanning a newline matches only while `s` survives
+ * the rebuild. `i` would prove nothing: the real pattern is built from character
+ * classes, so case-insensitivity changes none of its matches.
+ */
+describe('blankRe flag propagation', () => {
+  const DOT_ALL = /\[(.*)\]\{(.*)\}/gs;
+
+  afterEach(() => {
+    jest.resetModules();
+  });
+
+  it('honours every flag on DRILL_BLANK_PATTERN, not just g', () => {
+    jest.isolateModules(() => {
+      jest.doMock('./contracts', () => ({
+        ...jest.requireActual('./contracts'),
+        DRILL_BLANK_PATTERN: DOT_ALL,
+      }));
+
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { parseTemplate: parse } = require('./template');
+
+      const result = parse('Ich [ge\nhen]{gehe} weg.');
+
+      expect(result.blanks).toHaveLength(1);
+      expect(result.blanks[0].answer).toBe('gehe');
+    });
+  });
+});
