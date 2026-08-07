@@ -351,14 +351,6 @@ value in the table's history.
 **Exactly one email leaves the system: the student's, on assign.** The teacher is
 no longer emailed on completion.
 
-While verifying this, a stale comment turned out to be wrong in a way worth
-recording: `NotificationsClientAdapter.createInApp()` is a **no-op stub**.
-notification-service exposes `POST dispatch/email` and nothing else — its
-`in-app` controller reads and marks read but cannot create, and
-`in_app_notifications` is empty. So "in-app only" was never a real channel;
-`onCompleted` now delivers nothing at all, which is what the owner chose once
-this was clear. A genuine in-app route would be new work in two services.
-
 ## Test data cleanup
 
 The two assignments created during this verification were deleted on 2026-08-07:
@@ -378,6 +370,5 @@ Two notes for whoever picks this up next, neither blocking:
 - No FAIL item has ever been observed from live generation, so the flagged-item
   path is proven by test rather than in production. If one appears naturally,
   it is worth walking the review screen once.
-- A real in-app notification channel does not exist. If the teacher should ever
-  learn about completions in the portal, that is new work in notification-service
-  plus a caller change here.
+- `blankRe()` dropping non-`g` flags is fixed (see the drills commit following
+  `696bc89`).
