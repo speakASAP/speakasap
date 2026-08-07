@@ -2,8 +2,10 @@
 
 **State:** K.1, K.2, K.3, K.5 COMPLETE. **K.4 PARTIAL** — the answer-leak check
 (step 5) and the server-side self-drill gate (step 7) both PASS; steps 1–4 and 6
-are blocked on a test identity. See §K.4.
-**Date:** 2026-08-06 · **Deploy tag:** `faffc0f`
+are still NOT RUN. The blocker is no longer consent — the owner is both the real
+teacher and the real student and has authorised using their own account — it is
+that no browser has been reachable to drive. See §K.4.
+**Date:** 2026-08-07 · **Deploy tag:** `fcd349d`
 **Plan:** [`../14-rollout.md`](../14-rollout.md)
 
 ---
@@ -145,6 +147,37 @@ is retired and prints a pointer to the shared runner.
 The runner deploys the whole monorepo — all 13 services move to the new tag,
 not just the changed one. All rollouts converged; total 272 s.
 
+## K.3b — Deploy at `fcd349d` (2026-08-07)
+
+Owner-approved. `shared/scripts/deploy.sh speakasap` moved 12 services to
+`fcd349d` in 264 s, all rollouts converged.
+
+**The shared runner does not deploy the frontend, and reports success anyway.**
+`speakasap-frontend` stayed on `098d74f` while everything else advanced — and
+`fcd349d` changes *exactly one file*, `frontend/app/learner/practice/page.tsx`.
+So the run shipped 12 unchanged services and skipped the only changed one. The
+tell was "Build and push images: 10.69 s", far too fast for a Next.js build.
+
+This is deliberate, not a bug: `deploy.config.sh:62-70` excludes
+`speakasap-frontend` because `scripts/deploy-frontend.sh` owns it and computes
+its own tag; declaring it twice would give one deployment two build paths.
+
+**Anyone deploying a frontend change must therefore run both:**
+
+```
+shared/scripts/deploy.sh speakasap                              # services
+shared/scripts/with-deploy-lock.sh ./scripts/deploy-frontend.sh # frontend
+```
+
+The second was run under the deploy lock. `speakasap-frontend` is now on
+`fcd349d`, converged via `wait-for-rollout.sh`, one pod desired/ready — the
+second pod seen briefly was the prior ReplicaSet draining
+(`deletionTimestamp` set, RS scaled to 0).
+
+Verified in the *served* bundle rather than trusting the green banner: the
+minified client chunk contains `d||h?null:(…)`, i.e. loading-or-error
+short-circuits both sections to `null`, with `Loading…` as its own branch.
+
 ## K.5 — Post-rollout checks
 
 - `speakasap-content` pod `1/1 Running`, zero restarts, no errors in logs.
@@ -196,13 +229,41 @@ involvement whatsoever"*. The refusal is `ConflictException` / 409 /
 
 ### Steps 1, 2, 3, 4, 6: **NOT RUN**
 
-These need a signed-in teacher and a signed-in student. No test identity exists,
-and **minting a session for a real user's account was correctly refused** —
-students 3 and teacher 182 are real people with real graded work. Getting these
-steps done needs an owner decision:
+These need a signed-in teacher and a signed-in student.
 
-- provision a dedicated test teacher + test student, or
-- the owner drives the browser and hands over the session.
+**The identity question is settled (2026-08-07).** The owner is both the real
+teacher and the real student on this platform and has authorised driving their
+own account for these steps. No dedicated test identity needs provisioning.
+
+**What blocks them now is purely mechanical: no reachable browser.** Playwright
+attaches over a Chrome DevTools port; across three attempts on 2026-08-07 the
+port was unreachable (`curl 127.0.0.1:9222/json/version` failed,
+`ps aux | grep chrome` counted zero processes). Chrome must be started as:
+
+```
+google-chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.config/google-chrome"
+```
+
+signed in, before these steps can run.
+
+**One step-1 half did verify** during the brief window a browser was attached:
+the legacy-portal → alfares SSO handoff URL is generated correctly, arriving as
+`/teacher/assignments/new?lessonUuid=9278f5da-b535-416c-a1ff-8d355e3b63b3&studentId=3&returnTo=…`.
+The other half of step 1 — that the wizard *lands prefilled and authenticated* —
+is still unverified, as are steps 2, 3, 4 and 6.
+
+### Correction: there is no token-attachment bug
+
+An earlier note in this session suspected the frontend was not sending its
+bearer token, after `/api/v1/auth/me` returned 401 `Missing bearer token` while
+a valid token sat in `localStorage`. **That was wrong.** The 401s came from raw
+`fetch` calls typed into the console, which send no `Authorization` header.
+`frontend/lib/drills/runner/api.ts:80-83` reads `getAuthSession()?.accessToken`
+and sets `Authorization: Bearer …`; `lib/auth-session.ts` reads the same
+`speakasap.auth.tokens` blob. The client is correct. Do not chase this.
+
+Any future browser probing must go through the app's own client, not bare
+`fetch`, or it will manufacture the same false 401.
 
 Unverified as a result: the SSO handoff landing prefilled, generation phases
 appearing live, flagged items sorting first with Approve disabled while a FAIL is
@@ -232,9 +293,20 @@ gate — but it tells the student something false. Suggested fix: suppress the
 self-drill section entirely while `error` is set, rather than showing a lock
 derived from a default.
 
-Not fixed here: outside K.4's scope, and the frontend is Track E's file.
+**FIXED and deployed** in `fcd349d` (2026-08-07). Both sections are now
+suppressed while `error` is set, so the error message stands alone; `loading`
+keeps its own branch so the three states stay distinct. `tsc --noEmit` clean,
+and confirmed present in the deployed bundle (see K.3b).
+
+Note on the reproduction: the contradictory triple was captured on the live
+page, but in an *unauthenticated* browser context, where the 401 drove the
+`.catch`. It was not observed hitting a signed-in student. The fix stands on the
+code path regardless — any fetch rejection (gateway 502, dropped connection,
+expired token) reaches the same `.catch`, which sets `error` while leaving
+`allowed` false and `outstanding` empty.
 
 ## Still outstanding
 
-- K.4 steps 1, 2, 3, 4, 6 — blocked on a test identity (owner decision above).
-- The learner practice empty-state bug.
+- K.4 steps 1, 2, 3, 4, 6 — need a Chrome reachable on `--remote-debugging-port=9222`,
+  signed in as the owner. Identity is authorised; only the browser is missing.
+- Nothing else. The learner practice empty-state bug is fixed and live.
