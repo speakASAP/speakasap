@@ -453,6 +453,35 @@ describe('TeacherAssignmentsService.getForTeacher', () => {
       expect(update.data.items.create).toHaveLength(3);
     });
 
+    // The generate-then-approve path delivered silently in production: only assignSet
+    // called the hook, so every wizard-created assignment reached the student with no
+    // email. Found on 2026-08-07 — notified_assigned_at was null on every row ever
+    // created, while notified_completed_at was populated.
+    it('emails every student whose assignment this approval delivers', async () => {
+      const h = harness();
+      h.content.getSet.mockResolvedValue(setWithItems(3));
+      h.prisma.drillAssignment.findMany.mockResolvedValue([
+        { uuid: 'a-1', studentId: 3, status: 'PENDING_REVIEW' },
+        { uuid: 'a-2', studentId: 4, status: 'PENDING_REVIEW' },
+      ]);
+
+      await h.service.assignApprovedSet('s-1', 182, 'tok');
+
+      expect(h.notifications.onAssigned).toHaveBeenCalledTimes(2);
+      expect(h.notifications.onAssigned).toHaveBeenCalledWith('a-1');
+      expect(h.notifications.onAssigned).toHaveBeenCalledWith('a-2');
+    });
+
+    it('notifies nobody when the approval delivered nothing', async () => {
+      const h = harness();
+      h.content.getSet.mockResolvedValue(setWithItems(3));
+      h.prisma.drillAssignment.findMany.mockResolvedValue([]);
+
+      await h.service.assignApprovedSet('s-1', 182, 'tok');
+
+      expect(h.notifications.onAssigned).not.toHaveBeenCalled();
+    });
+
     it('does not touch assignments that are already assigned', async () => {
       // Re-approving must not re-deliver a drill a student has begun.
       const h = harness();

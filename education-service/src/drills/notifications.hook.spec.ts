@@ -61,12 +61,15 @@ describe('NotificationsHook', () => {
     );
   });
 
-  it('dispatches to the teacher on completion', async () => {
+  // Owner's rule: exactly one email leaves the system, the student's. The teacher's
+  // completion notification is in-app only.
+  it('notifies the teacher in-app on completion, without an email', async () => {
     await hook.onCompleted('a-1');
 
-    expect(client.dispatch).toHaveBeenCalledWith(
+    expect(client.createInApp).toHaveBeenCalledWith(
       expect.objectContaining({ template: 'drill_assignment_completed', recipientId: 7 }),
     );
+    expect(client.dispatch).not.toHaveBeenCalled();
   });
 
   it('sends NOTHING to the teacher for a self-selected drill', async () => {
@@ -96,14 +99,14 @@ describe('NotificationsHook', () => {
     expect(client.createInApp).toHaveBeenCalledTimes(1);
   });
 
-  it('never throws when dispatch fails — a failed email must not block a transition', async () => {
-    client.dispatch.mockRejectedValue(new Error('smtp down'));
+  it('never throws when delivery fails — a failed notification must not block a transition', async () => {
+    client.createInApp.mockRejectedValue(new Error('notifications down'));
 
     await expect(hook.onCompleted('a-1')).resolves.toBeUndefined();
   });
 
-  it('logs the assignment uuid when dispatch fails', async () => {
-    client.dispatch.mockRejectedValue(new Error('smtp down'));
+  it('logs the assignment uuid when delivery fails', async () => {
+    client.createInApp.mockRejectedValue(new Error('notifications down'));
     const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
 
     await hook.onCompleted('a-1');
@@ -121,7 +124,7 @@ describe('NotificationsHook', () => {
     await hook.onCompleted('a-1');
     await hook.onCompleted('a-1');
 
-    expect(client.dispatch).toHaveBeenCalledTimes(1);
+    expect(client.createInApp).toHaveBeenCalledTimes(1);
   });
 
   // The claim guard must run before dispatch, not after. Claiming afterwards leaves a
@@ -159,8 +162,8 @@ describe('NotificationsHook', () => {
     expect(client.dispatch).not.toHaveBeenCalled();
   });
 
-  // A score is excluded at the source: the payload the teacher email is rendered from
-  // carries no accuracy field, so no template change downstream can surface one.
+  // A score is excluded at the source: the payload the teacher notification is rendered
+  // from carries no accuracy field, so no template change downstream can surface one.
   it('sends the teacher no numeric performance data', async () => {
     prisma.drillAttempt.findMany.mockResolvedValue([
       { itemUuid: 'i-1', blankIndex: 0, isCorrect: false },
@@ -168,7 +171,7 @@ describe('NotificationsHook', () => {
 
     await hook.onCompleted('a-1');
 
-    const payload = JSON.stringify(client.dispatch.mock.calls[0][0]);
+    const payload = JSON.stringify(client.createInApp.mock.calls[0][0]);
     expect(payload).not.toMatch(/accuracy|firstTryAccuracy|score|percent/i);
   });
 });

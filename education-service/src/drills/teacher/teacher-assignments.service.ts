@@ -328,6 +328,20 @@ export class TeacherAssignmentsService {
       );
     }
 
+    // Generate-then-approve is the primary path a teacher takes, and it delivered
+    // silently until now: only `assignSet` (reusing an existing set) ever called the
+    // hook, so every assignment created through the wizard reached the student with no
+    // email at all. After the loop, for the same reason as there — the rows are already
+    // committed, and the hook is at-most-once and swallows its own failures.
+    // Generate-then-approve is the primary path a teacher takes, and it delivered
+    // silently until now: only `assignSet` (reusing an existing set) ever called the
+    // hook, so every assignment created through the wizard reached the student with no
+    // email at all. After the loop, for the same reason as there — the rows are already
+    // committed, and the hook is at-most-once and swallows its own failures.
+    for (const assignment of pending) {
+      await this.notifications.onAssigned(assignment.uuid);
+    }
+
     return pending.length;
   }
 
