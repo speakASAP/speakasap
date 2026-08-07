@@ -26,10 +26,16 @@ const STRUGGLED_LIMIT = 5;
 /**
  * Fires drill notifications: the student on assign, the teacher on completion.
  *
- * **Exactly one of these is an email.** The student is emailed when work is assigned;
- * the teacher's completion notification is in-app only. Owner's decision — a teacher
- * with many students would otherwise be buried in mail. Adding `dispatch` to
- * `onCompleted` would silently reintroduce a second email.
+ * **Exactly one notification leaves this class:** the student's, when work is
+ * assigned. Owner's decision (2026-08-07) — a teacher with many students would
+ * otherwise be buried in mail.
+ *
+ * `onCompleted` therefore sends nothing today. It still claims its timestamp and
+ * builds its payload, because the completion event itself is worth recording and the
+ * teacher-facing half is expected back once notification-service grows a real in-app
+ * route; `createInApp` is a no-op stub in the HTTP adapter, and `dispatch` is the
+ * email path. Adding `dispatch` back to `onCompleted` would reintroduce the second
+ * email the owner removed.
  *
  * Two further rules shape this class.
  *
@@ -121,9 +127,9 @@ export class NotificationsHook {
         },
       };
 
-      // In-app only, deliberately. The teacher still sees a completion in the portal,
-      // but no email is sent: exactly one drilling email leaves the system, the one the
-      // student gets when work is assigned. Do not add `dispatch` back here.
+      // Deliberately not `dispatch`: the teacher is not emailed on completion. This
+      // resolves to a no-op in the HTTP adapter today — see the class doc. Kept as the
+      // seam a real in-app route would plug into, so the payload above stays exercised.
       await this.client.createInApp(notification);
     } catch (error) {
       this.warn('completed', assignmentUuid, error);

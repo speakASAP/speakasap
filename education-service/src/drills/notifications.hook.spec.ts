@@ -61,9 +61,10 @@ describe('NotificationsHook', () => {
     );
   });
 
-  // Owner's rule: exactly one email leaves the system, the student's. The teacher's
-  // completion notification is in-app only.
-  it('notifies the teacher in-app on completion, without an email', async () => {
+  // Owner's rule: exactly one notification leaves this class, the student's. The
+  // teacher is not emailed on completion. `createInApp` is a no-op in the real adapter,
+  // so this asserts the seam is used and the email path is not.
+  it('does not email the teacher on completion', async () => {
     await hook.onCompleted('a-1');
 
     expect(client.createInApp).toHaveBeenCalledWith(
