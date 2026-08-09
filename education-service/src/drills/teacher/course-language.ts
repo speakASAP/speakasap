@@ -30,24 +30,38 @@ export interface CourseLanguage {
   materialLanguage: string;
 }
 
-/**
- * Returns null when the module class names no language pair, rather than guessing.
- *
- * 11,716 production lessons carry `extra_lessons.ModuleExtraLessonsCourse`, which
- * encodes none. A guess would put the wrong language's grammar in front of a student,
- * which is exactly the defect this replaces — so "unknown" is surfaced to the caller
- * instead of being papered over with a default.
- */
-export function courseLanguageOf(moduleClass: string | null | undefined): CourseLanguage | null {
-  const value = (moduleClass ?? '').trim();
-  if (!value.includes('.data.')) {
+/** Parses one `course_materials.data.<material>.<target>.…` string. */
+function parsePair(value: string | null | undefined): CourseLanguage | null {
+  const text = (value ?? '').trim();
+  if (!text.includes('.data.')) {
     return null;
   }
 
-  const [material, target] = value.split('.data.')[1].split('.');
+  const [material, target] = text.split('.data.')[1].split('.');
   if (!KNOWN_LANGUAGE_CODES.has(material) || !KNOWN_LANGUAGE_CODES.has(target)) {
     return null;
   }
 
   return { languageCode: target, materialLanguage: material };
+}
+
+/**
+ * The course class wins over the module class.
+ *
+ * An extra-lessons course is sold from an offer whose product names the language, and
+ * the resulting `StudentCourse.course_class` records it —
+ * `course_materials.data.ru.it._extra.Course` — while the lesson's own `module_class` is
+ * only the module template, `course_materials.data.extra_lessons.ModuleExtraLessonsCourse`,
+ * which names no language at all. All 11,787 extra-lessons lessons in production resolve
+ * through the course class and none through the module class.
+ *
+ * Returns null when neither names a pair, rather than guessing. A guess puts the wrong
+ * language's grammar in front of a student, which is the defect this exists to fix — so
+ * "unknown" is surfaced to the caller instead of papered over with a default.
+ */
+export function courseLanguageOf(
+  moduleClass: string | null | undefined,
+  courseClass?: string | null,
+): CourseLanguage | null {
+  return parsePair(courseClass) ?? parsePair(moduleClass);
 }

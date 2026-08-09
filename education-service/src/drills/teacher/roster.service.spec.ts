@@ -222,6 +222,26 @@ describe('TeacherRosterService roster shaping', () => {
     expect(roster.materialLanguage).toBe('ru');
   });
 
+  it('resolves an extra-lessons lesson from its course class', async () => {
+    // The lesson's own module class names no language; the course it belongs to does.
+    // Without this, drilling was refused on all 11,787 extra-lessons lessons.
+    const h = harness(new Map());
+    h.lessons.getRoster.mockResolvedValue({
+      lessonUuid: LESSON, teacherId: 182,
+      groups: [], studentIds: [], paidStudentIds: [], names: new Map(),
+    });
+    h.lessons.getLesson.mockResolvedValue({
+      uuid: LESSON,
+      moduleClass: 'course_materials.data.extra_lessons.ModuleExtraLessonsCourse',
+      courseClass: 'course_materials.data.ru.it._extra.Course',
+    });
+
+    const roster = await h.service.listForLesson(LESSON);
+
+    expect(roster.languageCode).toBe('it');
+    expect(roster.materialLanguage).toBe('ru');
+  });
+
   it('reports nulls when the lesson names no language pair', async () => {
     // extra_lessons courses encode none. Null is surfaced so the caller can say so,
     // rather than a default that would silently pick a language.
@@ -231,7 +251,9 @@ describe('TeacherRosterService roster shaping', () => {
       groups: [], studentIds: [], paidStudentIds: [], names: new Map(),
     });
     h.lessons.getLesson.mockResolvedValue({
-      uuid: LESSON, moduleClass: 'course_materials.data.extra_lessons.ModuleExtraLessonsCourse',
+      uuid: LESSON,
+      moduleClass: 'course_materials.data.extra_lessons.ModuleExtraLessonsCourse',
+      courseClass: '',
     });
 
     const roster = await h.service.listForLesson(LESSON);

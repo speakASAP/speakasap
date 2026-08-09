@@ -195,6 +195,7 @@ export class LessonClientService {
       isFinished: Boolean(body.is_finished),
       studentCourseUuid: String(body.student_course_uuid),
       moduleClass: String(body.module_class ?? ''),
+      courseClass: String(body.course_class ?? ''),
       needsTeacher: Boolean(body.needs_teacher),
       recommendation: String(body.recommendation ?? ''),
       toManager: String(body.to_manager ?? ''),

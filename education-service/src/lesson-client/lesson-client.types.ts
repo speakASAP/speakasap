@@ -23,6 +23,14 @@ export interface PortalLesson {
   isFinished: boolean;
   studentCourseUuid: string;
   moduleClass: string;
+  /**
+   * The COURSE's class, `course_materials.data.<material>.<target>.…`.
+   *
+   * Distinct from `moduleClass`: an extra-lessons lesson's module class is
+   * `…data.extra_lessons.ModuleExtraLessonsCourse` and names no language, while its
+   * course class still does. Prefer this when deriving the drilling language.
+   */
+  courseClass: string;
   needsTeacher: boolean;
   recommendation: string;
   toManager: string;

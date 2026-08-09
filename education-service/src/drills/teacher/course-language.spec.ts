@@ -26,11 +26,38 @@ describe('courseLanguageOf', () => {
     });
   });
 
-  // 11,716 production lessons carry `extra_lessons.ModuleExtraLessonsCourse`, which
+  // 11,787 production lessons carry `extra_lessons.ModuleExtraLessonsCourse`, which
   // encodes no language pair at all.
   it('returns null for a module class that names no language pair', () => {
     expect(courseLanguageOf('course_materials.data.extra_lessons.ModuleExtraLessonsCourse'))
       .toBeNull();
+  });
+
+  /**
+   * Extra-lessons courses are sold from an offer whose product names the language, and
+   * the resulting StudentCourse records it in `course_class` even though the lesson's own
+   * `module_class` does not. All 11,787 such lessons in production resolve through the
+   * course class and none through the module class, so the course wins.
+   */
+  it('prefers the course class, which names a language where the module class does not', () => {
+    expect(
+      courseLanguageOf(
+        'course_materials.data.extra_lessons.ModuleExtraLessonsCourse',
+        'course_materials.data.ru.it._extra.Course',
+      ),
+    ).toEqual({ languageCode: 'it', materialLanguage: 'ru' });
+  });
+
+  it('falls back to the module class when the course class names no pair', () => {
+    expect(
+      courseLanguageOf('course_materials.data.ru.en._basic_s.Module3T', 'nonsense'),
+    ).toEqual({ languageCode: 'en', materialLanguage: 'ru' });
+  });
+
+  it('returns null when neither names a language pair', () => {
+    expect(
+      courseLanguageOf('course_materials.data.extra_lessons.ModuleExtraLessonsCourse', ''),
+    ).toBeNull();
   });
 
   it('returns null rather than guessing for empty or unparseable input', () => {

@@ -17,6 +17,7 @@ function portalLesson(overrides: Partial<PortalLesson> = {}): PortalLesson {
     isFinished: false,
     studentCourseUuid: 'sc-1',
     moduleClass: 'A2',
+    courseClass: '',
     needsTeacher: false,
     recommendation: 'keep going',
     toManager: '',

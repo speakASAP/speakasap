@@ -75,10 +75,11 @@ export class TeacherRosterService {
     let language: CourseLanguage | null = null;
     try {
       const lesson = await this.lessons.getLesson(lessonUuid);
-      language = courseLanguageOf(lesson.moduleClass);
+      language = courseLanguageOf(lesson.moduleClass, lesson.courseClass);
       if (!language) {
         this.logger.warn(
-          `Lesson ${lessonUuid} names no language pair (moduleClass=${JSON.stringify(lesson.moduleClass)}); ` +
+          `Lesson ${lessonUuid} names no language pair (moduleClass=${JSON.stringify(lesson.moduleClass)} ` +
+            `courseClass=${JSON.stringify(lesson.courseClass)}); ` +
             'the topic picker will not be filtered',
         );
       }
