@@ -300,6 +300,22 @@ describe('DrillsController — teacher write routes', () => {
      * "I have no students". The lesson-scoped path is the only one with a real source,
      * so omitting the lesson is now refused rather than answered from stale data.
      */
+    it('passes the course language through so the wizard can scope its topics', async () => {
+      // The teacher's Lesson.teacherId stays internal, but the language must reach the
+      // client: without it the wizard fell back to hardcoded German.
+      h.roster.listForLesson.mockResolvedValue({
+        students: [], groups: [], total: 0, hasMore: false,
+        teacherId: 182, languageCode: 'en', materialLanguage: 'ru',
+      });
+
+      const res: any = await h.controller.teacherStudents(
+        withToken(staff()), undefined, undefined, undefined, 'l-1');
+
+      expect(res.languageCode).toBe('en');
+      expect(res.materialLanguage).toBe('ru');
+      expect(res.teacherId).toBeUndefined();
+    });
+
     it('refuses an unscoped roster instead of serving one from frozen tables', async () => {
       await expect(h.controller.teacherStudents(withToken(staff()))).rejects.toMatchObject({
         response: { code: 'LESSON_REQUIRED' },

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AuthClientService } from '../../auth-client/auth-client.service';
 import { DrillTeacherRosterQuery, DrillTeacherRosterResponse } from '../contracts';
 import { LessonClientService } from '../../lesson-client/lesson-client.service';
+import { courseLanguageOf, CourseLanguage } from './course-language';
 
 /** Page size when the caller asks for none. A picker shows a window, not 656 rows. */
 const DEFAULT_ROSTER_LIMIT = 50;
@@ -54,8 +55,39 @@ export class TeacherRosterService {
   async listForLesson(
     lessonUuid: string,
     query: DrillTeacherRosterQuery = {},
-  ): Promise<DrillTeacherRosterResponse & { teacherId: number | null }> {
+  ): Promise<
+    DrillTeacherRosterResponse & {
+      teacherId: number | null;
+      languageCode: string | null;
+      materialLanguage: string | null;
+    }
+  > {
     const roster = await this.lessons.getRoster(lessonUuid);
+
+    // The course's language, so the wizard can offer that language's topics. It used to
+    // hardcode German, which put `adjektivgruppen` in front of an English student.
+    //
+    // Fail-soft ONLY here, and deliberately: the roster is what the wizard cannot work
+    // without, while the language merely narrows a picker the teacher can also type
+    // into. Losing the student list because a second lookup failed would be a worse
+    // outcome than an unfiltered topic list. The failure is logged at error level and
+    // surfaced as an explicit null, never as a silent default language.
+    let language: CourseLanguage | null = null;
+    try {
+      const lesson = await this.lessons.getLesson(lessonUuid);
+      language = courseLanguageOf(lesson.moduleClass);
+      if (!language) {
+        this.logger.warn(
+          `Lesson ${lessonUuid} names no language pair (moduleClass=${JSON.stringify(lesson.moduleClass)}); ` +
+            'the topic picker will not be filtered',
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Could not read the course language for lesson ${lessonUuid}; returning the roster ` +
+          `without it: ${(err as Error).message}`,
+      );
+    }
 
     const groupUuidsByStudent = new Map<number, string[]>();
     for (const group of roster.groups) {
@@ -86,6 +118,8 @@ export class TeacherRosterService {
         studentIds: group.studentIds,
       })),
       teacherId: roster.teacherId,
+      languageCode: language?.languageCode ?? null,
+      materialLanguage: language?.materialLanguage ?? null,
     };
   }
 

@@ -12,6 +12,9 @@ function harness(names: Map<number, string> = new Map()) {
     getRoster: jest.fn(async () => {
       throw new LessonServiceUnavailableError('unstubbed', 'test did not stub getRoster');
     }),
+    // Defaults to a lesson with no language pair, so a test that does not care about the
+    // language gets nulls rather than an unexpected raise.
+    getLesson: jest.fn(async () => ({ uuid: 'l-1', moduleClass: '' })),
   };
   return { service: new TeacherRosterService(auth, lessons), auth, lessons };
 }
@@ -199,6 +202,59 @@ describe('TeacherRosterService roster shaping', () => {
     const roster = await h.service.listForLesson(LESSON, { search: 'kovach' });
 
     expect(roster.students.map((s) => s.id)).toEqual([314082]);
+  });
+
+  it('reports the course language so the wizard stops hardcoding German', async () => {
+    // An English course offered German topics because the wizard asked for ('de','ru')
+    // regardless of the lesson. The lesson knows: module_class carries the pair.
+    const h = harness(new Map());
+    h.lessons.getRoster.mockResolvedValue({
+      lessonUuid: LESSON, teacherId: 182,
+      groups: [], studentIds: [], paidStudentIds: [], names: new Map(),
+    });
+    h.lessons.getLesson.mockResolvedValue({
+      uuid: LESSON, moduleClass: 'course_materials.data.ru.en._basic_s.Module3T',
+    });
+
+    const roster = await h.service.listForLesson(LESSON);
+
+    expect(roster.languageCode).toBe('en');
+    expect(roster.materialLanguage).toBe('ru');
+  });
+
+  it('reports nulls when the lesson names no language pair', async () => {
+    // extra_lessons courses encode none. Null is surfaced so the caller can say so,
+    // rather than a default that would silently pick a language.
+    const h = harness(new Map());
+    h.lessons.getRoster.mockResolvedValue({
+      lessonUuid: LESSON, teacherId: 182,
+      groups: [], studentIds: [], paidStudentIds: [], names: new Map(),
+    });
+    h.lessons.getLesson.mockResolvedValue({
+      uuid: LESSON, moduleClass: 'course_materials.data.extra_lessons.ModuleExtraLessonsCourse',
+    });
+
+    const roster = await h.service.listForLesson(LESSON);
+
+    expect(roster.languageCode).toBeNull();
+    expect(roster.materialLanguage).toBeNull();
+  });
+
+  it('still returns the roster when the lesson lookup fails', async () => {
+    // The language is a nicety; the roster is the point. A teacher must not lose their
+    // student picker because the language could not be determined.
+    const h = harness(new Map([[3, 'Ann']]));
+    h.lessons.getRoster.mockResolvedValue({
+      lessonUuid: LESSON, teacherId: 182,
+      groups: [{ uuid: 'g-1', name: 'G', studentIds: [3] }],
+      studentIds: [3], paidStudentIds: [3], names: new Map(),
+    });
+    h.lessons.getLesson.mockRejectedValue(new LessonServiceUnavailableError(LESSON, 'boom'));
+
+    const roster = await h.service.listForLesson(LESSON);
+
+    expect(roster.students.map((s) => s.id)).toEqual([3]);
+    expect(roster.languageCode).toBeNull();
   });
 
   it('reports the lesson teacher so the caller can attribute the assignment', async () => {

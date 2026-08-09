@@ -456,6 +456,17 @@ export interface DrillTeacherRosterResponse {
    * that ignores both still gets a working — if truncated — list rather than an error.
    */
   hasMore: boolean;
+  /**
+   * The language this course teaches, from the lesson's `moduleClass`. Null when the
+   * lesson names no pair (`extra_lessons` courses) or the lookup failed.
+   *
+   * The wizard scopes its topic picker and its generation request to this. It used to
+   * hardcode `('de', 'ru')`, so an English course offered German topics
+   * (`adjektivgruppen`, `nullartikel`) and would have generated German drills.
+   */
+  languageCode?: string | null;
+  /** The language the course materials are written in. Null under the same conditions. */
+  materialLanguage?: string | null;
 }
 
 /** Query for GET /api/v1/drill-assignments/teacher/students. All fields optional. */

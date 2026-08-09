@@ -85,3 +85,60 @@ describe('NewAssignmentPage roster states', () => {
     expect(screen.queryByLabelText('Loading your students')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * The course's language decides which topics are offered and, more importantly, which
+ * language the generated drills are in.
+ *
+ * The wizard hardcoded ('de', 'ru'), so an English course listed German topics
+ * (`adjektivgruppen`, `nullartikel`) and generation would have produced German drills
+ * for a student learning English.
+ */
+describe('NewAssignmentPage course language', () => {
+  it('asks for the course language the lesson reports, not German', async () => {
+    listTeacherStudents.mockResolvedValue({
+      ...emptyRoster,
+      students: [{ id: 314082, name: 'Tetiana Kovach' }],
+      total: 1,
+      languageCode: 'en',
+      materialLanguage: 'ru',
+    });
+
+    render(<NewAssignmentPage />);
+
+    await waitFor(() => {
+      expect(listTopics).toHaveBeenCalledWith('en', 'ru');
+    });
+    expect(listTopics).not.toHaveBeenCalledWith('de', 'ru');
+  });
+
+  it('asks for German only when the course is actually German', async () => {
+    listTeacherStudents.mockResolvedValue({
+      ...emptyRoster,
+      languageCode: 'de',
+      materialLanguage: 'ru',
+    });
+
+    render(<NewAssignmentPage />);
+
+    await waitFor(() => {
+      expect(listTopics).toHaveBeenCalledWith('de', 'ru');
+    });
+  });
+
+  it('fetches no topics at all when the lesson names no language', async () => {
+    // Better an empty picker the teacher types into than another language's grammar.
+    listTeacherStudents.mockResolvedValue({
+      ...emptyRoster,
+      languageCode: null,
+      materialLanguage: null,
+    });
+
+    render(<NewAssignmentPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toBeInTheDocument();
+    });
+    expect(listTopics).not.toHaveBeenCalled();
+  });
+});

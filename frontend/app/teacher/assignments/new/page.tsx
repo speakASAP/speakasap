@@ -116,12 +116,28 @@ function NewAssignmentWizard() {
   // what a lesson missing from this service's tables looks like: HTTP 200, zero rows.
   const [rosterLoaded, setRosterLoaded] = useState(false);
 
-  // The taxonomy is fetched once for the whole wizard. A failure is not fatal: the topic
-  // picker still lets the teacher type a topic, which is the path a new topic takes
-  // anyway.
+  // The course's languages, learned from the roster call. Until they arrive the topic
+  // list stays empty rather than being fetched for a guessed language.
+  const [courseLanguage, setCourseLanguage] = useState<{
+    languageCode: string;
+    materialLanguage: string;
+  } | null>(null);
+
+  // The taxonomy is scoped to the course's own language. It was hardcoded to
+  // ('de', 'ru'), so an English course listed German topics — `adjektivgruppen`,
+  // `nullartikel` — and generation would have produced German drills for an English
+  // student.
+  //
+  // A failure is not fatal: the picker still lets the teacher type a topic, which is the
+  // path a new topic takes anyway. But a WRONG language is worse than no list, so
+  // nothing is fetched until the language is known.
   useEffect(() => {
+    if (!courseLanguage) {
+      setTopics([]);
+      return;
+    }
     let cancelled = false;
-    listTopics('de', 'ru')
+    listTopics(courseLanguage.languageCode, courseLanguage.materialLanguage)
       .then((list) => {
         if (!cancelled) {
           setTopics(list);
@@ -135,7 +151,7 @@ function NewAssignmentWizard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [courseLanguage]);
 
   // The roster IS fatal, unlike the taxonomy: a wizard with no students to pick from
   // cannot produce an assignment, so the failure is surfaced rather than absorbed.
@@ -150,6 +166,18 @@ function NewAssignmentWizard() {
           return;
         }
         setRosterLoaded(true);
+        // The lesson decides the language, not the browser and not a default. Null means
+        // the lesson names no pair (an `extra_lessons` course) — the topic list then
+        // stays empty and the teacher types the topic, rather than being shown another
+        // language's grammar.
+        setCourseLanguage(
+          roster.languageCode && roster.materialLanguage
+            ? {
+                languageCode: roster.languageCode,
+                materialLanguage: roster.materialLanguage,
+              }
+            : null,
+        );
         setStudents(
           roster.students.map((student) => ({
             id: student.id,
@@ -183,13 +211,23 @@ function NewAssignmentWizard() {
       return;
     }
     setError(null);
+    // Generation must never guess the language: a wrong guess produces real drills in a
+    // language the student is not learning, which is worse than refusing. The picker
+    // above is merely narrowed by this; here it decides the content.
+    if (!courseLanguage) {
+      setError(
+        'This lesson does not say which language its course teaches, so drilling cannot ' +
+          'be generated for it. Assign from a lesson on a language course.',
+      );
+      return;
+    }
     setStep('generating');
     try {
       const result = await generateAssignments({
         studentIds: who.studentIds,
         lessonUuid: who.lessonUuid,
-        languageCode: 'de',
-        materialLanguage: 'ru',
+        languageCode: courseLanguage.languageCode,
+        materialLanguage: courseLanguage.materialLanguage,
         topicSlugs: what.topics.map((t) => t.slug),
         instructions: what.instructions,
         count: what.count,
