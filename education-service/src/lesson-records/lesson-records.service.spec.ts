@@ -31,6 +31,7 @@ function portalRoster(overrides: Partial<PortalRoster> = {}): PortalRoster {
     groups: [{ uuid: 'g-1', name: 'Group A', studentIds: [3, 7] }],
     studentIds: [3, 7],
     paidStudentIds: [3],
+    names: new Map<number, string>(),
     ...overrides,
   };
 }

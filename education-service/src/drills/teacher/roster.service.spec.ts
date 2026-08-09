@@ -153,6 +153,54 @@ describe('TeacherRosterService roster shaping', () => {
     expect(roster.hasMore).toBe(false);
   });
 
+  it('falls back to the portal name when auth cannot name the student', async () => {
+    // Tetiana registered on the portal after auth's migration cutoff (legacy id 314012),
+    // so auth has no record and the wizard rendered "Student 314082".
+    const h = harness(new Map());
+    h.lessons.getRoster.mockResolvedValue({
+      lessonUuid: LESSON, teacherId: 182,
+      groups: [{ uuid: 'g-1', name: 'G', studentIds: [314082] }],
+      studentIds: [314082], paidStudentIds: [314082],
+      names: new Map([[314082, 'Tetiana Kovach']]),
+    });
+
+    const roster = await h.service.listForLesson(LESSON);
+
+    expect(roster.students[0].name).toBe('Tetiana Kovach');
+  });
+
+  it('prefers auth over the portal when both name the student', async () => {
+    // auth is the platform's own identity store; the portal name is a stopgap for
+    // students it has never seen. Where both know a person, auth wins.
+    const h = harness(new Map([[314082, 'Auth Name']]));
+    h.lessons.getRoster.mockResolvedValue({
+      lessonUuid: LESSON, teacherId: 182,
+      groups: [{ uuid: 'g-1', name: 'G', studentIds: [314082] }],
+      studentIds: [314082], paidStudentIds: [314082],
+      names: new Map([[314082, 'Portal Name']]),
+    });
+
+    const roster = await h.service.listForLesson(LESSON);
+
+    expect(roster.students[0].name).toBe('Auth Name');
+  });
+
+  it('searches on the portal-supplied name too', async () => {
+    // Search matches on the NAME. If the fallback name were applied after filtering, a
+    // teacher could see a student in the list and fail to find them by typing it.
+    const h = harness(new Map());
+    h.lessons.getRoster.mockResolvedValue({
+      lessonUuid: LESSON, teacherId: 182,
+      groups: [{ uuid: 'g-1', name: 'G', studentIds: [314082, 999] }],
+      studentIds: [314082, 999], paidStudentIds: [],
+      names: new Map([[314082, 'Tetiana Kovach']]),
+    });
+
+    const roster = await h.service.listForLesson(LESSON, { search: 'kovach' });
+
+    expect(roster.students.map((s) => s.id)).toEqual([314082]);
+  });
+
   it('reports the lesson teacher so the caller can attribute the assignment', async () => {
     const h = rosterOf([7], new Map());
 

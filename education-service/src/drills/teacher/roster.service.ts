@@ -71,7 +71,12 @@ export class TeacherRosterService {
 
     // The portal's student_ids is authoritative for membership; the group map only
     // supplies which groups each one belongs to.
-    const page = await this.pageStudents(roster.studentIds, groupUuidsByStudent, query);
+    const page = await this.pageStudents(
+      roster.studentIds,
+      groupUuidsByStudent,
+      query,
+      roster.names,
+    );
 
     return {
       ...page,
@@ -89,18 +94,35 @@ export class TeacherRosterService {
    *
    * `groups` is left empty here and filled in by the caller, which knows where its
    * groups came from. Callers spread this result first and set `groups` after.
+   *
+   * `fallbackNames` covers students auth has never seen — see the merge below.
    */
   private async pageStudents(
     studentIds: number[],
     groupUuidsByStudent: Map<number, string[]>,
     query: DrillTeacherRosterQuery,
+    fallbackNames: Map<number, string> = new Map(),
   ): Promise<DrillTeacherRosterResponse> {
     const allStudentIds = [...new Set(studentIds)].sort((a, b) => a - b);
 
     // Names come from auth-microservice; this service has none. Resolved for the whole
     // roster before filtering because `search` matches on the NAME, which is not known
     // here until it is fetched — paging first would search only the current window.
-    const names = await this.auth.resolveLegacyNames(allStudentIds);
+    const resolved = await this.auth.resolveLegacyNames(allStudentIds);
+
+    // auth wins where it knows the person — it is the platform's identity store. But it
+    // only holds users migrated up to legacy id 314012, so anyone who registered on the
+    // portal after that has no auth record and used to render as "Student 314082". The
+    // portal knows them, so its name fills the gap.
+    //
+    // Merged BEFORE filtering, so `search` matches a fallback name too: a teacher who
+    // can see a student in the list must be able to find them by typing that name.
+    const names = new Map(fallbackNames);
+    for (const [id, name] of resolved) {
+      if (name) {
+        names.set(id, name);
+      }
+    }
 
     const search = (query.search ?? '').trim().toLowerCase();
     const matching = allStudentIds.filter((id) => {
@@ -129,7 +151,10 @@ export class TeacherRosterService {
     const page = sorted.slice(offset, offset + limit);
 
     this.logger.log(
-      `Roster: total=${sorted.length} named=${names.size} returned=${page.length} offset=${offset}`,
+      // named_by_portal counts students auth could not name — a rising number means the
+      // auth migration is falling further behind portal registrations.
+      `Roster: total=${sorted.length} named=${names.size} named_by_auth=${resolved.size} ` +
+        `named_by_portal=${names.size - resolved.size} returned=${page.length} offset=${offset}`,
     );
 
     return {

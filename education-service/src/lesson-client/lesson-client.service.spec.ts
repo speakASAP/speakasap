@@ -136,6 +136,40 @@ describe('LessonClientService', () => {
       expect(roster.groups[0].studentIds).toEqual([3, 7]);
     });
 
+    it('carries the portal-supplied names', async () => {
+      // auth-microservice only knows users migrated up to legacy id 314012, so a student
+      // who registered after that resolves to no name and renders as "Student <id>".
+      // The portal knows every student, so its names are the fallback.
+      const fetchFn = jest.fn().mockResolvedValue(okResponse({
+        lesson_uuid: LESSON,
+        teacher_id: 182,
+        groups: [{ uuid: 'g-1', name: 'Group A', student_ids: [314082] }],
+        student_ids: [314082],
+        paid_student_ids: [314082],
+        students: [{ id: 314082, name: 'Tetiana Kovach' }],
+      }));
+
+      const roster = await serviceWith(fetchFn).getRoster(LESSON);
+
+      expect(roster.names.get(314082)).toBe('Tetiana Kovach');
+    });
+
+    it('yields an empty name map when the portal sends no names', async () => {
+      // An older portal has no `students` key. That must mean "no names to offer",
+      // never a crash and never a fabricated name.
+      const fetchFn = jest.fn().mockResolvedValue(okResponse({
+        lesson_uuid: LESSON,
+        teacher_id: 182,
+        groups: [],
+        student_ids: [3],
+        paid_student_ids: [],
+      }));
+
+      const roster = await serviceWith(fetchFn).getRoster(LESSON);
+
+      expect(roster.names.size).toBe(0);
+    });
+
     it('NEVER returns an empty roster in place of an error', async () => {
       const fetchFn = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
       await expect(serviceWith(fetchFn).getRoster(LESSON)).rejects.toThrow();

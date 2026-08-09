@@ -60,7 +60,30 @@ export class LessonClientService {
       // Absent means NO paid students. Never fall back to student_ids: that would grant
       // drilling and playback to everyone attending, paid or not.
       paidStudentIds: this.toArray(body.paid_student_ids).map(Number),
+      // Absent means no names on offer — an older portal has no `students` key. The
+      // caller then falls back to its own "Student <id>" rendering rather than crashing.
+      names: this.toNames(body.students),
     };
+  }
+
+  /**
+   * `[{id, name}]` from the portal to a Map, dropping rows that carry no usable name.
+   *
+   * A blank name is not stored: the caller distinguishes "auth has no name" from "the
+   * portal offered one", and an empty string would satisfy the second test while
+   * displaying as the first.
+   */
+  private toNames(raw: unknown): Map<number, string> {
+    const names = new Map<number, string>();
+    for (const entry of this.toArray(raw)) {
+      const row = entry as Record<string, unknown>;
+      const id = Number(row.id);
+      const name = typeof row.name === 'string' ? row.name.trim() : '';
+      if (Number.isInteger(id) && id > 0 && name) {
+        names.set(id, name);
+      }
+    }
+    return names;
   }
 
   async updateLesson(

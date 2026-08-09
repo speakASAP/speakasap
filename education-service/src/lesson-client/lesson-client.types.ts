@@ -48,6 +48,17 @@ export interface PortalRoster {
    * hand both to students who have not paid.
    */
   paidStudentIds: number[];
+  /**
+   * Display names the portal supplies, keyed by the same auth user ids.
+   *
+   * A FALLBACK, not the primary source: auth-microservice is the platform's identity
+   * store and wins wherever it knows the person. But auth only holds users migrated up
+   * to legacy id 314012, so a student who registered on the portal after that has no
+   * auth record at all and the wizard rendered "Student 314082" instead of a name.
+   *
+   * Empty when the portal offers none — never a reason to fabricate one.
+   */
+  names: Map<number, string>;
 }
 
 /**
