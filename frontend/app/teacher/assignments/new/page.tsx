@@ -110,6 +110,11 @@ function NewAssignmentWizard() {
   const [groups, setGroups] = useState<WizardGroup[]>([]);
   const [assignmentUuid, setAssignmentUuid] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Whether the roster call has settled, tracked apart from `students` because an empty
+  // roster and an unstarted one are the same array. Without this the wizard renders its
+  // loading skeleton forever for a lesson that legitimately has no students — which is
+  // what a lesson missing from this service's tables looks like: HTTP 200, zero rows.
+  const [rosterLoaded, setRosterLoaded] = useState(false);
 
   // The taxonomy is fetched once for the whole wizard. A failure is not fatal: the topic
   // picker still lets the teacher type a topic, which is the path a new topic takes
@@ -136,11 +141,15 @@ function NewAssignmentWizard() {
   // cannot produce an assignment, so the failure is surfaced rather than absorbed.
   useEffect(() => {
     let cancelled = false;
+    // Re-fetching for a different lesson: back to "loading" rather than showing the
+    // previous lesson's empty-roster notice while the new call is in flight.
+    setRosterLoaded(false);
     listTeacherStudents(initialLessonUuid ? { lessonUuid: initialLessonUuid } : {})
       .then((roster) => {
         if (cancelled) {
           return;
         }
+        setRosterLoaded(true);
         setStudents(
           roster.students.map((student) => ({
             id: student.id,
@@ -160,6 +169,7 @@ function NewAssignmentWizard() {
       })
       .catch((e: unknown) => {
         if (!cancelled) {
+          setRosterLoaded(true);
           setError(e instanceof DrillApiError ? e.message : 'Could not load your students');
         }
       });
@@ -244,7 +254,7 @@ function NewAssignmentWizard() {
         ) : null}
 
         {step === 'who' ? (
-          students.length === 0 && !error ? (
+          !rosterLoaded && !error ? (
             // Loading skeleton: the roster is one call away and a bare page reads as broken.
             <div className="space-y-2" aria-busy="true" aria-label="Loading your students">
               {[0, 1, 2, 3].map((i) => (
@@ -254,6 +264,27 @@ function NewAssignmentWizard() {
                 />
               ))}
             </div>
+          ) : students.length === 0 && !error ? (
+            // Loaded, and there is genuinely nobody to assign to. Distinct from the error
+            // box above: the request succeeded, so this is a statement about the lesson
+            // rather than a failure the teacher could retry into working.
+            <section
+              role="status"
+              className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-5 text-sm dark:border-amber-900 dark:bg-amber-950"
+            >
+              <h2 className="text-base font-semibold text-amber-900 dark:text-amber-100">
+                No students found for this lesson
+              </h2>
+              <p className="text-amber-800 dark:text-amber-200">
+                Drilling is assigned to the students enrolled in this lesson&apos;s group, and
+                this lesson has none that this service knows about. This usually means the
+                lesson was created recently and has not reached the drilling service yet.
+              </p>
+              <p className="text-amber-800 dark:text-amber-200">
+                Please report it if it persists — the lesson reference is{' '}
+                <code className="font-mono text-xs">{initialLessonUuid}</code>.
+              </p>
+            </section>
           ) : (
             <WizardWho
               students={students}
