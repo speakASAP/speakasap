@@ -69,6 +69,27 @@ Vault. Put the value in its `.env` and restart supervisord there.
 Never `vault kv put` on these paths: it replaces the whole secret and would drop
 `DATABASE_URL` and the S3 keys. Always `patch`.
 
+### Order matters: Vault key first, manifest second
+
+`k8s/services/education-service.yaml` declares `PORTAL_INBOUND_API_TOKEN` as an
+ExternalSecret entry pointing at `secret/prod/speakasap/education`. ESO resolves the
+entries of one ExternalSecret together, so a missing Vault property risks failing the
+whole sync — which would take `DATABASE_URL` and the S3 keys with it.
+
+This has **not** been observed here (every ExternalSecret in `statex-apps` was
+`SecretSynced` on 2026-08-09), so treat it as the cautious ordering rather than a proven
+failure: write the Vault key **before** applying the manifest, and it cannot matter
+either way. If the ExternalSecret does go unhealthy, check it before assuming the deploy
+is at fault:
+
+```bash
+kubectl get externalsecret speakasap-education-secret -n statex-apps \
+  -o jsonpath='{.status.conditions[*].message}{"\n"}'
+```
+
+`PORTAL_API_URL` and `PORTAL_CLIENT_TIMEOUT_MS` live in the ConfigMap instead — neither
+is a secret, and a URL in plain sight is easier to correct than one buried in Vault.
+
 ## Both sides fail closed
 
 Neither side degrades quietly when misconfigured, and this is the point of the whole
