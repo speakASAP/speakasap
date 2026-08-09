@@ -3,6 +3,7 @@ import { PrismaService } from '../../shared/prisma.service';
 import { computePopularityScore } from './popularity';
 import { buildSetListQuery, groupByLesson } from './sets.query';
 import { hashItem, parseTemplate } from '../template';
+import { sanitizeTemplate } from '../template-sanitize';
 import {
   DrillSetDetailDTO,
   DrillSetDTO,
@@ -314,7 +315,14 @@ export class SetsService {
     languageCode: string,
     replacement: ReplacementItem,
   ): Promise<number> {
-    const parsed = parseTemplate(replacement.template);
+    // Sanitized before anything is derived from it: `plainText` and `hash` are computed
+    // from the template, so markup left here would poison the dedup hash as well as the
+    // rendered sentence. The legacy bank importer stored raw labels, which is how 14,567
+    // rows came to show `<span class="mute">` as literal text in the review screen. This
+    // is the single chokepoint for every newly created item, so the guard belongs here
+    // rather than only in the importer that happened to cause it.
+    const template = sanitizeTemplate(replacement.template);
+    const parsed = parseTemplate(template);
     const hash = hashItem(parsed.plainText, languageCode);
 
     const existing = await tx.drillItem.findUnique({ where: { hash } });
@@ -332,7 +340,7 @@ export class SetsService {
         materialLanguage: set.materialLanguage,
         topicId: topic?.id ?? null,
         level: set.level ?? null,
-        template: replacement.template,
+        template,
         blanks: replacement.blanks as any,
         plainText: parsed.plainText,
         hint: replacement.hint ?? null,

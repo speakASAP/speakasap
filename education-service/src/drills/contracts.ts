@@ -350,6 +350,10 @@ export interface CheckBlankResponse {
    */
   acceptedText: string | null;
   attemptNo: number;
+  blanksCorrect: number;
+  blanksTotal: number;
+  /** Server-decided. The client must not infer completion itself. */
+  assignmentCompleted: boolean;
   /**
    * A nudge shown after a wrong answer — the answer's length, then its first letter,
    * then an offer to reveal. Derived on the server precisely because `acceptedText` is
@@ -357,10 +361,6 @@ export interface CheckBlankResponse {
    * who has not solved the blank. Null when the answer was correct.
    */
   hint?: string | null;
-  blanksCorrect: number;
-  blanksTotal: number;
-  /** Server-decided. The client must not infer completion itself. */
-  assignmentCompleted: boolean;
 }
 
 export type DrillErrorCode =

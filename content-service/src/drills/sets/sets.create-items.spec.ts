@@ -156,3 +156,56 @@ describe('SetsService.createSet — AI item persistence', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * Markup must not reach `DrillItem.template`.
+ *
+ * The legacy bank importer copied its rich-text label verbatim, so 14,567 of 27,627 bank
+ * rows carried a trailing `<span class="mute">` glossary — which the review screen showed
+ * as literal tag text, with the same glossary repeated beneath it from `hint`.
+ *
+ * The importer is fixed, but it is not the only writer. This is the single chokepoint
+ * every newly created item passes through, so the guard lives here too: a second importer,
+ * a backfill, or a future caller cannot reintroduce the defect without failing this test.
+ */
+describe('SetsService.createSet — template sanitation', () => {
+  let prisma: any;
+  let created: any[];
+  let svc: SetsService;
+
+  beforeEach(() => {
+    ({ prisma, created } = makePrisma());
+    svc = new SetsService(prisma);
+  });
+
+  it('strips a mute glossary rather than storing the raw tag', async () => {
+    await svc.createSet({
+      ...baseInput(),
+      newItems: [
+        aiItem('Ich denke [an]{an} meine Familie. <span class="mute">(denken – думать)</span>'),
+      ],
+    } as any);
+
+    expect(created).toHaveLength(1);
+    expect(created[0].template).toBe('Ich denke [an]{an} meine Familie.');
+    expect(created[0].template).not.toContain('<span');
+  });
+
+  it('keeps a clean template byte-for-byte', async () => {
+    await svc.createSet({
+      ...baseInput(),
+      newItems: [aiItem('Ich denke [an]{an} meine Familie.')],
+    } as any);
+
+    expect(created[0].template).toBe('Ich denke [an]{an} meine Familie.');
+  });
+
+  it('raises on an <input> template rather than deleting the answer it carries', async () => {
+    await expect(
+      svc.createSet({
+        ...baseInput(),
+        newItems: [aiItem('Albert <input answer="by" type="text" /> otvoril.')],
+      } as any),
+    ).rejects.toThrow(/input/i);
+  });
+});

@@ -20,6 +20,7 @@ import { readFileSync, readdirSync, statSync } from 'fs';
 import { basename, join } from 'path';
 import { parseLegacyExerciseFile, topicSlugFromClassName } from '../src/drills/legacy-parser';
 import { parseTemplate, hashItem } from '../src/drills/template';
+import { sanitizeTemplate } from '../src/drills/template-sanitize';
 import { lessonOrderFromClassName, courseKeyFor } from '../src/drills/seven-mapping';
 
 // Matches ANY `<word>Field(` call site (SmartExerciseField, TestField, and any field type a
@@ -277,7 +278,11 @@ async function applyToDatabase(entries: FileEntry[]): Promise<ApplyFileReport[]>
                 languageId: language.id,
                 materialLanguage: ml,
                 topicId: topic.id,
-                template: item.label,
+                // Sanitized, not raw: the label carries a trailing <span class="mute">
+                // glossary that is ALSO extracted into `hint` below. Storing it here too
+                // rendered the tag as literal text in the review screen and repeated the
+                // glossary underneath. Nothing renders `template` as HTML, deliberately.
+                template: sanitizeTemplate(item.label),
                 blanks: parsed.blanks as any,
                 plainText: parsed.plainText,
                 hint: hintMatch ? hintMatch[1] : null,
