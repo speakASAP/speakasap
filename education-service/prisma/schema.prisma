@@ -47,7 +47,6 @@ model StudentCourse {
   previous           StudentCourse? @relation("StudentCoursePrevNext", fields: [previousUuid], references: [uuid])
   next               StudentCourse? @relation("StudentCoursePrevNext")
   lessons            Lesson[]
-  drillAssignments   DrillAssignment[]
 
   @@index([groupUuid])
   @@map("education_studentcourse")
@@ -70,7 +69,6 @@ model Lesson {
   homeworks                    Homework[]
   lessonRecord                 LessonRecord?
   studentAccesses              StudentAccess[]
-  drillAssignments             DrillAssignment[]
 
   @@index([studentCourseUuid])
   @@map("education_lesson")
@@ -170,16 +168,18 @@ model DrillAssignment {
   notifiedAssignedAt  DateTime? @map("notified_assigned_at")
   notifiedCompletedAt DateTime? @map("notified_completed_at")
 
-  // studentCourseUuid and batchUuid carry FKs for the same reason lessonUuid does
-  // (2026-07-31 ruling, applied to the class rather than the one instance): both
-  // parents live in this schema and this database — DrillAssignmentBatch is created
-  // in the very same migration — so there is no ordering obstacle, and every other
-  // FK-shaped column here has one. SetNull, not Cascade: both columns are nullable
-  // and neither parent's deletion should destroy assignment history.
-  // sourceItemId on DrillAssignmentItem is the one exception — it points at
-  // content-service's DrillItem in a different database and is correctly bare.
-  lesson        Lesson?               @relation(fields: [lessonUuid], references: [uuid], onDelete: SetNull)
-  studentCourse StudentCourse?        @relation(fields: [studentCourseUuid], references: [uuid], onDelete: SetNull)
+  // lessonUuid and studentCourseUuid are CROSS-DATABASE references and deliberately
+  // carry no FK. The 2026-07-31 ruling that gave them one assumed both parents lived in
+  // this database; that stopped being true when lessons moved to the portal, which is
+  // the single source of truth. `education_lesson` here is a copy frozen at 2026-06-26,
+  // so the FK rejected every assignment on a lesson created after that date — a real
+  // 500 on the teacher's generate request, for a lesson that genuinely exists.
+  //
+  // Same reason DrillAssignmentItem.sourceItemId is bare: it points at content-service's
+  // database. Existence is checked by LessonClientService at write time, which raises
+  // when the portal denies the lesson. DO NOT restore these FKs.
+  //
+  // batchUuid keeps its FK — DrillAssignmentBatch is in this database and this schema.
   batch         DrillAssignmentBatch? @relation(fields: [batchUuid], references: [uuid], onDelete: SetNull)
   items         DrillAssignmentItem[]
   attempts      DrillAttempt[]
