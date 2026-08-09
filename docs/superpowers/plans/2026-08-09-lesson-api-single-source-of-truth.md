@@ -1,5 +1,24 @@
 # Lesson API — Single Source of Truth Implementation Plan
 
+> **STATUS 2026-08-09 (updated mid-execution).** Tasks 1-9 are implemented and
+> committed; Tasks 10-11 are not started. Checkboxes below are NOT maintained —
+> `TASKS.md` in the repo root is the authoritative state. Read it first.
+>
+> - Tasks 1-4 (portal): committed in speakasap-portal, **not deployed** (owner-run).
+> - Tasks 5-8: committed in speakasap (`4cb8a8a`, `985c223`, `7375f19`).
+> - Task 9: done in `7cdebb3` **except internal-salary**, which still reads the
+>   frozen lesson table and feeds teacher payouts. See TASKS.md.
+> - Task 10 is destructive and remains gated behind Task 11.
+>
+> Corrections found while executing:
+> - Task 7's sketched constructor `new TeacherRosterService(auth, lessons)` omitted
+>   prisma, which the service still took at the time. It takes exactly those two now,
+>   because `listForTeacher` was deleted (Task 9 step 2, option b).
+> - Task 8 assumed `lesson-records.service.spec.ts` existed with a `buildService`
+>   helper. Neither existed; both were written.
+> - `PortalLesson.start` is an ISO string while the storage key builders took `Date`.
+>   `datePrefix` now accepts both and raises on an unparseable value.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stop copying lesson data between databases — education-service reads and writes lessons through a new portal HTTP API, so lessons created after 2026-06-26 (and all future lessons) work for drills and lesson-records.

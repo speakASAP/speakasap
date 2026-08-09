@@ -2,6 +2,60 @@
 
 This file is the root task index for the SpeakASAP master orchestrator. Detailed goals and chunk status live in `docs/orchestrator/GOALS.md`; runtime state lives in `docs/orchestrator/IMPLEMENTATION_STATE.md`, `docs/orchestrator/STATE.json`, and root `STATE.json`.
 
+## In progress — Lesson API single source of truth (2026-08-09)
+
+Plan: `docs/superpowers/plans/2026-08-09-lesson-api-single-source-of-truth.md`
+
+Fixes the root cause behind the drilling breakage: education-service read COPIES of
+the portal's lesson tables, filled by a one-shot ETL that last ran **2026-06-26**.
+Production evidence gathered this session — the copy holds 182,600 lessons ending
+2026-06-26; the portal has 182,958. **181 finished lessons are invisible** to this
+service.
+
+| Task | State |
+|---|---|
+| 1–4 portal internal API | Done, committed in speakasap-portal (`5cf666b696`) |
+| 5–6 lesson-client | Done (`4cb8a8a`) |
+| 7 drill roster → portal | Done (`985c223`) |
+| 8 lesson-records → portal | Done (`7375f19`) |
+| 9 remaining lesson readers | Done except internal-salary (`7cdebb3`) |
+| 10 drop FKs / legacy models / copied tables | **Not started — destructive, gated** |
+| 11 verify against the real broken lesson | **Blocked on the portal deploy** |
+
+406 tests green, `tsc --noEmit` clean. Error propagation and the paid-vs-attendance
+split were each confirmed to fail when deliberately broken, not merely to pass.
+
+### Blocked on you: deploy speakasap-portal
+
+Tasks 1–4 are committed but **not live**. Agents cannot deploy that repo
+(`ssh speakasap` is read only; deploy is the owner-run `./scripts/deploy.sh`).
+Task 11's verification cannot run until the portal API is serving
+`/api/v1/internal/lessons/<uuid>/` and `/roster/` in production.
+
+Also required before it works: set `PORTAL_INBOUND_API_TOKEN` on the portal and the
+matching outbound token for education-service. Both fail closed when unset — the
+guard denies every request rather than opening up on misconfiguration.
+
+### Open: internal-salary still reads the frozen lesson table
+
+`internal-salary.service.ts:72` aggregates `prisma.lesson` by teacher and date
+range to produce `period-aggregates`, which **salary-service consumes to compute
+teacher payouts**. Those 181 invisible lessons are therefore missing from salary
+aggregation.
+
+Not fixed here, deliberately: the portal exposes no lessons-by-teacher-and-range
+endpoint, so this needs a new endpoint plus verification against real payout
+figures — materially larger than a drills fix and touching money. Left reading the
+frozen table rather than half-migrated.
+
+### Task 10 is destructive — do not run it casually
+
+It drops the copied tables and the cross-database FKs. The plan gates it behind
+Tasks 1–9 merged, the portal API deployed, and Task 11 passing. None of the copied
+tables have been dropped yet.
+
+---
+
 ## Shipped — Drilling Assignments (2026-08-06, tag `faffc0f`)
 
 Feature is live. Evidence per track in
