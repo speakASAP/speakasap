@@ -1,0 +1,189 @@
+import { LessonClientService } from './lesson-client.service';
+import { LessonNotFoundError, LessonServiceUnavailableError } from './lesson-client.types';
+
+const LESSON = 'f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477';
+
+const LESSON_BODY = {
+  uuid: LESSON,
+  order: 3,
+  teacher_id: 182,
+  start: '2026-08-12T17:00:00+02:00',
+  is_finished: false,
+  student_course_uuid: '43c00027-cf75-4d60-8775-da38dea408a1',
+  module_class: 'course_materials.data.ru.en._basic_s.Module3T',
+  needs_teacher: false,
+  recommendation: 'r',
+  to_manager: 'm',
+};
+
+function serviceWith(
+  fetchImpl: jest.Mock,
+  overrides: { baseUrl?: string; token?: string } = {},
+): LessonClientService {
+  const service = new LessonClientService();
+  const internals = service as unknown as {
+    fetchFn: unknown;
+    baseUrl: string;
+    token: string;
+  };
+  internals.fetchFn = fetchImpl;
+  internals.baseUrl = overrides.baseUrl === undefined ? 'http://portal.test' : overrides.baseUrl;
+  internals.token = overrides.token === undefined ? 'secret-token' : overrides.token;
+  return service;
+}
+
+function okResponse(body: unknown) {
+  return { ok: true, status: 200, json: async () => body, text: async () => '' };
+}
+
+describe('LessonClientService', () => {
+  describe('getLesson', () => {
+    it('camelizes a lesson payload', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(okResponse(LESSON_BODY));
+      const lesson = await serviceWith(fetchFn).getLesson(LESSON);
+
+      expect(lesson.teacherId).toBe(182);
+      expect(lesson.studentCourseUuid).toBe('43c00027-cf75-4d60-8775-da38dea408a1');
+      expect(lesson.moduleClass).toBe('course_materials.data.ru.en._basic_s.Module3T');
+      expect(lesson.isFinished).toBe(false);
+      expect(lesson.toManager).toBe('m');
+    });
+
+    it('preserves a null teacher rather than coercing it to 0', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        okResponse({ ...LESSON_BODY, teacher_id: null }));
+      const lesson = await serviceWith(fetchFn).getLesson(LESSON);
+      expect(lesson.teacherId).toBeNull();
+    });
+
+    it('sends the x-internal-token header', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(okResponse(LESSON_BODY));
+      await serviceWith(fetchFn).getLesson(LESSON);
+
+      const headers = fetchFn.mock.calls[0][1].headers;
+      expect(headers['x-internal-token']).toBe('secret-token');
+      expect(headers['x-service-name']).toBe('education-service');
+    });
+
+    it('raises LessonNotFoundError on 404', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        { ok: false, status: 404, text: async () => '' });
+      await expect(serviceWith(fetchFn).getLesson(LESSON))
+        .rejects.toBeInstanceOf(LessonNotFoundError);
+    });
+
+    it('raises LessonServiceUnavailableError on 500', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        { ok: false, status: 500, text: async () => 'boom' });
+      await expect(serviceWith(fetchFn).getLesson(LESSON))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+    });
+
+    it('raises LessonServiceUnavailableError on 401, not LessonNotFoundError', async () => {
+      // A bad token must not read as "this lesson does not exist".
+      const fetchFn = jest.fn().mockResolvedValue(
+        { ok: false, status: 401, text: async () => '' });
+      await expect(serviceWith(fetchFn).getLesson(LESSON))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+    });
+
+    it('raises LessonServiceUnavailableError when the transport throws', async () => {
+      const fetchFn = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      await expect(serviceWith(fetchFn).getLesson(LESSON))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+    });
+
+    it('raises when the response is not JSON', async () => {
+      const fetchFn = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => { throw new Error('Unexpected token <'); },
+      });
+      await expect(serviceWith(fetchFn).getLesson(LESSON))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+    });
+
+    it('raises when the base url is unconfigured', async () => {
+      const fetchFn = jest.fn();
+      await expect(serviceWith(fetchFn, { baseUrl: '' }).getLesson(LESSON))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+
+    it('raises when the token is unconfigured', async () => {
+      const fetchFn = jest.fn();
+      await expect(serviceWith(fetchFn, { token: '' }).getLesson(LESSON))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getRoster', () => {
+    it('camelizes a roster payload and keeps paid students separate', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(okResponse({
+        lesson_uuid: LESSON,
+        teacher_id: 182,
+        groups: [{ uuid: 'g-1', name: 'Group A', student_ids: [3, 7] }],
+        student_ids: [3, 7],
+        paid_student_ids: [3],
+      }));
+
+      const roster = await serviceWith(fetchFn).getRoster(LESSON);
+
+      expect(roster.teacherId).toBe(182);
+      expect(roster.studentIds).toEqual([3, 7]);
+      expect(roster.paidStudentIds).toEqual([3]);
+      expect(roster.groups[0].studentIds).toEqual([3, 7]);
+    });
+
+    it('NEVER returns an empty roster in place of an error', async () => {
+      const fetchFn = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      await expect(serviceWith(fetchFn).getRoster(LESSON)).rejects.toThrow();
+    });
+
+    it('propagates a 404 as LessonNotFoundError, not an empty roster', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        { ok: false, status: 404, text: async () => '' });
+      await expect(serviceWith(fetchFn).getRoster(LESSON))
+        .rejects.toBeInstanceOf(LessonNotFoundError);
+    });
+
+    it('does not invent paid access when the field is absent', async () => {
+      // A portal that omits paid_student_ids must yield NO paid students, never all.
+      const fetchFn = jest.fn().mockResolvedValue(okResponse({
+        lesson_uuid: LESSON,
+        teacher_id: 182,
+        groups: [],
+        student_ids: [3, 7],
+      }));
+      const roster = await serviceWith(fetchFn).getRoster(LESSON);
+      expect(roster.paidStudentIds).toEqual([]);
+    });
+  });
+
+  describe('updateLesson', () => {
+    it('PATCHes only the fields provided', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(okResponse(LESSON_BODY));
+      await serviceWith(fetchFn).updateLesson(LESSON, { recommendation: 'new' });
+
+      const [, init] = fetchFn.mock.calls[0];
+      expect(init.method).toBe('PATCH');
+      expect(JSON.parse(init.body)).toEqual({ recommendation: 'new' });
+    });
+
+    it('maps toManager to the portal snake_case field', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(okResponse(LESSON_BODY));
+      await serviceWith(fetchFn).updateLesson(LESSON, { toManager: 'note' });
+
+      const [, init] = fetchFn.mock.calls[0];
+      expect(JSON.parse(init.body)).toEqual({ to_manager: 'note' });
+    });
+
+    it('raises rather than silently discarding a failed write', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        { ok: false, status: 500, text: async () => 'boom' });
+      await expect(serviceWith(fetchFn).updateLesson(LESSON, { recommendation: 'x' }))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+    });
+  });
+});
