@@ -811,7 +811,7 @@
     "plan": "docs/superpowers/plans/2026-08-09-lesson-api-single-source-of-truth.md",
     "runbook": "docs/LESSON_API_OPERATIONS.md",
     "authoritative_state": "TASKS.md",
-    "status": "deployed_and_verified_in_pod; browser steps 3-5 pending owner",
+    "status": "drilling generation working end to end for portal-only lessons",
     "root_cause": "education-service read local COPIES of the portal lesson tables; ETL last ran 2026-06-26",
     "production_evidence": {
       "copied_lessons": 182600,
@@ -834,7 +834,7 @@
     ],
     "known_gap": "internal-salary.service.ts:72 still reads the frozen lesson table and feeds teacher payouts via salary-service",
     "destructive_task_not_run": "Task 10 drops the copied tables and cross-database FKs; gated behind Task 11",
-    "tests": "education-service 421 passing (30 suites); frontend 186 passing (15 files); tsc clean both",
+    "tests": "education-service 425 passing (30 suites); frontend 186 passing; tsc clean both",
     "lastUpdated": "2026-08-09",
     "configured": {
       "vault_education": "PORTAL_INBOUND_API_TOKEN set at secret/prod/speakasap/education",
@@ -856,7 +856,7 @@
       "browser_verified_roster": "student 314082 'Tetiana Kovach' returned by the deployed image e7d9b0c"
     },
     "gotcha_auth_returns_200": "CustomLoginRequiredMiddleware serves the login page with HTTP 200 ahead of DRF; a rejected call is NOT a 401. Check the body, not the status.",
-    "deployed_image_tag": "509e47b",
+    "deployed_image_tag": "81b4fcc",
     "deploy_trap": "speakasap-education was pinned to :latest, so rollout restart re-pulled the pre-fix image; config alone changed nothing. 'Build and push images: 15.03s' is the tell that nothing was built. Verify dist/lesson-client/ exists in the pod.",
     "id_space_defect": {
       "found": "2026-08-09 by the owner spotting the wrong name in the wizard",
@@ -888,6 +888,21 @@
       "unknown_language": "surfaced as null, never guessed; 11716 extra_lessons lessons name no pair; generation refuses",
       "verified": "content-service en|ru = 21 topics (future-simple, gerund); de|ru = 72 (adjektivgruppen)",
       "fixed_in": "speakasap 509e47b (education-service + frontend)"
+    },
+    "fk_defect": {
+      "found": "2026-08-09 — teacher got HTTP 500 on generate",
+      "error": "Foreign key constraint violated: drill_assignment_lesson_uuid_fkey",
+      "cause": "drill_assignment.lesson_uuid/student_course_uuid had FKs into the frozen copies; a FK cannot span databases",
+      "migration": "20260809220000_drop_drill_cross_database_fks — two DROP CONSTRAINT, no DROP TABLE/DELETE/TRUNCATE",
+      "dry_run": "scratch DB from schema-only dump proved both directions: fails without, succeeds with",
+      "applied": "2026-08-09; batch_uuid FK kept; columns and all 6 rows intact",
+      "verified": "generate() wrote assignment for lesson f249c6e4 with student 314082, language en|ru; probe rows removed, back to 6|1|1"
+    },
+    "extra_lessons_language": {
+      "owner_insight": "extra_lessons courses come from offers that name the language",
+      "found": "StudentCourse.course_class carries the pair even when lesson.module_class does not",
+      "coverage": "all 11787 extra-lessons lessons resolve via course_class; 0 via module_class",
+      "fix": "portal exposes course_class (98af031d8c); courseLanguageOf prefers it (81b4fcc)"
     }
   }
 }

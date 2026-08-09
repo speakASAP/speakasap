@@ -139,6 +139,41 @@ Verified on the deployed services — `en|ru` returns 21 English topics
 from the report. Fixed in `509e47b` (education-service **and** frontend, which needs its
 own `scripts/deploy-frontend.sh`).
 
+### 4. Cross-database FKs 500'd every new lesson — FIXED and applied
+
+Generating drilling returned HTTP 500:
+`Foreign key constraint violated: drill_assignment_lesson_uuid_fkey`.
+
+`drill_assignment.lesson_uuid` and `student_course_uuid` had foreign keys into
+`education_lesson` / `education_studentcourse` — the frozen copies. A foreign key cannot
+span two databases, so a lesson living only in the portal was rejected on insert.
+
+Migration `20260809220000_drop_drill_cross_database_fks`: two `DROP CONSTRAINT`, no
+`DROP TABLE`/`DELETE`/`TRUNCATE`. Hand-written, dry-run on a scratch database restored
+from a schema-only dump — the insert **fails without it with the exact reported error and
+succeeds with it**. Applied 2026-08-09; `batch_uuid` keeps its FK (local parent), columns
+and all 6 rows intact.
+
+**Verified end to end on the deployed image:** `generate()` wrote a real assignment for
+lesson `f249c6e4` — student **314082**, `language_code=en`, `material_language=ru`. Both
+the identity and language fixes visible in one row. Probe rows were removed afterwards;
+`drill_assignment` is back to `6|1|1`.
+
+The deploy script had been refusing to ship education-service with
+`PENDING MIGRATIONS` — correctly, rather than leaving code and schema out of step.
+
+### 5. extra_lessons courses do name a language — via the course, not the lesson
+
+The owner's steer was right. Those courses are sold from an offer whose product names
+the language, and the resulting `StudentCourse.course_class` records it
+(`course_materials.data.ru.it._extra.Course`) even though the lesson's own `module_class`
+is only `…data.extra_lessons.ModuleExtraLessonsCourse`.
+
+**All 11,787 extra-lessons lessons resolve through `course_class`; none through
+`module_class`.** The portal now exposes it (`98af031d8c`) and `courseLanguageOf` prefers
+it, falling back to the module class (`81b4fcc`). Unknown is still surfaced, never
+guessed — only which field answers changed.
+
 ### Still yours: Steps 3, 4, 5 — the browser
 
 These need a signed-in teacher session, which an agent cannot mint for a real person's
