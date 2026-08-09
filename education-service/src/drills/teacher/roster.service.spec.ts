@@ -1,4 +1,8 @@
 import { TeacherRosterService } from './roster.service';
+import {
+  LessonNotFoundError,
+  LessonServiceUnavailableError,
+} from '../../lesson-client/lesson-client.types';
 
 function harness(names: Map<number, string> = new Map()) {
   const prisma: any = {
@@ -7,7 +11,19 @@ function harness(names: Map<number, string> = new Map()) {
     group: { findMany: jest.fn(async () => []) },
   };
   const auth: any = { resolveLegacyNames: jest.fn(async () => names) };
-  return { service: new TeacherRosterService(prisma, auth), prisma, auth };
+  // Defaults to raising: an unstubbed lesson lookup must never silently succeed with
+  // an empty roster, which is the exact bug this whole change removes.
+  const lessons: any = {
+    getRoster: jest.fn(async () => {
+      throw new LessonServiceUnavailableError('unstubbed', 'test did not stub getRoster');
+    }),
+  };
+  return {
+    service: new TeacherRosterService(prisma, auth, lessons),
+    prisma,
+    auth,
+    lessons,
+  };
 }
 
 describe('TeacherRosterService', () => {
@@ -217,15 +233,14 @@ describe('TeacherRosterService', () => {
   describe('scoped to a lesson', () => {
     function lessonHarness() {
       const h = harness(new Map([[3, 'Сергей Партизанов']]));
-      h.prisma.lesson.findFirst.mockResolvedValue({
-        uuid: 'l-1',
+      // Sourced from the portal, which owns lessons. Nothing local is consulted.
+      h.lessons.getRoster.mockResolvedValue({
+        lessonUuid: 'l-1',
         teacherId: 182,
-        studentCourseUuid: 'c-1',
+        groups: [{ uuid: 'g-1', name: 'B1 individual', studentIds: [3] }],
+        studentIds: [3],
+        paidStudentIds: [3],
       });
-      h.prisma.studentCourse.findMany.mockResolvedValue([{ groupUuid: 'g-1' }]);
-      h.prisma.group.findMany.mockResolvedValue([
-        { uuid: 'g-1', title: 'B1 individual', groupStudents: [{ studentId: 3 }] },
-      ]);
       return h;
     }
 
@@ -254,19 +269,103 @@ describe('TeacherRosterService', () => {
       expect(roster.teacherId).toBe(182);
     });
 
-    it('returns an empty roster for a lesson that does not exist', async () => {
+    // INVERTED 2026-08-09. This test used to assert that a nonexistent lesson yields an
+    // empty roster, which encoded the defect as the contract: education-service read a
+    // COPY of the lesson tables whose ETL last ran 2026-06-26, so every lesson created
+    // after that date looked "nonexistent" and every teacher saw an empty student list
+    // with no error anywhere. A green test kept the bug invisible for six weeks.
+    it('RAISES for a lesson that does not exist, rather than emptying the roster', async () => {
       const h = lessonHarness();
-      h.prisma.lesson.findFirst.mockResolvedValue(null);
+      h.lessons.getRoster.mockRejectedValue(new LessonNotFoundError('missing'));
 
-      const roster = await h.service.listForLesson('missing');
-
-      expect(roster).toEqual({
-        students: [],
-        groups: [],
-        total: 0,
-        hasMore: false,
-        teacherId: null,
-      });
+      await expect(h.service.listForLesson('missing'))
+        .rejects.toBeInstanceOf(LessonNotFoundError);
     });
+  });
+});
+
+describe('TeacherRosterService.listForLesson (portal-sourced)', () => {
+  const LESSON = 'f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477';
+
+  it('returns the roster the portal reports, with names resolved', async () => {
+    const h = harness(new Map([[3, 'Ann'], [7, 'Bob']]));
+    h.lessons.getRoster.mockResolvedValue({
+      lessonUuid: LESSON,
+      teacherId: 182,
+      groups: [{ uuid: 'g-1', name: 'Group A', studentIds: [3, 7] }],
+      studentIds: [3, 7],
+      paidStudentIds: [3, 7],
+    });
+
+    const result = await h.service.listForLesson(LESSON);
+
+    expect(result.teacherId).toBe(182);
+    expect(result.total).toBe(2);
+    expect(result.students.map((s) => s.name)).toEqual(['Ann', 'Bob']);
+    expect(result.groups[0].name).toBe('Group A');
+    expect(result.students[0].groupUuids).toEqual(['g-1']);
+  });
+
+  it('never touches the local lesson tables', async () => {
+    const h = harness(new Map([[3, 'Ann']]));
+    h.lessons.getRoster.mockResolvedValue({
+      lessonUuid: LESSON, teacherId: 182,
+      groups: [{ uuid: 'g-1', name: 'G', studentIds: [3] }],
+      studentIds: [3], paidStudentIds: [3],
+    });
+
+    await h.service.listForLesson(LESSON);
+
+    expect(h.prisma.lesson.findFirst).not.toHaveBeenCalled();
+    expect(h.prisma.studentCourse.findMany).not.toHaveBeenCalled();
+    expect(h.prisma.group.findMany).not.toHaveBeenCalled();
+  });
+
+  it('PROPAGATES a missing lesson instead of returning an empty roster', async () => {
+    // The regression this whole change exists to fix: a lesson the service cannot see
+    // used to render as "this teacher has no students".
+    const h = harness();
+    h.lessons.getRoster.mockRejectedValue(new LessonNotFoundError(LESSON));
+
+    await expect(h.service.listForLesson(LESSON))
+      .rejects.toBeInstanceOf(LessonNotFoundError);
+  });
+
+  it('PROPAGATES a portal outage instead of returning an empty roster', async () => {
+    const h = harness();
+    h.lessons.getRoster.mockRejectedValue(
+      new LessonServiceUnavailableError(LESSON, 'ECONNREFUSED'));
+
+    await expect(h.service.listForLesson(LESSON))
+      .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+  });
+
+  it('reports a genuinely empty group as empty, not as an error', async () => {
+    // The counterpart to the tests above: empty must still be expressible when it is
+    // the truth, otherwise the fix would just invert the bug.
+    const h = harness();
+    h.lessons.getRoster.mockResolvedValue({
+      lessonUuid: LESSON, teacherId: 182, groups: [], studentIds: [], paidStudentIds: [],
+    });
+
+    const result = await h.service.listForLesson(LESSON);
+
+    expect(result.students).toEqual([]);
+    expect(result.total).toBe(0);
+    expect(result.teacherId).toBe(182);
+  });
+
+  it('applies search and paging to the portal roster', async () => {
+    const h = harness(new Map([[3, 'Ann'], [7, 'Bob'], [9, 'Anna']]));
+    h.lessons.getRoster.mockResolvedValue({
+      lessonUuid: LESSON, teacherId: 182,
+      groups: [{ uuid: 'g-1', name: 'G', studentIds: [3, 7, 9] }],
+      studentIds: [3, 7, 9], paidStudentIds: [3, 7, 9],
+    });
+
+    const result = await h.service.listForLesson(LESSON, { search: 'ann' });
+
+    expect(result.students.map((s) => s.name).sort()).toEqual(['Ann', 'Anna']);
+    expect(result.total).toBe(2);
   });
 });

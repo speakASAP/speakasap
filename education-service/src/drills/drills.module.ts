@@ -23,6 +23,7 @@ import { RunnerService } from './runner/runner.service';
 import { SelfDrillService } from './runner/self-drill.service';
 import { TeacherAssignmentsService } from './teacher/teacher-assignments.service';
 import { TeacherRosterService } from './teacher/roster.service';
+import { LessonClientModule } from '../lesson-client/lesson-client.module';
 
 /**
  * Track B shipped `AssignmentsRepository` with no module, so it was unreachable at
@@ -37,7 +38,7 @@ import { TeacherRosterService } from './teacher/roster.service';
  * the single `@Inject(DRILL_IDENTITY_RESOLVER)` annotation it needed.
  */
 @Module({
-  imports: [PrismaModule, AuthClientModule],
+  imports: [PrismaModule, AuthClientModule, LessonClientModule],
   controllers: [DrillsController, InternalDrillsController],
   providers: [
     AssignmentsRepository,

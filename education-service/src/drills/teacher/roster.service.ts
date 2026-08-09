@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthClientService } from '../../auth-client/auth-client.service';
 import { DrillTeacherRosterQuery, DrillTeacherRosterResponse } from '../contracts';
+import { LessonClientService } from '../../lesson-client/lesson-client.service';
 
 /** Page size when the caller asks for none. A picker shows a window, not 656 rows. */
 const DEFAULT_ROSTER_LIMIT = 50;
@@ -34,36 +35,57 @@ export class TeacherRosterService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auth: AuthClientService,
+    private readonly lessons: LessonClientService,
   ) {}
 
   /**
-   * The roster of one lesson, derived from the lesson itself.
+   * The roster of one lesson, as reported by the portal.
    *
-   * Exists because `Lesson.teacherId` is the legacy **Teacher profile pk** (182 for the
-   * user whose auth id resolves to 3), and this service has no table mapping one to the
-   * other — `employees_teacher` lives in the portal's database, not this one. Asking the
-   * lesson who teaches it, and who attends it, sidesteps the id-space mismatch without
-   * writing anything to production.
+   * The portal owns lessons; this service holds no lesson tables. `Lesson.teacherId` is
+   * the legacy **Teacher profile pk** (182 for the user whose auth id resolves to 3),
+   * and `employees_teacher` lives in the portal's database — so the lesson naming its
+   * own teacher and students is what sidesteps the id-space mismatch.
    *
    * The caller is already proven staff by the JWT before this runs, so scoping to a
    * lesson narrows a staff member to that lesson's students rather than widening access.
+   *
+   * RAISES rather than returning an empty roster. Until 2026-08-09 a lesson this service
+   * could not see produced `{students: []}` and a warning-level log, which a teacher
+   * reads as "this lesson has no students" — indistinguishable from an empty group. That
+   * ambiguity hid a frozen lesson table for six weeks. An empty roster now means only
+   * one thing: the group really is empty.
    */
   async listForLesson(
     lessonUuid: string,
     query: DrillTeacherRosterQuery = {},
   ): Promise<DrillTeacherRosterResponse & { teacherId: number | null }> {
-    const lesson = await this.prisma.lesson.findFirst({
-      where: { uuid: lessonUuid },
-      select: { uuid: true, teacherId: true, studentCourseUuid: true },
-    });
+    const roster = await this.lessons.getRoster(lessonUuid);
 
-    if (!lesson) {
-      this.logger.warn(`Lesson ${lessonUuid} not found; roster is empty`);
-      return { students: [], groups: [], total: 0, hasMore: false, teacherId: null };
+    const groupUuidsByStudent = new Map<number, string[]>();
+    for (const group of roster.groups) {
+      for (const studentId of group.studentIds) {
+        const existing = groupUuidsByStudent.get(studentId);
+        if (existing) {
+          existing.push(group.uuid);
+        } else {
+          groupUuidsByStudent.set(studentId, [group.uuid]);
+        }
+      }
     }
 
-    const roster = await this.rosterForCourses([lesson.studentCourseUuid], query);
-    return { ...roster, teacherId: lesson.teacherId ?? null };
+    // The portal's student_ids is authoritative for membership; the group map only
+    // supplies which groups each one belongs to.
+    const page = await this.pageStudents(roster.studentIds, groupUuidsByStudent, query);
+
+    return {
+      ...page,
+      groups: roster.groups.map((group) => ({
+        uuid: group.uuid,
+        name: group.name,
+        studentIds: group.studentIds,
+      })),
+      teacherId: roster.teacherId,
+    };
   }
 
   async listForTeacher(
@@ -128,7 +150,37 @@ export class TeacherRosterService {
       }
     }
 
-    const allStudentIds = Array.from(groupUuidsByStudent.keys()).sort((a, b) => a - b);
+    const page = await this.pageStudents(
+      Array.from(groupUuidsByStudent.keys()),
+      groupUuidsByStudent,
+      query,
+    );
+
+    return {
+      ...page,
+      groups: groups.map((group) => ({
+        uuid: group.uuid,
+        name: group.title,
+        studentIds: group.groupStudents.map((link) => link.studentId),
+      })),
+    };
+  }
+
+  /**
+   * Names, search, sort and paging over a set of student ids.
+   *
+   * Shared by both entry points so the lesson-scoped roster (portal-sourced) and the
+   * teacher-scoped one (still local) cannot drift in how they page or sort.
+   *
+   * `groups` is left empty here and filled in by the caller, which knows where its
+   * groups came from. Callers spread this result first and set `groups` after.
+   */
+  private async pageStudents(
+    studentIds: number[],
+    groupUuidsByStudent: Map<number, string[]>,
+    query: DrillTeacherRosterQuery,
+  ): Promise<DrillTeacherRosterResponse> {
+    const allStudentIds = [...new Set(studentIds)].sort((a, b) => a - b);
 
     // Names come from auth-microservice; this service has none. Resolved for the whole
     // roster before filtering because `search` matches on the NAME, which is not known
@@ -173,11 +225,7 @@ export class TeacherRosterService {
         name: names.get(id) ?? '',
         groupUuids: groupUuidsByStudent.get(id) ?? [],
       })),
-      groups: groups.map((group) => ({
-        uuid: group.uuid,
-        name: group.title,
-        studentIds: group.groupStudents.map((link) => link.studentId),
-      })),
+      groups: [],
       total: sorted.length,
       hasMore: offset + page.length < sorted.length,
     };
