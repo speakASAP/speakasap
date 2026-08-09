@@ -811,7 +811,7 @@
     "plan": "docs/superpowers/plans/2026-08-09-lesson-api-single-source-of-truth.md",
     "runbook": "docs/LESSON_API_OPERATIONS.md",
     "authoritative_state": "TASKS.md",
-    "status": "tasks_1_9_done_wired_live_task11_steps_1_2_6_pass",
+    "status": "deployed_and_verified_in_pod; browser steps 3-5 pending owner",
     "root_cause": "education-service read local COPIES of the portal lesson tables; ETL last ran 2026-06-26",
     "production_evidence": {
       "copied_lessons": 182600,
@@ -849,8 +849,13 @@
       "from_pod": "PASS education-service reached the portal and got the roster",
       "step6_loud_failures": "PASS unreachable portal raises; propagation tests confirmed red when broken",
       "security_no_token_no_data": "PASS no/wrong/empty token leak zero lesson data",
-      "steps_3_4_5_browser": "PENDING owner - needs a signed-in teacher session"
+      "steps_3_4_5_browser": "PENDING owner - needs a signed-in teacher session",
+      "verified_in_deployed_image": "students=[{id:215116,name:Kovy}] groups=[260713-EN-Чудовский] total=1 teacherId=182",
+      "unknown_lesson_raises_live": "PASS LessonNotFoundError, not an empty roster",
+      "lesson_records_data_path": "PASS getLesson teacher 182; paidStudentIds [215116] distinct from studentIds"
     },
-    "gotcha_auth_returns_200": "CustomLoginRequiredMiddleware serves the login page with HTTP 200 ahead of DRF; a rejected call is NOT a 401. Check the body, not the status."
+    "gotcha_auth_returns_200": "CustomLoginRequiredMiddleware serves the login page with HTTP 200 ahead of DRF; a rejected call is NOT a 401. Check the body, not the status.",
+    "deployed_image_tag": "69187de",
+    "deploy_trap": "speakasap-education was pinned to :latest, so rollout restart re-pulled the pre-fix image; config alone changed nothing. 'Build and push images: 15.03s' is the tell that nothing was built. Verify dist/lesson-client/ exists in the pod."
   }
 }

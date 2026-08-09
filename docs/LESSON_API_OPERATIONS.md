@@ -120,6 +120,26 @@ Deploy the portal **first**. education-service raises loudly against a portal th
 not got the endpoints yet, so the reverse order is a visible outage rather than a silent
 one — but still an outage.
 
+### Config alone changes nothing — the image must be rebuilt
+
+Setting the Vault key and restarting the deployment is **not** enough. On 2026-08-09 the
+education deployment sat on `:latest`, so `kubectl rollout restart` re-pulled the *same
+pre-fix image*: the pod had no `dist/lesson-client/` and no `getRoster`, and the wizard
+still reported "No students found for this lesson" with everything correctly configured.
+
+Confirm the running image actually contains the code, rather than trusting the deploy
+banner:
+
+```bash
+POD=$(kubectl get pod -n statex-apps -l app=speakasap-education -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n statex-apps "$POD" -c app -- ls dist/lesson-client/
+kubectl exec -n statex-apps "$POD" -c app -- grep -c getRoster dist/drills/teacher/roster.service.js
+```
+
+`shared/scripts/deploy.sh speakasap` reporting **"Build and push images: 15.03s"** is the
+tell that nothing was built — a real monorepo build takes minutes. Track K recorded the
+same trap for the frontend. A green banner is not evidence.
+
 ## Verifying
 
 ```bash

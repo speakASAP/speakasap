@@ -64,6 +64,35 @@ serves the login page ahead of DRF. The plan's "401 means the token does not mat
 wrong on this host. Check the response **body**, not the status. Recorded in
 `docs/LESSON_API_OPERATIONS.md`.
 
+### The image was stale — config was necessary but not sufficient
+
+After the token was installed, the wizard still showed **"No students found for this
+lesson"**. Cause: `speakasap-education` was pinned to `:latest`, so the earlier
+`rollout restart` re-pulled the **pre-fix image**. The pod had no `dist/lesson-client/`
+and no `getRoster` — Tasks 7-9 were committed but never built.
+
+Rebuilt and deployed at tag `69187de`; the image now contains both. Verified by
+inspecting the pod's `dist/`, not by trusting the deploy banner — note the run reported
+"Build and push images: 15.03s", the same too-fast tell Track K recorded for the
+frontend.
+
+### Verified in the deployed image (2026-08-09)
+
+Run against the real deployed code inside the pod, for the reported lesson:
+
+```
+students: [{"id":215116,"name":"Kovy","groupUuids":["0c5c3ea8-…"]}]
+groups:   [{"uuid":"0c5c3ea8-…","name":"260713-EN-Чудовский","studentIds":[215116]}]
+total: 1  teacherId: 182
+```
+
+- **The reported failure is fixed.** The lesson that rendered "No students found" now
+  returns student **215116 ("Kovy")**, with the name resolved through auth-microservice.
+- **The bug class is closed.** An unknown lesson raises `LessonNotFoundError` rather
+  than returning an empty roster — checked live, not only in tests.
+- **lesson-records has what it needs:** `getLesson` returns teacher 182 / start
+  2026-08-12, and the roster distinguishes `paidStudentIds` from `studentIds`.
+
 ### Still yours: Steps 3, 4, 5 — the browser
 
 These need a signed-in teacher session, which an agent cannot mint for a real person's
