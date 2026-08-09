@@ -115,6 +115,30 @@ migration is falling further behind.
 Deployed image `e7d9b0c` returns:
 `[{"id":314082,"name":"Tetiana Kovach","groupUuids":["0c5c3ea8-…"]}]`
 
+### 3. Wizard hardcoded German for every course (2026-08-09)
+
+The topic picker offered `adjektivgruppen` and `nullartikel` on an **English** course.
+`frontend/app/teacher/assignments/new/page.tsx` called `listTopics('de', 'ru')` and
+generated with `languageCode: 'de'` — so *every* course was treated as German. The
+picker was the visible half; the serious half is that **generation would have produced
+German drills for a student learning English**.
+
+The lesson already knows its language: `module_class` is
+`course_materials.data.<material>.<target>` — the same segment the portal's own
+`panel_language` reads. `courseLanguageOf()` parses it against the 19 codes
+content-service actually holds, since they are not all ISO (`cz`, `se`, `dk`, `gr`,
+`jp`, `cn`) and a segment like `_demo` must not pass as one. The roster now carries
+`languageCode`/`materialLanguage` and the wizard uses them.
+
+**Unknown is surfaced, never guessed.** 11,716 production lessons are `extra_lessons`
+courses naming no pair: the picker stays empty and the teacher types the topic, while
+generation refuses with an explanation rather than inventing a language.
+
+Verified on the deployed services — `en|ru` returns 21 English topics
+(`future-simple`, `gerund`, `conditional-sentence`); `de|ru` returns the 72 German ones
+from the report. Fixed in `509e47b` (education-service **and** frontend, which needs its
+own `scripts/deploy-frontend.sh`).
+
 ### Still yours: Steps 3, 4, 5 — the browser
 
 These need a signed-in teacher session, which an agent cannot mint for a real person's

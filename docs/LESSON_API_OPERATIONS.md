@@ -57,6 +57,24 @@ About 113 recent portal registrations are in that state.
 The roster log separates `named_by_auth` from `named_by_portal`; a rising
 `named_by_portal` means the auth migration is falling further behind.
 
+### The course language comes from `module_class`
+
+`module_class` is `course_materials.data.<material>.<target>.…` —
+`…data.ru.en._basic_s.Module3T` is English taught to Russian speakers. The portal reads
+the same segment in `cabinet/drills_client.py:panel_language`, and
+`education-service/src/drills/teacher/course-language.ts` parses it for the drilling
+wizard.
+
+Parse it against the codes in `content.language.code`, not a generic two-letter rule:
+they are not all ISO 639-1 (`cz`, `se`, `dk`, `gr`, `jp`, `cn`), and segments like
+`_demo` or `_mp3` would otherwise pass as languages.
+
+`extra_lessons.ModuleExtraLessonsCourse` names no pair — 11,716 production lessons. That
+must read as **unknown**, never as a default: the wizard hardcoded `'de'` and offered
+German grammar on an English course, and would have generated German drills for that
+student. Unknown means an unfiltered picker and a refusal to generate, both of which a
+teacher can see and act on.
+
 ### `student_ids` vs `paid_student_ids`
 
 Kept separate deliberately. `student_ids` is who attends; `paid_student_ids` is the

@@ -834,7 +834,7 @@
     ],
     "known_gap": "internal-salary.service.ts:72 still reads the frozen lesson table and feeds teacher payouts via salary-service",
     "destructive_task_not_run": "Task 10 drops the copied tables and cross-database FKs; gated behind Task 11",
-    "tests": "411 passing, 29 suites, tsc --noEmit clean",
+    "tests": "education-service 421 passing (30 suites); frontend 186 passing (15 files); tsc clean both",
     "lastUpdated": "2026-08-09",
     "configured": {
       "vault_education": "PORTAL_INBOUND_API_TOKEN set at secret/prod/speakasap/education",
@@ -856,7 +856,7 @@
       "browser_verified_roster": "student 314082 'Tetiana Kovach' returned by the deployed image e7d9b0c"
     },
     "gotcha_auth_returns_200": "CustomLoginRequiredMiddleware serves the login page with HTTP 200 ahead of DRF; a rejected call is NOT a 401. Check the body, not the status.",
-    "deployed_image_tag": "e7d9b0c",
+    "deployed_image_tag": "509e47b",
     "deploy_trap": "speakasap-education was pinned to :latest, so rollout restart re-pulled the pre-fix image; config alone changed nothing. 'Build and push images: 15.03s' is the tell that nothing was built. Verify dist/lesson-client/ exists in the pod.",
     "id_space_defect": {
       "found": "2026-08-09 by the owner spotting the wrong name in the wizard",
@@ -878,6 +878,16 @@
         "speakasap e7d9b0c"
       ],
       "monitor": "roster log named_by_portal rising = auth migration falling behind"
+    },
+    "course_language_defect": {
+      "found": "2026-08-09 by the owner seeing German topics on an English course",
+      "problem": "wizard hardcoded listTopics('de','ru') and generated with languageCode 'de'",
+      "impact": "every course offered German topics; generation would have produced German drills for an English student",
+      "source_of_truth": "lesson.module_class = course_materials.data.<material>.<target>",
+      "fix": "courseLanguageOf() parses it; roster carries languageCode/materialLanguage; wizard uses them",
+      "unknown_language": "surfaced as null, never guessed; 11716 extra_lessons lessons name no pair; generation refuses",
+      "verified": "content-service en|ru = 21 topics (future-simple, gerund); de|ru = 72 (adjektivgruppen)",
+      "fixed_in": "speakasap 509e47b (education-service + frontend)"
     }
   }
 }
