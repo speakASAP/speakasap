@@ -14,6 +14,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LessonRecordMediaTokenService } from './media-token.service';
 import { LessonRecordStorageService } from './storage.service';
 import { UserProfilesClient } from './user-profiles.client';
+import { LessonClientService } from '../lesson-client/lesson-client.service';
+import type { PortalLesson, PortalRoster } from '../lesson-client/lesson-client.types';
 
 type AccessMode = 'state' | 'playback' | 'teacher-write';
 const MAX_RECORD_SIZE = 60 * 1024 * 1024;
@@ -44,11 +46,12 @@ export class LessonRecordsService {
     private readonly users: UserProfilesClient,
     private readonly mediaTokens: LessonRecordMediaTokenService,
     private readonly storage: LessonRecordStorageService,
+    private readonly lessons: LessonClientService,
   ) {}
 
   async getState(lessonUuid: string, auth: AuthContextUser, bearerToken: string) {
-    const { lesson, record } = await this.loadLessonAndRecord(lessonUuid);
-    await this.assertDomainAccess(lesson, auth, bearerToken, 'state');
+    const { lesson, record, roster } = await this.loadLessonAndRecord(lessonUuid);
+    await this.assertDomainAccess(lesson, roster, auth, bearerToken, 'state');
     const state = recordState(record);
     return {
       lessonUuid,
@@ -63,8 +66,8 @@ export class LessonRecordsService {
   }
 
   async createPlaybackAccess(lessonUuid: string, auth: AuthContextUser, bearerToken: string) {
-    const { lesson, record } = await this.loadLessonAndRecord(lessonUuid);
-    await this.assertDomainAccess(lesson, auth, bearerToken, 'playback');
+    const { lesson, record, roster } = await this.loadLessonAndRecord(lessonUuid);
+    await this.assertDomainAccess(lesson, roster, auth, bearerToken, 'playback');
     if (!record || recordState(record) !== 'ready' || !record.recordKey) {
       throw new NotFoundException('Ready lesson record not found');
     }
@@ -100,8 +103,8 @@ export class LessonRecordsService {
   }
 
   async presignUpload(lessonUuid: string, auth: AuthContextUser, bearerToken: string, body: Record<string, unknown>) {
-    const { lesson } = await this.loadLessonAndRecord(lessonUuid);
-    await this.assertDomainAccess(lesson, auth, bearerToken, 'teacher-write');
+    const { lesson, roster } = await this.loadLessonAndRecord(lessonUuid);
+    await this.assertDomainAccess(lesson, roster, auth, bearerToken, 'teacher-write');
     const filename = requiredString(body.filename, 'filename');
     const contentType = requiredString(body.contentType ?? body.content_type, 'contentType');
     const kind = requiredString(body.kind, 'kind');
@@ -116,7 +119,7 @@ export class LessonRecordsService {
       throw new BadRequestException('size must be an integer between 0 and 62914560');
     }
     const requestedStudentId = optionalInteger(body.studentId ?? body.student_id);
-    if (requestedStudentId !== null && !lesson.studentCourse.group.groupStudents.some((s) => s.studentId === requestedStudentId)) {
+    if (requestedStudentId !== null && !roster.studentIds.includes(requestedStudentId)) {
       throw new BadRequestException('studentId is not attached to lesson group');
     }
     const partUuid = kind === 'part' ? randomUUID() : null;
@@ -133,8 +136,8 @@ export class LessonRecordsService {
   }
 
   async commitUpload(lessonUuid: string, auth: AuthContextUser, bearerToken: string, body: Record<string, unknown>) {
-    const { lesson } = await this.loadLessonAndRecord(lessonUuid);
-    await this.assertDomainAccess(lesson, auth, bearerToken, 'teacher-write');
+    const { lesson, roster } = await this.loadLessonAndRecord(lessonUuid);
+    await this.assertDomainAccess(lesson, roster, auth, bearerToken, 'teacher-write');
     const items = Array.isArray(body.items) ? body.items : [];
     const recordUnavailable = typeof body.recordUnavailable === 'string'
       ? body.recordUnavailable.trim()
@@ -191,18 +194,21 @@ export class LessonRecordsService {
     const lessonItems = expectedItems.filter((i) => i.kind === 'lesson');
     const partItems = expectedItems.filter((i) => i.kind === 'part');
     const recordDurationSeconds = bodyDurationSeconds ?? lessonItems[0]?.durationSeconds ?? summedDurationSeconds(partItems);
-    await this.prisma.$transaction(async (tx) => {
-      await tx.lesson.update({
-        where: { uuid: lesson.uuid },
-        data: {
-          recommendation: typeof body.recommendation === 'string' ? body.recommendation : lesson.recommendation,
-          toManager: typeof body.toManager === 'string'
-            ? body.toManager
-            : typeof body.to_manager === 'string'
-              ? body.to_manager
-              : lesson.toManager,
-        },
+    // The lesson lives in the portal, so this write cannot join the local transaction.
+    // Ordered first on purpose: if the portal rejects it we raise before touching the
+    // local record, leaving nothing half-written.
+    const toManager = typeof body.toManager === 'string'
+      ? body.toManager
+      : typeof body.to_manager === 'string'
+        ? body.to_manager
+        : undefined;
+    if (typeof body.recommendation === 'string' || toManager !== undefined) {
+      await this.lessons.updateLesson(lesson.uuid, {
+        recommendation: typeof body.recommendation === 'string' ? body.recommendation : undefined,
+        toManager,
       });
+    }
+    await this.prisma.$transaction(async (tx) => {
       if (lessonItems.length > 0) {
         await tx.lessonRecord.upsert({
           where: { lessonUuid: lesson.uuid },
@@ -281,8 +287,8 @@ export class LessonRecordsService {
   }
 
   async requestMerge(lessonUuid: string, auth: AuthContextUser, bearerToken: string, body: Record<string, unknown>) {
-    const { lesson, record } = await this.loadLessonAndRecord(lessonUuid);
-    await this.assertDomainAccess(lesson, auth, bearerToken, 'teacher-write');
+    const { lesson, record, roster } = await this.loadLessonAndRecord(lessonUuid);
+    await this.assertDomainAccess(lesson, roster, auth, bearerToken, 'teacher-write');
     if (!record) {
       return { status: 'noop', reason: 'missing_record', lessonUuid };
     }
@@ -350,8 +356,8 @@ export class LessonRecordsService {
   }
 
   async deleteRecord(lessonUuid: string, auth: AuthContextUser, bearerToken: string, body: Record<string, unknown>) {
-    const { lesson, record } = await this.loadLessonAndRecord(lessonUuid);
-    await this.assertDomainAccess(lesson, auth, bearerToken, 'teacher-write');
+    const { lesson, record, roster } = await this.loadLessonAndRecord(lessonUuid);
+    await this.assertDomainAccess(lesson, roster, auth, bearerToken, 'teacher-write');
     if (!record) {
       return { status: 'noop', reason: 'missing_record', lessonUuid };
     }
@@ -404,23 +410,32 @@ export class LessonRecordsService {
     return { attempted, deleted, failed };
   }
 
+  /**
+   * The lesson (from the portal, which owns it) with its roster and the local record row.
+   *
+   * The record lives in this service's database; the lesson does not. Until 2026-08-09
+   * this read a COPY of the portal's lesson tables whose ETL last ran 2026-06-26, so
+   * every lesson created after that date raised "Lesson not found" — a real lesson
+   * reported as nonexistent.
+   *
+   * A missing lesson now raises `LessonNotFoundError` and an unreachable portal raises
+   * `LessonServiceUnavailableError`, so "does not exist" and "could not ask" stay
+   * distinguishable to the caller instead of collapsing into one 404.
+   */
   private async loadLessonAndRecord(lessonUuid: string) {
-    const lesson = await this.prisma.lesson.findUnique({
-      where: { uuid: lessonUuid },
-      include: {
-        lessonRecord: true,
-        studentAccesses: true,
-        studentCourse: { include: { group: { include: { groupStudents: true } } } },
-      },
+    const [lesson, roster] = await Promise.all([
+      this.lessons.getLesson(lessonUuid),
+      this.lessons.getRoster(lessonUuid),
+    ]);
+    const record = await this.prisma.lessonRecord.findUnique({
+      where: { lessonUuid: lesson.uuid },
     });
-    if (!lesson) {
-      throw new NotFoundException('Lesson not found');
-    }
-    return { lesson, record: lesson.lessonRecord };
+    return { lesson, record, roster };
   }
 
   private async assertDomainAccess(
-    lesson: Awaited<ReturnType<LessonRecordsService['loadLessonAndRecord']>>['lesson'],
+    lesson: PortalLesson,
+    roster: PortalRoster,
     auth: AuthContextUser,
     bearerToken: string,
     mode: AccessMode,
@@ -436,8 +451,10 @@ export class LessonRecordsService {
       throw new ForbiddenException('Assigned teacher or staff access required');
     }
     const studentId = await this.users.getStudentId(bearerToken);
-    const hasAnyAccess = lesson.studentAccesses.some((row) => row.studentId === studentId);
-    const hasPaidAccess = lesson.studentAccesses.some((row) => row.studentId === studentId && row.isPaid);
+    // Attendance and payment authorize different things: `state` for anyone in the
+    // group, `playback` only for those who paid for THIS lesson.
+    const hasAnyAccess = studentId !== null && roster.studentIds.includes(studentId);
+    const hasPaidAccess = studentId !== null && roster.paidStudentIds.includes(studentId);
     if (studentId && hasAnyAccess && mode === 'state') {
       return;
     }
@@ -494,8 +511,31 @@ function summedDurationSeconds(items: Array<{ durationSeconds: number | null }>)
   return items.reduce((total, item) => total + (item.durationSeconds ?? 0), 0);
 }
 
-function datePrefix(start: Date | null): string {
-  const d = start ?? new Date();
+/**
+ * The storage key's `YYYY/MM/DD` prefix, in UTC.
+ *
+ * Accepts the portal's ISO-8601 string as well as a `Date`: lessons now arrive over HTTP
+ * as strings. The prefix is computed from UTC components either way, so an existing
+ * record's key is unchanged by the switch.
+ *
+ * An unparseable string RAISES rather than falling back to today. Silently choosing a
+ * different date would write the object under a key nothing later looks up, and the
+ * record would read as missing with no error anywhere.
+ */
+function datePrefix(start: Date | string | null): string {
+  let d: Date;
+  if (start === null) {
+    d = new Date();
+  } else if (start instanceof Date) {
+    d = start;
+  } else {
+    d = new Date(start);
+    if (Number.isNaN(d.getTime())) {
+      throw new ServiceUnavailableException(
+        `Portal returned an unparseable lesson start: ${JSON.stringify(start)}`,
+      );
+    }
+  }
   const yyyy = String(d.getUTCFullYear()).padStart(4, '0');
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(d.getUTCDate()).padStart(2, '0');
@@ -507,10 +547,10 @@ function extension(filename: string): string {
   return raw.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'mp3';
 }
 
-function lessonKey(lessonUuid: string, start: Date | null, filename: string): string {
+function lessonKey(lessonUuid: string, start: Date | string | null, filename: string): string {
   return `${datePrefix(start)}/lesson_${lessonUuid}.${extension(filename)}`;
 }
 
-function partKey(partUuid: string, start: Date | null, filename: string): string {
+function partKey(partUuid: string, start: Date | string | null, filename: string): string {
   return `${datePrefix(start)}/parts_${partUuid}.${extension(filename)}`;
 }

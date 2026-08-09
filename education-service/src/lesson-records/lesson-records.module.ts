@@ -4,8 +4,10 @@ import { LessonRecordsService } from './lesson-records.service';
 import { LessonRecordMediaTokenService } from './media-token.service';
 import { LessonRecordStorageService } from './storage.service';
 import { UserProfilesClient } from './user-profiles.client';
+import { LessonClientModule } from '../lesson-client/lesson-client.module';
 
 @Module({
+  imports: [LessonClientModule],
   controllers: [LessonRecordsController],
   providers: [
     LessonRecordsService,
