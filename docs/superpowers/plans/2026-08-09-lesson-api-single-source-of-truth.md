@@ -18,7 +18,7 @@
 - **Never run `prisma migrate dev`** against any database. Use `migrate diff` offline, then `migrate deploy`.
 - Portal production deploys are manual by the owner. Subagents must never deploy, never SSH-write to the speakasap server, and never scp.
 - `ssh speakasap` is READ ONLY.
-- Internal auth header is **`x-internal-token`** matched against `INTERNAL_API_TOKEN` — NOT auth-microservice's `x-internal-service-token`. This mix-up cost a day on 2026-08-03.
+- Internal auth header is **`x-internal-token`** matched against `PORTAL_INBOUND_API_TOKEN` — NOT auth-microservice's `x-internal-service-token`. This mix-up cost a day on 2026-08-03.
 - Prefix shell commands with `rtk`. Use `rg -E` (it is a GNU grep shim).
 - Drill data is disposable: 6 test assignments, student id 3 / teacher id 182 only. No backfill or data migration is required for drill tables.
 
@@ -69,7 +69,7 @@ Two features read the frozen copy and break for any lesson after that date:
 - Test: `education/internal_api/tests/__init__.py`, `education/internal_api/tests/test_auth.py`
 
 **Interfaces:**
-- Consumes: `django.conf.settings.INTERNAL_API_TOKEN`
+- Consumes: `django.conf.settings.PORTAL_INBOUND_API_TOKEN`
 - Produces: `InternalTokenPermission` — a DRF `BasePermission` subclass with `has_permission(self, request, view) -> bool`
 
 - [ ] **Step 1: Write the failing test**
@@ -83,7 +83,7 @@ from django.test.utils import override_settings
 from education.internal_api.auth import InternalTokenPermission
 
 
-@override_settings(INTERNAL_API_TOKEN='secret-token')
+@override_settings(PORTAL_INBOUND_API_TOKEN='secret-token')
 class InternalTokenPermissionTests(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -106,7 +106,7 @@ class InternalTokenPermissionTests(TestCase):
     def test_missing_header_is_denied(self):
         self.assertFalse(self.permission.has_permission(self.request_with(), None))
 
-    @override_settings(INTERNAL_API_TOKEN='')
+    @override_settings(PORTAL_INBOUND_API_TOKEN='')
     def test_unconfigured_token_denies_everything(self):
         """An unset token must never mean 'allow all'."""
         self.assertFalse(self.permission.has_permission(self.request_with(''), None))
@@ -132,7 +132,7 @@ Internal-token guard for the education internal API.
 
 DRILLING/LESSON-API: transitional — delete at legacy sunset.
 
-Uses ``x-internal-token`` matched against ``INTERNAL_API_TOKEN``, the api-gateway
+Uses ``x-internal-token`` matched against ``PORTAL_INBOUND_API_TOKEN``, the api-gateway
 convention that education-service's own ``InternalTokenGuard`` already speaks. This is
 NOT auth-microservice's ``x-internal-service-token``/``INTERNAL_SERVICE_TOKEN``; sending
 the wrong header produces a 401 that reads like a bad token.
@@ -153,10 +153,10 @@ class InternalTokenPermission(BasePermission):
     message = 'Invalid or missing internal token.'
 
     def has_permission(self, request, view):
-        expected = getattr(settings, 'INTERNAL_API_TOKEN', '') or ''
+        expected = getattr(settings, 'PORTAL_INBOUND_API_TOKEN', '') or ''
         if not expected:
             # Fails CLOSED. An unconfigured token must never mean "allow everyone".
-            logger.error('internal api - INTERNAL_API_TOKEN is not configured; denying')
+            logger.error('internal api - PORTAL_INBOUND_API_TOKEN is not configured; denying')
             return False
 
         presented = request.META.get(HEADER, '') or ''
@@ -343,7 +343,7 @@ from education.models import Lesson
 HEADERS = {'HTTP_X_INTERNAL_TOKEN': 'secret-token'}
 
 
-@override_settings(INTERNAL_API_TOKEN='secret-token')
+@override_settings(PORTAL_INBOUND_API_TOKEN='secret-token')
 class LessonDetailViewTests(TestCase):
     def test_unknown_lesson_is_404_not_empty_200(self):
         """A missing lesson must be an explicit 404 the client can distinguish."""
@@ -519,7 +519,7 @@ git commit -m "feat(internal-api): expose lesson detail and roster endpoints"
 - Test: `education/internal_api/tests/test_settings.py`
 
 **Interfaces:**
-- Produces: `settings.INTERNAL_API_TOKEN`, read from the `INTERNAL_API_TOKEN` env var, defaulting to `''`
+- Produces: `settings.PORTAL_INBOUND_API_TOKEN`, read from the `PORTAL_INBOUND_API_TOKEN` env var, defaulting to `''`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -533,10 +533,10 @@ from django.test import TestCase
 class InternalTokenSettingTests(TestCase):
     def test_setting_exists(self):
         """Absent means the guard fails closed; it must still be defined."""
-        self.assertTrue(hasattr(settings, 'INTERNAL_API_TOKEN'))
+        self.assertTrue(hasattr(settings, 'PORTAL_INBOUND_API_TOKEN'))
 
     def test_setting_is_a_string(self):
-        self.assertIsInstance(settings.INTERNAL_API_TOKEN, str)
+        self.assertIsInstance(settings.PORTAL_INBOUND_API_TOKEN, str)
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -552,15 +552,15 @@ In `portal/settings.py`, directly below the existing `DRILLS_CLIENT_TIMEOUT` lin
 # LESSON-API: transitional — delete at legacy sunset.
 # Shared secret for the education internal API. Empty means the guard denies every
 # request — the endpoints fail closed rather than opening up when misconfigured.
-_mod.INTERNAL_API_TOKEN = getattr(_mod, 'INTERNAL_API_TOKEN', None) or os.getenv('INTERNAL_API_TOKEN', '')
+_mod.PORTAL_INBOUND_API_TOKEN = getattr(_mod, 'PORTAL_INBOUND_API_TOKEN', None) or os.getenv('PORTAL_INBOUND_API_TOKEN', '')
 ```
 
 Add to `.env.example`:
 
 ```
 # Shared secret for the education internal API consumed by education-service.
-# Must match INTERNAL_API_TOKEN in speakasap/.env. Empty disables the endpoints.
-INTERNAL_API_TOKEN=
+# INBOUND only. NOT the same as DRILLS_INTERNAL_TOKEN (outbound). Empty disables.
+PORTAL_INBOUND_API_TOKEN=
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -572,7 +572,7 @@ Expected: PASS — all internal_api tests
 
 ```bash
 git add portal/settings.py .env.example education/internal_api/tests/test_settings.py
-git commit -m "feat(internal-api): read INTERNAL_API_TOKEN from environment"
+git commit -m "feat(internal-api): read PORTAL_INBOUND_API_TOKEN from environment"
 ```
 
 **STOP — portal work is complete.** Do not deploy. The owner deploys the portal manually. Record in `TASKS.md` that the portal API is ready and that education-service tasks below require it to be live in production before their integration verification (Task 10) can run.
@@ -688,7 +688,7 @@ git commit -m "feat(lesson-client): add portal lesson types and error classes"
   - `getRoster(lessonUuid: string): Promise<PortalRoster>`
   - `updateLesson(lessonUuid: string, patch: {recommendation?: string; toManager?: string}): Promise<PortalLesson>`
 - Produces: `LessonClientModule` exporting `LessonClientService`
-- Env: `PORTAL_API_URL`, `PORTAL_INTERNAL_TOKEN`, `PORTAL_CLIENT_TIMEOUT_MS` (default `5000`)
+- Env: `PORTAL_API_URL`, `PORTAL_INBOUND_API_TOKEN`, `PORTAL_CLIENT_TIMEOUT_MS` (default `5000`)
 
 - [ ] **Step 1: Write the failing test**
 
@@ -803,7 +803,7 @@ const DEFAULT_TIMEOUT_MS = 5000;
 export class LessonClientService {
   private readonly logger = new Logger(LessonClientService.name);
   private readonly baseUrl = (process.env.PORTAL_API_URL || '').replace(/\/$/, '');
-  private readonly token = process.env.PORTAL_INTERNAL_TOKEN || '';
+  private readonly token = process.env.PORTAL_INBOUND_API_TOKEN || '';
   private readonly timeoutMs = Number(process.env.PORTAL_CLIENT_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
   private readonly fetchFn: typeof fetch = fetch;
 
@@ -850,9 +850,9 @@ export class LessonClientService {
   ): Promise<Record<string, unknown>> {
     if (!this.baseUrl || !this.token) {
       // Misconfiguration is a failure, not a reason to degrade quietly.
-      this.logger.error('PORTAL_API_URL/PORTAL_INTERNAL_TOKEN not configured');
+      this.logger.error('PORTAL_API_URL/PORTAL_INBOUND_API_TOKEN not configured');
       throw new LessonServiceUnavailableError(
-        lessonUuid, 'PORTAL_API_URL/PORTAL_INTERNAL_TOKEN not configured');
+        lessonUuid, 'PORTAL_API_URL/PORTAL_INBOUND_API_TOKEN not configured');
     }
 
     const controller = new AbortController();
@@ -1385,7 +1385,7 @@ The originally reported lesson is `f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477` (studen
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' \
-  -H "x-internal-token: $INTERNAL_API_TOKEN" \
+  -H "x-internal-token: $PORTAL_INBOUND_API_TOKEN" \
   https://speakasap.com/api/v1/internal/lessons/f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477/
 ```
 
@@ -1394,7 +1394,7 @@ Expected: `200`. A `401` means the token does not match; a `404` means the mount
 - [ ] **Step 2: Confirm the roster is non-empty**
 
 ```bash
-curl -s -H "x-internal-token: $INTERNAL_API_TOKEN" \
+curl -s -H "x-internal-token: $PORTAL_INBOUND_API_TOKEN" \
   https://speakasap.com/api/v1/internal/lessons/f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477/roster/
 ```
 
