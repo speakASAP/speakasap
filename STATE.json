@@ -811,7 +811,7 @@
     "plan": "docs/superpowers/plans/2026-08-09-lesson-api-single-source-of-truth.md",
     "runbook": "docs/LESSON_API_OPERATIONS.md",
     "authoritative_state": "TASKS.md",
-    "status": "tasks_1_9_done_10_11_pending",
+    "status": "tasks_1_9_done_wired_live_task11_steps_1_2_6_pass",
     "root_cause": "education-service read local COPIES of the portal lesson tables; ETL last ran 2026-06-26",
     "production_evidence": {
       "copied_lessons": 182600,
@@ -835,6 +835,22 @@
     "known_gap": "internal-salary.service.ts:72 still reads the frozen lesson table and feeds teacher payouts via salary-service",
     "destructive_task_not_run": "Task 10 drops the copied tables and cross-database FKs; gated behind Task 11",
     "tests": "406 passing, 29 suites, tsc --noEmit clean",
-    "lastUpdated": "2026-08-09"
+    "lastUpdated": "2026-08-09",
+    "configured": {
+      "vault_education": "PORTAL_INBOUND_API_TOKEN set at secret/prod/speakasap/education",
+      "vault_portal": "PORTAL_INBOUND_API_TOKEN set at secret/prod/speakasap-portal",
+      "tokens_match": true,
+      "portal_env": "set in .env on speakasap host; backup .env.backup-lessonapi-*; gunicorn restarted",
+      "k8s": "PORTAL_API_URL+PORTAL_CLIENT_TIMEOUT_MS in ConfigMap, token via ESO; rollout converged"
+    },
+    "task11": {
+      "step1_lesson_endpoint": "PASS",
+      "step2_roster_endpoint": "PASS teacher_id=182 student_ids=[215116] paid_student_ids=[215116]",
+      "from_pod": "PASS education-service reached the portal and got the roster",
+      "step6_loud_failures": "PASS unreachable portal raises; propagation tests confirmed red when broken",
+      "security_no_token_no_data": "PASS no/wrong/empty token leak zero lesson data",
+      "steps_3_4_5_browser": "PENDING owner - needs a signed-in teacher session"
+    },
+    "gotcha_auth_returns_200": "CustomLoginRequiredMiddleware serves the login page with HTTP 200 ahead of DRF; a rejected call is NOT a 401. Check the body, not the status."
   }
 }

@@ -25,59 +25,59 @@ service.
 406 tests green, `tsc --noEmit` clean. Error propagation and the paid-vs-attendance
 split were each confirmed to fail when deliberately broken, not merely to pass.
 
-### Portal deployed 2026-08-09 — but the shared secret is NOT set
+### Wired and live 2026-08-09 — the seam works end to end
 
-Portal is live on `5cf666b` (confirmed on the host). The internal API code is
-serving. **The feature still does not work**, because neither side has the shared
-token:
+Portal deployed at `5cf666b`; token generated and installed on both sides;
+education-service manifest applied, ESO synced, deployment restarted and converged.
 
 | Side | Key | State |
 |---|---|---|
-| speakasap-portal | `PORTAL_INBOUND_API_TOKEN` | **missing** — `.env` dated Aug 4, predates the API |
-| education-service | `PORTAL_INBOUND_API_TOKEN` | **missing** from `secret/prod/speakasap/education` |
-| education-service | `PORTAL_API_URL` | **missing** — must be `https://speakasap.com/api/v1/internal` |
+| speakasap-portal | `PORTAL_INBOUND_API_TOKEN` | **set** in `.env` (backup `.env.backup-lessonapi-*`), gunicorn restarted |
+| education-service | `PORTAL_INBOUND_API_TOKEN` | **set** via Vault → ESO → K8s secret, 64 chars in pod |
+| education-service | `PORTAL_API_URL` | **set** in ConfigMap → `https://speakasap.com/api/v1/internal` |
 
-Both sides fail closed by design: the portal guard denies every request when its
-token is empty, and `LessonClientService` raises
-`LessonServiceUnavailableError` rather than degrading. So the current production
-behaviour is a loud error, not a silent empty roster — the old bug cannot recur even
-in this half-configured state.
+Both Vault paths hold the **same** value (compared, matched). All 11 pre-existing keys
+under `secret/prod/speakasap/education` survived the patch — no `put` clobber.
 
-**Blocked on you.** Writing the secret was denied by the permission classifier
-(reading the Vault root token out of `.vault-init`). Not worked around. Run:
+### Task 11 — Steps 1, 2 and 6 PASS
 
-```bash
-export VAULT_ADDR=http://127.0.0.1:8200
-TOK=$(openssl rand -hex 32)
-vault kv patch secret/prod/speakasap/education \
-  PORTAL_INBOUND_API_TOKEN="$TOK" \
-  PORTAL_API_URL="https://speakasap.com/api/v1/internal"
-vault kv patch secret/prod/speakasap-portal PORTAL_INBOUND_API_TOKEN="$TOK"
-unset TOK
+Reference lesson `f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477`, the one the teacher reported:
 
-kubectl annotate externalsecret speakasap-education -n statex-apps \
-  force-sync="$(date +%s)" --overwrite
-kubectl rollout restart deployment/speakasap-education -n statex-apps
-shared/scripts/wait-for-rollout.sh -n statex-apps speakasap-education
-```
+- **Root cause, both sides.** `education_lesson`: **0 rows**. Portal: exists,
+  `teacher_id 182`, start 2026-08-12, group `0c5c3ea8-…`, student **215116**.
+- **Step 1 — lesson endpoint:** serves JSON with the correct token.
+- **Step 2 — roster endpoint:** `teacher_id 182`, `student_ids [215116]`,
+  `paid_student_ids [215116]` — non-empty, as required.
+- **From inside the pod:** education-service reached the portal and got that same
+  roster. This is the decisive check — the exact call that used to return an empty
+  list now returns the student.
+- **Step 6 — failures are loud:** an unreachable portal raises rather than yielding a
+  roster. The unit-test half of this was proven by breaking the code and watching the
+  propagation tests go red, not by a passing run alone.
 
-The **same value** must go to both paths — the portal validates inbound exactly what
-education-service sends. Then set it in the portal's `.env` on the speakasap host and
-restart supervisord there (that host does not read Vault).
+**Security check (not in the plan, worth keeping).** No token, a wrong token and an
+empty token were all tried against the live endpoint: every one returned **zero lesson
+data**. Only the correct token returns JSON.
 
-### Task 11 — root cause confirmed against production, end-to-end pending
+But note **the refusal returns HTTP 200, not 401** — `CustomLoginRequiredMiddleware`
+serves the login page ahead of DRF. The plan's "401 means the token does not match" is
+wrong on this host. Check the response **body**, not the status. Recorded in
+`docs/LESSON_API_OPERATIONS.md`.
 
-The reported lesson `f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477` was checked on both sides
-2026-08-09:
+### Still yours: Steps 3, 4, 5 — the browser
 
-- `speakasap_education_db.education_lesson`: **0 rows** — invisible, exactly the bug.
-- portal: **exists**, `teacher_id 182`, start 2026-08-12, group
-  `0c5c3ea8-…` with student **215116**.
+These need a signed-in teacher session, which an agent cannot mint for a real person's
+account (students here are real people with graded work):
 
-So the lesson the teacher could not see is real, is in the portal, and carries a
-non-empty roster. That is the whole diagnosis, confirmed on live data rather than
-inferred. Steps 1-6 of Task 11 (HTTP 200, browser wizard, post-June record view,
-the unreachable-host loudness check) still need the token above.
+- **Step 3:** open `https://speakasap.com/teacher/students/215116/lessons/f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477/`,
+  start the drill wizard, confirm the picker lists **215116** rather than an empty list.
+- **Step 4:** repeat for any lesson with `start > now()` — future lessons were the
+  original complaint.
+- **Step 5:** open the teacher record view for a lesson created after 2026-06-26 and
+  confirm it loads instead of `Lesson not found`.
+
+A passing unit test is not a substitute, and neither is the pod-level check above — it
+proves the data path, not the UI.
 
 ### Open: internal-salary still reads the frozen lesson table
 

@@ -123,11 +123,22 @@ one — but still an outage.
 ## Verifying
 
 ```bash
-# 200 = serving. 401 = token mismatch. 404 = wrong mount path.
-curl -s -o /dev/null -w '%{http_code}\n' \
-  -H "x-internal-token: $PORTAL_INBOUND_API_TOKEN" \
+curl -s -H "x-internal-token: $PORTAL_INBOUND_API_TOKEN" \
   https://speakasap.com/api/v1/internal/lessons/<uuid>/
 ```
+
+**Do not check the status code — check the body.** The plan originally said "401 means
+the token does not match". That is wrong on this host: `CustomLoginRequiredMiddleware`
+(`portal/settings.py:287`) intercepts unauthenticated requests *before* DRF and serves
+the **login page with HTTP 200**. A rejected call and a served one both return 200.
+
+Verified 2026-08-09 — no token, a wrong token, and an empty token all returned 200 with
+the login page and **zero lesson data**; only the correct token returned JSON. The guard
+is sound, but its refusal does not look like one from the outside.
+
+So: a body starting `{"uuid":` means it worked. An HTML body means the token was
+rejected. `curl` is broken on the speakasap host itself (missing `libssl.so.3`) — probe
+from alfares, or use Python's `urllib` over there.
 
 The reference lesson for this bug is `f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477` (student
 215116, teacher 182, start 2026-08-12). Confirmed 2026-08-09: **absent** from
