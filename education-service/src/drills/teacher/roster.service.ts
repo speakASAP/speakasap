@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
 import { AuthClientService } from '../../auth-client/auth-client.service';
 import { DrillTeacherRosterQuery, DrillTeacherRosterResponse } from '../contracts';
 import { LessonClientService } from '../../lesson-client/lesson-client.service';
@@ -10,21 +9,19 @@ const DEFAULT_ROSTER_LIMIT = 50;
 const MAX_ROSTER_LIMIT = 200;
 
 /**
- * The students a teacher may assign drilling to.
+ * The students a teacher may assign drilling to, for one lesson.
  *
- * There is no teacher column on `Group` — the legacy Django shape puts the teacher on
- * the individual `Lesson`. So a teacher's roster is derived: the lessons they teach give
- * the student courses, the courses give the groups, and the groups give the students.
+ * Always lesson-scoped. There is no teacher column on `Group` — the legacy Django shape
+ * puts the teacher on the individual `Lesson` — so a teacher-wide roster used to be
+ * derived by walking lessons to student courses to groups. That walk read a COPY of the
+ * portal's tables whose ETL last ran 2026-06-26, so a teacher whose lessons are all
+ * newer got an empty roster and a warning-level log. It was removed on 2026-08-09 along
+ * with `listForTeacher`: the portal answers per lesson, and the wizard only ever opens
+ * from a lesson page.
  *
- * That indirection is why this is a service rather than one `findMany`. It also means
- * the roster is "students I have taught or am scheduled to teach", which is the right
- * definition for this purpose — a teacher assigning homework to someone whose lesson
- * they have never been booked for is the case worth excluding.
- *
- * Read from this service's own tables, except names: education-service stores
- * `studentId` integers and nothing else about a person, so names are resolved in batch
- * from auth-microservice. Previously `name` was returned empty and the assignment wizard
- * rendered "Student 58" for every one of teacher 10's 656 students.
+ * Names are resolved separately: education-service stores `studentId` integers and
+ * nothing else about a person, so names come in batch from auth-microservice. Without
+ * that the wizard rendered "Student 58" for every one of teacher 10's 656 students.
  *
  * Paged and searchable for the same reason — 656 students in one payload is not a picker.
  */
@@ -33,7 +30,6 @@ export class TeacherRosterService {
   private readonly logger = new Logger(TeacherRosterService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly auth: AuthClientService,
     private readonly lessons: LessonClientService,
   ) {}
@@ -88,89 +84,8 @@ export class TeacherRosterService {
     };
   }
 
-  async listForTeacher(
-    teacherId: number,
-    query: DrillTeacherRosterQuery = {},
-  ): Promise<DrillTeacherRosterResponse> {
-    const lessons = await this.prisma.lesson.findMany({
-      where: { teacherId },
-      select: { studentCourseUuid: true },
-      distinct: ['studentCourseUuid'],
-    });
-
-    if (lessons.length === 0) {
-      this.logger.warn(`Teacher ${teacherId} has no lessons; roster is empty`);
-      return { students: [], groups: [], total: 0, hasMore: false };
-    }
-
-    return this.rosterForCourses(
-      lessons.map((lesson) => lesson.studentCourseUuid),
-      query,
-    );
-  }
-
-  /** Shared tail of both entry points: student courses -> groups -> named students. */
-  private async rosterForCourses(
-    studentCourseUuids: string[],
-    query: DrillTeacherRosterQuery,
-  ): Promise<DrillTeacherRosterResponse> {
-    const courses = await this.prisma.studentCourse.findMany({
-      where: { uuid: { in: studentCourseUuids } },
-      select: { groupUuid: true },
-      distinct: ['groupUuid'],
-    });
-
-    const groupUuids = courses.map((course) => course.groupUuid);
-    if (groupUuids.length === 0) {
-      return { students: [], groups: [], total: 0, hasMore: false };
-    }
-
-    const groups = await this.prisma.group.findMany({
-      where: { uuid: { in: groupUuids } },
-      select: {
-        uuid: true,
-        title: true,
-        groupStudents: { select: { studentId: true } },
-      },
-      orderBy: { title: 'asc' },
-    });
-
-    // A student in two of the teacher's groups appears once in `students` and in both
-    // groups' `studentIds` — the wizard de-duplicates on selection, and a roster that
-    // listed them twice would look like two different people.
-    const groupUuidsByStudent = new Map<number, string[]>();
-    for (const group of groups) {
-      for (const link of group.groupStudents) {
-        const existing = groupUuidsByStudent.get(link.studentId);
-        if (existing) {
-          existing.push(group.uuid);
-        } else {
-          groupUuidsByStudent.set(link.studentId, [group.uuid]);
-        }
-      }
-    }
-
-    const page = await this.pageStudents(
-      Array.from(groupUuidsByStudent.keys()),
-      groupUuidsByStudent,
-      query,
-    );
-
-    return {
-      ...page,
-      groups: groups.map((group) => ({
-        uuid: group.uuid,
-        name: group.title,
-        studentIds: group.groupStudents.map((link) => link.studentId),
-      })),
-    };
-  }
-
   /**
    * Names, search, sort and paging over a set of student ids.
-   *
-   * Shared by both entry points so the lesson-scoped roster (portal-sourced) and the
-   * teacher-scoped one (still local) cannot drift in how they page or sort.
    *
    * `groups` is left empty here and filled in by the caller, which knows where its
    * groups came from. Callers spread this result first and set `groups` after.

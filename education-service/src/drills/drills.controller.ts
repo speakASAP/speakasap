@@ -132,22 +132,18 @@ export class DrillsController {
     // service holds no mapping between them — so a teacher arriving from a lesson page
     // would otherwise be matched against the wrong id space and see someone else's
     // roster, or an empty one. The lesson names its own teacher and students.
-    if (lessonUuid) {
-      const scoped = await this.roster.listForLesson(lessonUuid, {
-        search,
-        limit: limit === undefined ? undefined : Number(limit),
-        offset: offset === undefined ? undefined : Number(offset),
-      });
-      const { teacherId: _lessonTeacherId, ...response } = scoped;
-      return response;
-    }
-
-    const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
-    return this.roster.listForTeacher(teacherId, {
+    // The lesson is required, not merely preferred. The unscoped branch used to read
+    // `prisma.lesson`, a copy of the portal's tables frozen since 2026-06-26, and
+    // answered a teacher with only newer lessons with an empty roster — indistinguishable
+    // from having no students. The portal serves rosters per lesson, so a lesson is what
+    // makes a real answer possible at all.
+    const scoped = await this.roster.listForLesson(this.assertLesson(lessonUuid), {
       search,
       limit: limit === undefined ? undefined : Number(limit),
       offset: offset === undefined ? undefined : Number(offset),
     });
+    const { teacherId: _lessonTeacherId, ...response } = scoped;
+    return response;
   }
 
   /**

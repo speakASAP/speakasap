@@ -287,10 +287,22 @@ describe('DrillsController — teacher write routes', () => {
   });
 
   describe('GET teacher/students', () => {
-    it('returns the roster for a staff caller', async () => {
-      await expect(h.controller.teacherStudents(withToken(staff()))).resolves.toEqual({
-        students: [],
-        groups: [],
+    it('returns the roster for a staff caller who names a lesson', async () => {
+      await expect(
+        h.controller.teacherStudents(withToken(staff()), undefined, undefined, undefined, 'l-1'),
+      ).resolves.toEqual({ students: [], groups: [], total: 0, hasMore: false });
+    });
+
+    /**
+     * The unscoped roster was served from `prisma.lesson`, a COPY of the portal's tables
+     * frozen since 2026-06-26. It answered "no lessons" for any teacher whose work is
+     * newer with an empty roster and a warning-level log — a teacher reads that as
+     * "I have no students". The lesson-scoped path is the only one with a real source,
+     * so omitting the lesson is now refused rather than answered from stale data.
+     */
+    it('refuses an unscoped roster instead of serving one from frozen tables', async () => {
+      await expect(h.controller.teacherStudents(withToken(staff()))).rejects.toMatchObject({
+        response: { code: 'LESSON_REQUIRED' },
       });
     });
 

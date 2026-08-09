@@ -2,7 +2,6 @@ import {
   Controller,
   ForbiddenException,
   Get,
-  NotFoundException,
   Param,
   Query,
   Req,
@@ -31,16 +30,8 @@ export class GroupsController {
     if (!isStaffUser(req.authUser)) {
       throw new ForbiddenException('Staff access required');
     }
-    const row = await this.groups.getByUuid(uuid);
-    if (!row) {
-      throw new NotFoundException('Group not found');
-    }
-    return {
-      uuid: row.uuid,
-      title: row.title,
-      createdAt: row.createdAt.toISOString(),
-      studentIds: row.groupStudents.map((s) => s.studentId),
-      studentCourseUuids: row.studentCourses.map((c) => c.uuid),
-    };
+    // Raises: groups live in the portal and the local copy is frozen. The response
+    // shaping that used to live here went with it — see `shared/frozen-copy.ts`.
+    return this.groups.getByUuid(uuid);
   }
 }

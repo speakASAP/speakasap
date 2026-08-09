@@ -1,58 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { buildPaginatedResponse, getPaginationParams } from '../shared/pagination';
+import { Injectable, Logger } from '@nestjs/common';
+import { refuseFrozenCopyRead } from '../shared/frozen-copy';
 
+/**
+ * Student courses are owned by the portal. `education_studentcourse` here is a copy
+ * frozen at 2026-06-26, so both reads refuse rather than serve stale rows.
+ * See `shared/frozen-copy.ts`.
+ */
 @Injectable()
 export class StudentCoursesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(StudentCoursesService.name);
 
-  async list(page?: string, limit?: string) {
-    const { page: p, limit: l, skip } = getPaginationParams(page, limit);
-    const [items, total] = await Promise.all([
-      this.prisma.studentCourse.findMany({
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: l,
-        include: { group: { select: { uuid: true, title: true } } },
-      }),
-      this.prisma.studentCourse.count(),
-    ]);
-    const mapped = items.map((c) => ({
-      uuid: c.uuid,
-      courseClass: c.courseClass,
-      courseDisplayTitle: c.courseDisplayTitle,
-      createdAt: c.createdAt.toISOString(),
-      groupUuid: c.groupUuid,
-      groupTitle: c.group.title,
-      isFinished: c.isFinished,
-      isPaused: c.isPaused,
-    }));
-    return buildPaginatedResponse(mapped, total, p, l);
+  async list(_page?: string, _limit?: string): Promise<never> {
+    return refuseFrozenCopyRead(this.logger, 'Student courses', 'list');
   }
 
-  async getByUuid(uuid: string) {
-    const row = await this.prisma.studentCourse.findUnique({
-      where: { uuid },
-      include: { group: true },
-    });
-    if (!row) {
-      throw new NotFoundException('StudentCourse not found');
-    }
-    return {
-      uuid: row.uuid,
-      courseClass: row.courseClass,
-      courseDisplayTitle: row.courseDisplayTitle,
-      openStrategyClass: row.openStrategyClass,
-      createdAt: row.createdAt.toISOString(),
-      groupUuid: row.groupUuid,
-      groupTitle: row.group.title,
-      isFinished: row.isFinished,
-      endDate: row.endDate?.toISOString() ?? null,
-      isNew: row.isNew,
-      isPaused: row.isPaused,
-      autoPause: row.autoPause,
-      pauseDate: row.pauseDate?.toISOString() ?? null,
-      previousUuid: row.previousUuid,
-    };
+  async getByUuid(uuid: string): Promise<never> {
+    return refuseFrozenCopyRead(this.logger, 'Student courses', `uuid=${uuid}`);
   }
 }
