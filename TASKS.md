@@ -93,6 +93,28 @@ total: 1  teacherId: 182
 - **lesson-records has what it needs:** `getLesson` returns teacher 182 / start
   2026-08-12, and the roster distinguishes `paidStudentIds` from `studentIds`.
 
+### Two further defects the browser check exposed (2026-08-09)
+
+Fixing the roster surfaced the wizard showing **the wrong student's name**. Both are
+fixed and deployed.
+
+**1. Student.id vs User.id — a privacy defect.** The portal has two numerically
+overlapping id spaces. Student 215116 is *Tetiana Kovach* (user 314082); User 215116 is
+an unrelated person, and their name was displayed against Tetiana's lesson. Every
+consumer expects the **user** id — auth's `legacyUserId`, `drill_assignment.student_id`,
+and the portal's own `drills_client.py`. Fixed in the roster endpoint (`d10e6e7e74`) and
+the wizard link (`56ba7e7389`); always traverse `Student → user_id`.
+
+**2. Names missing for recent registrations.** auth holds only users migrated up to
+legacy id 314012, so Tetiana (registered 2026-07-13) had no auth record and the wizard
+rendered "Student 314082". ~113 portal users are in that state. The roster now carries
+`students: [{id, name}]` and education-service prefers auth, falling back to the portal
+(`714a44e94c`, `e7d9b0c`). A rising `named_by_portal` in the roster log means the auth
+migration is falling further behind.
+
+Deployed image `e7d9b0c` returns:
+`[{"id":314082,"name":"Tetiana Kovach","groupUuids":["0c5c3ea8-…"]}]`
+
 ### Still yours: Steps 3, 4, 5 — the browser
 
 These need a signed-in teacher session, which an agent cannot mint for a real person's

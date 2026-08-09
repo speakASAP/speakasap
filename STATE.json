@@ -834,7 +834,7 @@
     ],
     "known_gap": "internal-salary.service.ts:72 still reads the frozen lesson table and feeds teacher payouts via salary-service",
     "destructive_task_not_run": "Task 10 drops the copied tables and cross-database FKs; gated behind Task 11",
-    "tests": "406 passing, 29 suites, tsc --noEmit clean",
+    "tests": "411 passing, 29 suites, tsc --noEmit clean",
     "lastUpdated": "2026-08-09",
     "configured": {
       "vault_education": "PORTAL_INBOUND_API_TOKEN set at secret/prod/speakasap/education",
@@ -852,10 +852,32 @@
       "steps_3_4_5_browser": "PENDING owner - needs a signed-in teacher session",
       "verified_in_deployed_image": "students=[{id:215116,name:Kovy}] groups=[260713-EN-Чудовский] total=1 teacherId=182",
       "unknown_lesson_raises_live": "PASS LessonNotFoundError, not an empty roster",
-      "lesson_records_data_path": "PASS getLesson teacher 182; paidStudentIds [215116] distinct from studentIds"
+      "lesson_records_data_path": "PASS getLesson teacher 182; paidStudentIds [215116] distinct from studentIds",
+      "browser_verified_roster": "student 314082 'Tetiana Kovach' returned by the deployed image e7d9b0c"
     },
     "gotcha_auth_returns_200": "CustomLoginRequiredMiddleware serves the login page with HTTP 200 ahead of DRF; a rejected call is NOT a 401. Check the body, not the status.",
-    "deployed_image_tag": "69187de",
-    "deploy_trap": "speakasap-education was pinned to :latest, so rollout restart re-pulled the pre-fix image; config alone changed nothing. 'Build and push images: 15.03s' is the tell that nothing was built. Verify dist/lesson-client/ exists in the pod."
+    "deployed_image_tag": "e7d9b0c",
+    "deploy_trap": "speakasap-education was pinned to :latest, so rollout restart re-pulled the pre-fix image; config alone changed nothing. 'Build and push images: 15.03s' is the tell that nothing was built. Verify dist/lesson-client/ exists in the pod.",
+    "id_space_defect": {
+      "found": "2026-08-09 by the owner spotting the wrong name in the wizard",
+      "problem": "portal has two overlapping id spaces: students_student.id and auth_user.id",
+      "example": "Student 215116 = Tetiana Kovach (user 314082); User 215116 = an unrelated person",
+      "impact": "the drilling wizard displayed the wrong student's name — a privacy defect",
+      "fixed_in": [
+        "speakasap-portal d10e6e7e74 (roster endpoint)",
+        "speakasap-portal 56ba7e7389 (wizard link)"
+      ],
+      "rule": "always traverse Student -> user_id; every consumer expects an auth user id"
+    },
+    "name_fallback": {
+      "problem": "auth holds only users migrated up to legacy id 314012; ~113 newer portal users have no auth record",
+      "symptom": "wizard rendered 'Student 314082' instead of Tetiana Kovach",
+      "fix": "portal roster returns students:[{id,name}]; education-service prefers auth, falls back to portal",
+      "fixed_in": [
+        "speakasap-portal 714a44e94c",
+        "speakasap e7d9b0c"
+      ],
+      "monitor": "roster log named_by_portal rising = auth migration falling behind"
+    }
   }
 }

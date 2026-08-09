@@ -28,6 +28,35 @@ Mounted by `portal/urls.py` under `/api/v1/internal/`:
 
 Guarded by `x-internal-token`, matched against `PORTAL_INBOUND_API_TOKEN`.
 
+### Every id in this API is an auth USER id
+
+The portal has **two numerically overlapping id spaces**: `auth_user.id` and
+`students_student.id`, each with its own sequence. They name different people. Found
+2026-08-09: **Student 215116 is Tetiana Kovach** (user 314082) while **User 215116 is an
+unrelated person**, and the drilling wizard displayed the wrong name against Tetiana's
+lesson — a privacy defect, not a cosmetic one.
+
+Every consumer expects the **user** id: auth-microservice's `legacyUserId` space,
+education-service's `drill_assignment.student_id`, and the portal's own
+`cabinet/drills_client.py` (which compares `studentId` against `user.id`).
+
+So whenever a `Student` is in hand, traverse to its user:
+`group.students.values_list('user_id')`, `StudentAccess…values_list('student__user_id')`,
+`getattr(self.student, 'user_id', None)`. This bit both the roster endpoint and the
+wizard link.
+
+### Names: auth first, portal as fallback
+
+`students: [{id, name}]` on the roster carries display names. education-service prefers
+auth-microservice and uses these only where auth has nobody.
+
+Needed because auth holds only users migrated up to legacy id **314012** — a student who
+registered after that has no auth record, and the wizard rendered `Student 314082`.
+About 113 recent portal registrations are in that state.
+
+The roster log separates `named_by_auth` from `named_by_portal`; a rising
+`named_by_portal` means the auth migration is falling further behind.
+
 ### `student_ids` vs `paid_student_ids`
 
 Kept separate deliberately. `student_ids` is who attends; `paid_student_ids` is the
