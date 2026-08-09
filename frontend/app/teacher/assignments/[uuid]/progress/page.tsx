@@ -80,7 +80,28 @@ export default function AssignmentProgressPage() {
           </div>
         ) : null}
 
-        {progress ? (
+        {progress && progress.items.length === 0 ? (
+          /*
+           * Assignment items are copied from the set at APPROVAL, so a set still awaiting
+           * review has none. Rendering the tiles here showed "0 / 0 Solved" over an empty
+           * list, which reads as "the student did nothing" when in fact they have never
+           * been able to start.
+           *
+           * ASSIGNED with no items is a different thing — the student has work with no
+           * content, which is a defect — so it is not described with the reassuring
+           * approval wording.
+           */
+          <p
+            role="status"
+            className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+          >
+            {progress.status === 'PENDING_REVIEW'
+              ? 'This set is still awaiting your approval, so the student has not started it yet. Approve it on the review screen and progress will appear here.'
+              : 'This assignment has no sentences, so there is no progress to show. Please report it if it stays this way.'}
+          </p>
+        ) : null}
+
+        {progress && progress.items.length > 0 ? (
           <>
             <section className="grid gap-3 sm:grid-cols-4">
               {[
