@@ -25,16 +25,59 @@ service.
 406 tests green, `tsc --noEmit` clean. Error propagation and the paid-vs-attendance
 split were each confirmed to fail when deliberately broken, not merely to pass.
 
-### Blocked on you: deploy speakasap-portal
+### Portal deployed 2026-08-09 — but the shared secret is NOT set
 
-Tasks 1–4 are committed but **not live**. Agents cannot deploy that repo
-(`ssh speakasap` is read only; deploy is the owner-run `./scripts/deploy.sh`).
-Task 11's verification cannot run until the portal API is serving
-`/api/v1/internal/lessons/<uuid>/` and `/roster/` in production.
+Portal is live on `5cf666b` (confirmed on the host). The internal API code is
+serving. **The feature still does not work**, because neither side has the shared
+token:
 
-Also required before it works: set `PORTAL_INBOUND_API_TOKEN` on the portal and the
-matching outbound token for education-service. Both fail closed when unset — the
-guard denies every request rather than opening up on misconfiguration.
+| Side | Key | State |
+|---|---|---|
+| speakasap-portal | `PORTAL_INBOUND_API_TOKEN` | **missing** — `.env` dated Aug 4, predates the API |
+| education-service | `PORTAL_INBOUND_API_TOKEN` | **missing** from `secret/prod/speakasap/education` |
+| education-service | `PORTAL_API_URL` | **missing** — must be `https://speakasap.com/api/v1/internal` |
+
+Both sides fail closed by design: the portal guard denies every request when its
+token is empty, and `LessonClientService` raises
+`LessonServiceUnavailableError` rather than degrading. So the current production
+behaviour is a loud error, not a silent empty roster — the old bug cannot recur even
+in this half-configured state.
+
+**Blocked on you.** Writing the secret was denied by the permission classifier
+(reading the Vault root token out of `.vault-init`). Not worked around. Run:
+
+```bash
+export VAULT_ADDR=http://127.0.0.1:8200
+TOK=$(openssl rand -hex 32)
+vault kv patch secret/prod/speakasap/education \
+  PORTAL_INBOUND_API_TOKEN="$TOK" \
+  PORTAL_API_URL="https://speakasap.com/api/v1/internal"
+vault kv patch secret/prod/speakasap-portal PORTAL_INBOUND_API_TOKEN="$TOK"
+unset TOK
+
+kubectl annotate externalsecret speakasap-education -n statex-apps \
+  force-sync="$(date +%s)" --overwrite
+kubectl rollout restart deployment/speakasap-education -n statex-apps
+shared/scripts/wait-for-rollout.sh -n statex-apps speakasap-education
+```
+
+The **same value** must go to both paths — the portal validates inbound exactly what
+education-service sends. Then set it in the portal's `.env` on the speakasap host and
+restart supervisord there (that host does not read Vault).
+
+### Task 11 — root cause confirmed against production, end-to-end pending
+
+The reported lesson `f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477` was checked on both sides
+2026-08-09:
+
+- `speakasap_education_db.education_lesson`: **0 rows** — invisible, exactly the bug.
+- portal: **exists**, `teacher_id 182`, start 2026-08-12, group
+  `0c5c3ea8-…` with student **215116**.
+
+So the lesson the teacher could not see is real, is in the portal, and carries a
+non-empty roster. That is the whole diagnosis, confirmed on live data rather than
+inferred. Steps 1-6 of Task 11 (HTTP 200, browser wizard, post-June record view,
+the unreachable-host loudness check) still need the token above.
 
 ### Open: internal-salary still reads the frozen lesson table
 
