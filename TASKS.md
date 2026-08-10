@@ -255,17 +255,53 @@ account (students here are real people with graded work):
 A passing unit test is not a substitute, and neither is the pod-level check above — it
 proves the data path, not the UI.
 
-### Open: internal-salary still reads the frozen lesson table
+### In progress: internal-salary off the frozen lesson table (2026-08-10)
 
 `internal-salary.service.ts:72` aggregates `prisma.lesson` by teacher and date
 range to produce `period-aggregates`, which **salary-service consumes to compute
-teacher payouts**. Those 181 invisible lessons are therefore missing from salary
-aggregation.
+teacher payouts**. The invisible lessons are therefore missing from salary
+aggregation — **191 as of 2026-08-10**, up from the 181 measured on 2026-08-09.
+The gap grows every day the ETL stays frozen.
 
-Not fixed here, deliberately: the portal exposes no lessons-by-teacher-and-range
-endpoint, so this needs a new endpoint plus verification against real payout
-figures — materially larger than a drills fix and touching money. Left reading the
-frozen table rather than half-migrated.
+| Step | State |
+|---|---|
+| Portal `/lessons/by-teacher/` endpoint | Done, `8dfed1f93a` on `feat/salary-teacher-range-endpoint` (speakasap-portal) |
+| `lesson-client.listLessonsByTeachers()` | Done, `7540bf8` on `feat/salary-lessons-from-portal` |
+| Repoint `internal-salary` to the client | **Not started** — changes payout inputs, kept separate on purpose |
+| Parity check against real 2026-05 payout figures | **Not started — must precede any calculation run** |
+
+**Duration stays local, by owner decision.** The portal has no `duration_seconds`
+column; length comes from `LessonRecord.get_record_length()`, which opens the MP3
+out of storage — thousands of remote object reads for a month of lessons in one
+request. The portal serves the lesson facts it alone knows (teacher, start,
+`is_finished`, `is_demo`, `is_group`, `scheduled_minutes`, paid access, record
+state) and education-service joins its own `lesson_record.duration_seconds` by
+lesson uuid.
+
+Two inference bugs close as a side effect: `is_demo` was a regex over Russian
+course titles (`/demo|проб/i`) and is now the portal's course-code decision
+(`DEMO`, `NATIVE-DEMO`, `DEMO-B2`); `scheduled_minutes` now follows the legacy
+`Lesson.duration` rule at the source rather than being recomputed downstream.
+
+**Verified read-only against production** (`WRITES=false` throughout): 2026-05
+returns 172 finished lessons over 115 teachers; course code resolves 172/172
+across 21 course classes. Negative controls proved each filter load-bearing —
+`is_finished` excludes 20 unfinished lessons, a bogus teacher id returns 0 rows,
+April (138) and May (172) separate, `group_size` finds 1,426 group lessons, and a
+bad course class raises `ImportError`. `StudentAccess` is 300 unpaid of 184,822,
+which is why a sampled paid/unpaid split reads as uniform — not a broken
+annotation.
+
+**Blocked on your deploy.** The endpoint is committed but not on the portal host,
+and `ssh speakasap` is read-only, so these run only after you deploy it:
+auth denial without/with a wrong token, the seven 400-validation cases, real
+payload shape, and two-page pagination reassembling the full set. Scripts are
+written and ready to pipe into `python3 -` on the host.
+
+**Do not enable a calculation run off these aggregates until the parity check
+passes.** Goal 9's payout for 2026-05 was computed from imported legacy
+`LessonSalaryExpense.qty`; switching the lesson source without comparing totals
+would silently change what teachers are paid.
 
 ### Task 10 is destructive — do not run it casually
 
