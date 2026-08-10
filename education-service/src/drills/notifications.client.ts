@@ -7,7 +7,7 @@ const UPSTREAM = 'notification-service';
 /**
  * HTTP transport for the drill notifications.
  *
- * Targets notification-service's existing `POST dispatch/email`, which takes a
+ * Targets notification-service's existing `POST /api/v1/dispatch/email`, which takes a
  * template machine name plus a context bag and does its own recipient resolution,
  * preference checks and idempotency. Nothing drill-specific is added there: the
  * two templates are seeded rows, and this is an ordinary caller of a generic route.
@@ -27,7 +27,7 @@ const UPSTREAM = 'notification-service';
 export class NotificationsClientAdapter implements NotificationsClient {
   async dispatch(notification: DrillNotification): Promise<void> {
     await requestUpstream<unknown>({
-      url: `${requiredEnv('NOTIFICATION_SERVICE_URL', UPSTREAM)}/dispatch/email`,
+      url: `${requiredEnv('NOTIFICATION_SERVICE_URL', UPSTREAM)}/api/v1/dispatch/email`,
       method: 'POST',
       token: requiredEnv('INTERNAL_API_TOKEN', UPSTREAM),
       body: {
