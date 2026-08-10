@@ -4,6 +4,7 @@ import { PrismaService } from '../shared/prisma.service';
 import { VocabularyService } from '../vocabulary/vocabulary.service';
 import { checkVocabularyRatio } from '../vocabulary/ratio';
 import { seededShuffle } from './seeded-shuffle';
+import { blankAnswersMatchTopic } from './topic-blanks';
 import {
   CefrLevel,
   DrillItemDTO,
@@ -62,10 +63,23 @@ export class DrillsService {
       where.hash = { notIn: request.excludeHashes };
     }
 
-    const rows: DrillItemRow[] = await this.prisma.drillItem.findMany({
+    const all: DrillItemRow[] = await this.prisma.drillItem.findMany({
       where,
       include: { topic: { select: { slug: true } } },
     });
+
+    // Filed under a topic is not the same as testing it. A bank item carries a topic but
+    // blanks whatever its source blanked, so a "prepositions" item may blank the noun —
+    // "I will call you before and after the [совещания]{meeting}". A student who asked
+    // for a preposition drill was handed `meeting`, `girlfriend`, `flowers` (2026-08-10).
+    // Opt-in per topic: a topic with no word list is not filtered at all.
+    const rows = all.filter((row) =>
+      blankAnswersMatchTopic(
+        { blanks: row.blanks as unknown as { answer?: string | null }[] },
+        request.topicSlugs ?? [],
+        request.languageCode,
+      ),
+    );
 
     // Every row already matched the search criteria (topic/course/lesson/exclude). This
     // count is taken BEFORE the in-memory vocabulary filter below, deliberately: it is
