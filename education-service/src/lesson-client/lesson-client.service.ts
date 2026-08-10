@@ -4,9 +4,27 @@ import {
   LessonServiceUnavailableError,
   PortalLesson,
   PortalRoster,
+  PortalTeacherLesson,
+  PortalTeacherLessonsPage,
 } from './lesson-client.types';
 
 const DEFAULT_TIMEOUT_MS = 5000;
+
+/**
+ * A month of lessons is far larger than a single roster, so the range endpoint gets its
+ * own budget rather than inheriting the per-lesson one.
+ */
+const DEFAULT_RANGE_TIMEOUT_MS = 30000;
+
+/** Matches the portal's own cap; a larger request is clamped there anyway. */
+const RANGE_PAGE_SIZE = 500;
+
+/**
+ * Refuses to page forever. At 500 rows a page this allows 100,000 lessons in one range —
+ * orders of magnitude above any real month — so hitting it means something is wrong
+ * (a stuck offset, a portal ignoring pagination) and must raise rather than spin.
+ */
+const MAX_RANGE_PAGES = 200;
 
 /**
  * Client for the portal's lesson API.
@@ -28,6 +46,8 @@ export class LessonClientService {
   private readonly token = process.env.PORTAL_INBOUND_API_TOKEN || '';
   private readonly timeoutMs =
     Number(process.env.PORTAL_CLIENT_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
+  private readonly rangeTimeoutMs =
+    Number(process.env.PORTAL_RANGE_TIMEOUT_MS) || DEFAULT_RANGE_TIMEOUT_MS;
   /** Indirection so tests can inject a fake without a network or a DI container. */
   private readonly fetchFn: typeof fetch = (...args) => fetch(...args);
 
@@ -86,6 +106,123 @@ export class LessonClientService {
     return names;
   }
 
+  /**
+   * Every finished lesson for these teachers in [from, to), following pagination.
+   *
+   * The salary aggregate this feeds must be COMPLETE — a partial month underpays a real
+   * person — so this pages to exhaustion and raises on any failure rather than returning
+   * the rows it managed to collect. A short read here is indistinguishable, downstream,
+   * from a teacher having taught fewer lessons.
+   *
+   * `teacherIds` are legacy Teacher profile pks, not auth user ids.
+   */
+  async listLessonsByTeachers(
+    teacherIds: number[],
+    from: Date,
+    to: Date,
+  ): Promise<PortalTeacherLesson[]> {
+    if (!teacherIds.length) {
+      // Not an error, and deliberately not a request: the portal rejects an empty
+      // teacher list precisely so it can never be read as "every teacher".
+      return [];
+    }
+    if (!(from instanceof Date) || Number.isNaN(from.getTime())) {
+      throw new LessonServiceUnavailableError('by-teacher', 'invalid "from" date');
+    }
+    if (!(to instanceof Date) || Number.isNaN(to.getTime())) {
+      throw new LessonServiceUnavailableError('by-teacher', 'invalid "to" date');
+    }
+    if (to.getTime() <= from.getTime()) {
+      throw new LessonServiceUnavailableError('by-teacher', '"to" must be after "from"');
+    }
+
+    const lessons: PortalTeacherLesson[] = [];
+    let offset = 0;
+
+    for (let page = 0; page < MAX_RANGE_PAGES; page += 1) {
+      const params = new URLSearchParams({
+        teacher_ids: teacherIds.join(','),
+        from: from.toISOString(),
+        to: to.toISOString(),
+        limit: String(RANGE_PAGE_SIZE),
+        offset: String(offset),
+      });
+
+      const body = await this.request(
+        'by-teacher',
+        `/lessons/by-teacher/?${params.toString()}`,
+        'GET',
+        undefined,
+        this.rangeTimeoutMs,
+      );
+
+      const batch = this.toArray(body.lessons).map((raw) =>
+        this.toTeacherLesson(raw as Record<string, unknown>),
+      );
+      lessons.push(...batch);
+
+      if (!body.has_more) {
+        const expected = Number(body.count);
+        // The portal reported a total; if we did not collect it, something dropped rows
+        // silently. Raising is the whole point of this seam.
+        if (Number.isInteger(expected) && lessons.length !== expected) {
+          this.logger.error(
+            `Portal teacher-lesson pagination incomplete: collected=${lessons.length} ` +
+              `expected=${expected} teachers=${teacherIds.length}`,
+          );
+          throw new LessonServiceUnavailableError(
+            'by-teacher',
+            `incomplete pagination: got ${lessons.length} of ${expected}`,
+          );
+        }
+        return lessons;
+      }
+
+      if (!batch.length) {
+        // has_more with an empty page would loop forever.
+        this.logger.error(
+          'Portal reported has_more with an empty page; refusing to loop',
+        );
+        throw new LessonServiceUnavailableError(
+          'by-teacher',
+          'has_more=true with an empty page',
+        );
+      }
+
+      offset += batch.length;
+    }
+
+    this.logger.error(
+      `Portal teacher-lesson pagination exceeded ${MAX_RANGE_PAGES} pages`,
+    );
+    throw new LessonServiceUnavailableError(
+      'by-teacher',
+      `pagination exceeded ${MAX_RANGE_PAGES} pages`,
+    );
+  }
+
+  private toTeacherLesson(body: Record<string, unknown>): PortalTeacherLesson {
+    const record = (body.record ?? {}) as Record<string, unknown>;
+    return {
+      uuid: String(body.uuid),
+      teacherId: this.toNullableInt(body.teacher_id),
+      start: (body.start as string | null) ?? null,
+      isFinished: Boolean(body.is_finished),
+      isDemo: Boolean(body.is_demo),
+      isGroup: Boolean(body.is_group),
+      scheduledMinutes: Number(body.scheduled_minutes ?? 0),
+      hasPaidAccess: Boolean(body.has_paid_access),
+      studentCourseUuid: String(body.student_course_uuid ?? ''),
+      courseDisplayTitle: String(body.course_display_title ?? ''),
+      moduleClass: String(body.module_class ?? ''),
+      record: {
+        hasRecord: Boolean(record.has_record),
+        recordUnavailable: String(record.record_unavailable ?? ''),
+        processed: Boolean(record.processed),
+      },
+    };
+  }
+
   async updateLesson(
     lessonUuid: string,
     patch: { recommendation?: string; toManager?: string },
@@ -118,6 +255,7 @@ export class LessonClientService {
     path: string,
     method: 'GET' | 'PATCH' = 'GET',
     payload?: Record<string, string>,
+    timeoutMs: number = this.timeoutMs,
   ): Promise<Record<string, unknown>> {
     if (!this.baseUrl || !this.token) {
       // Misconfiguration is a failure, not a reason to degrade quietly.
@@ -131,7 +269,7 @@ export class LessonClientService {
     }
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     let response: Response;
     try {

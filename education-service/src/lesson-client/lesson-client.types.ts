@@ -69,6 +69,61 @@ export interface PortalRoster {
   names: Map<number, string>;
 }
 
+/** Whether a recording exists and is usable — deliberately not how long it is. */
+export interface PortalLessonRecordState {
+  hasRecord: boolean;
+  /** The reason text, verbatim. Blank means "not marked unavailable", not "no record". */
+  recordUnavailable: string;
+  processed: boolean;
+}
+
+/**
+ * One finished lesson as salary evidence.
+ *
+ * Carries no duration. The portal has no `duration_seconds` column — length comes from
+ * opening the MP3 out of storage, which for a month of lessons would be thousands of
+ * remote reads in one request. This service already stores `lesson_record.duration_seconds`
+ * and joins it locally by lesson uuid.
+ */
+export interface PortalTeacherLesson {
+  uuid: string;
+  /** Legacy Teacher profile pk, NOT an auth user id. */
+  teacherId: number | null;
+  start: string | null;
+  isFinished: boolean;
+  /**
+   * Decided by the portal from the course CODE (`DEMO`, `NATIVE-DEMO`, `DEMO-B2`).
+   *
+   * This service used to infer it by regex-matching the course title against
+   * `/demo|проб/i` — a guess about Russian course names that the portal answers
+   * authoritatively.
+   */
+  isDemo: boolean;
+  isGroup: boolean;
+  /** Follows the legacy `Lesson.duration` payroll rule: 90 group, 30 demo, else 60. */
+  scheduledMinutes: number;
+  hasPaidAccess: boolean;
+  studentCourseUuid: string;
+  courseDisplayTitle: string;
+  moduleClass: string;
+  record: PortalLessonRecordState;
+}
+
+/**
+ * A page of finished lessons for a set of teachers.
+ *
+ * `hasMore` is explicit: a payroll caller must be able to distinguish "this is the whole
+ * month" from "this is the first page", because silently truncating a teacher's month
+ * underpays them.
+ */
+export interface PortalTeacherLessonsPage {
+  lessons: PortalTeacherLesson[];
+  count: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 /**
  * The portal answered, definitively, that this lesson does not exist.
  *

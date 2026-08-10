@@ -220,4 +220,133 @@ describe('LessonClientService', () => {
         .rejects.toBeInstanceOf(LessonServiceUnavailableError);
     });
   });
+
+  describe('listLessonsByTeachers', () => {
+    const FROM = new Date('2026-05-01T00:00:00Z');
+    const TO = new Date('2026-06-01T00:00:00Z');
+
+    function teacherLesson(overrides: Record<string, unknown> = {}) {
+      return {
+        uuid: LESSON,
+        teacher_id: 182,
+        start: '2026-05-04T09:00:00Z',
+        is_finished: true,
+        is_demo: false,
+        is_group: false,
+        scheduled_minutes: 60,
+        has_paid_access: true,
+        student_course_uuid: '43c00027-cf75-4d60-8775-da38dea408a1',
+        course_display_title: 'Basic',
+        module_class: 'course_materials.data.ru.en._basic_s.Module3T',
+        record: { has_record: true, record_unavailable: '', processed: true },
+        ...overrides,
+      };
+    }
+
+    function page(lessons: unknown[], extra: Record<string, unknown> = {}) {
+      return {
+        lessons,
+        count: lessons.length,
+        limit: 500,
+        offset: 0,
+        has_more: false,
+        ...extra,
+      };
+    }
+
+    it('camelizes a teacher lesson, including the record state', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(okResponse(page([teacherLesson()])));
+      const lessons = await serviceWith(fetchFn).listLessonsByTeachers([182], FROM, TO);
+
+      expect(lessons).toHaveLength(1);
+      expect(lessons[0].teacherId).toBe(182);
+      expect(lessons[0].scheduledMinutes).toBe(60);
+      expect(lessons[0].hasPaidAccess).toBe(true);
+      expect(lessons[0].isDemo).toBe(false);
+      expect(lessons[0].record.hasRecord).toBe(true);
+      expect(lessons[0].record.recordUnavailable).toBe('');
+    });
+
+    it('sends the teacher ids and the half-open range as query params', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(okResponse(page([])));
+      await serviceWith(fetchFn).listLessonsByTeachers([182, 7], FROM, TO);
+
+      const url = new URL(fetchFn.mock.calls[0][0]);
+      expect(url.pathname).toBe('/lessons/by-teacher/');
+      expect(url.searchParams.get('teacher_ids')).toBe('182,7');
+      expect(url.searchParams.get('from')).toBe('2026-05-01T00:00:00.000Z');
+      expect(url.searchParams.get('to')).toBe('2026-06-01T00:00:00.000Z');
+    });
+
+    it('does not call the portal at all for an empty teacher list', async () => {
+      const fetchFn = jest.fn();
+      const lessons = await serviceWith(fetchFn).listLessonsByTeachers([], FROM, TO);
+
+      expect(lessons).toEqual([]);
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+
+    it('follows pagination until has_more is false', async () => {
+      const first = page([teacherLesson({ uuid: 'a' })], { count: 2, has_more: true });
+      const second = page([teacherLesson({ uuid: 'b' })], { count: 2, offset: 1 });
+      const fetchFn = jest.fn()
+        .mockResolvedValueOnce(okResponse(first))
+        .mockResolvedValueOnce(okResponse(second));
+
+      const lessons = await serviceWith(fetchFn).listLessonsByTeachers([182], FROM, TO);
+
+      expect(lessons.map((l) => l.uuid)).toEqual(['a', 'b']);
+      expect(new URL(fetchFn.mock.calls[1][0]).searchParams.get('offset')).toBe('1');
+    });
+
+    // The defect that motivates this endpoint: a short read is indistinguishable
+    // downstream from a teacher having taught fewer lessons, and underpays them.
+    it('raises when fewer rows arrive than the portal reported', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        okResponse(page([teacherLesson()], { count: 9 })));
+
+      await expect(serviceWith(fetchFn).listLessonsByTeachers([182], FROM, TO))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+    });
+
+    it('raises instead of looping when has_more comes with an empty page', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        okResponse(page([], { count: 5, has_more: true })));
+
+      await expect(serviceWith(fetchFn).listLessonsByTeachers([182], FROM, TO))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+    });
+
+    it('raises when the portal is unreachable rather than returning what it has', async () => {
+      const fetchFn = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+
+      await expect(serviceWith(fetchFn).listLessonsByTeachers([182], FROM, TO))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+    });
+
+    it('raises on a non-ok status', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        { ok: false, status: 500, text: async () => 'boom' });
+
+      await expect(serviceWith(fetchFn).listLessonsByTeachers([182], FROM, TO))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+    });
+
+    it('rejects an inverted range before calling the portal', async () => {
+      const fetchFn = jest.fn();
+
+      await expect(serviceWith(fetchFn).listLessonsByTeachers([182], TO, FROM))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+
+    it('raises when the portal is not configured', async () => {
+      const fetchFn = jest.fn();
+
+      await expect(
+        serviceWith(fetchFn, { token: '' }).listLessonsByTeachers([182], FROM, TO),
+      ).rejects.toBeInstanceOf(LessonServiceUnavailableError);
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+  });
 });
