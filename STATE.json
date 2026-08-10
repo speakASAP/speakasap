@@ -936,6 +936,23 @@
         ],
         "verified_live": "pod ai-microservice:ef04988 has LITELLM_TIMEOUT_MS=75000, FALLBACK=cheap,free, retry code in both compiled files"
       }
+    },
+    "validation_batching": {
+      "problem": "validation sent every candidate in ONE call — the largest request in the pipeline; timed out twice at 75s on a 20-item set",
+      "fix": "batches of 10 (DRILL_VALIDATION_BATCH_SIZE), sequential not parallel",
+      "subtlety": "itemRef is an index INTO THE BATCH; results are mapped back to global positions before anything is discarded. Out-of-range refs are logged and ignored.",
+      "verified": "20-item generation reached PENDING_REVIEW / 'Ready' with 20 items, no timeout",
+      "fixed_in": "speakasap a26aa7d"
+    },
+    "student_drills_page": {
+      "reported": "student drills page showed '0 / 52' and rendered edge to edge",
+      "count_finding": "52 and 43 are BLANK counts across 20 sentences each — correct data, unlabelled. Now labelled 'пропусков заполнено'.",
+      "layout_finding": "the dashboard renders this block above a React page that supplies chrome; the standalone /student/drills/ page had none. Wrapped in the teacher pages' row/column grid.",
+      "django_comment_trap": "the multi-line {# #} notes I first added leaked onto the page — {# #} is single-line. Caught by RENDERING with Django's engine, not by compiling. Converted to {% comment %}.",
+      "fixed_in": [
+        "speakasap-portal 4774160676",
+        "speakasap-portal 9204dc3"
+      ]
     }
   }
 }
