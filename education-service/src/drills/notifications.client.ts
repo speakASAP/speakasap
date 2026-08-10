@@ -29,7 +29,12 @@ export class NotificationsClientAdapter implements NotificationsClient {
     await requestUpstream<unknown>({
       url: `${requiredEnv('NOTIFICATION_SERVICE_URL', UPSTREAM)}/api/v1/dispatch/email`,
       method: 'POST',
+      // Sent as `x-internal-token`: dispatch is reached from a fire-and-forget hook
+      // with no request user, so there is no JWT to forward. `token` still populates
+      // the Authorization header, which the guard ignores once the internal header
+      // is present.
       token: requiredEnv('INTERNAL_API_TOKEN', UPSTREAM),
+      internalToken: requiredEnv('INTERNAL_API_TOKEN', UPSTREAM),
       body: {
         templateMachineName: notification.template,
         userId: String(notification.recipientId),
