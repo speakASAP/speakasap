@@ -660,6 +660,7 @@ describe('TeacherAssignmentsService.getForTeacher', () => {
    * словарыи-запас-в1", which is machinery, not a name.
    */
   describe('titleFor', () => {
+    const TITLE_LIMIT = 60;
     const svcAny = () => Object.create(TeacherAssignmentsService.prototype);
     const req = (over: any = {}) => ({
       studentIds: [3], count: 5, instructions: '', topicSlugs: [], ...over,
@@ -683,6 +684,47 @@ describe('TeacherAssignmentsService.getForTeacher', () => {
 
     it('falls back again when there is neither', () => {
       expect((svcAny() as any).titleFor(req())).toBe('Grammar practice');
+    });
+
+    /**
+     * Long instructions are a PROMPT, not a name. Slicing them at 120 characters produced
+     * "Сделай предложения на тренировку только английских предлогов. Вставлять нужно
+     * только предлоги. Человек должен вводить то" — cut mid-word, shown to the student as
+     * the drill's name (reported 2026-08-10).
+     *
+     * Short instructions stay: "тренировка на прошедшее время" is a real name, and that
+     * is why instructions win over topic slugs in the first place.
+     */
+    it('does not use long instructions as a name, and never cuts mid-word', () => {
+      const prompt =
+        'Сделай предложения на тренировку только английских предлогов. ' +
+        'Вставлять нужно только предлоги. Человек должен вводить только предлог.';
+
+      const title = (svcAny() as any).titleFor(
+        req({ instructions: prompt, topicSlugs: ['prepositions'] }),
+      );
+
+      // The reported title ran three sentences together and stopped mid-word. Only the
+      // first sentence survives, and it ends where the teacher ended it.
+      expect(title).toBe('Сделай предложения на тренировку только английских предлогов');
+      expect(title).not.toContain('Человек должен вводить то');
+      expect(title.length).toBeLessThanOrEqual(TITLE_LIMIT);
+    });
+
+    it('keeps a first sentence that reads as a name', () => {
+      const title = (svcAny() as any).titleFor(
+        req({ instructions: 'Тренировка на предлоги. Вставляй только предлоги, ничего больше.' }),
+      );
+
+      expect(title).toBe('Тренировка на предлоги');
+    });
+
+    it('still falls back to topics when the instructions are one long unbroken phrase', () => {
+      const title = (svcAny() as any).titleFor(
+        req({ instructions: 'a'.repeat(200), topicSlugs: ['prepositions'] }),
+      );
+
+      expect(title).toBe('prepositions');
     });
   });
 });

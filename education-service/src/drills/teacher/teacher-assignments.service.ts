@@ -23,6 +23,8 @@ import {
 } from '../contracts';
 
 /** Matches the wizard's bound and the plan's stated 1..200 range. */
+/** Longest first sentence still readable as a drill name rather than a prompt. */
+const TITLE_MAX_LENGTH = 60;
 const MIN_ITEM_COUNT = 1;
 const MAX_ITEM_COUNT = 200;
 
@@ -528,15 +530,50 @@ export class TeacherAssignmentsService {
    * into "прошедшее-время, настоящее-время, словарыи-запас-в1" — machinery, not a name.
    * Slugs are the fallback for a teacher who chose topics and wrote nothing.
    */
+  /**
+   * The name the teacher and the student read in every list.
+   *
+   * The teacher's own words win when they read as a NAME — "тренировка на прошедшее
+   * время" beats the slug "proshedshee-vremya", which is machinery. But instructions are
+   * often a prompt, not a title, and slicing one at 120 characters produced
+   * "…Человек должен вводить то" — cut mid-word and shown to the student as the drill's
+   * name.
+   *
+   * So: take the first sentence if it is short enough to be a name, otherwise fall back
+   * to the topics. Never truncate — a cut title is worse than a generic one, because it
+   * looks like the system broke rather than like a label.
+   */
   private titleFor(request: GenerateAssignmentsRequest): string {
     const instructions = (request.instructions ?? '').trim();
-    if (instructions) {
-      return instructions.slice(0, 120).slice(0, 255);
+    const name = this.nameFromInstructions(instructions);
+    if (name) {
+      return name;
     }
+
     const topics = request.topicSlugs ?? [];
     if (topics.length > 0) {
       return topics.slice(0, 3).join(', ').slice(0, 255);
     }
     return 'Grammar practice';
+  }
+
+  /**
+   * The first sentence of `instructions`, but only when it is short enough to pass as a
+   * title. Returns null when the teacher wrote a paragraph rather than a name.
+   */
+  private nameFromInstructions(instructions: string): string | null {
+    if (!instructions) {
+      return null;
+    }
+
+    // First sentence, by the terminator the teacher actually typed.
+    const firstSentence = instructions.split(/[.!?\n]/)[0].trim();
+    if (!firstSentence) {
+      return null;
+    }
+
+    // 60 characters is about as long as a name gets before it reads as prose. Anything
+    // longer is a prompt, and the topics name the drill better than a cut paragraph.
+    return firstSentence.length <= TITLE_MAX_LENGTH ? firstSentence : null;
   }
 }
