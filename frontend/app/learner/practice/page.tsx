@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import type { DrillAssignmentDTO, DrillSetDTO } from '@/lib/drills/contracts';
 import { listAvailableSets, listMyAssignments } from '@/lib/drills/runner/api';
 import { SelfDrillBrowser } from '@/lib/drills/runner/SelfDrillBrowser';
+import { studentDashboardUrl } from '@/lib/drills/runner/portal-url';
 
 /**
  * The student's practice home: assigned work first, self-drilling second.
@@ -55,7 +56,16 @@ export default function PracticePage() {
     <main className="min-h-full bg-zinc-50 px-4 py-10 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6">
       <div className="mx-auto w-full max-w-3xl space-y-8">
         <header>
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Learner portal</p>
+          {/* The student arrives from the legacy cabinet through the SSO handoff and had
+              no way back once a drill was finished. A plain anchor, not next/link: the
+              portal is a different application on another host. */}
+          <a
+            href={studentDashboardUrl()}
+            className="text-sm text-sky-700 underline hover:text-sky-900 dark:text-sky-400"
+          >
+            ← Мои курсы
+          </a>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Learner portal</p>
           <h1 className="mt-2 text-2xl font-semibold">Practice</h1>
         </header>
 
