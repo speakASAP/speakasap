@@ -953,6 +953,25 @@
         "speakasap-portal 4774160676",
         "speakasap-portal 9204dc3"
       ]
+    },
+    "sso_handoff_failure": {
+      "symptom": "'We could not sign you in just now' on /auth/handoff for a student with no auth mapping",
+      "root_cause": "legacy_identity_mappings.id is uuid PRIMARY KEY with NO DEFAULT; TypeORM's @PrimaryGeneratedColumn('uuid') emits VALUES (DEFAULT, ...) and relies on the database to fill it",
+      "why_hidden": "the bootstrap script that created the table supplies its own ids, so only app-level inserts failed — i.e. only students who registered after the migration",
+      "evidence": "every other uuid primary key in the auth DB has a default; this table was the only exception",
+      "fix": "ALTER TABLE ... ALTER COLUMN id SET DEFAULT uuid_generate_v4() applied to production; CREATE TABLE and an idempotent ALTER fixed in scripts/bootstrap-speakasap-legacy-users.ts (auth-microservice ebe973a)",
+      "verified": "resolveOrProvisionLegacyUser now returns provisioned:true; legacy 314082 -> tetianak158@gmail.com / Tetiana Kovach"
+    },
+    "assignment_title": {
+      "symptom": "drill named 'Сделай предложения ... Человек должен вводить то' — a prompt cut mid-word",
+      "cause": "titleFor sliced instructions at 120 chars",
+      "fix": "first sentence when <=60 chars, else topic slugs; never truncated (speakasap a531931)",
+      "note": "applies to NEW assignments only; existing rows keep their stored title"
+    },
+    "student_dashboard_layout": {
+      "symptom": "drills block renders above the sidebar on /student/, outside the page chrome",
+      "cause": "cabinet/templates/student/base.html has no layout wrapper: {% block content %} sits directly in <body>, and React mounts the whole layout (sidebar included) into #home AFTER the include",
+      "status": "NOT FIXED — the React app builds its own layout with no slot for server-rendered HTML, so a CSS or DOM guess would be fragile. Needs either a React-side drilling component (precedent: HomeworkStudent.jsx fetches drilling over the API) or a layout slot."
     }
   }
 }
