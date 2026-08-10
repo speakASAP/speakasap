@@ -1003,7 +1003,18 @@
       "backfill_bank": "714 of 1507 English drill_item rows; 0 hash collisions; backup drill_item-pre-translation-strip-20260810-204133.sql",
       "backfill_assignments": "40 of 117 drill_assignment_item rows (the copies a student already holds); SQL verified byte-identical to the TS function first; backup taken",
       "wired": "sanitizeTemplate, so both importers and every newly created item are covered",
-      "fixed_in": "speakasap d69e7ce"
+      "fixed_in": "speakasap d69e7ce",
+      "backfill_all_languages": "7,585 of 27,627 drill_item rows across every language; 16 hash collisions skipped, never merged; backup drill_item-pre-all-lang-strip-20260810-213342.sql",
+      "remaining_35": "18 are ru-target courses (Russian IS the language being learned) plus hash collisions the guard declined — correct, not missed"
+    },
+    "menu_and_navigation": {
+      "icon": "entry used the Font Awesome name pencil-square-o while <Icon type=…> resolves antd names (bars, trophy, wallet), so it rendered nothing; now 'edit'",
+      "active_state": "PageMenu takes `selected` and defaults to 'home'; DrillsPage never passed one, so opening Тренировки highlighted Мои курсы. Now passes 'drills'.",
+      "dashboard_link": "the practice page had no way back to the portal; studentDashboardUrl() is env-configurable but allowlist-validated and falls back to the production portal",
+      "fixed_in": [
+        "speakasap-portal 169573bbcc",
+        "speakasap 12d66a4"
+      ]
     }
   }
 }
