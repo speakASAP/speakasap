@@ -969,9 +969,16 @@
       "note": "applies to NEW assignments only; existing rows keep their stored title"
     },
     "student_dashboard_layout": {
-      "symptom": "drills block renders above the sidebar on /student/, outside the page chrome",
-      "cause": "cabinet/templates/student/base.html has no layout wrapper: {% block content %} sits directly in <body>, and React mounts the whole layout (sidebar included) into #home AFTER the include",
-      "status": "NOT FIXED — the React app builds its own layout with no slot for server-rendered HTML, so a CSS or DOM guess would be fragile. Needs either a React-side drilling component (precedent: HomeworkStudent.jsx fetches drilling over the API) or a layout slot."
+      "symptom": "drills block painted above the sidebar on /student/ and /student/drills/",
+      "cause": "both pages are React apps whose layout (sidebar included) mounts into a single root; a Django {% include %} lands OUTSIDE that root and renders over the page",
+      "precedent": "homework/DrillingBlock.jsx already records this exact failure and its fix for the lesson page",
+      "fix": "StudentDrillsBlock.jsx shared by Home (dashboard, fail-soft fetch) and a new DrillsPage inside Page (sidebar + content column). Server side: GET /student/drills.json, student from the session never the URL.",
+      "bundle": "rebuilt on the portal host, collectstatic run, portal restarted; DrillsPage confirmed present in the served bundle",
+      "verified": "both templates render with the React mount, zero stray tags, no leftover server-rendered drilling markup",
+      "fixed_in": [
+        "speakasap-portal bba4b846e6",
+        "speakasap-portal (import-depth fix)"
+      ]
     }
   }
 }
