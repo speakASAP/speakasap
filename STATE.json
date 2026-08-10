@@ -994,6 +994,16 @@
       "assignment_renamed": "d26e3f4d -> 'Тренировка английских предлогов' (assignment and set)",
       "regenerated": "3aa96cc5 with real preposition blanks, assigned; the two vocabulary-blank assignments cancelled",
       "fixed_in": "speakasap-portal f0013f51df"
+    },
+    "leading_translation_stripped": {
+      "symptom": "every drill sentence appeared twice — full Russian translation, then the English sentence with blanks",
+      "why_wrong": "the student is learning English and each blank already carries a one-or-two-word prompt; the leading sentence gave away the whole meaning",
+      "rule": "remove only whole leading sentences that are Cyrillic AND end before the first blank; a Cyrillic prompt inside a blank is untouched",
+      "guard": "refuses to change a template when that would drop or change a blank — a declined row keeps its translation rather than becoming a broken drill",
+      "backfill_bank": "714 of 1507 English drill_item rows; 0 hash collisions; backup drill_item-pre-translation-strip-20260810-204133.sql",
+      "backfill_assignments": "40 of 117 drill_assignment_item rows (the copies a student already holds); SQL verified byte-identical to the TS function first; backup taken",
+      "wired": "sanitizeTemplate, so both importers and every newly created item are covered",
+      "fixed_in": "speakasap d69e7ce"
     }
   }
 }
