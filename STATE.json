@@ -834,8 +834,8 @@
     ],
     "known_gap": "internal-salary.service.ts:72 still reads the frozen lesson table and feeds teacher payouts via salary-service",
     "destructive_task_not_run": "Task 10 drops the copied tables and cross-database FKs; gated behind Task 11",
-    "tests": "education-service 425 passing (30 suites); frontend 186 passing; tsc clean both",
-    "lastUpdated": "2026-08-09",
+    "tests": "education 425, content 153, frontend 190; tsc clean on all three",
+    "lastUpdated": "2026-08-10",
     "configured": {
       "vault_education": "PORTAL_INBOUND_API_TOKEN set at secret/prod/speakasap/education",
       "vault_portal": "PORTAL_INBOUND_API_TOKEN set at secret/prod/speakasap-portal",
@@ -856,7 +856,7 @@
       "browser_verified_roster": "student 314082 'Tetiana Kovach' returned by the deployed image e7d9b0c"
     },
     "gotcha_auth_returns_200": "CustomLoginRequiredMiddleware serves the login page with HTTP 200 ahead of DRF; a rejected call is NOT a 401. Check the body, not the status.",
-    "deployed_image_tag": "81b4fcc",
+    "deployed_image_tag": "e41a09d",
     "deploy_trap": "speakasap-education was pinned to :latest, so rollout restart re-pulled the pre-fix image; config alone changed nothing. 'Build and push images: 15.03s' is the tell that nothing was built. Verify dist/lesson-client/ exists in the pod.",
     "id_space_defect": {
       "found": "2026-08-09 by the owner spotting the wrong name in the wizard",
@@ -903,6 +903,29 @@
       "found": "StudentCourse.course_class carries the pair even when lesson.module_class does not",
       "coverage": "all 11787 extra-lessons lessons resolve via course_class; 0 via module_class",
       "fix": "portal exposes course_class (98af031d8c); courseLanguageOf prefers it (81b4fcc)"
+    },
+    "html_in_templates": {
+      "found": "2026-08-09 by the owner — review screen showed raw <span class=\"mute\"> as text",
+      "cause": "legacy bank importers stored the rich-text label verbatim in template while also extracting the glossary into hint",
+      "scale": "14,659 of 27,627 bank rows; AI items were always clean",
+      "fix": "sanitizeTemplate drops the mute element with its contents; wired into both importers AND SetsService.upsertItem (the single write chokepoint)",
+      "backfill": "14,643 rows updated; backup backups/drill_item-pre-html-strip-20260809-233500.sql (17.8MB, 27,627 rows)",
+      "deliberately_skipped": "2 <input> rows (answer lives in an attribute), 5 malformed (mute span wraps the drill content), 9 hash collisions — reported, never merged",
+      "fixed_in": "speakasap 935f233"
+    },
+    "progress_page_empty": {
+      "problem": "PENDING_REVIEW assignment showed '0 / 0 Solved' over an empty list",
+      "cause": "assignment items are copied from the set at APPROVAL, so a set awaiting review has none",
+      "fix": "explicit empty state; ASSIGNED-with-no-items worded differently because that is a defect, not a normal state",
+      "fixed_in": "speakasap e41a09d"
+    },
+    "ai_timeout_analysis": {
+      "reported": "ai-microservice 503 / AI_HTTP_TIMEOUT after 120000ms",
+      "frequency": "one occurrence in 24h — transient, not systemic",
+      "latency_by_count": "5 items 7.1s, 10 items 11.8s, 20 items 21.4s on the smart tier — linear, well inside the 120s budget",
+      "conclusion": "batching would NOT have prevented it; the item count is not the cost driver",
+      "real_risk": "CLAUDE_CODE_LITELLM_FALLBACK_MODELS=free,cheap puts the free tier first, and free is 19.8s vs cheap 813ms for the same 10 tokens (25x)",
+      "recommended": "reorder fallback to cheap,free; add one automatic retry on AI_HTTP_TIMEOUT — both unimplemented, owner decision"
     }
   }
 }

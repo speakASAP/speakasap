@@ -174,6 +174,55 @@ is only `…data.extra_lessons.ModuleExtraLessonsCourse`.
 it, falling back to the module class (`81b4fcc`). Unknown is still surfaced, never
 guessed — only which field answers changed.
 
+### 6. Raw HTML in item templates — FIXED and backfilled (2026-08-09)
+
+The review screen showed `<span class="mute">(to walk – идти пешком)</span>` as literal
+text, with the same glossary repeated underneath.
+
+The legacy bank importers stored each item's rich-text label verbatim in `template`
+while ALSO extracting the trailing glossary into `hint`. Nothing renders `template` as
+HTML — deliberately, a bank is not a trusted source of markup — so the tag showed as text
+and the glossary appeared twice. **14,659 of 27,627 bank rows**; AI items were clean.
+
+Guarded in two places so it cannot return: both importers sanitize on the way in, and
+`SetsService.upsertItem` — the single chokepoint every new item passes through —
+sanitizes before deriving `plainText` and `hash`.
+
+Backfill updated **14,643** rows. Backup first:
+`backups/drill_item-pre-html-strip-20260809-233500.sql` (17.8 MB, all 27,627 rows).
+
+**Deliberately not touched, and why** — these are reported, never silently mangled:
+- **2 rows** with `<input … answer="by">`: the answer lives in an attribute, so stripping
+  the tag deletes it. They need converting to `[prompt]{answer}`.
+- **5 rows** where the mute span wraps the drill content itself, so stripping would
+  destroy the blanks.
+- **9 rows** whose cleaned text collides with an existing hash. Merging two rows into one
+  is a content decision, not a cleanup's.
+
+### 7. Progress page said "0 / 0" for an unapproved set
+
+Assignment items are copied from the set at **approval**, so a set awaiting review has
+none — the page rendered stats over an empty list, reading as "the student did nothing"
+when they had never been able to start. Now says so explicitly. `ASSIGNED` with no items
+is worded differently on purpose: that is a defect, not a normal state. Fixed in
+`e41a09d`.
+
+### The AI timeout: batching would not have helped
+
+Measured on the `smart` tier: **5 items 7.1s · 10 items 11.8s · 20 items 21.4s** — linear,
+and far inside the 120 s budget. The item count is not the cost driver, so splitting a
+20-sentence request into blocks would not have prevented the timeout. It happened **once
+in 24 hours**.
+
+The real risk is tier selection: `CLAUDE_CODE_LITELLM_FALLBACK_MODELS=free,cheap` tries
+`free` first, and `free` takes **19.8 s** for the same 10 tokens that `cheap` returns in
+**813 ms** — 25x. Two changes worth making, both owner decisions since they affect AI cost
+ecosystem-wide:
+
+1. Reorder the fallback to `cheap,free`.
+2. Retry once automatically on `AI_HTTP_TIMEOUT` — today a transient timeout surfaces as
+   a red banner the teacher must click through.
+
 ### Still yours: Steps 3, 4, 5 — the browser
 
 These need a signed-in teacher session, which an agent cannot mint for a real person's
