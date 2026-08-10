@@ -979,6 +979,21 @@
         "speakasap-portal bba4b846e6",
         "speakasap-portal (import-depth fix)"
       ]
+    },
+    "topic_blank_mismatch": {
+      "symptom": "a 'prepositions' drill asked for meeting, girlfriend, flowers, big, house — nouns and adjectives",
+      "cause": "bank items are FILED under a topic but blank whatever their source blanked; of 79 English items under prepositions only 32 blank one, and the picker chose from all 79",
+      "fix": "blankAnswersMatchTopic() checks blank answers against a per-language, per-topic word list in content-service search",
+      "scope": "strictly opt-in — unlisted topic, unlisted language, or a mixed request all pass everything through, so no other drill is affected",
+      "verified": "live search returns only preposition blanks (about; of,in; to,after; at,at); 36 items survive, enough for 20-item sets",
+      "fixed_in": "speakasap da62b34"
+    },
+    "student_drilling_ux": {
+      "dashboard": "drills block removed — it sat above 'Мои курсы' on every visit; drilling now lives only behind the Тренировки menu entry",
+      "menu_visibility": "the entry appeared on selfDrillingAllowed, true for any student who owes nothing; now requires ASSIGNED work",
+      "assignment_renamed": "d26e3f4d -> 'Тренировка английских предлогов' (assignment and set)",
+      "regenerated": "3aa96cc5 with real preposition blanks, assigned; the two vocabulary-blank assignments cancelled",
+      "fixed_in": "speakasap-portal f0013f51df"
     }
   }
 }
