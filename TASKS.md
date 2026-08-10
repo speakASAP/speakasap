@@ -223,6 +223,23 @@ ecosystem-wide:
 2. Retry once automatically on `AI_HTTP_TIMEOUT` — today a transient timeout surfaces as
    a red banner the teacher must click through.
 
+**Both implemented 2026-08-10** (`ai-microservice` `9c2ce1b`, `ef04988`), plus a third
+change the first two needed:
+
+- **Retry once.** `LlmClient` retries a transient upstream failure — 429/500/502/503/504,
+  a client-side abort, or a transient `error_code`. It deliberately does **not** retry
+  400, 401 or a permanent `error_code`: those fail identically the second time, so a
+  retry only doubles the teacher's wait and pays for a model call that teaches nothing.
+- **`cheap,free`.** The list is tried in order, so the first entry pays its latency on
+  every fallback.
+- **`LITELLM_TIMEOUT_MS` 120s → 75s.** Without this the retry was useless for the case
+  that caused the report: education-service waits 180s, so a 120s timeout plus a second
+  attempt (240s) would be abandoned mid-retry. Two 75s attempts fit. Generous against
+  measured latency — a 20-item generation takes ~21s.
+
+Verified on the live pod: `LITELLM_TIMEOUT_MS=75000`, `FALLBACK=cheap,free`, retry code
+present in both compiled files.
+
 ### Still yours: Steps 3, 4, 5 — the browser
 
 These need a signed-in teacher session, which an agent cannot mint for a real person's

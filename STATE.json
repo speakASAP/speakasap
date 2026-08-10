@@ -925,7 +925,17 @@
       "latency_by_count": "5 items 7.1s, 10 items 11.8s, 20 items 21.4s on the smart tier — linear, well inside the 120s budget",
       "conclusion": "batching would NOT have prevented it; the item count is not the cost driver",
       "real_risk": "CLAUDE_CODE_LITELLM_FALLBACK_MODELS=free,cheap puts the free tier first, and free is 19.8s vs cheap 813ms for the same 10 tokens (25x)",
-      "recommended": "reorder fallback to cheap,free; add one automatic retry on AI_HTTP_TIMEOUT — both unimplemented, owner decision"
+      "recommended": "reorder fallback to cheap,free; add one automatic retry on AI_HTTP_TIMEOUT — both unimplemented, owner decision",
+      "implemented_2026_08_10": {
+        "retry": "LlmClient retries ONCE on 429/500/502/503/504, client abort, or transient error_code (RATE_LIMIT/CLI_FAILED/timeouts). Never retries 400/401 or a permanent error_code.",
+        "fallback_order": "cheap,free — was free,cheap; the list is tried in order and free is 19.8s vs cheap 813ms",
+        "timeout_budget": "LITELLM_TIMEOUT_MS 120000 -> 75000 so two attempts fit education-service's 180s client timeout; at 120s the retry could not finish before the caller gave up",
+        "commits": [
+          "ai-microservice 9c2ce1b",
+          "ai-microservice ef04988"
+        ],
+        "verified_live": "pod ai-microservice:ef04988 has LITELLM_TIMEOUT_MS=75000, FALLBACK=cheap,free, retry code in both compiled files"
+      }
     }
   }
 }
