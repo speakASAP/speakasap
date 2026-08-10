@@ -1,4 +1,5 @@
 import { stripHtml } from '../vocabulary/html-strip';
+import { stripLeadingTranslation } from './strip-translation';
 
 /**
  * Cleans presentation markup out of a drill item's `template`.
@@ -45,7 +46,9 @@ export function sanitizeTemplate(template: string): string {
     );
   }
 
-  return stripHtml(template.replace(MUTE_ELEMENT_RE, ' '));
+  // Also drops the leading full translation: a Russian-taught English item carries the
+  // sentence twice, and the student is learning English. See strip-translation.ts.
+  return stripLeadingTranslation(stripHtml(template.replace(MUTE_ELEMENT_RE, ' ')));
 }
 
 /** True when the template carries markup that `sanitizeTemplate` would remove. */

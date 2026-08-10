@@ -14,9 +14,9 @@ describe('sanitizeTemplate', () => {
       'Я всегда думаю о своей семье. I always think [o]{about} my family. ' +
       '<span class="mute">(always – всегда; to think – думать; family – семья)</span>';
 
-    expect(sanitizeTemplate(input)).toBe(
-      'Я всегда думаю о своей семье. I always think [o]{about} my family.',
-    );
+    // The leading Russian translation also goes — the student is learning English and
+    // the blank carries its own prompt. See strip-translation.ts.
+    expect(sanitizeTemplate(input)).toBe('I always think [o]{about} my family.');
   });
 
   it('keeps the blank syntax untouched', () => {
