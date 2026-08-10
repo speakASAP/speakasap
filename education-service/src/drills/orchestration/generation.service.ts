@@ -72,6 +72,14 @@ interface Candidate extends PreCheckItem {
 }
 
 const MAX_GENERATION_ATTEMPTS = 3;
+/**
+ * Candidates per validation call.
+ *
+ * 10 keeps a batch near the measured 11.8s mark, comfortably inside the 75s per-attempt
+ * budget even when the provider is slow, while keeping the number of round trips low. A
+ * whole 20-item set in one call is what produced two consecutive 75s timeouts.
+ */
+const VALIDATION_BATCH_SIZE = Number(process.env.DRILL_VALIDATION_BATCH_SIZE) || 10;
 
 /**
  * The generation pipeline, spec §10.1.
@@ -325,29 +333,64 @@ export class GenerationService {
       return [];
     }
 
-    const response = await this.ai.validate(
-      {
-        languageCode: job.languageCode,
-        materialLanguage: job.materialLanguage,
-        level: job.level,
-        topics: job.topics,
-        instructions: job.instructions,
-        items: candidates.map((c, itemRef) => ({
-          itemRef,
-          template: c.template,
-          blanks: c.blanks,
-          hint: c.hint,
-        })),
-        correlationId: job.correlationId,
-      },
-      job.token,
-    );
+    // Sent in batches. One call carrying the whole set is the largest single request in
+    // the pipeline, and it is what timed out in production: AI_HTTP_TIMEOUT after 75s,
+    // twice, on a 20-item set (2026-08-10). Generation itself is not the problem — it
+    // scales linearly and stays well inside budget (5/10/20 items at 7.1/11.8/21.4s) —
+    // so the limit belongs here, where every candidate travels at once.
+    //
+    // Sequential, not parallel: firing five concurrent model calls to dodge a latency
+    // problem trades a timeout for a rate limit, and the retry in LlmClient already
+    // absorbs a single slow batch.
+    const failed = new Set<number>();
 
-    const failed = new Set(
-      response.results
-        .filter((r: ItemValidationResult) => r.state === 'FAIL')
-        .map((r: ItemValidationResult) => r.itemRef),
-    );
+    for (let offset = 0; offset < candidates.length; offset += VALIDATION_BATCH_SIZE) {
+      const batch = candidates.slice(offset, offset + VALIDATION_BATCH_SIZE);
+
+      this.logger.log(
+        `Validation batch: set=${job.setUuid} items=${batch.length} ` +
+          `offset=${offset}/${candidates.length}`,
+      );
+
+      const response = await this.ai.validate(
+        {
+          languageCode: job.languageCode,
+          materialLanguage: job.materialLanguage,
+          level: job.level,
+          topics: job.topics,
+          instructions: job.instructions,
+          // itemRef is an index INTO THIS BATCH, so the response is mapped back to the
+          // global position below. Sending the global index instead would be simpler but
+          // hands the model a number that does not match the list it was given.
+          items: batch.map((c, itemRef) => ({
+            itemRef,
+            template: c.template,
+            blanks: c.blanks,
+            hint: c.hint,
+          })),
+          correlationId: job.correlationId,
+        },
+        job.token,
+      );
+
+      for (const result of response.results as ItemValidationResult[]) {
+        if (result.state !== 'FAIL') {
+          continue;
+        }
+        // Batch-relative -> global. Out-of-range refs are ignored rather than trusted:
+        // a bad index would otherwise discard an unrelated sentence.
+        const globalIndex = offset + result.itemRef;
+        if (result.itemRef >= 0 && result.itemRef < batch.length) {
+          failed.add(globalIndex);
+        } else {
+          this.logger.warn(
+            `Validation returned itemRef ${result.itemRef} outside batch of ` +
+              `${batch.length} (set=${job.setUuid} offset=${offset}); ignoring it`,
+          );
+        }
+      }
+    }
+
     return candidates.filter((_c, i) => !failed.has(i));
   }
 

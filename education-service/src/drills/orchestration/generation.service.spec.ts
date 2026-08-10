@@ -469,3 +469,145 @@ describe('GenerationService — AI items must reach content-service', () => {
     );
   });
 });
+
+/**
+ * Validation is sent in batches.
+ *
+ * One call carrying every candidate is the largest single request in the pipeline, and it
+ * is what timed out in production on a 20-item set: `AI_HTTP_TIMEOUT` after 75s, twice
+ * (2026-08-10). Generation itself scales linearly and is comfortably inside budget —
+ * 5/10/20 items at 7.1/11.8/21.4s — so the batch limit exists for validation, where the
+ * whole set travels at once.
+ *
+ * `itemRef` is an INDEX INTO THE BATCH, so a batch's results must be mapped back to
+ * global positions before anything is discarded. Getting that wrong drops the wrong
+ * sentences — silently, since every itemRef is still a valid index.
+ */
+describe('GenerationService.run — validation batching', () => {
+  let content: any;
+  let ai: any;
+  let sink: any;
+  let svc: GenerationService;
+
+  const job = (over: Partial<GenerationJob> = {}): GenerationJob => ({
+    setUuid: 'set-1',
+    assignmentUuids: ['a-1'],
+    languageId: 1,
+    languageCode: 'de',
+    materialLanguage: 'ru',
+    level: 'A1',
+    topics: [{ slug: 'prepositions', title: 'Prepositions' }],
+    topicSlugs: ['prepositions'],
+    instructions: 'Practise dative prepositions',
+    itemCount: 20,
+    courseKey: 'de-a1',
+    maxLessonOrder: 3,
+    teacherId: 7,
+    title: 'Prepositions practice',
+    token: 'tok',
+    correlationId: 'corr-1',
+    ...over,
+  });
+
+  beforeEach(() => {
+    sink = { update: jest.fn(async () => undefined) };
+    content = {
+      searchItems: jest.fn().mockResolvedValue({ items: [], totalAvailable: 0 }),
+      getBaseline: jest.fn().mockResolvedValue({ index: [], courseKey: 'de-a1' }),
+      getTopics: jest.fn().mockResolvedValue([]),
+      createSet: jest.fn().mockResolvedValue({ uuid: 'set-1' }),
+    };
+    ai = {
+      generate: jest.fn().mockResolvedValue({ items: [], meta: {} }),
+      // Every batch passes unless a test says otherwise.
+      validate: jest.fn(async (req: any) => ({
+        results: req.items.map((it: any) => ({
+          itemRef: it.itemRef, state: 'PASS', issues: [], suggestedFix: null,
+        })),
+        meta: {},
+      })),
+    };
+    svc = new GenerationService(content, ai, sink);
+  });
+
+  const withBank = (n: number) => {
+    content.searchItems.mockResolvedValue({
+      items: Array.from({ length: n }, (_, i) => bankItem(i)),
+      totalAvailable: n,
+    });
+  };
+
+  it('splits 20 candidates into batches instead of one 20-item call', async () => {
+    withBank(20);
+
+    await svc.run(job({ itemCount: 20 }));
+
+    expect(ai.validate.mock.calls.length).toBeGreaterThan(1);
+    for (const [req] of ai.validate.mock.calls) {
+      expect(req.items.length).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it('sends every candidate exactly once across the batches', async () => {
+    withBank(20);
+
+    await svc.run(job({ itemCount: 20 }));
+
+    const sent = ai.validate.mock.calls.flatMap(([req]: any[]) =>
+      req.items.map((i: any) => i.template),
+    );
+    expect(sent).toHaveLength(20);
+    expect(new Set(sent).size).toBe(20);
+  });
+
+  it('still makes a single call when the set fits in one batch', async () => {
+    withBank(6);
+
+    await svc.run(job({ itemCount: 6 }));
+
+    expect(ai.validate).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * The index-mapping trap: `itemRef` is relative to its batch. A FAIL at itemRef 0 of
+   * the SECOND batch must drop global item 10, not global item 0.
+   */
+  it('maps a batch-relative itemRef back to the right global item', async () => {
+    withBank(20);
+    ai.validate.mockImplementation(async (req: any) => ({
+      results: req.items.map((it: any, i: number) => ({
+        itemRef: it.itemRef,
+        // Fail only the first item of any batch after the first.
+        state: i === 0 && req.items[0].template.includes('10') ? 'FAIL' : 'PASS',
+        issues: [], suggestedFix: null,
+      })),
+      meta: {},
+    }));
+
+    await svc.run(job({ itemCount: 20 }));
+
+    const created = content.createSet.mock.calls[0][0];
+    const kept = [...(created.itemIds ?? []), ...(created.newItems ?? [])];
+    expect(kept).toHaveLength(19);
+    // Item 10 is the one that failed; item 0 must have survived.
+    expect(created.itemIds).toContain(100);
+    expect(created.itemIds).not.toContain(110);
+  });
+
+  it('reports FAILED and creates no set when a batch fails', async () => {
+    // A dropped batch would quietly shrink the set with no indication anything broke —
+    // the same class of silent degradation this pipeline exists to avoid. `run` reports
+    // FAILED rather than throwing (the caller is a queue consumer), so the contract is
+    // "no set created, progress says FAILED", not a rejected promise.
+    withBank(20);
+    ai.validate
+      .mockResolvedValueOnce({ results: [], meta: {} })
+      .mockRejectedValueOnce(new Error('AI_HTTP_TIMEOUT'));
+
+    await svc.run(job({ itemCount: 20 }));
+
+    expect(content.createSet).not.toHaveBeenCalled();
+    const phases = sink.update.mock.calls.map(([, p]: any[]) => p.phase);
+    expect(phases).toContain('FAILED');
+  });
+});
