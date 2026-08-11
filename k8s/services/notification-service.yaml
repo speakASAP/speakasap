@@ -100,6 +100,15 @@ data:
   PORT: "4209"
   NOTIFICATION_SERVICE_PORT: "4209"
   NOTIFICATION_SERVICE_URL: "http://speakasap-notification:4209"
+  # UserLookupService resolves a dispatch userId to an email address against
+  # user-service. Without it every dispatch 400s with "Configure USER_SERVICE_URL
+  # and INTERNAL_API_TOKEN to resolve userId to email", regardless of auth.
+  USER_SERVICE_URL: "http://speakasap-user:4207"
+  # Delivery upstream — notifications-microservice, a DIFFERENT service from this
+  # one despite the near-identical name. Kept distinct from NOTIFICATION_SERVICE_URL
+  # above (which points at this service); the transport used to read that one and
+  # POSTed mail to itself, 404ing every send.
+  NOTIFICATIONS_MS_URL: "http://notifications-microservice:3368"
   DB_HOST: "db-server-postgres"
   DB_PORT: "5432"
   DB_USER: "dbadmin"
@@ -165,3 +174,11 @@ spec:
       remoteRef:
         key: secret/prod/speakasap/gateway
         property: INTERNAL_API_TOKEN
+    # Bearer token for notifications-microservice's JwtRolesGuard. Single source of
+    # truth: notifications-microservice reads this very same Vault key as
+    # SPEAKASAP_NOTIFICATIONS_SERVICE_TOKEN, matching how cliplot and invoices are
+    # wired. One copy, so the two sides cannot drift apart into silent 401s.
+    - secretKey: NOTIFICATIONS_MS_SERVICE_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap/notification
+        property: NOTIFICATIONS_SERVICE_TOKEN

@@ -14,8 +14,17 @@ export type SendEmailPayload = {
 export class NotificationsTransportService {
   private readonly logger = new Logger(NotificationsTransportService.name);
 
+  /**
+   * Delivery upstream: notifications-microservice (port 3368), NOT this service.
+   *
+   * Deliberately not `NOTIFICATION_SERVICE_URL`. That name means "the speakasap
+   * notification service" everywhere in the ecosystem, and in this service's own
+   * configmap it points at itself — so the transport POSTed to its own
+   * `/notifications/send`, which does not exist, and every mail 404'd. The two
+   * services have confusingly similar names; the env var must not be ambiguous.
+   */
   private baseUrl(): string {
-    return (process.env.NOTIFICATION_SERVICE_URL || '').replace(/\/$/, '');
+    return (process.env.NOTIFICATIONS_MS_URL || '').replace(/\/$/, '');
   }
 
   private timeoutMs(): number {
@@ -28,16 +37,36 @@ export class NotificationsTransportService {
 
   async sendEmail(payload: SendEmailPayload): Promise<void> {
     const base = this.baseUrl();
+    if (!base) {
+      throw notificationHttpException(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        'NOTIFICATION_TRANSPORT_MISCONFIGURED',
+        'Configure NOTIFICATIONS_MS_URL to reach notifications-microservice',
+        {},
+      );
+    }
     const url = `${base}/notifications/send`;
     const started = Date.now();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs());
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      const apiKey = process.env.NOTIFICATIONS_MICROSERVICE_API_KEY;
-      if (apiKey) {
-        headers['x-api-key'] = apiKey;
+      // notifications-microservice guards every route with JwtRolesGuard, which
+      // accepts a static service token as `Authorization: Bearer`. It reads no
+      // `x-api-key` header at all — the previous key was sent into a void and every
+      // delivery 401'd. Missing token is a misconfiguration, not a degraded mode.
+      const serviceToken = process.env.NOTIFICATIONS_MS_SERVICE_TOKEN;
+      if (!serviceToken) {
+        throw notificationHttpException(
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'NOTIFICATION_TRANSPORT_MISCONFIGURED',
+          'Configure NOTIFICATIONS_MS_SERVICE_TOKEN to authenticate against notifications-microservice',
+          {},
+        );
       }
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serviceToken}`,
+      };
       const res = await fetch(url, {
         method: 'POST',
         headers,
