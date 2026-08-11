@@ -105,10 +105,6 @@ data:
   # and INTERNAL_API_TOKEN to resolve userId to email", regardless of auth.
   USER_SERVICE_URL: "http://speakasap-user:4207"
   # Delivery upstream — notifications-microservice, a DIFFERENT service from this
-  # one despite the near-identical name. Kept distinct from NOTIFICATION_SERVICE_URL
-  # above (which points at this service); the transport used to read that one and
-  # POSTed mail to itself, 404ing every send.
-  NOTIFICATIONS_MS_URL: "http://notifications-microservice:3368"
   DB_HOST: "db-server-postgres"
   DB_PORT: "5432"
   DB_USER: "dbadmin"
@@ -125,6 +121,10 @@ data:
   AUTH_SERVICE_TIMEOUT: "5000"
   AUTH_RETRY_MAX_ATTEMPTS: "3"
   AUTH_RETRY_DELAY_MS: "1000"
+  # Delivery upstream — notifications-microservice, a DIFFERENT service from this
+  # one despite the near-identical name. NOT NOTIFICATION_SERVICE_URL above, which
+  # points at this service: the transport used to read that one and POSTed mail to
+  # itself, 404ing every send.
   NOTIFICATIONS_MICROSERVICE_URL: "http://notifications-microservice:3368"
   HTTP_TIMEOUT: "30000"
   GATEWAY_TIMEOUT: "60000"

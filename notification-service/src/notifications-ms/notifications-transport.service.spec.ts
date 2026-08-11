@@ -13,7 +13,7 @@ describe('NotificationsTransportService', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     global.fetch = fetchMock as any;
-    process.env.NOTIFICATIONS_MS_URL = 'http://notifications-microservice:3368';
+    process.env.NOTIFICATIONS_MICROSERVICE_URL = 'http://notifications-microservice:3368';
     process.env.NOTIFICATIONS_MS_SERVICE_TOKEN = 'ms-service-token';
   });
 
@@ -47,10 +47,10 @@ describe('NotificationsTransportService', () => {
   });
 
   it('fails loudly when the upstream URL is not configured', async () => {
-    delete process.env.NOTIFICATIONS_MS_URL;
+    delete process.env.NOTIFICATIONS_MICROSERVICE_URL;
 
     await expect(new NotificationsTransportService().sendEmail(PAYLOAD)).rejects.toThrow(
-      /NOTIFICATIONS_MS_URL/,
+      /NOTIFICATIONS_MICROSERVICE_URL/,
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });

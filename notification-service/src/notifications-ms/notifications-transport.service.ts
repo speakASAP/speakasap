@@ -24,7 +24,7 @@ export class NotificationsTransportService {
    * services have confusingly similar names; the env var must not be ambiguous.
    */
   private baseUrl(): string {
-    return (process.env.NOTIFICATIONS_MS_URL || '').replace(/\/$/, '');
+    return (process.env.NOTIFICATIONS_MICROSERVICE_URL || '').replace(/\/$/, '');
   }
 
   private timeoutMs(): number {
@@ -41,7 +41,7 @@ export class NotificationsTransportService {
       throw notificationHttpException(
         HttpStatus.INTERNAL_SERVER_ERROR,
         'NOTIFICATION_TRANSPORT_MISCONFIGURED',
-        'Configure NOTIFICATIONS_MS_URL to reach notifications-microservice',
+        'Configure NOTIFICATIONS_MICROSERVICE_URL to reach notifications-microservice',
         {},
       );
     }
