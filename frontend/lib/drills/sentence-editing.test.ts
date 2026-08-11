@@ -48,8 +48,27 @@ describe('parseToWords', () => {
   it('marks exactly the blank words', () => {
     const words = parseToWords('I live [за пределами]{outside} Moscow.');
     expect(words.filter((w) => w.isBlank)).toEqual([
-      { text: 'outside', isBlank: true, prompt: 'за пределами' },
+      { text: 'outside', isBlank: true, prompt: 'за пределами', suffix: '' },
     ]);
+  });
+
+  it('round-trips a blank followed immediately by punctuation', () => {
+    // Verbatim from production assignment a1748629. Splitting on whitespace alone made
+    // the `;` its own token, so re-joining produced "home] ;" — every teacher edit
+    // silently inserted a space before the punctuation of the sentence.
+    const template = 'They are not at [дома]{home}; [сейчас]{now} they are at [работе]{work}.';
+    expect(buildTemplate(parseToWords(template))).toBe(template);
+  });
+
+  it('keeps the punctuation on the blank rather than as a separate word', () => {
+    const words = parseToWords('They are not at [дома]{home}; now.');
+    expect(words[4]).toEqual({ text: 'home', isBlank: true, prompt: 'дома', suffix: ';' });
+    expect(words.some((w) => w.text === ';')).toBe(false);
+  });
+
+  it('round-trips a sentence ending in a blank plus a full stop', () => {
+    const template = 'I will call you after the [совещания]{meeting}.';
+    expect(buildTemplate(parseToWords(template))).toBe(template);
   });
 
   it('treats a template with no markup as all plain words', () => {
@@ -63,7 +82,7 @@ describe('parseToWords', () => {
     // blanks, and the student would be asked to fill a fragment.
     const words = parseToWords('This young man fell [из]{out of} the window.');
     expect(words.filter((w) => w.isBlank)).toEqual([
-      { text: 'out of', isBlank: true, prompt: 'из' },
+      { text: 'out of', isBlank: true, prompt: 'из', suffix: '' },
     ]);
   });
 });

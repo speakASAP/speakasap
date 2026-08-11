@@ -41,6 +41,14 @@ export interface EditableWord {
    * contains suffix drills of the form `Ich heiß[]{e}` where the bracket carries no text.
    */
   prompt: string;
+  /**
+   * Punctuation that followed this word with no space before it, e.g. the `;` in
+   * `[дома]{home};`. Carried on the word rather than tokenized separately so a round trip
+   * through the editor is lossless: splitting on whitespace alone re-joined it as
+   * `home] ;`, silently inserting a space before the punctuation of every sentence a
+   * teacher edited. Production assignment a1748629 contains exactly this shape.
+   */
+  suffix?: string;
 }
 
 /**
@@ -61,7 +69,10 @@ const MARKUP_CHARS = /[[\]{}]/;
 
 export function buildTemplate(words: EditableWord[]): DrillTemplate {
   return words
-    .map((word) => (word.isBlank ? `[${word.prompt}]{${word.text}}` : word.text))
+    .map(
+      (word) =>
+        (word.isBlank ? `[${word.prompt}]{${word.text}}` : word.text) + (word.suffix ?? ''),
+    )
     .join(' ');
 }
 
@@ -89,8 +100,15 @@ export function parseToWords(template: DrillTemplate): EditableWord[] {
     if (at > cursor) {
       pushPlain(template.slice(cursor, at));
     }
-    words.push({ text: match[2], isBlank: true, prompt: match[1] });
     cursor = at + match[0].length;
+
+    // Punctuation pressed against the closing brace belongs to this blank, not to the
+    // next word. Emitting it as its own token re-joined it with a space in front.
+    const trailing = /^[^\s\w[\]{}]+/.exec(template.slice(cursor));
+    const suffix = trailing ? trailing[0] : '';
+    cursor += suffix.length;
+
+    words.push({ text: match[2], isBlank: true, prompt: match[1], suffix });
   }
 
   if (cursor < template.length) {
