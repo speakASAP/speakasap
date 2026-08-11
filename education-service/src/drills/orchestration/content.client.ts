@@ -10,6 +10,7 @@ import {
   DrillSetReviewState,
   DrillTemplate,
   DrillTopicDTO,
+  ValidationState,
   VocabularyBaseline,
 } from '../contracts';
 import { numericEnv, requestUpstream, requiredEnv } from './http';
@@ -162,6 +163,61 @@ export class ContentClient {
       token,
       internalToken: this.internalToken(),
       body: { positions, items, recordRevisionReason: options.recordRevisionReason },
+      timeoutMs: this.timeoutMs(),
+      upstream: UPSTREAM,
+    });
+  }
+
+  /**
+   * Teacher edits to one sentence of a set. Internal-only for the same reason as
+   * `replaceSetItems`: the body carries a template, and a template carries its answers.
+   *
+   * content-service validates the template itself and rejects the write with the failing
+   * issues — this is a pass-through, not a second opinion.
+   */
+  async updateSetItem(
+    setUuid: string,
+    itemId: number,
+    patch: { template?: string; hint?: string | null; validationState?: ValidationState },
+    token: string,
+  ): Promise<DrillSetDetailDTO> {
+    return requestUpstream<DrillSetDetailDTO>({
+      url: `${this.baseUrl()}/api/v1/internal/drill-sets/${encodeURIComponent(setUuid)}/items/${itemId}`,
+      method: 'PATCH',
+      token,
+      internalToken: this.internalToken(),
+      body: patch,
+      timeoutMs: this.timeoutMs(),
+      upstream: UPSTREAM,
+    });
+  }
+
+  async deleteSetItem(
+    setUuid: string,
+    itemId: number,
+    token: string,
+  ): Promise<DrillSetDetailDTO> {
+    return requestUpstream<DrillSetDetailDTO>({
+      url: `${this.baseUrl()}/api/v1/internal/drill-sets/${encodeURIComponent(setUuid)}/items/${itemId}`,
+      method: 'DELETE',
+      token,
+      internalToken: this.internalToken(),
+      timeoutMs: this.timeoutMs(),
+      upstream: UPSTREAM,
+    });
+  }
+
+  async addSetItem(
+    setUuid: string,
+    item: { template: string; hint: string | null },
+    token: string,
+  ): Promise<DrillSetDetailDTO> {
+    return requestUpstream<DrillSetDetailDTO>({
+      url: `${this.baseUrl()}/api/v1/internal/drill-sets/${encodeURIComponent(setUuid)}/items`,
+      method: 'POST',
+      token,
+      internalToken: this.internalToken(),
+      body: item,
       timeoutMs: this.timeoutMs(),
       upstream: UPSTREAM,
     });

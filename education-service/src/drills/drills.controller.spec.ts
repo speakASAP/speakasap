@@ -27,6 +27,10 @@ function harness() {
     lessonUuidFor: jest.fn(async () => null),
     assignApprovedSet: jest.fn(async () => 1),
     revokeAssignment: jest.fn(async () => undefined),
+    assignmentUuidForItem: jest.fn(async () => 'a-1'),
+    updateAssignmentItem: jest.fn(async () => undefined),
+    deleteAssignmentItem: jest.fn(async () => undefined),
+    addAssignmentItem: jest.fn(async () => undefined),
   };
   const roster: any = {
     listForTeacher: jest.fn(async () => ({ students: [], groups: [] })),
@@ -35,6 +39,9 @@ function harness() {
   const sets: any = {
     getSet: jest.fn(async () => ({ uuid: 's-1', title: 'Present perfect', items: [] })),
     approveSet: jest.fn(async () => ({ uuid: 's-1', reviewState: 'APPROVED' })),
+    updateSetItem: jest.fn(async () => ({ uuid: 's-1', items: [] })),
+    deleteSetItem: jest.fn(async () => ({ uuid: 's-1', items: [] })),
+    addSetItem: jest.fn(async () => ({ uuid: 's-1', items: [] })),
   };
 
   return {

@@ -4,6 +4,7 @@ import { computePopularityScore } from './popularity';
 import { buildSetListQuery, groupByLesson } from './sets.query';
 import { hashItem, parseTemplate } from '../template';
 import { sanitizeTemplate } from '../template-sanitize';
+import { blanksFor, validateSentence } from '../sentence-editing';
 import {
   DrillSetDetailDTO,
   DrillSetDTO,
@@ -305,6 +306,212 @@ export class SetsService {
   }
 
   /**
+   * Edits one sentence of a set on a teacher's instruction.
+   *
+   * Distinct from `replaceSetItems`, which installs generated replacements at fixed
+   * positions: here the teacher wrote the template, so it is validated rather than
+   * trusted, and rejected as a whole if it would not work as a drill.
+   *
+   * The three fields are independent. A template change re-derives `blanks` and takes a
+   * new bank row; a hint-only change edits the existing row in place; a
+   * `validationState` change records the teacher's override. Passing several at once is
+   * allowed and each is applied.
+   */
+  async updateSetItem(
+    uuid: string,
+    itemId: number,
+    patch: { template?: string; hint?: string | null; validationState?: ValidationState },
+  ): Promise<DrillSetDetailDTO> {
+    // Validated before the transaction opens: a rejected sentence must not leave a
+    // revision row or a half-applied patch behind.
+    const template =
+      patch.template === undefined ? undefined : this.assertValidSentence(patch.template);
+
+    await this.prisma.$transaction(async (tx: any) => {
+      const set = await tx.drillSet.findUnique({
+        where: { uuid },
+        include: { items: { include: { item: true } }, language: true },
+      });
+      if (!set) {
+        throw new NotFoundException(`Drill set ${uuid} not found`);
+      }
+
+      const target = (set.items ?? []).find((row: any) => row.id === itemId);
+      if (!target) {
+        throw new NotFoundException(`Drill set ${uuid} has no item ${itemId}`);
+      }
+
+      const data: Record<string, unknown> = {};
+
+      if (template !== undefined) {
+        // History first, same ordering as replaceSetItems: if anything below fails the
+        // transaction takes this with it.
+        await tx.drillItemRevision.create({
+          data: {
+            itemId: target.itemId,
+            template: target.item.template,
+            blanks: target.item.blanks ?? [],
+            hint: target.item.hint ?? null,
+            reason: 'TEACHER_EDITED',
+          },
+        });
+
+        data.itemId = await this.upsertItem(
+          tx,
+          set,
+          set.language?.code ?? '',
+          {
+            template,
+            blanks: blanksFor(template),
+            hint: patch.hint === undefined ? (target.item.hint ?? null) : patch.hint,
+            topicSlug: '',
+          },
+          'TEACHER',
+        );
+
+        // The teacher who wrote the sentence is the reviewer. Returning it to PENDING
+        // would block their own approve button on an item they just authored.
+        data.validationState = 'PASS';
+        data.validationIssues = [];
+        data.validatedAt = new Date();
+      } else if (patch.hint !== undefined) {
+        // No new bank row for a hint: the sentence is unchanged, so its hash and every
+        // set already pointing at it stay correct.
+        await tx.drillItem.update({
+          where: { id: target.itemId },
+          data: { hint: patch.hint },
+        });
+      }
+
+      if (patch.validationState !== undefined) {
+        data.validationState = patch.validationState;
+      }
+
+      if (Object.keys(data).length > 0) {
+        await tx.drillSetItem.update({ where: { id: itemId }, data });
+      }
+    });
+
+    await this.updateSearchText(uuid);
+    return this.getSet(uuid);
+  }
+
+  /**
+   * Removes one sentence from a set and closes the gap in `order`.
+   *
+   * Positions are renumbered because the review and progress screens label sentences by
+   * position ("Sentence 3"), so a hole makes the list skip a number. The bank row itself
+   * is left alone — it may be referenced by other sets, and deleting a sentence from
+   * this set is not a statement about the sentence.
+   */
+  async deleteSetItem(uuid: string, itemId: number): Promise<DrillSetDetailDTO> {
+    await this.prisma.$transaction(async (tx: any) => {
+      const set = await tx.drillSet.findUnique({
+        where: { uuid },
+        include: { items: { include: { item: true } } },
+      });
+      if (!set) {
+        throw new NotFoundException(`Drill set ${uuid} not found`);
+      }
+
+      const items = set.items ?? [];
+      const target = items.find((row: any) => row.id === itemId);
+      if (!target) {
+        throw new NotFoundException(`Drill set ${uuid} has no item ${itemId}`);
+      }
+      if (items.length <= 1) {
+        // A set with no sentences cannot be approved and cannot be drilled. Refusing
+        // here is clearer than letting a teacher create one and discover it later.
+        throw new BadRequestException(
+          'A set needs at least one sentence. Delete the whole set instead.',
+        );
+      }
+
+      await tx.drillSetItem.delete({ where: { id: itemId } });
+
+      for (const row of items) {
+        if (row.order > target.order) {
+          await tx.drillSetItem.update({ where: { id: row.id }, data: { order: row.order - 1 } });
+        }
+      }
+    });
+
+    await this.updateSearchText(uuid);
+    return this.getSet(uuid);
+  }
+
+  /** Appends a teacher-written sentence to the end of a set. */
+  async addSetItem(
+    uuid: string,
+    input: { template: string; hint: string | null },
+  ): Promise<DrillSetDetailDTO> {
+    const template = this.assertValidSentence(input.template);
+
+    await this.prisma.$transaction(async (tx: any) => {
+      const set = await tx.drillSet.findUnique({
+        where: { uuid },
+        include: { items: true, language: true },
+      });
+      if (!set) {
+        throw new NotFoundException(`Drill set ${uuid} not found`);
+      }
+
+      const orders = (set.items ?? []).map((row: any) => row.order);
+      const nextOrder = orders.length === 0 ? 0 : Math.max(...orders) + 1;
+
+      const newItemId = await this.upsertItem(
+        tx,
+        set,
+        set.language?.code ?? '',
+        {
+          template,
+          blanks: blanksFor(template),
+          hint: input.hint,
+          topicSlug: '',
+        },
+        'TEACHER',
+      );
+
+      await tx.drillSetItem.create({
+        data: {
+          setId: set.id,
+          itemId: newItemId,
+          order: nextOrder,
+          // The teacher authored it, so it is reviewed by definition — same reasoning
+          // as the template branch of updateSetItem.
+          validationState: 'PASS',
+          validationIssues: [],
+          validatedAt: new Date(),
+        },
+      });
+    });
+
+    await this.updateSearchText(uuid);
+    return this.getSet(uuid);
+  }
+
+  /**
+   * The sentence, sanitized, or a 400 naming every reason it cannot be saved.
+   *
+   * Every problem is reported at once rather than the first: a teacher discovering
+   * errors one save at a time is the experience this avoids. The issues ride on the
+   * response body so the review screen can render them exactly as it renders the
+   * generator's own findings.
+   */
+  private assertValidSentence(raw: string): string {
+    const template = sanitizeTemplate(raw ?? '');
+    const issues = validateSentence(template);
+    if (issues.length > 0) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: issues.map((issue) => issue.message).join(' '),
+        validationIssues: issues,
+      });
+    }
+    return template;
+  }
+
+  /**
    * DrillItem.hash is @unique, so a replacement that happens to match a sentence already
    * in the bank must reuse that row rather than insert a colliding one. A blind create
    * would fail the whole regeneration with a constraint error the teacher cannot act on.
@@ -314,6 +521,13 @@ export class SetsService {
     set: any,
     languageCode: string,
     replacement: ReplacementItem,
+    /**
+     * Where the sentence came from. Defaults to AI because every pre-existing caller is
+     * the generation pipeline; teacher edits pass TEACHER so the bank records who wrote
+     * a sentence and bank-selection statistics are not polluted with hand-written rows
+     * attributed to the model.
+     */
+    sourceType: 'AI' | 'TEACHER' = 'AI',
   ): Promise<number> {
     // Sanitized before anything is derived from it: `plainText` and `hash` are computed
     // from the template, so markup left here would poison the dedup hash as well as the
@@ -344,7 +558,7 @@ export class SetsService {
         blanks: replacement.blanks as any,
         plainText: parsed.plainText,
         hint: replacement.hint ?? null,
-        sourceType: 'AI',
+        sourceType,
         courseKey: set.courseKey ?? null,
         lessonOrder: set.lessonOrder ?? null,
         unknownWords: [],

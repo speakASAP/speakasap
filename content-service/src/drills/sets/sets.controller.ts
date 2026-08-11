@@ -2,16 +2,24 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Logger,
   Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
 import { SetsService, CreateSetInput, ReplacementItem } from './sets.service';
-import { DrillSetDetailDTO, DrillSetDTO, DrillSetListResponse, DrillSetReviewState } from '../contracts';
+import {
+  DrillSetDetailDTO,
+  DrillSetDTO,
+  DrillSetListResponse,
+  DrillSetReviewState,
+  ValidationState,
+} from '../contracts';
 
 /** Identity of the caller, resolved upstream. Never read from the request body. */
 export interface RaterContext {
@@ -131,6 +139,66 @@ export class SetsController {
     }
     return this.setsService.replaceSetItems(uuid, body.positions, body.items, {
       recordRevisionReason: body.recordRevisionReason,
+    });
+  }
+
+  /**
+   * Teacher edits to one sentence of a set — the review screen's Edit and override
+   * controls.
+   *
+   * Internal-only for the same reason as the routes above: the body carries a template
+   * with its answers in it. education-service checks the caller is staff and makes the
+   * hop with its own token.
+   */
+  @Patch('internal/drill-sets/:uuid/items/:itemId')
+  @HttpCode(HttpStatus.OK)
+  async updateSetItem(
+    @Param('uuid') uuid: string,
+    @Param('itemId') itemId: string,
+    @Body() body: { template?: string; hint?: string | null; validationState?: ValidationState },
+  ): Promise<DrillSetDetailDTO> {
+    const id = Number(itemId);
+    if (!Number.isInteger(id)) {
+      throw new BadRequestException('numeric itemId is required');
+    }
+    if (
+      body?.template === undefined &&
+      body?.hint === undefined &&
+      body?.validationState === undefined
+    ) {
+      // An empty patch would report success having changed nothing, which reads to a
+      // teacher as "my edit was saved".
+      throw new BadRequestException('nothing to update: send template, hint or validationState');
+    }
+    return this.setsService.updateSetItem(uuid, id, body);
+  }
+
+  @Delete('internal/drill-sets/:uuid/items/:itemId')
+  @HttpCode(HttpStatus.OK)
+  async deleteSetItem(
+    @Param('uuid') uuid: string,
+    @Param('itemId') itemId: string,
+  ): Promise<DrillSetDetailDTO> {
+    const id = Number(itemId);
+    if (!Number.isInteger(id)) {
+      throw new BadRequestException('numeric itemId is required');
+    }
+    return this.setsService.deleteSetItem(uuid, id);
+  }
+
+  /** Appends a teacher-written sentence. Internal-only: the template carries answers. */
+  @Post('internal/drill-sets/:uuid/items')
+  @HttpCode(HttpStatus.CREATED)
+  async addSetItem(
+    @Param('uuid') uuid: string,
+    @Body() body: { template?: string; hint?: string | null },
+  ): Promise<DrillSetDetailDTO> {
+    if (typeof body?.template !== 'string' || body.template.trim() === '') {
+      throw new BadRequestException('template is required');
+    }
+    return this.setsService.addSetItem(uuid, {
+      template: body.template,
+      hint: body.hint ?? null,
     });
   }
 

@@ -3,7 +3,7 @@ import { Logger, ServiceUnavailableException } from '@nestjs/common';
 export interface UpstreamRequest {
   /** Absolute URL, already query-encoded. */
   url: string;
-  method: 'GET' | 'POST';
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   /** Caller's bearer token, forwarded verbatim. */
   token: string;
   /** Present on gateway `internal/` routes only. */

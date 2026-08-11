@@ -2,13 +2,16 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
   Inject,
   Logger,
+  NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -35,6 +38,7 @@ import {
   GenerateAssignmentsResponse,
   InternalTeacherAssignmentsResponse,
   RunnerResponse,
+  ValidationState,
 } from './contracts';
 
 /**
@@ -287,6 +291,145 @@ export class DrillsController {
   ): Promise<DrillSetDetailDTO> {
     this.assertStaff(req);
     return this.sets.getSet(setUuid, this.bearer(req));
+  }
+
+  /**
+   * Teacher edits to the sentences of a set awaiting review.
+   *
+   * Proxies content-service's internal item routes for the same reason as `teacherSet`:
+   * those routes are gated on `x-internal-token`, which a browser cannot hold, and
+   * content-service has no auth guard of its own — so the staff check must happen here,
+   * before the internal hop.
+   */
+  @Patch('teacher/sets/:setUuid/items/:itemId')
+  @HttpCode(HttpStatus.OK)
+  async updateSetItem(
+    @Param('setUuid') setUuid: string,
+    @Param('itemId') itemId: string,
+    @Body() body: { template?: string; hint?: string | null; validationState?: ValidationState },
+    @Req() req: Request,
+  ): Promise<DrillSetDetailDTO> {
+    this.assertStaff(req);
+    return this.sets.updateSetItem(setUuid, this.assertItemId(itemId), body, this.bearer(req));
+  }
+
+  @Delete('teacher/sets/:setUuid/items/:itemId')
+  @HttpCode(HttpStatus.OK)
+  async deleteSetItem(
+    @Param('setUuid') setUuid: string,
+    @Param('itemId') itemId: string,
+    @Req() req: Request,
+  ): Promise<DrillSetDetailDTO> {
+    this.assertStaff(req);
+    return this.sets.deleteSetItem(setUuid, this.assertItemId(itemId), this.bearer(req));
+  }
+
+  @Post('teacher/sets/:setUuid/items')
+  @HttpCode(HttpStatus.CREATED)
+  async addSetItem(
+    @Param('setUuid') setUuid: string,
+    @Body() body: { template?: string; hint?: string | null },
+    @Req() req: Request,
+  ): Promise<DrillSetDetailDTO> {
+    this.assertStaff(req);
+    if (typeof body?.template !== 'string' || body.template.trim() === '') {
+      throw new BadRequestException('template is required');
+    }
+    return this.sets.addSetItem(
+      setUuid,
+      { template: body.template, hint: body.hint ?? null },
+      this.bearer(req),
+    );
+  }
+
+  /**
+   * Teacher edits to the sentences of a live assignment — work already in front of a
+   * student, so these write education-service's own `DrillAssignmentItem` copies rather
+   * than the set they were copied from.
+   *
+   * Ownership is the same rule as `teacherProgress`: the caller's own id, plus the
+   * lesson's teacher when the assignment has a lesson.
+   */
+  @Patch('teacher/items/:itemUuid')
+  @HttpCode(HttpStatus.OK)
+  async updateAssignmentItem(
+    @Param('itemUuid') itemUuid: string,
+    @Body() body: { template?: string; hint?: string | null },
+    @Req() req: Request,
+  ): Promise<{ ok: true }> {
+    this.assertStaff(req);
+    if (body?.template === undefined && body?.hint === undefined) {
+      // An empty patch would report success having changed nothing, which a teacher
+      // reads as "my edit was saved".
+      throw new BadRequestException('nothing to update: send template or hint');
+    }
+    await this.teacherAssignments.updateAssignmentItem(
+      itemUuid,
+      body,
+      await this.ownersForItem(itemUuid, req),
+    );
+    return { ok: true };
+  }
+
+  @Delete('teacher/items/:itemUuid')
+  @HttpCode(HttpStatus.OK)
+  async deleteAssignmentItem(
+    @Param('itemUuid') itemUuid: string,
+    @Req() req: Request,
+  ): Promise<{ ok: true }> {
+    this.assertStaff(req);
+    await this.teacherAssignments.deleteAssignmentItem(
+      itemUuid,
+      await this.ownersForItem(itemUuid, req),
+    );
+    return { ok: true };
+  }
+
+  @Post('teacher/:uuid/items')
+  @HttpCode(HttpStatus.CREATED)
+  async addAssignmentItem(
+    @Param('uuid') uuid: string,
+    @Body() body: { template?: string; hint?: string | null },
+    @Req() req: Request,
+  ): Promise<{ ok: true }> {
+    this.assertStaff(req);
+    if (typeof body?.template !== 'string' || body.template.trim() === '') {
+      throw new BadRequestException('template is required');
+    }
+    await this.teacherAssignments.addAssignmentItem(
+      uuid,
+      { template: body.template, hint: body.hint ?? null },
+      await this.ownersOf(uuid, req),
+    );
+    return { ok: true };
+  }
+
+  private assertItemId(raw: string): number {
+    const id = Number(raw);
+    if (!Number.isInteger(id)) {
+      throw new BadRequestException('numeric itemId is required');
+    }
+    return id;
+  }
+
+  /**
+   * The teacher ids allowed to act on an assignment: the caller's own legacy id, plus
+   * the lesson's teacher when there is one. Identical to `teacherProgress`'s rule — an
+   * assignment attributed to the lesson teacher must stay editable by them.
+   */
+  private async ownersOf(assignmentUuid: string, req: Request): Promise<number[]> {
+    const userId = await this.identity.resolveStudentId(req.authUser!.id);
+    const lessonTeacherId = await this.teacherIdForAssignment(assignmentUuid);
+    return lessonTeacherId === null ? [userId] : [userId, lessonTeacherId];
+  }
+
+  /** Same, for a route addressed by sentence rather than by assignment. */
+  private async ownersForItem(itemUuid: string, req: Request): Promise<number[]> {
+    const assignmentUuid = await this.teacherAssignments.assignmentUuidForItem(itemUuid);
+    if (!assignmentUuid) {
+      throw new NotFoundException('Drill sentence not found');
+    }
+    return this.ownersOf(assignmentUuid, req);
   }
 
   /**

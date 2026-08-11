@@ -1,12 +1,14 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { assertTransition } from '../state-machine';
+import { assertTransition, TERMINAL_STATUSES } from '../state-machine';
+import { blanksFor, validateSentence } from '../sentence-editing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AssignmentsRepository } from '../assignments.repository';
 import { toAssignmentDTO } from '../assignment.mapper';
@@ -459,6 +461,203 @@ export class TeacherAssignmentsService {
       createdAt: row.createdAt,
       items,
     };
+  }
+
+  /**
+   * The assignment a teacher is allowed to edit, or a 404.
+   *
+   * Ownership matches `progressForTeacher` exactly, including the 404-not-403: a teacher
+   * must not be able to discover that another teacher's assignment exists by the shape
+   * of the error.
+   *
+   * Terminal statuses are refused separately. COMPLETED and CANCELLED have no outgoing
+   * edges in the state machine, so an edit could not put the assignment back in front of
+   * the student — it would silently rewrite finished history while leaving the student's
+   * recorded result describing questions that no longer exist.
+   */
+  private async assertEditableAssignment(
+    assignmentUuid: string,
+    teacherIds: number[],
+  ): Promise<{ uuid: string; status: string; items: { uuid: string; order: number }[] }> {
+    const allowed = teacherIds.filter((id): id is number => Number.isInteger(id));
+
+    const row: any = await this.prisma.drillAssignment.findUnique({
+      where: { uuid: assignmentUuid },
+      include: { items: { orderBy: { order: 'asc' } } },
+    });
+
+    if (!row || row.teacherId === null || !allowed.includes(row.teacherId)) {
+      throw new NotFoundException('Drill assignment not found');
+    }
+
+    if (TERMINAL_STATUSES.has(row.status as DrillAssignmentStatus)) {
+      throw new ConflictException(
+        `This assignment is ${String(row.status).toLowerCase()} and can no longer be changed.`,
+      );
+    }
+
+    return row;
+  }
+
+  /**
+   * The sentence, or a 400 naming every reason it cannot be saved.
+   *
+   * Identical rules to content-service's set editing, from the same shared module —
+   * a sentence one service accepts and the other rejects is the failure this prevents.
+   */
+  private assertValidSentence(raw: string): string {
+    const template = (raw ?? '').trim();
+    const issues = validateSentence(template);
+    if (issues.length > 0) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: issues.map((issue) => issue.message).join(' '),
+        validationIssues: issues,
+      });
+    }
+    return template;
+  }
+
+  /**
+   * Edits one sentence of a live assignment.
+   *
+   * A template change resets that sentence's attempts. They were graded against the old
+   * blanks, so keeping them would show the student's progress against a question they
+   * were never asked — a "solved" badge for an answer they never gave. Only this
+   * sentence is affected; every other sentence's progress is untouched.
+   *
+   * A hint-only change leaves attempts alone: the question is unchanged, so the answers
+   * to it are still answers to it.
+   */
+  async updateAssignmentItem(
+    itemUuid: string,
+    patch: { template?: string; hint?: string | null },
+    teacherIds: number[],
+  ): Promise<void> {
+    // Validated before anything opens a transaction, so a rejected sentence cannot
+    // leave attempts deleted behind it.
+    const template =
+      patch.template === undefined ? undefined : this.assertValidSentence(patch.template);
+
+    const existing: any = await this.prisma.drillAssignmentItem.findUnique({
+      where: { uuid: itemUuid },
+    });
+    if (!existing) {
+      throw new NotFoundException('Drill sentence not found');
+    }
+
+    await this.assertEditableAssignment(existing.assignmentUuid, teacherIds);
+
+    await this.prisma.$transaction(async (tx: any) => {
+      const data: Record<string, unknown> = {};
+
+      if (template !== undefined) {
+        // Written together, always: `blanksTotal` is summed from this column, and a
+        // template whose blanks disagree with it leaves the assignment uncompletable —
+        // which in turn blocks the student from self-drilling forever.
+        data.template = template;
+        data.blanks = blanksFor(template);
+      }
+      if (patch.hint !== undefined) {
+        data.hint = patch.hint;
+      }
+
+      await tx.drillAssignmentItem.update({ where: { uuid: itemUuid }, data });
+
+      if (template !== undefined) {
+        const removed = await tx.drillAttempt.deleteMany({ where: { itemUuid } });
+        this.logger.log(
+          `Teacher edited sentence ${itemUuid} of assignment ${existing.assignmentUuid}; ` +
+            `removed ${removed?.count ?? 0} attempt(s) graded against the old text`,
+        );
+      } else {
+        this.logger.log(`Teacher edited the hint of sentence ${itemUuid}`);
+      }
+    });
+  }
+
+  /**
+   * Removes one sentence from a live assignment, with its attempts, and closes the gap
+   * in `order` so the screens do not skip a "Sentence N".
+   */
+  async deleteAssignmentItem(itemUuid: string, teacherIds: number[]): Promise<void> {
+    const existing: any = await this.prisma.drillAssignmentItem.findUnique({
+      where: { uuid: itemUuid },
+    });
+    if (!existing) {
+      throw new NotFoundException('Drill sentence not found');
+    }
+
+    const assignment = await this.assertEditableAssignment(existing.assignmentUuid, teacherIds);
+    const items = assignment.items ?? [];
+
+    if (items.length <= 1) {
+      // An assignment with no sentences is work the student cannot do and cannot
+      // complete. Cancelling the assignment is the operation that means that.
+      throw new BadRequestException(
+        'An assignment needs at least one sentence. Cancel the assignment instead.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx: any) => {
+      await tx.drillAttempt.deleteMany({ where: { itemUuid } });
+      await tx.drillAssignmentItem.delete({ where: { uuid: itemUuid } });
+
+      for (const row of items) {
+        if (row.order > existing.order) {
+          await tx.drillAssignmentItem.update({
+            where: { uuid: row.uuid },
+            data: { order: row.order - 1 },
+          });
+        }
+      }
+    });
+
+    this.logger.log(
+      `Teacher removed sentence ${itemUuid} from assignment ${existing.assignmentUuid}`,
+    );
+  }
+
+  /** Appends a teacher-written sentence to a live assignment. */
+  async addAssignmentItem(
+    assignmentUuid: string,
+    input: { template: string; hint: string | null },
+    teacherIds: number[],
+  ): Promise<void> {
+    const template = this.assertValidSentence(input.template);
+    const assignment = await this.assertEditableAssignment(assignmentUuid, teacherIds);
+
+    const orders = (assignment.items ?? []).map((row) => row.order);
+    const nextOrder = orders.length === 0 ? 0 : Math.max(...orders) + 1;
+
+    await this.prisma.drillAssignmentItem.create({
+      data: {
+        uuid: randomUUID(),
+        assignmentUuid,
+        order: nextOrder,
+        template,
+        // `as any` for Prisma's Json input type, which does not accept a typed array
+        // directly — the same cast the generation path uses for this column.
+        blanks: blanksFor(template) as any,
+        hint: input.hint,
+      },
+    });
+
+    this.logger.log(
+      `Teacher added a sentence to assignment ${assignmentUuid} at position ${nextOrder}`,
+    );
+  }
+
+  /**
+   * The assignment a sentence belongs to, for routes addressed by sentence uuid.
+   * Null when no such sentence exists — the caller turns that into a 404.
+   */
+  async assignmentUuidForItem(itemUuid: string): Promise<string | null> {
+    const row = await this.prisma.drillAssignmentItem.findUnique({
+      where: { uuid: itemUuid },
+      select: { assignmentUuid: true },
+    });
+    return row?.assignmentUuid ?? null;
   }
 
   /** The lesson an assignment belongs to, for resolving which teacher owns it. */

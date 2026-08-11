@@ -47,6 +47,52 @@ describe('ReviewList', () => {
     expect(screen.getByText('auf')).toBeInTheDocument();
   });
 
+  it('puts the answer before its translation prompt', () => {
+    // `auf [на]`, not `[на] auf` — a teacher judges whether the sentence reads naturally,
+    // which means reading the target language straight through without the gloss cutting
+    // in front of the word it explains.
+    render(<ReviewList items={items as never} onApprove={vi.fn()} />);
+    const sentence = screen.getByText(/Ich warte/).parentElement;
+    expect(sentence?.textContent).toBe('Ich warte auf [на] den Bus.');
+  });
+
+  it('offers Edit on a passing item, not only on flagged ones', () => {
+    // A teacher may want to reword a sentence the validator was perfectly happy with.
+    render(<ReviewList items={items as never} onApprove={vi.fn()} onEdit={vi.fn()} />);
+    // items[0] is the PASS one, at order 0.
+    expect(screen.getByRole('button', { name: /edit sentence 1/i })).toBeInTheDocument();
+  });
+
+  it('swaps the sentence for the editor while an item is being edited', () => {
+    render(
+      <ReviewList
+        items={items as never}
+        onApprove={vi.fn()}
+        onEdit={vi.fn()}
+        editingItemId={1}
+        renderEditor={() => <div>editor here</div>}
+      />,
+    );
+    expect(screen.getByText('editor here')).toBeInTheDocument();
+    expect(screen.queryByText(/Ich warte/)).not.toBeInTheDocument();
+  });
+
+  it('renders the footer so a set can be added to', () => {
+    render(
+      <ReviewList items={items as never} onApprove={vi.fn()} footer={<button>Add sentence</button>} />,
+    );
+    expect(screen.getByRole('button', { name: /add sentence/i })).toBeInTheDocument();
+  });
+
+  it('asks to delete by position', async () => {
+    const onDelete = vi.fn();
+    const user = userEvent.setup();
+    render(<ReviewList items={items as never} onApprove={vi.fn()} onDelete={onDelete} />);
+
+    await user.click(screen.getByRole('button', { name: /delete sentence 1/i }));
+    expect(onDelete).toHaveBeenCalledWith(1);
+  });
+
   it('disables approve while any FAIL is unresolved', () => {
     render(<ReviewList items={items as never} onApprove={vi.fn()} />);
     expect(screen.getByRole('button', { name: /approve/i })).toBeDisabled();

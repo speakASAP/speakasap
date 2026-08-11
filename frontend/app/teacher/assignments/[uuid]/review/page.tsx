@@ -6,6 +6,8 @@ import type { DrillSetDetailDTO } from '@/lib/drills/contracts';
 import {
   DrillApiError,
   approveSet,
+  createSetItem,
+  deleteSetItem,
   getAssignment,
   getSet,
   regenerateItems,
@@ -14,6 +16,7 @@ import {
 import { safeReturnUrl } from '@/lib/drills/teacher/safe-return-url';
 import { ReviewList } from '@/lib/drills/teacher/ReviewList';
 import type { ReviewItemData } from '@/lib/drills/teacher/ReviewItem';
+import { SentenceEditor, type EditedSentence } from '@/lib/drills/teacher/SentenceEditor';
 
 /**
  * Approve what a student will see.
@@ -30,6 +33,8 @@ export default function ReviewPage() {
   const [set, setSet] = useState<DrillSetDetailDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  /** The set item being edited, or 'new' while adding sentences. */
+  const [editing, setEditing] = useState<number | 'new' | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,6 +109,52 @@ export default function ReviewPage() {
     }
   };
 
+  /**
+   * Sentence writes all return the updated set, so the screen is refreshed from the
+   * server's answer rather than patched locally — editing a template re-runs validation
+   * upstream, and guessing the new state here would eventually disagree with it.
+   *
+   * Errors propagate to `SentenceEditor`, which keeps the teacher's work on screen and
+   * shows the reason. Swallowing one would silently discard their typing.
+   */
+  const saveEdit = (itemId: number) => async (sentences: EditedSentence[]) => {
+    if (!set) {
+      return;
+    }
+    setError(null);
+    setSet(await updateSetItem(set.uuid, itemId, sentences[0]));
+    setEditing(null);
+  };
+
+  const saveNew = async (sentences: EditedSentence[]) => {
+    if (!set) {
+      return;
+    }
+    setError(null);
+    let latest = set;
+    for (const sentence of sentences) {
+      latest = await createSetItem(set.uuid, sentence);
+    }
+    setSet(latest);
+    setEditing(null);
+  };
+
+  const removeItem = async (itemId: number) => {
+    if (!set) {
+      return;
+    }
+    const position = (set.items ?? []).find((row) => row.id === itemId)?.order;
+    if (!window.confirm(`Delete sentence ${(position ?? 0) + 1} from this set?`)) {
+      return;
+    }
+    setError(null);
+    try {
+      setSet(await deleteSetItem(set.uuid, itemId));
+    } catch (e) {
+      setError(e instanceof DrillApiError ? e.message : 'Could not delete this sentence');
+    }
+  };
+
   return (
     <main className="min-h-full bg-zinc-50 px-4 py-8 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6 sm:py-10">
       <div className="mx-auto w-full max-w-2xl space-y-5">
@@ -140,6 +191,31 @@ export default function ReviewPage() {
             onApprove={() => void approve()}
             onRegenerate={(ids) => void regenerate(ids)}
             onOverride={(id) => void override(id)}
+            onEdit={(id) => setEditing(id)}
+            onDelete={(id) => void removeItem(id)}
+            editingItemId={typeof editing === 'number' ? editing : null}
+            renderEditor={(item) => (
+              <SentenceEditor
+                mode="edit"
+                initialTemplate={item.item.template}
+                initialHint={item.item.hint}
+                onSave={saveEdit(item.id)}
+                onCancel={() => setEditing(null)}
+              />
+            )}
+            footer={
+              editing === 'new' ? (
+                <SentenceEditor mode="add" onSave={saveNew} onCancel={() => setEditing(null)} />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditing('new')}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  Add sentence
+                </button>
+              )
+            }
           />
         ) : null}
       </div>

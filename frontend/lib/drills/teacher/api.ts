@@ -164,20 +164,67 @@ export function getSet(uuid: string): Promise<DrillSetDetailDTO> {
   return request(`/drill-assignments/teacher/sets/${encodeURIComponent(uuid)}`);
 }
 
+/**
+ * Set sentence writes, routed through education-service for the same reason as `getSet`
+ * and `approveSet`: content-service's item routes are internal-only, gated on a token no
+ * browser holds, and that service has no auth guard of its own. These previously pointed
+ * at `/drill-sets/...` directly, which 404'd — no such public route existed.
+ */
 export function updateSetItem(
   setUuid: string,
   itemId: number,
   patch: SetItemPatch,
 ): Promise<DrillSetDetailDTO> {
-  return request(`/drill-sets/${encodeURIComponent(setUuid)}/items/${itemId}`, {
+  return request(
+    `/drill-assignments/teacher/sets/${encodeURIComponent(setUuid)}/items/${itemId}`,
+    { method: 'PATCH', body: patch },
+  );
+}
+
+export function deleteSetItem(setUuid: string, itemId: number): Promise<DrillSetDetailDTO> {
+  return request(
+    `/drill-assignments/teacher/sets/${encodeURIComponent(setUuid)}/items/${itemId}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function createSetItem(
+  setUuid: string,
+  item: { template: string; hint: string | null },
+): Promise<DrillSetDetailDTO> {
+  return request(`/drill-assignments/teacher/sets/${encodeURIComponent(setUuid)}/items`, {
+    method: 'POST',
+    body: item,
+  });
+}
+
+/**
+ * Sentence writes on a live assignment — the student's own copy, not the set it came
+ * from. A template change resets that sentence's recorded attempts server-side.
+ */
+export function updateAssignmentItem(
+  itemUuid: string,
+  patch: { template?: string; hint?: string | null },
+): Promise<{ ok: true }> {
+  return request(`/drill-assignments/teacher/items/${encodeURIComponent(itemUuid)}`, {
     method: 'PATCH',
     body: patch,
   });
 }
 
-export function deleteSetItem(setUuid: string, itemId: number): Promise<void> {
-  return request(`/drill-sets/${encodeURIComponent(setUuid)}/items/${itemId}`, {
+export function deleteAssignmentItem(itemUuid: string): Promise<{ ok: true }> {
+  return request(`/drill-assignments/teacher/items/${encodeURIComponent(itemUuid)}`, {
     method: 'DELETE',
+  });
+}
+
+export function createAssignmentItem(
+  assignmentUuid: string,
+  item: { template: string; hint: string | null },
+): Promise<{ ok: true }> {
+  return request(`/drill-assignments/teacher/${encodeURIComponent(assignmentUuid)}/items`, {
+    method: 'POST',
+    body: item,
   });
 }
 

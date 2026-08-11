@@ -26,6 +26,9 @@ export interface ReviewItemProps {
   onRegenerate: (id: number) => void;
   onApplySuggestion?: (id: number) => void;
   onEdit?: (id: number) => void;
+  onDelete?: (id: number) => void;
+  /** Replaces the rendered sentence while this item is being edited. */
+  editor?: React.ReactNode;
 }
 
 const BLANK_PATTERN = /\[([^\]]*)\]\{([^}]*)\}/g;
@@ -43,6 +46,10 @@ export interface TemplateSegment {
  * reads naturally, and the answer, to judge whether the blank tests the right thing. They
  * are separate segments rather than one interpolated string so the answer can be styled —
  * and so no code path can accidentally render the answer into the student-facing half.
+ *
+ * Rendered as `answer [prompt]`, answer first: reading the target sentence straight
+ * through is what tells a teacher whether it is natural, and an interleaved prompt breaks
+ * that line. The prompt trails as a gloss on the word it translates.
  */
 export function parseTemplate(template: string): TemplateSegment[] {
   const segments: TemplateSegment[] = [];
@@ -71,6 +78,8 @@ export function ReviewItem({
   onRegenerate,
   onApplySuggestion,
   onEdit,
+  onDelete,
+  editor,
 }: ReviewItemProps) {
   const segments = parseTemplate(data.item.template);
   const flagged = state === 'FAIL' || state === 'WARN';
@@ -94,16 +103,20 @@ export function ReviewItem({
         {state}
       </span>
 
+      {editor ? (
+        <div className="mt-2">{editor}</div>
+      ) : (
+        <>
       <p className="mt-2 leading-relaxed">
         {segments.map((segment, i) =>
           segment.answer === null ? (
             <span key={i}>{segment.text}</span>
           ) : (
             <span key={i}>
-              <span className="text-zinc-500">[{segment.prompt}]</span>{' '}
               <strong className="font-semibold text-sky-700 dark:text-sky-400">
                 {segment.answer}
-              </strong>
+              </strong>{' '}
+              <span className="text-zinc-500">[{segment.prompt}]</span>
             </span>
           ),
         )}
@@ -123,40 +136,68 @@ export function ReviewItem({
         </p>
       ))}
 
-      {flagged ? (
-        <>
-          {/*
-            Present only when the validator actually returned a fix. A disabled
-            "apply suggestion" on every item would read as though a fix exists and the
-            screen is refusing to apply it.
-          */}
-          {data.suggestedFix && onApplySuggestion ? (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {flagged ? (
+          <>
+            {/*
+              Present only when the validator actually returned a fix. A disabled
+              "apply suggestion" on every item would read as though a fix exists and the
+              screen is refusing to apply it.
+            */}
+            {data.suggestedFix && onApplySuggestion ? (
+              <button
+                type="button"
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                onClick={() => onApplySuggestion(data.id)}
+              >
+                Apply suggestion
+              </button>
+            ) : null}
             <button
               type="button"
               className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-              onClick={() => onApplySuggestion(data.id)}
+              onClick={() => onRegenerate(data.id)}
             >
-              Apply suggestion
+              Regenerate
             </button>
-          ) : null}
+            {/* Sets the state to OVERRIDDEN — recorded, never a silent clear. */}
+            <button
+              type="button"
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              onClick={() => onOverride(data.id)}
+            >
+              Keep anyway
+            </button>
+          </>
+        ) : null}
+
+        {/*
+          Offered on every item, not only flagged ones: a teacher may want to reword a
+          sentence the validator was perfectly happy with.
+        */}
+        {onEdit ? (
           <button
             type="button"
+            aria-label={`Edit sentence ${data.order + 1}`}
             className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            onClick={() => onRegenerate(data.id)}
+            onClick={() => onEdit(data.id)}
           >
-            Regenerate
+            Edit
           </button>
-          {onEdit ? (
-            <button type="button" onClick={() => onEdit(data.id)}>
-              Edit
-            </button>
-          ) : null}
-          {/* Sets the state to OVERRIDDEN — recorded, never a silent clear. */}
-          <button type="button" onClick={() => onOverride(data.id)}>
-            Keep anyway
+        ) : null}
+        {onDelete ? (
+          <button
+            type="button"
+            aria-label={`Delete sentence ${data.order + 1}`}
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs text-zinc-600 transition-colors hover:bg-red-50 hover:text-red-700 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-red-950"
+            onClick={() => onDelete(data.id)}
+          >
+            Delete
           </button>
+        ) : null}
+      </div>
         </>
-      ) : null}
+      )}
     </li>
   );
 }

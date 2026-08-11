@@ -11,6 +11,12 @@ export interface ReviewListProps {
   onOverride?: (itemId: number) => void;
   onApplySuggestion?: (itemId: number) => void;
   onEdit?: (itemId: number) => void;
+  onDelete?: (itemId: number) => void;
+  /** The item currently being edited, if any, and the editor to render in its place. */
+  editingItemId?: number | null;
+  renderEditor?: (item: ReviewItemData) => React.ReactNode;
+  /** Rendered under the list — the "Add sentence" affordance. */
+  footer?: React.ReactNode;
 }
 
 /**
@@ -47,6 +53,10 @@ export function ReviewList({
   onOverride,
   onApplySuggestion,
   onEdit,
+  onDelete,
+  editingItemId = null,
+  renderEditor,
+  footer,
 }: ReviewListProps) {
   const [overridden, setOverridden] = useState<number[]>([]);
 
@@ -93,9 +103,13 @@ export function ReviewList({
             onRegenerate={(id) => onRegenerate?.([id])}
             onApplySuggestion={onApplySuggestion}
             onEdit={onEdit}
+            onDelete={onDelete}
+            editor={editingItemId === item.id ? renderEditor?.(item) : undefined}
           />
         ))}
       </ul>
+
+      {footer}
 
       <div className="flex flex-col gap-3 border-t border-zinc-200 pt-4 sm:flex-row sm:justify-end dark:border-zinc-800">
         {flaggedIds.length > 0 && onRegenerate ? (

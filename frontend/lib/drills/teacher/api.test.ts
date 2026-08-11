@@ -4,8 +4,12 @@ import {
   approveSet,
   getTeacherSummary,
   assignFromSet,
+  createAssignmentItem,
+  createSetItem,
+  deleteAssignmentItem,
   deleteSetItem,
   generateAssignments,
+  updateAssignmentItem,
   getAssignment,
   getSet,
   listLanguages,
@@ -138,18 +142,52 @@ describe('mutations', () => {
     expect(initOf(f).method).toBe('POST');
   });
 
-  it('patches a set item', async () => {
+  /*
+   * Routed through education-service, not at `/drill-sets/...` directly.
+   * content-service's item routes are internal-only and gated on a token no browser
+   * holds, so the direct path 404'd — these assertions used to pin that broken URL and
+   * passed while the feature did not work at all.
+   */
+  it('patches a set item through the teacher route', async () => {
     const f = okFetch({});
     await updateSetItem('s-1', 42, { hint: 'note' } as never);
-    expect(urlOf(f)).toContain('/drill-sets/s-1/items/42');
+    expect(urlOf(f)).toContain('/drill-assignments/teacher/sets/s-1/items/42');
     expect(initOf(f).method).toBe('PATCH');
   });
 
-  it('deletes a set item', async () => {
+  it('deletes a set item through the teacher route', async () => {
     const f = okFetch({});
     await deleteSetItem('s-1', 42);
-    expect(urlOf(f)).toContain('/drill-sets/s-1/items/42');
+    expect(urlOf(f)).toContain('/drill-assignments/teacher/sets/s-1/items/42');
     expect(initOf(f).method).toBe('DELETE');
+  });
+
+  it('creates a set item through the teacher route', async () => {
+    const f = okFetch({});
+    await createSetItem('s-1', { template: 'Ich warte [на]{auf} den Bus.', hint: null });
+    expect(urlOf(f)).toContain('/drill-assignments/teacher/sets/s-1/items');
+    expect(initOf(f).method).toBe('POST');
+  });
+
+  it('patches an assignment sentence', async () => {
+    const f = okFetch({ ok: true });
+    await updateAssignmentItem('i-1', { template: 'Ich warte [на]{auf} den Bus.' });
+    expect(urlOf(f)).toContain('/drill-assignments/teacher/items/i-1');
+    expect(initOf(f).method).toBe('PATCH');
+  });
+
+  it('deletes an assignment sentence', async () => {
+    const f = okFetch({ ok: true });
+    await deleteAssignmentItem('i-1');
+    expect(urlOf(f)).toContain('/drill-assignments/teacher/items/i-1');
+    expect(initOf(f).method).toBe('DELETE');
+  });
+
+  it('adds an assignment sentence', async () => {
+    const f = okFetch({ ok: true });
+    await createAssignmentItem('a-1', { template: 'Ich warte [на]{auf} den Bus.', hint: null });
+    expect(urlOf(f)).toContain('/drill-assignments/teacher/a-1/items');
+    expect(initOf(f).method).toBe('POST');
   });
 
   it('batches a regeneration request', async () => {
