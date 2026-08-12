@@ -1,4 +1,18 @@
 #!/bin/bash
+# Frontend-only deploy and rollback path.
+#
+# As of 2026-08-12 speakasap-frontend is ALSO built, pushed and rolled out by
+# the shared runner (`shared/scripts/deploy.sh speakasap`), declared in
+# deploy.config.sh. It was previously absent from there, so a full-repo deploy
+# left the frontend behind on an older tag.
+#
+# Use this script when you want the frontend alone — notably a rollback:
+#
+#     TAG_OVERRIDE=<previous-tag> scripts/deploy-frontend.sh
+#
+# Both paths compute the tag with deploy_compute_default_tag and push the same
+# image names, so they cannot disagree about what is running. Keep the build
+# arguments here in sync with the IMAGES entry in deploy.config.sh.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
