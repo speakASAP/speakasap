@@ -42,13 +42,15 @@ export class RemoteLogger implements LoggerService {
     }
     try {
       const requestContext = RequestContext.get();
+      // `metadata` is the field name LogEntryDto accepts; the ingest endpoint runs
+      // forbidNonWhitelisted, so `context`/`meta` would be rejected with a 400.
       const payload = {
         service: this.serviceName,
         level,
         message: String(message),
-        context,
-        meta: {
+        metadata: {
           ...meta,
+          context,
           requestId: requestContext?.requestId,
           method: requestContext?.method,
           path: requestContext?.path,

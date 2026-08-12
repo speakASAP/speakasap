@@ -37,13 +37,15 @@ export class RemoteLogger implements LoggerService {
     }
     try {
       const requestContext = RequestContext.get();
+      // `metadata` is the field name LogEntryDto accepts; the ingest endpoint runs
+      // forbidNonWhitelisted, so `context`/`meta` would be rejected with a 400.
       const payload = {
         service: this.serviceName,
         level,
         message: String(message),
-        context,
-        meta: {
+        metadata: {
           ...meta,
+          context,
           requestId: requestContext?.requestId,
           method: requestContext?.method,
           path: requestContext?.path,
@@ -69,7 +71,19 @@ export class RemoteLogger implements LoggerService {
         body: JSON.stringify(payload),
         signal: controller.signal,
       })
-        .catch(() => undefined)
+        .then((r) => {
+          if (!r.ok) {
+            console.error(
+              `OPERATIONAL_FAILURE logging-microservice ingest failed http=${r.status} path=${path}`,
+            );
+          }
+        })
+        .catch((e) => {
+          console.error(
+            'OPERATIONAL_FAILURE logging-microservice unreachable',
+            (e as Error).message,
+          );
+        })
         .finally(() => clearTimeout(timeout));
     } catch {
       // Logging failures must not break the service.
