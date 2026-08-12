@@ -69,7 +69,12 @@ export class RunnerService {
     studentId: number,
     req: { itemUuid: string; blankIndex: number },
   ): Promise<CheckBlankResponse> {
-    const { blank } = await this.loadBlank(assignmentUuid, studentId, req.itemUuid, req.blankIndex);
+    const { blank, status } = await this.loadBlank(
+      assignmentUuid,
+      studentId,
+      req.itemUuid,
+      req.blankIndex,
+    );
 
     const priorAttempts = await this.prisma.drillAttempt.count({
       where: { assignmentUuid, itemUuid: req.itemUuid, blankIndex: req.blankIndex },
@@ -94,6 +99,17 @@ export class RunnerService {
       `Blank revealed: assignment=${assignmentUuid} item=${req.itemUuid} blank=${req.blankIndex}`,
     );
 
+    // Revealing the last unresolved blank finishes the assignment, exactly as answering
+    // it would. This call is the whole point of the shared helper: `reveal` used to
+    // compute `assignmentCompleted` for its response and return without ever writing
+    // COMPLETED, so a student who finished by revealing stayed IN_PROGRESS forever.
+    const completed = await this.completeIfResolved(
+      assignmentUuid,
+      status,
+      studentId,
+      counts,
+    );
+
     return {
       correct: false,
       // The answer, deliberately — the student asked for it. This is the only response
@@ -103,9 +119,101 @@ export class RunnerService {
       attemptNo: priorAttempts + 1,
       blanksCorrect: counts.blanksCorrect,
       blanksTotal: counts.blanksTotal,
-      assignmentCompleted: counts.blanksTotal > 0 && counts.blanksCorrect >= counts.blanksTotal,
+      assignmentCompleted: completed,
       hint: null,
     };
+  }
+
+  /**
+   * Move an assignment to COMPLETED when every blank is resolved, and return whether
+   * it is now complete.
+   *
+   * **Completion is decided from `blanksResolved`, never `blanksCorrect`.** A revealed
+   * blank resolves without being correct; requiring correctness would strand any
+   * assignment containing a reveal in IN_PROGRESS permanently.
+   *
+   * Shared by `check` and `reveal` so the two can never drift again — the original
+   * defect was precisely that only one of them wrote the transition.
+   *
+   * `fromStatus` is the status read at the start of the request. ASSIGNED -> COMPLETED
+   * is not a legal edge, so an assignment resolved on its very first touch makes both
+   * hops here.
+   */
+  private async completeIfResolved(
+    assignmentUuid: string,
+    fromStatus: DrillAssignmentStatus,
+    studentId: number,
+    counts: { blanksCorrect: number; blanksResolved: number; blanksTotal: number },
+  ): Promise<boolean> {
+    if (counts.blanksTotal <= 0 || counts.blanksResolved < counts.blanksTotal) {
+      return false;
+    }
+    if (fromStatus === 'COMPLETED') {
+      return true;
+    }
+
+    if (fromStatus === 'ASSIGNED') {
+      this.transition(fromStatus, 'IN_PROGRESS');
+      await this.prisma.drillAssignment.update({
+        where: { uuid: assignmentUuid },
+        data: { status: 'IN_PROGRESS' },
+      });
+    }
+
+    this.transition('IN_PROGRESS', 'COMPLETED');
+    await this.prisma.drillAssignment.update({
+      where: { uuid: assignmentUuid },
+      data: {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+        // Persisted at completion, when the attempt history is final. The column
+        // existed and was never written, so every completed assignment reported a
+        // null accuracy to the teacher panel.
+        firstTryAccuracy: await this.firstTryAccuracy(assignmentUuid, counts.blanksTotal),
+      },
+    });
+    this.logger.log(
+      `Drill assignment completed: uuid=${assignmentUuid} studentId=${studentId} ` +
+        `blanks=${counts.blanksCorrect}/${counts.blanksTotal} resolved=${counts.blanksResolved}`,
+    );
+
+    // After the write, never before: the email says the student finished, so the row
+    // must already say so. Awaited rather than dangled so the send is ordered and
+    // testable, but wrapped — the hook already swallows its own errors, and this
+    // guarantees no future change there can turn a completed assignment into a 500.
+    // The completion stands either way.
+    if (this.notifications) {
+      try {
+        await this.notifications.onCompleted(assignmentUuid);
+      } catch (error) {
+        this.logger.warn(
+          `Completion notification failed for assignment ${assignmentUuid}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Share of blanks solved on the first attempt with no reveal.
+   *
+   * `attemptNo = 1 AND isCorrect` is the definition the drilling spec uses for bank
+   * selection, and a reveal never satisfies it: reveals are written `isCorrect: false`.
+   * Counted over distinct positions so a duplicate attempt row cannot push the ratio
+   * above 1.
+   */
+  private async firstTryAccuracy(assignmentUuid: string, blanksTotal: number): Promise<number | null> {
+    if (blanksTotal <= 0) return null;
+
+    const firstTry = await this.prisma.drillAttempt.findMany({
+      where: { assignmentUuid, attemptNo: 1, isCorrect: true, revealed: false },
+      select: { itemUuid: true, blankIndex: true },
+    });
+    const positions = new Set(firstTry.map((a) => `${a.itemUuid}:${a.blankIndex}`));
+    return positions.size / blanksTotal;
   }
 
   /**
@@ -117,7 +225,7 @@ export class RunnerService {
     studentId: number,
     itemUuid: string,
     blankIndex: number,
-  ): Promise<{ blank: DrillBlank }> {
+  ): Promise<{ blank: DrillBlank; status: DrillAssignmentStatus }> {
     const assignment = await this.prisma.drillAssignment.findUnique({
       where: { uuid: assignmentUuid },
     });
@@ -148,7 +256,9 @@ export class RunnerService {
     if (!blank) {
       throw new BadRequestException(`blankIndex ${blankIndex} does not exist on this item`);
     }
-    return { blank };
+    // The status travels with the blank so `reveal` can decide completion without a
+    // second read of the same row.
+    return { blank, status };
   }
 
   async check(
@@ -227,38 +337,14 @@ export class RunnerService {
 
     // Recomputed from persisted state — the only permitted source of truth.
     const counts = await this.assignments.countBlanks(assignmentUuid);
-    const completed = counts.blanksTotal > 0 && counts.blanksCorrect >= counts.blanksTotal;
-
-    if (completed) {
-      // Track B handoff note 1: ASSIGNED -> COMPLETED is not a legal edge, so a
-      // single-blank assignment needs both hops in this one request. The
-      // IN_PROGRESS write above has already happened when status was ASSIGNED.
-      this.transition('IN_PROGRESS', 'COMPLETED');
-      await this.prisma.drillAssignment.update({
-        where: { uuid: assignmentUuid },
-        data: { status: 'COMPLETED', completedAt: new Date() },
-      });
-      this.logger.log(
-        `Drill assignment completed: uuid=${assignmentUuid} studentId=${studentId} blanks=${counts.blanksCorrect}/${counts.blanksTotal}`,
-      );
-
-      // Track G. After the write, never before: the email says the student
-      // finished, so the row must already say so. Awaited rather than dangled so
-      // the send is ordered and testable, but wrapped — the hook already swallows
-      // its own errors, and this guarantees no future change there can turn a
-      // completed assignment into a 500. The completion stands either way.
-      if (this.notifications) {
-        try {
-          await this.notifications.onCompleted(assignmentUuid);
-        } catch (error) {
-          this.logger.warn(
-            `Completion notification failed for assignment ${assignmentUuid}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-        }
-      }
-    }
+    // The IN_PROGRESS write above has already happened when status was ASSIGNED, so
+    // the helper is told IN_PROGRESS and makes only the second hop.
+    const completed = await this.completeIfResolved(
+      assignmentUuid,
+      'IN_PROGRESS',
+      studentId,
+      counts,
+    );
 
     return {
       correct: grade.correct,

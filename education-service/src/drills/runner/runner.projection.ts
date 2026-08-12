@@ -19,6 +19,17 @@ export interface AttemptLike {
   submittedValue?: string | null;
 }
 
+/**
+ * The progress counts `toAssignmentDTO` consumes. Structural, not an import of
+ * `BlankCounts`, so this projection stays free of the repository.
+ */
+export interface BlankCountsLike {
+  blanksCorrect: number;
+  blanksResolved: number;
+  blanksRevealed: number;
+  blanksTotal: number;
+}
+
 /** The persisted item shape. `blanks` carries answers and must never be serialized. */
 export interface DrillItemLike {
   uuid: string;
@@ -97,7 +108,7 @@ export function toRunnerResponse(
   assignment: any,
   items: DrillItemLike[],
   attempts: AttemptLike[],
-  counts?: { blanksCorrect: number; blanksTotal: number },
+  counts?: BlankCountsLike,
 ): RunnerResponse {
   const resolvedCounts = counts ?? countResolved(items, attempts);
   return {
@@ -110,23 +121,26 @@ export function toRunnerResponse(
 
 /**
  * Fallback count when the caller does not supply one. Mirrors
- * `AssignmentsRepository.countBlanks`: a position counts as resolved when it was
- * answered correctly OR revealed, and the same position resolved twice counts
- * once.
+ * `AssignmentsRepository.countBlanksFor` and must stay in step with it: a position
+ * is RESOLVED when answered correctly OR revealed, CORRECT only when answered
+ * correctly, and the same position counts once either way.
  */
-function countResolved(
-  items: DrillItemLike[],
-  attempts: AttemptLike[],
-): { blanksCorrect: number; blanksTotal: number } {
+function countResolved(items: DrillItemLike[], attempts: AttemptLike[]): BlankCountsLike {
   const resolved = new Set<string>();
+  const correct = new Set<string>();
   for (const a of attempts) {
-    if (a.isCorrect === true || a.revealed === true) {
-      resolved.add(`${a.itemUuid}#${a.blankIndex}`);
-    }
+    const position = `${a.itemUuid}#${a.blankIndex}`;
+    if (a.isCorrect === true || a.revealed === true) resolved.add(position);
+    if (a.isCorrect === true) correct.add(position);
   }
   const blanksTotal = items.reduce(
     (sum, item) => sum + (Array.isArray(item.blanks) ? item.blanks.length : 0),
     0,
   );
-  return { blanksCorrect: resolved.size, blanksTotal };
+  return {
+    blanksCorrect: correct.size,
+    blanksResolved: resolved.size,
+    blanksRevealed: resolved.size - correct.size,
+    blanksTotal,
+  };
 }

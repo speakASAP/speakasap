@@ -132,34 +132,61 @@ describe('AssignmentsRepository.countBlanks', () => {
   // Human ruling 2026-07-31: a revealed blank counts as RESOLVED. Without this a
   // revealed blank could never be solved, its assignment would sit in IN_PROGRESS
   // forever, and findOutstanding would block self-drilling permanently.
-  it('counts a position that is revealed but never correct', async () => {
+  //
+  // It resolves without being CORRECT, though, and the two used to be the same field:
+  // `blanksCorrect` carried the resolved count, so the teacher panel rendered a
+  // fully-revealed assignment as a perfect score. They are separate fields now.
+  it('counts a position that is revealed but never correct as resolved, not correct', async () => {
     const prisma = makePrismaMock();
     seedCounts(prisma, [item(2)], [revealed('i-1', 0)]);
 
     const result = await makeRepo(prisma).countBlanks('a-1');
 
-    expect(result.blanksCorrect).toBe(1);
+    expect(result.blanksResolved).toBe(1);
+    expect(result.blanksCorrect).toBe(0);
+    expect(result.blanksRevealed).toBe(1);
     expect(result.blanksTotal).toBe(2);
   });
 
-  it('counts a position that is both revealed and later correct only once', async () => {
+  it('counts a position that is both revealed and later correct only once, and as correct', async () => {
     const prisma = makePrismaMock();
     seedCounts(prisma, [item(1)], [revealed('i-1', 0), correct('i-1', 0)]);
 
     const result = await makeRepo(prisma).countBlanks('a-1');
 
+    expect(result.blanksResolved).toBe(1);
     expect(result.blanksCorrect).toBe(1);
+    expect(result.blanksRevealed).toBe(0);
     expect(result.blanksTotal).toBe(1);
   });
 
-  it('a student who reveals every blank still reaches full completion', async () => {
+  it('a student who reveals every blank still reaches full resolution, with zero correct', async () => {
     const prisma = makePrismaMock();
     seedCounts(prisma, [item(2)], [revealed('i-1', 0), revealed('i-1', 1)]);
 
     const result = await makeRepo(prisma).countBlanks('a-1');
 
-    expect(result.blanksCorrect).toBe(2);
-    expect(result.blanksCorrect).toBe(result.blanksTotal);
+    // Resolution is what completion is decided from, so this assignment completes...
+    expect(result.blanksResolved).toBe(result.blanksTotal);
+    // ...but nothing about it was answered correctly, and the teacher must see that.
+    expect(result.blanksCorrect).toBe(0);
+    expect(result.blanksRevealed).toBe(2);
+  });
+
+  it('reports revealed as resolved minus correct on a mixed assignment', async () => {
+    const prisma = makePrismaMock();
+    seedCounts(
+      prisma,
+      [item(3)],
+      [correct('i-1', 0), revealed('i-1', 1), revealed('i-1', 2)],
+    );
+
+    const result = await makeRepo(prisma).countBlanks('a-1');
+
+    expect(result.blanksTotal).toBe(3);
+    expect(result.blanksResolved).toBe(3);
+    expect(result.blanksCorrect).toBe(1);
+    expect(result.blanksRevealed).toBe(2);
   });
 
   it('queries resolved attempts — correct OR revealed — for the given assignment', async () => {
@@ -173,7 +200,13 @@ describe('AssignmentsRepository.countBlanks', () => {
         assignmentUuid: { in: ['a-1'] },
         OR: [{ isCorrect: true }, { revealed: true }],
       },
-      select: { assignmentUuid: true, itemUuid: true, blankIndex: true },
+      // `isCorrect` is selected so the correct/resolved split costs no extra query.
+      select: {
+        assignmentUuid: true,
+        itemUuid: true,
+        blankIndex: true,
+        isCorrect: true,
+      },
     });
   });
 });
@@ -189,8 +222,14 @@ describe('AssignmentsRepository.countBlanksFor', () => {
 
     const result = await makeRepo(prisma).countBlanksFor(['a-1', 'a-2']);
 
-    expect(result.get('a-1')).toEqual({ blanksCorrect: 1, blanksTotal: 2 });
-    expect(result.get('a-2')).toEqual({ blanksCorrect: 1, blanksTotal: 1 });
+    // a-1: one correct position (counted once despite two attempt rows).
+    // a-2: one REVEALED position — resolved, not correct.
+    expect(result.get('a-1')).toEqual({
+      blanksCorrect: 1, blanksResolved: 1, blanksRevealed: 0, blanksTotal: 2,
+    });
+    expect(result.get('a-2')).toEqual({
+      blanksCorrect: 0, blanksResolved: 1, blanksRevealed: 1, blanksTotal: 1,
+    });
     expect(prisma.drillAssignmentItem.findMany).toHaveBeenCalledTimes(1);
     expect(prisma.drillAttempt.findMany).toHaveBeenCalledTimes(1);
   });
@@ -202,8 +241,12 @@ describe('AssignmentsRepository.countBlanksFor', () => {
     const result = await makeRepo(prisma).countBlanksFor(['a-1', 'a-2']);
 
     expect(result.has('a-2')).toBe(true);
-    expect(result.get('a-2')).toEqual({ blanksCorrect: 0, blanksTotal: 0 });
-    expect(result.get('a-1')).toEqual({ blanksCorrect: 1, blanksTotal: 1 });
+    expect(result.get('a-2')).toEqual({
+      blanksCorrect: 0, blanksResolved: 0, blanksRevealed: 0, blanksTotal: 0,
+    });
+    expect(result.get('a-1')).toEqual({
+      blanksCorrect: 1, blanksResolved: 1, blanksRevealed: 0, blanksTotal: 1,
+    });
   });
 
   it('does not attribute one assignment\'s attempts to another', async () => {
@@ -235,7 +278,12 @@ describe('AssignmentsRepository.countBlanksFor', () => {
         assignmentUuid: { in: ['a-1', 'a-2'] },
         OR: [{ isCorrect: true }, { revealed: true }],
       },
-      select: { assignmentUuid: true, itemUuid: true, blankIndex: true },
+      select: {
+        assignmentUuid: true,
+        itemUuid: true,
+        blankIndex: true,
+        isCorrect: true,
+      },
     });
   });
 
@@ -246,7 +294,9 @@ describe('AssignmentsRepository.countBlanksFor', () => {
     const result = await makeRepo(prisma).countBlanksFor(['a-1', 'a-1']);
 
     expect(result.size).toBe(1);
-    expect(result.get('a-1')).toEqual({ blanksCorrect: 0, blanksTotal: 1 });
+    expect(result.get('a-1')).toEqual({
+      blanksCorrect: 0, blanksResolved: 0, blanksRevealed: 0, blanksTotal: 1,
+    });
   });
 
   it('issues no queries for an empty input list', async () => {
@@ -269,7 +319,9 @@ describe('AssignmentsRepository.countBlanksFor', () => {
 
     expect(result.size).toBe(11);
     for (const uuid of uuids) {
-      expect(result.get(uuid)).toEqual({ blanksCorrect: 1, blanksTotal: 2 });
+      expect(result.get(uuid)).toEqual({
+        blanksCorrect: 1, blanksResolved: 1, blanksRevealed: 0, blanksTotal: 2,
+      });
     }
     expect(prisma.drillAssignmentItem.findMany).toHaveBeenCalledTimes(1);
     expect(prisma.drillAttempt.findMany).toHaveBeenCalledTimes(1);

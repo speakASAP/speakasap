@@ -24,7 +24,12 @@ export type AssignmentRow = Prisma.DrillAssignmentGetPayload<{
 const ITEM_COUNT_ONLY = { items: { select: { uuid: true } } } as const;
 
 export interface BlankCounts {
+  /** Positions answered correctly. Never counts a reveal — this is the score. */
   blanksCorrect: number;
+  /** Positions the student is done with: correct OR revealed. Decides completion. */
+  blanksResolved: number;
+  /** `blanksResolved - blanksCorrect`. Resolved by giving up, not by answering. */
+  blanksRevealed: number;
   blanksTotal: number;
 }
 
@@ -88,25 +93,34 @@ export class AssignmentsRepository {
    *
    * `blanksTotal` sums `blanks.length` across the assignment's items.
    *
-   * **`blanksCorrect` counts RESOLVED positions, not correct ones** — a distinct
-   * `(itemUuid, blankIndex)` pair counts when `isCorrect = true` **OR**
-   * `revealed = true`. The field keeps the name `blanksCorrect` only because it is a
-   * contract field consumed by four tracks; renaming it is out of scope. Do not
-   * "fix" this back to `isCorrect` alone: the reveal endpoint (spec §9.6) writes
-   * `{ isCorrect: false, revealed: true }`, so a revealed blank could otherwise
-   * never be resolved, its assignment would sit in IN_PROGRESS forever, and
-   * `findOutstanding` would block that student from self-drilling permanently.
-   * A student who reveals everything completes with zero correct — that is the
-   * ruled behaviour.
+   * Three distinct progress numbers, deliberately NOT collapsed into one:
    *
-   * First-try accuracy is computed elsewhere from `attemptNo = 1 AND isCorrect`,
+   * - **`blanksResolved`** — positions the student is done with: `isCorrect = true`
+   *   **OR** `revealed = true`. **This, and only this, decides completion.** The
+   *   reveal endpoint (spec §9.6) writes `{ isCorrect: false, revealed: true }`, so
+   *   driving completion off correctness alone would leave a revealed blank
+   *   permanently unresolved, its assignment stuck in IN_PROGRESS, and
+   *   `findOutstanding` blocking that student from self-drilling forever. A student
+   *   who reveals everything completes with zero correct — that is the ruled
+   *   behaviour.
+   * - **`blanksCorrect`** — positions actually answered correctly (`isCorrect = true`).
+   *   Never counts a reveal. This is what a teacher reads as the score.
+   * - **`blanksRevealed`** — resolved minus correct, reported on its own so a teacher
+   *   can tell "22 correct + 8 revealed" from "30 correct".
+   *
+   * These two were previously one field: `blanksCorrect` carried the RESOLVED count.
+   * The teacher panel rendered a fully-revealed assignment as a perfect "30 / 30",
+   * which is the opposite of what happened. Callers deciding completion must use
+   * `blanksResolved`; callers displaying a score must use `blanksCorrect`.
+   *
+   * First-try accuracy is computed separately from `attemptNo = 1 AND isCorrect`,
    * which a reveal never satisfies, so bank-selection statistics stay clean.
    *
-   * Distinctness is preserved: the same position resolved twice counts once.
+   * Distinctness is preserved throughout: the same position counts once.
    */
   async countBlanks(assignmentUuid: string): Promise<BlankCounts> {
     const counts = await this.countBlanksFor([assignmentUuid]);
-    return counts.get(assignmentUuid) ?? { blanksCorrect: 0, blanksTotal: 0 };
+    return counts.get(assignmentUuid) ?? emptyCounts();
   }
 
   /**
@@ -117,12 +131,12 @@ export class AssignmentsRepository {
    * assignments through `countBlanks` costs 2N queries. Use this instead.
    *
    * Every uuid in `assignmentUuids` is present in the returned map, including ones
-   * with no items and no attempts — those map to `{ blanksCorrect: 0, blanksTotal: 0 }`
-   * rather than being absent, so callers never need a `?? 0` fallback.
+   * with no items and no attempts — those map to an all-zero `BlankCounts` rather
+   * than being absent, so callers never need a `?? 0` fallback.
    */
   async countBlanksFor(assignmentUuids: string[]): Promise<Map<string, BlankCounts>> {
     const counts = new Map<string, BlankCounts>(
-      assignmentUuids.map((uuid) => [uuid, { blanksCorrect: 0, blanksTotal: 0 }]),
+      assignmentUuids.map((uuid) => [uuid, emptyCounts()]),
     );
     if (counts.size === 0) return counts;
 
@@ -132,12 +146,20 @@ export class AssignmentsRepository {
         where: { assignmentUuid: { in: uuids } },
         select: { assignmentUuid: true, blanks: true },
       }),
+      // `isCorrect` comes back too: the same query answers both "is this position
+      // resolved" and "was it resolved by answering correctly", so splitting the
+      // counts costs no extra round trip.
       this.prisma.drillAttempt.findMany({
         where: {
           assignmentUuid: { in: uuids },
           OR: [{ isCorrect: true }, { revealed: true }],
         },
-        select: { assignmentUuid: true, itemUuid: true, blankIndex: true },
+        select: {
+          assignmentUuid: true,
+          itemUuid: true,
+          blankIndex: true,
+          isCorrect: true,
+        },
       }),
     ]);
 
@@ -148,20 +170,39 @@ export class AssignmentsRepository {
       if (entry) entry.blanksTotal += Array.isArray(item.blanks) ? item.blanks.length : 0;
     }
 
-    const resolvedPositions = new Map<string, Set<string>>();
+    const resolved = new Map<string, Set<string>>();
+    const correct = new Map<string, Set<string>>();
     for (const attempt of resolvedAttempts) {
-      let positions = resolvedPositions.get(attempt.assignmentUuid);
-      if (!positions) {
-        positions = new Set<string>();
-        resolvedPositions.set(attempt.assignmentUuid, positions);
-      }
-      positions.add(`${attempt.itemUuid}:${attempt.blankIndex}`);
+      const position = `${attempt.itemUuid}:${attempt.blankIndex}`;
+      addPosition(resolved, attempt.assignmentUuid, position);
+      // A position counts as correct if ANY attempt on it was correct. A student who
+      // answers correctly and later reveals the same blank keeps the correct answer;
+      // one who reveals first and then types it does too.
+      if (attempt.isCorrect) addPosition(correct, attempt.assignmentUuid, position);
     }
-    for (const [assignmentUuid, positions] of resolvedPositions) {
-      const entry = counts.get(assignmentUuid);
-      if (entry) entry.blanksCorrect = positions.size;
+
+    for (const [assignmentUuid, entry] of counts) {
+      entry.blanksResolved = resolved.get(assignmentUuid)?.size ?? 0;
+      entry.blanksCorrect = correct.get(assignmentUuid)?.size ?? 0;
+      // Derived, never counted separately: a position is revealed exactly when it is
+      // resolved without being correct. Subtracting keeps the two consistent by
+      // construction, so they can never disagree about the same blank.
+      entry.blanksRevealed = entry.blanksResolved - entry.blanksCorrect;
     }
 
     return counts;
   }
+}
+
+function emptyCounts(): BlankCounts {
+  return { blanksCorrect: 0, blanksResolved: 0, blanksRevealed: 0, blanksTotal: 0 };
+}
+
+function addPosition(index: Map<string, Set<string>>, key: string, position: string): void {
+  let positions = index.get(key);
+  if (!positions) {
+    positions = new Set<string>();
+    index.set(key, positions);
+  }
+  positions.add(position);
 }

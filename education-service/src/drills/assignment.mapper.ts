@@ -22,7 +22,12 @@ import { DrillAssignmentDTO, GenerationProgress } from './contracts';
  */
 export function toAssignmentDTO(
   row: any,
-  counts: { blanksCorrect: number; blanksTotal: number },
+  counts: {
+    blanksCorrect: number;
+    blanksResolved: number;
+    blanksRevealed: number;
+    blanksTotal: number;
+  },
 ): DrillAssignmentDTO {
   const progress = row.generationProgress as Partial<GenerationProgress> | null;
   return {
@@ -40,6 +45,8 @@ export function toAssignmentDTO(
     resourceLinks: row.resourceLinks ?? [],
     itemCount: row.items?.length ?? 0,
     blanksCorrect: counts.blanksCorrect,
+    blanksResolved: counts.blanksResolved,
+    blanksRevealed: counts.blanksRevealed,
     blanksTotal: counts.blanksTotal,
     generationProgress: progress && progress.phase ? (progress as GenerationProgress) : null,
     createdAt: row.createdAt.toISOString(),

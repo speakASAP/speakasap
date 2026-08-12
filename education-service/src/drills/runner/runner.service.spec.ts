@@ -39,7 +39,7 @@ function harness() {
     },
   };
 
-  const counts = { blanksCorrect: 0, blanksTotal: 2 };
+  const counts = { blanksCorrect: 0, blanksResolved: 0, blanksRevealed: 0, blanksTotal: 2 };
   let attemptRows: any[] = [];
 
   const prisma: any = {
@@ -71,7 +71,17 @@ function harness() {
   };
 
   const repo: any = {
-    countBlanks: jest.fn(async () => ({ ...counts })),
+    /**
+     * Mirrors the invariant the real repository holds by construction: a correct blank
+     * is a resolved blank, so `blanksResolved >= blanksCorrect` always. Tests that only
+     * set `blanksCorrect` (a student answering everything correctly) therefore get a
+     * consistent resolved count for free, and a test exercising reveals sets
+     * `blanksResolved` explicitly above it.
+     */
+    countBlanks: jest.fn(async () => ({
+      ...counts,
+      blanksResolved: Math.max(counts.blanksResolved, counts.blanksCorrect),
+    })),
     findOutstanding: jest.fn(async () => null),
   };
 
@@ -311,6 +321,79 @@ describe('RunnerService.check', () => {
 
       // Counts come from the repository, which treats revealed as resolved.
       expect(res.blanksTotal).toBeGreaterThan(0);
+    });
+
+    /**
+     * The defect this block exists to prevent recurring: `reveal` computed
+     * `assignmentCompleted` for its response and then returned without ever writing
+     * COMPLETED. A student whose LAST unresolved blank was revealed stayed IN_PROGRESS
+     * permanently — the teacher panel showed a full bar next to an IN_PROGRESS label,
+     * `completedAt` stayed null, and the completion email never went out. Found on a
+     * production row with 30/30 resolved (22 correct, 8 revealed) still IN_PROGRESS.
+     *
+     * The test above is the one that missed it: asserting the response is not enough,
+     * so these assert the write, the timestamp, and the notification.
+     */
+    it('writes COMPLETED when the revealed blank was the last unresolved one', async () => {
+      counts.blanksResolved = 2;
+      counts.blanksTotal = 2;
+
+      const res = await svc.reveal('a-1', 42, { itemUuid: 'i-1', blankIndex: 0 });
+
+      expect(res.assignmentCompleted).toBe(true);
+      expect(assignment.status).toBe('COMPLETED');
+      expect(assignment.completedAt).toBeInstanceOf(Date);
+    });
+
+    it('notifies on a completion reached by revealing', async () => {
+      counts.blanksResolved = 2;
+      counts.blanksTotal = 2;
+
+      await svc.reveal('a-1', 42, { itemUuid: 'i-1', blankIndex: 0 });
+
+      expect(h.notifications.onCompleted).toHaveBeenCalledWith('a-1');
+    });
+
+    it('leaves the assignment IN_PROGRESS while blanks remain unresolved', async () => {
+      counts.blanksResolved = 1;
+      counts.blanksTotal = 2;
+
+      const res = await svc.reveal('a-1', 42, { itemUuid: 'i-1', blankIndex: 0 });
+
+      expect(res.assignmentCompleted).toBe(false);
+      expect(assignment.status).toBe('IN_PROGRESS');
+      expect(assignment.completedAt).toBeNull();
+    });
+
+    /**
+     * ASSIGNED -> COMPLETED is not a legal edge, so a single-blank assignment revealed
+     * on its first touch has to make both hops in this one call, exactly as `check`
+     * does. Without the IN_PROGRESS hop this throws ConflictException.
+     */
+    it('takes an ASSIGNED assignment through IN_PROGRESS to COMPLETED', async () => {
+      assignment.status = 'ASSIGNED';
+      counts.blanksResolved = 2;
+      counts.blanksTotal = 2;
+
+      await svc.reveal('a-1', 42, { itemUuid: 'i-1', blankIndex: 0 });
+
+      expect(assignment.status).toBe('COMPLETED');
+    });
+
+    /**
+     * Completion is resolution, not correctness. An assignment finished with reveals
+     * completes — otherwise the student is stuck forever — but the reveals must never
+     * be counted as correct answers.
+     */
+    it('completes on resolved blanks even when none of them were correct', async () => {
+      counts.blanksCorrect = 0;
+      counts.blanksResolved = 2;
+      counts.blanksTotal = 2;
+
+      const res = await svc.reveal('a-1', 42, { itemUuid: 'i-1', blankIndex: 0 });
+
+      expect(assignment.status).toBe('COMPLETED');
+      expect(res.blanksCorrect).toBe(0);
     });
 
     it('refuses to reveal another student\'s assignment', async () => {

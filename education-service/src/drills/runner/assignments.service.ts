@@ -119,7 +119,8 @@ export class DrillAssignmentsService {
       include: { items: { select: { uuid: true } } },
       orderBy: { createdAt: 'desc' },
     });
-    const counts = await this.assignments.countBlanksFor(rows.map((r) => r.uuid));
+    const uuids = rows.map((r) => r.uuid);
+    const counts = await this.assignments.countBlanksFor(uuids);
 
     // Names live in auth-microservice; this service stores only legacy student ids. One
     // batch call for the whole lesson rather than one per assignment. An unresolved id
@@ -128,11 +129,36 @@ export class DrillAssignmentsService {
       Array.from(new Set(rows.map((row) => row.studentId))),
     );
 
+    // One grouped count for the whole lesson rather than one query per row — a lesson
+    // with a dozen assignments would otherwise cost a dozen round trips to render.
+    const attemptCounts = await this.countAttemptsFor(uuids);
+
     return {
       assignments: rows.map((row) => ({
         ...toAssignmentDTO(row, counts.get(row.uuid)!),
         studentName: names.get(row.studentId) ?? '',
+        // Teacher-only, and only on this internal route — see DrillAssignmentTeacherStats.
+        // Null on assignments that predate accuracy being persisted, and on ones still
+        // in progress; the panel renders a dash rather than inventing a number.
+        firstTryAccuracy: row.firstTryAccuracy ?? null,
+        attemptCount: attemptCounts.get(row.uuid) ?? 0,
       })),
     };
+  }
+
+  /** Attempt rows per assignment, in one grouped query. Missing uuids mean zero. */
+  private async countAttemptsFor(assignmentUuids: string[]): Promise<Map<string, number>> {
+    const totals = new Map<string, number>();
+    if (assignmentUuids.length === 0) return totals;
+
+    const grouped = await this.prisma.drillAttempt.groupBy({
+      by: ['assignmentUuid'],
+      where: { assignmentUuid: { in: assignmentUuids } },
+      _count: { _all: true },
+    });
+    for (const group of grouped) {
+      totals.set(group.assignmentUuid, group._count._all);
+    }
+    return totals;
   }
 }
