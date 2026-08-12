@@ -20,14 +20,14 @@ data:
   DB_SYNC: "false"
   DB_AUTO_CREATE: "true"
 
-  # Logging service (Docker host, port 3367)
-  LOGGING_SERVICE_URL: "http://192.168.88.53:3367"
+  # Logging service (K8s cluster-internal, port 3367)
+  LOGGING_SERVICE_URL: "http://logging-microservice:3367"
   LOGGING_SERVICE_API_PATH: "/api/logs"
   LOGGING_SERVICE_TIMEOUT: "5000"
   LOG_LEVEL: "info"
 
-  # Auth service (Docker host, port 3370)
-  AUTH_SERVICE_URL: "http://192.168.88.53:3370"
+  # Auth service (K8s cluster-internal, port 3370)
+  AUTH_SERVICE_URL: "http://auth-microservice:3370"
   AUTH_SERVICE_TIMEOUT: "5000"
   AUTH_RETRY_MAX_ATTEMPTS: "3"
   AUTH_RETRY_DELAY_MS: "1000"
@@ -44,9 +44,9 @@ data:
   SALARY_SERVICE_URL: "http://speakasap-salary:4212"
   FINANCIAL_SERVICE_URL: "http://speakasap-financial:4213"
 
-  # Payments microservice (Docker host, port 3376 -> internal 3468)
-  PAYMENTS_MICROSERVICE_URL: "http://192.168.88.53:3376"
-  PAYMENTS_MICROSERVICE_PORT: "3376"
+  # Payments microservice (K8s cluster-internal, port 3468)
+  PAYMENTS_MICROSERVICE_URL: "http://payments-microservice:3468"
+  PAYMENTS_MICROSERVICE_PORT: "3468"
 
   # Notifications microservice
   NOTIFICATIONS_MICROSERVICE_PORT: "3368"
@@ -55,7 +55,7 @@ data:
   NOTIFICATION_RETRY_DELAY_MS: "1000"
 
   # AI service
-  AI_SERVICE_URL: "http://192.168.88.53:3380"
+  AI_SERVICE_URL: "http://ai-microservice:3380"
   AI_MICROSERVICE_PORT: "3380"
   AI_SERVICE_TIMEOUT: "5000"
   AI_SERVICE_TRANSLATE_PATH: "/api/v1/translate"
@@ -70,7 +70,7 @@ data:
   ASSETS_BASE_URL: "https://assets.alfares.cz"
   FRONTEND_URL: "https://speakasap.alfares.cz"
   CORS_ORIGIN: "https://speakasap.alfares.cz"
-  NEXT_PUBLIC_API_URL: "http://192.168.88.53:3000"
+  NEXT_PUBLIC_API_URL: "https://speakasap.alfares.cz"
 
   # Payment config
   PAYMENT_APPLICATION_ID: "speakasap"
