@@ -66,7 +66,7 @@
 
 **frontend — new**
 
-`lib/drills/analysis/contracts.ts`, `lib/drills/analysis/api.ts`, `components/drills/GapAnalysisBlock.tsx`, `components/drills/GapCard.tsx`; modifications to the two pages.
+`lib/drills/analysis/contracts.ts`, `lib/drills/analysis/api.ts`, `lib/drills/analysis/GapAnalysisBlock.tsx`, `lib/drills/analysis/GapCard.tsx`; modifications to the two pages.
 
 ---
 
@@ -5399,9 +5399,9 @@ git commit -m "feat(drills): frontend contracts and client for gap analysis"
 ### Task 15: GapAnalysisBlock and GapCard components
 
 **Files:**
-- Create: `frontend/components/drills/GapCard.tsx`
-- Create: `frontend/components/drills/GapAnalysisBlock.tsx`
-- Test: `frontend/components/drills/GapAnalysisBlock.test.tsx`
+- Create: `frontend/lib/drills/analysis/GapCard.tsx`
+- Create: `frontend/lib/drills/analysis/GapAnalysisBlock.tsx`
+- Test: `frontend/lib/drills/analysis/GapAnalysisBlock.test.tsx`
 
 **Interfaces:**
 - Consumes: `fetchAnalysis`, `retryAnalysis`, `remedialSentenceCount`, `IN_FLIGHT_STATUSES`
@@ -5411,7 +5411,7 @@ git commit -m "feat(drills): frontend contracts and client for gap analysis"
 
 - [ ] **Step 1: Write the failing test**
 
-Create `frontend/components/drills/GapAnalysisBlock.test.tsx`:
+Create `frontend/lib/drills/analysis/GapAnalysisBlock.test.tsx`:
 
 ```tsx
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -5602,12 +5602,12 @@ describe('GapAnalysisBlock', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd frontend && npx vitest run components/drills/GapAnalysisBlock.test.tsx`
+Run: `cd frontend && npx vitest run lib/drills/analysis/GapAnalysisBlock.test.tsx`
 Expected: FAIL — cannot resolve `./GapAnalysisBlock`.
 
 - [ ] **Step 3: Write GapCard**
 
-Create `frontend/components/drills/GapCard.tsx`:
+Create `frontend/lib/drills/analysis/GapCard.tsx`:
 
 ```tsx
 'use client';
@@ -5691,7 +5691,7 @@ export function GapCard({ cluster, showRemedialAction, onCreateRemedial, busy }:
 
 - [ ] **Step 4: Write GapAnalysisBlock**
 
-Create `frontend/components/drills/GapAnalysisBlock.tsx`:
+Create `frontend/lib/drills/analysis/GapAnalysisBlock.tsx`:
 
 ```tsx
 'use client';
@@ -5876,7 +5876,7 @@ export function GapAnalysisBlock({
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run: `cd frontend && npx vitest run components/drills/GapAnalysisBlock.test.tsx`
+Run: `cd frontend && npx vitest run lib/drills/analysis/GapAnalysisBlock.test.tsx`
 Expected: PASS, 14 tests. If the "shows the explanation" test fails on the regex, adjust the test's expected substring to match `readyCluster.explanation` exactly rather than loosening the component.
 
 - [ ] **Step 6: Verify the FAILED path can regress**
@@ -5886,9 +5886,9 @@ Temporarily change the `FAILED` branch to `return null`, re-run, and confirm the
 - [ ] **Step 7: Commit**
 
 ```bash
-git add frontend/components/drills/GapCard.tsx \
-        frontend/components/drills/GapAnalysisBlock.tsx \
-        frontend/components/drills/GapAnalysisBlock.test.tsx
+git add frontend/lib/drills/analysis/GapCard.tsx \
+        frontend/lib/drills/analysis/GapAnalysisBlock.tsx \
+        frontend/lib/drills/analysis/GapAnalysisBlock.test.tsx
 git commit -m "feat(drills): grammar gap analysis block with distinct states"
 ```
 
