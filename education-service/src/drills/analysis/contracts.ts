@@ -38,3 +38,40 @@ export interface AnalysisAttemptInput {
   revealed: boolean;
   attemptNo: number;
 }
+
+/** One failure as ai-microservice's analyzer receives it. */
+export interface AnalyzeFailure {
+  answer: string;
+  sentence: string;
+  prompt: string | null;
+  wrongAttempts: string[];
+  revealed: boolean;
+  mistakeCount: number;
+}
+
+export interface AnalyzeErrorsRequest {
+  languageCode: string;
+  materialLanguage: string;
+  level: string | null;
+  allowedTopicSlugs: string[];
+  failures: AnalyzeFailure[];
+  correlationId: string;
+}
+
+/** One grammar gap as the analyzer returns it, before slug coercion. */
+export interface AnalyzedGapCluster {
+  topicSlug: string;
+  title: string;
+  explanation: string;
+  rules: string[];
+  examples: Array<{ text: string; gloss: string }>;
+  answers: string[];
+}
+
+export interface AnalyzeErrorsResponse {
+  clusters: AnalyzedGapCluster[];
+  meta?: unknown;
+}
+
+/** Run states. `NO_ERRORS` and `FAILED` are deliberately distinct all the way to the UI. */
+export type AnalysisRunStatus = 'PENDING' | 'RUNNING' | 'READY' | 'NO_ERRORS' | 'FAILED';
