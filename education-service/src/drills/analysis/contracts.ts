@@ -89,3 +89,58 @@ export interface AnalyzeErrorsResponse {
 
 /** Run states. `NO_ERRORS` and `FAILED` are deliberately distinct all the way to the UI. */
 export type AnalysisRunStatus = 'PENDING' | 'RUNNING' | 'READY' | 'NO_ERRORS' | 'FAILED';
+
+/** One failed answer as it is stored on a gap cluster. */
+export interface PersistedFailedAnswer {
+  /** Surface form, for display. */
+  answer: string;
+  /** Mastery key — `normalizeAnswer` with this language's grading options. */
+  normalized: string;
+  /** How many remedial sentences this answer earns. */
+  mistakeCount: number;
+  wrongAttempts: string[];
+}
+
+/** A cluster ready to be written, after slug coercion and answer attribution. */
+export interface PersistableCluster {
+  topicSlug: string;
+  title: string;
+  explanation: string;
+  rules: string[];
+  examples: Array<{ text: string; gloss: string }>;
+  failedAnswers: PersistedFailedAnswer[];
+}
+
+/** A stored gap cluster, as the API returns it. */
+export interface GapClusterRecord extends PersistableCluster {
+  uuid: string;
+  runUuid: string;
+  sourceAssignmentUuid: string;
+  studentId: number;
+  languageCode: string;
+  materialLanguage: string;
+  editedByTeacherId: number | null;
+  editedAt: Date | null;
+  createdAt: Date;
+}
+
+/** A stored run with its clusters. */
+export interface AnalysisRunRecord {
+  uuid: string;
+  sourceAssignmentUuid: string;
+  studentId: number;
+  status: AnalysisRunStatus;
+  errorMessage: string | null;
+  attemptCount: number;
+  startedAt: Date | null;
+  finishedAt: Date | null;
+  clusters: GapClusterRecord[];
+}
+
+/** The fields a teacher may edit on a cluster. */
+export interface ClusterPatch {
+  title?: string;
+  explanation?: string;
+  rules?: string[];
+  examples?: Array<{ text: string; gloss: string }>;
+}
