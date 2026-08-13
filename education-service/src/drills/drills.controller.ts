@@ -337,7 +337,17 @@ export class DrillsController {
     return { queued: true };
   }
 
-  /** A teacher's edit to the theory a student will read. */
+  /**
+   * A teacher's edit to the theory a student will read.
+   *
+   * Ownership-scoped the same way `getAnalysis` scopes staff access: the gap's
+   * `sourceAssignmentUuid` must be attributed to the caller's own legacy id or to the
+   * lesson's teacher. Without this any staff account could rewrite the explanation a
+   * DIFFERENT teacher's student is about to read — this route mutates content, so an
+   * unrelated teacher pasting the wrong gapUuid would silently corrupt someone else's
+   * theory. 404, not 403: the same reasoning as everywhere else in this file — a
+   * distinguishable error would confirm another teacher's gap exists.
+   */
   @Patch('teacher/gaps/:gapUuid')
   @HttpCode(HttpStatus.OK)
   async updateGap(
@@ -360,6 +370,8 @@ export class DrillsController {
       throw new BadRequestException('title cannot be empty');
     }
 
+    await this.assertOwnsGap(gapUuid, req);
+
     const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
     return this.analysis.updateCluster(gapUuid, body, teacherId);
   }
@@ -369,6 +381,11 @@ export class DrillsController {
    *
    * Teacher-initiated: the analysis is automatic, the second assignment is a judgement
    * call. Idempotent — a second call returns the drill the first one made.
+   *
+   * Ownership-scoped for the same reason as `updateGap`: this route spends a model
+   * generation call and assigns real work to a student, attributed to whichever staff
+   * account called it. Unscoped, any teacher could assign — and be credited for —
+   * remedial drilling for a student they never taught.
    */
   @Post('teacher/gaps/:gapUuid/remedial')
   @HttpCode(HttpStatus.CREATED)
@@ -377,8 +394,30 @@ export class DrillsController {
     @Req() req: Request,
   ): Promise<unknown> {
     this.assertStaff(req);
+
+    await this.assertOwnsGap(gapUuid, req);
+
     const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
     return this.remedial.createForGap(gapUuid, teacherId, this.bearer(req));
+  }
+
+  /**
+   * Confirms the caller owns the assignment a gap belongs to, using the exact rule
+   * `getAnalysis` uses for its staff branch: `ownersOf` (the caller's own legacy id, plus
+   * the lesson's teacher when there is one) checked through
+   * `teacherAssignments.getForTeacher`, which already throws `NotFoundException` — never
+   * `ForbiddenException` — on a mismatch or a missing assignment.
+   *
+   * A missing gap is 404 here directly: there is nothing to check ownership against, and
+   * "gap not found" and "not yours" must look identical to the caller regardless.
+   */
+  private async assertOwnsGap(gapUuid: string, req: Request): Promise<void> {
+    const gap = await this.analysis.getCluster(gapUuid);
+    if (!gap) {
+      throw new NotFoundException('Gap analysis not found');
+    }
+    const owners = await this.ownersOf(gap.sourceAssignmentUuid, req);
+    await this.teacherAssignments.getForTeacher(gap.sourceAssignmentUuid, owners);
   }
 
   /**

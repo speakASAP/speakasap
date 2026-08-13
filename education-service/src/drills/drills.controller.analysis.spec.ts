@@ -28,6 +28,10 @@ function build(overrides: Record<string, any> = {}) {
   const teacherAssignments = {
     lessonUuidFor: jest.fn(async () => null),
     progressForTeacher: jest.fn(async () => ({})),
+    // Ownership check used by getAnalysis/updateGap/createRemedial's staff branch.
+    // Defaults to "owned" so tests that aren't about ownership don't need to know about
+    // it; ownership-specific tests below override this to reject.
+    getForTeacher: jest.fn(async () => ({ uuid: 'a1' })),
     ...overrides.teacherAssignments,
   };
 
@@ -173,6 +177,48 @@ describe('PATCH teacher/gaps/:gapUuid', () => {
       controller.updateGap('g1', { explanation: '   ' }, teacherReq),
     ).rejects.toThrow(/explanation/i);
   });
+
+  it('a teacher who owns the gap\'s source assignment succeeds', async () => {
+    const { controller, analysis, teacherAssignments } = build();
+
+    await controller.updateGap('g1', { explanation: 'edited' }, teacherReq);
+
+    // Ownership was actually checked against the gap's sourceAssignmentUuid, not skipped.
+    expect(teacherAssignments.getForTeacher).toHaveBeenCalledWith('a1', [7]);
+    expect(analysis.updateCluster).toHaveBeenCalledWith('g1', { explanation: 'edited' }, 7);
+  });
+
+  it('a staff user who does NOT own the gap\'s assignment gets NotFoundException, not Forbidden', async () => {
+    const { controller, analysis, teacherAssignments } = build({
+      teacherAssignments: {
+        getForTeacher: jest.fn(async () => {
+          // Real TeacherAssignmentsService.getForTeacher throws exactly this when the
+          // caller's ids don't include the assignment's teacherId.
+          throw new NotFoundException('Drill assignment not found');
+        }),
+      },
+    });
+
+    await expect(
+      controller.updateGap('g1', { explanation: 'edited' }, teacherReq),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      controller.updateGap('g1', { explanation: 'edited' }, teacherReq),
+    ).rejects.not.toBeInstanceOf(ForbiddenException);
+    expect(analysis.updateCluster).not.toHaveBeenCalled();
+    expect(teacherAssignments.getForTeacher).toHaveBeenCalled();
+  });
+
+  it('a gap that does not exist at all gets NotFoundException', async () => {
+    const { controller, analysis } = build({
+      analysis: { getCluster: jest.fn(async () => null) },
+    });
+
+    await expect(
+      controller.updateGap('missing-gap', { explanation: 'edited' }, teacherReq),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(analysis.updateCluster).not.toHaveBeenCalled();
+  });
 });
 
 describe('POST teacher/gaps/:gapUuid/remedial', () => {
@@ -190,6 +236,46 @@ describe('POST teacher/gaps/:gapUuid/remedial', () => {
 
     await expect(controller.createRemedial('g1', studentReq)).rejects.toBeInstanceOf(
       ForbiddenException,
+    );
+    expect(remedial.createForGap).not.toHaveBeenCalled();
+  });
+
+  it('a teacher who owns the gap\'s source assignment succeeds', async () => {
+    const { controller, remedial, teacherAssignments } = build();
+
+    const result: any = await controller.createRemedial('g1', teacherReq);
+
+    expect(teacherAssignments.getForTeacher).toHaveBeenCalledWith('a1', [7]);
+    expect(result.assignmentUuids).toEqual(['r1']);
+    expect(remedial.createForGap).toHaveBeenCalledWith('g1', 7, expect.any(String));
+  });
+
+  it('a staff user who does NOT own the gap\'s assignment gets NotFoundException, not Forbidden', async () => {
+    const { controller, remedial, teacherAssignments } = build({
+      teacherAssignments: {
+        getForTeacher: jest.fn(async () => {
+          throw new NotFoundException('Drill assignment not found');
+        }),
+      },
+    });
+
+    await expect(controller.createRemedial('g1', teacherReq)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(controller.createRemedial('g1', teacherReq)).rejects.not.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(remedial.createForGap).not.toHaveBeenCalled();
+    expect(teacherAssignments.getForTeacher).toHaveBeenCalled();
+  });
+
+  it('a gap that does not exist at all gets NotFoundException', async () => {
+    const { controller, remedial } = build({
+      analysis: { getCluster: jest.fn(async () => null) },
+    });
+
+    await expect(controller.createRemedial('missing-gap', teacherReq)).rejects.toBeInstanceOf(
+      NotFoundException,
     );
     expect(remedial.createForGap).not.toHaveBeenCalled();
   });
