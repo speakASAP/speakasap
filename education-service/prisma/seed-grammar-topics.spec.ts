@@ -1,3 +1,4 @@
+import { KNOWN_LANGUAGE_CODES } from '../src/drills/teacher/course-language';
 import { GRAMMAR_TOPICS } from './seed-grammar-topics';
 
 describe('grammar topic taxonomy', () => {
@@ -12,9 +13,17 @@ describe('grammar topic taxonomy', () => {
     }
   });
 
+  it('seeds every language the platform actually supports, not merely every language it happens to seed', () => {
+    // Regression guard: this must be asserted against course-language.ts's own
+    // KNOWN_LANGUAGE_CODES, not derived from GRAMMAR_TOPICS itself — a set derived from
+    // this file would trivially pass no matter how many languages were missing.
+    for (const language of KNOWN_LANGUAGE_CODES) {
+      expect(GRAMMAR_TOPICS.some((t) => t.languageCode === language)).toBe(true);
+    }
+  });
+
   it('gives every language an `other` fallback the analyzer can always use', () => {
-    const languages = new Set(GRAMMAR_TOPICS.map((t) => t.languageCode));
-    for (const language of languages) {
+    for (const language of KNOWN_LANGUAGE_CODES) {
       expect(GRAMMAR_TOPICS.some((t) => t.slug === `${language}.other`)).toBe(true);
     }
   });

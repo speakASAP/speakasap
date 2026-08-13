@@ -370,7 +370,17 @@ export class DrillsController {
     return cluster;
   }
 
-  /** Re-run a failed or stalled analysis. Staff only — it costs a model call. */
+  /**
+   * Re-run a failed or stalled analysis. Staff only — it costs a model call.
+   *
+   * Ownership-scoped the same way `getAnalysis` scopes its staff branch: the assignment
+   * must be attributed to the caller's own legacy id or to the lesson's teacher.
+   * `getForTeacher` throws its own 404 when neither owns it — without this any staff
+   * account could re-run (and overwrite, via `replaceClusters`) another teacher's gap
+   * clusters, spending a model call that isn't theirs to spend. This route takes an
+   * assignment uuid, not a gap uuid, so it mirrors `getAnalysis` directly rather than
+   * going through `assertOwnsGap`.
+   */
   @Post(':uuid/analysis/retry')
   @HttpCode(HttpStatus.ACCEPTED)
   async retryAnalysis(
@@ -378,6 +388,7 @@ export class DrillsController {
     @Req() req: Request,
   ): Promise<{ queued: boolean }> {
     this.assertStaff(req);
+    await this.teacherAssignments.getForTeacher(uuid, await this.ownersOf(uuid, req));
     this.analysisJobs.enqueue(uuid);
     this.logger.log(`Analysis retry queued for assignment ${uuid}`);
     return { queued: true };

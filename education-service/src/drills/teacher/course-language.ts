@@ -18,7 +18,7 @@
  * not all ISO 639-1 — `cz`, `se`, `dk`, `gr`, `jp`, `cn` are the platform's own. A
  * segment that merely looks like a code (`_demo`, `_mp3`) must not pass as one.
  */
-const KNOWN_LANGUAGE_CODES = new Set([
+export const KNOWN_LANGUAGE_CODES = new Set([
   'cn', 'cz', 'de', 'dk', 'en', 'es', 'fi', 'fr', 'gr',
   'it', 'jp', 'nl', 'no', 'pl', 'pt', 'ru', 'se', 'sk', 'tr',
 ]);

@@ -186,11 +186,13 @@ describe('GET gaps/:gapUuid', () => {
 });
 
 describe('POST :uuid/analysis/retry', () => {
-  it('re-enqueues the analysis for a staff caller', async () => {
-    const { controller, jobs } = build();
+  it('re-enqueues the analysis for a staff caller who owns the assignment', async () => {
+    const { controller, jobs, teacherAssignments } = build();
 
     await controller.retryAnalysis('a1', teacherReq);
 
+    // Ownership was actually checked against the assignment, not skipped.
+    expect(teacherAssignments.getForTeacher).toHaveBeenCalledWith('a1', [7]);
     expect(jobs.enqueue).toHaveBeenCalledWith('a1');
   });
 
@@ -201,6 +203,29 @@ describe('POST :uuid/analysis/retry', () => {
       ForbiddenException,
     );
     expect(jobs.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('a staff caller who does NOT own the assignment gets NotFoundException, not Forbidden, and spends no model call', async () => {
+    const { controller, jobs, teacherAssignments } = build({
+      teacherAssignments: {
+        getForTeacher: jest.fn(async () => {
+          // Real TeacherAssignmentsService.getForTeacher throws exactly this when the
+          // caller's ids don't include the assignment's teacherId.
+          throw new NotFoundException('Drill assignment not found');
+        }),
+      },
+    });
+
+    await expect(controller.retryAnalysis('a1', teacherReq)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(controller.retryAnalysis('a1', teacherReq)).rejects.not.toBeInstanceOf(
+      ForbiddenException,
+    );
+    // The part that proves no model call is spent: enqueue must never run for an
+    // assignment this staff account does not own.
+    expect(jobs.enqueue).not.toHaveBeenCalled();
+    expect(teacherAssignments.getForTeacher).toHaveBeenCalled();
   });
 });
 
