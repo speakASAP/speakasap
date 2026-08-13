@@ -68,9 +68,23 @@ export interface AnalyzedGapCluster {
   answers: string[];
 }
 
+/**
+ * The model-call metadata ai-microservice attaches to every analyzer response.
+ *
+ * Mirrored structurally rather than imported — ai-microservice is a separate repo with
+ * its own build. Keep the field names in step with `LlmMeta` in
+ * ai-microservice/src/teacher-assistant/llm.client.ts.
+ */
+export interface AnalyzeMeta {
+  model: string;
+  tier: string;
+  promptTokens: number;
+  completionTokens: number;
+}
+
 export interface AnalyzeErrorsResponse {
   clusters: AnalyzedGapCluster[];
-  meta?: unknown;
+  meta: AnalyzeMeta;
 }
 
 /** Run states. `NO_ERRORS` and `FAILED` are deliberately distinct all the way to the UI. */

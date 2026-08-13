@@ -36,9 +36,10 @@ describe('AnalysisClient', () => {
   });
 
   it('posts to the analyze route', async () => {
-    const spy = jest
-      .spyOn(http, 'requestUpstream')
-      .mockResolvedValue({ clusters: [] } as any);
+    const spy = jest.spyOn(http, 'requestUpstream').mockResolvedValue({
+      clusters: [],
+      meta: { model: 'claude-3', tier: 'smart', promptTokens: 100, completionTokens: 50 },
+    } as any);
 
     await new AnalysisClient().analyze(request);
 
@@ -53,9 +54,10 @@ describe('AnalysisClient', () => {
 
   it('sends a minted service token, never a caller token', async () => {
     const mint = jest.spyOn(serviceToken, 'mintServiceToken').mockReturnValue('minted');
-    const spy = jest
-      .spyOn(http, 'requestUpstream')
-      .mockResolvedValue({ clusters: [] } as any);
+    const spy = jest.spyOn(http, 'requestUpstream').mockResolvedValue({
+      clusters: [],
+      meta: { model: 'claude-3', tier: 'smart', promptTokens: 100, completionTokens: 50 },
+    } as any);
 
     await new AnalysisClient().analyze(request);
 
