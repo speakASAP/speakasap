@@ -3249,14 +3249,20 @@ describe('AnalysisService.run', () => {
     expect(d.repo.markFailed).toHaveBeenCalledWith('run-1', expect.stringContaining('taxonomy'));
   });
 
-  it('marks the run FAILED when the assignment has vanished', async () => {
+  // No run row can exist for an assignment that is gone: createRun needs its studentId,
+  // and DrillAnalysisRun.studentId is a required column. The failure is visible in the
+  // error log rather than on a row — this is the one path with nothing to mark. The
+  // `resolves` assertion is load-bearing: run() must not throw even here, or the
+  // fire-and-forget job runner takes the process down.
+  it('logs and gives up when the assignment has vanished, without creating a run row', async () => {
     const d = deps();
     d.prisma.drillAssignment.findUnique = jest.fn(async () => null);
     const service = new AnalysisService(d.prisma, d.repo as any, d.client as any, d.taxonomy as any);
 
-    await service.run('a1', 'cid-1');
+    await expect(service.run('a1', 'cid-1')).resolves.toBeUndefined();
 
-    expect(d.repo.markFailed).toHaveBeenCalled();
+    expect(d.repo.createRun).not.toHaveBeenCalled();
+    expect(d.repo.markFailed).not.toHaveBeenCalled();
     expect(d.client.analyze).not.toHaveBeenCalled();
   });
 
@@ -4360,6 +4366,11 @@ describe('RemedialService.createForGap', () => {
     expect(d.created[0].origin).toBe('REMEDIAL');
     expect(d.created[0].sourceAnalysisUuid).toBe('g1');
     expect(d.created[0].status).toBe('GENERATING');
+    // A gap that fits in one assignment is not "часть 1 of 1" — it carries no part
+    // number and no suffix. Without these two assertions an implementation that always
+    // numbered parts would pass every other test in this file.
+    expect(d.created[0].remedialPart).toBeNull();
+    expect(d.created[0].title).not.toContain('часть');
   });
 
   it('inherits the lesson and the student from the source assignment', async () => {
