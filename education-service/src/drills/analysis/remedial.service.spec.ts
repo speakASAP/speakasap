@@ -87,6 +87,8 @@ describe('RemedialService.createForGap', () => {
     expect(d.created[0].origin).toBe('REMEDIAL');
     expect(d.created[0].sourceAnalysisUuid).toBe('g1');
     expect(d.created[0].status).toBe('GENERATING');
+    expect(d.created[0].remedialPart).toBeNull();
+    expect(d.created[0].title).not.toContain('часть');
   });
 
   it('inherits the lesson and the student from the source assignment', async () => {
