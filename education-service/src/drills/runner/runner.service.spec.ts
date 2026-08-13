@@ -103,6 +103,29 @@ function harness() {
   };
 }
 
+/**
+ * Two thin variants of `harness()` for the completion-analysis hook tests below.
+ * Reuse the same Prisma/AssignmentsRepository stub shapes `harness()` already builds
+ * (`counts` drives `completeIfResolved` exactly as it does in every other test in this
+ * file) — only `counts` and the fourth constructor argument differ, so a second stub
+ * style would just be `harness()` restated.
+ */
+function buildServiceThatCompletesOnNextCheck({ analyzer }: { analyzer: any }) {
+  const h = harness();
+  h.counts.blanksCorrect = 1;
+  h.counts.blanksTotal = 1;
+  h.svc = new RunnerService(h.prisma, h.repo, h.notifications, analyzer);
+  return h.svc;
+}
+
+function buildServiceWithBlanksRemaining({ analyzer }: { analyzer: any }) {
+  const h = harness();
+  h.counts.blanksCorrect = 1;
+  h.counts.blanksTotal = 2;
+  h.svc = new RunnerService(h.prisma, h.repo, h.notifications, analyzer);
+  return h.svc;
+}
+
 describe('RunnerService.check', () => {
   let h: ReturnType<typeof harness>;
   let svc: RunnerService;
@@ -401,5 +424,34 @@ describe('RunnerService.check', () => {
         svc.reveal('a-1', 999, { itemUuid: 'i-1', blankIndex: 0 }),
       ).rejects.toThrow();
     });
+  });
+});
+
+describe('RunnerService.check — completion analysis hook', () => {
+  it('updates word mastery and enqueues the analysis when the assignment completes', async () => {
+    const analyzer = { onCompleted: jest.fn(async () => undefined) };
+    const service = buildServiceThatCompletesOnNextCheck({ analyzer });
+
+    await service.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'behind' });
+
+    expect(analyzer.onCompleted).toHaveBeenCalledWith('a-1');
+  });
+
+  it('does not enqueue the analysis while the assignment is still in progress', async () => {
+    const analyzer = { onCompleted: jest.fn(async () => undefined) };
+    const service = buildServiceWithBlanksRemaining({ analyzer });
+
+    await service.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'behind' });
+
+    expect(analyzer.onCompleted).not.toHaveBeenCalled();
+  });
+
+  it('still completes the assignment when the analysis hook throws', async () => {
+    const analyzer = { onCompleted: jest.fn(async () => { throw new Error('analysis down'); }) };
+    const service = buildServiceThatCompletesOnNextCheck({ analyzer });
+
+    const result = await service.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'behind' });
+
+    expect(result.assignmentCompleted).toBe(true);
   });
 });

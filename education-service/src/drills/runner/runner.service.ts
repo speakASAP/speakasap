@@ -24,6 +24,17 @@ export interface DrillCompletionNotifier {
   onCompleted(assignmentUuid: string): Promise<void>;
 }
 
+/**
+ * The analysis side of completion, as a port.
+ *
+ * Declared here rather than importing `AnalysisJobRunner` directly so the runner keeps no
+ * dependency on the analysis module's internals, and so the completion path can be tested
+ * without it.
+ */
+export interface DrillCompletionAnalyzer {
+  onCompleted(assignmentUuid: string): Promise<void>;
+}
+
 @Injectable()
 export class RunnerService {
   private readonly logger = new Logger(RunnerService.name);
@@ -37,6 +48,7 @@ export class RunnerService {
     private readonly prisma: PrismaService,
     private readonly assignments: AssignmentsRepository,
     private readonly notifications?: DrillCompletionNotifier,
+    private readonly analyzer?: DrillCompletionAnalyzer,
   ) {}
 
   /**
@@ -188,6 +200,22 @@ export class RunnerService {
       } catch (error) {
         this.logger.warn(
           `Completion notification failed for assignment ${assignmentUuid}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    // After the completion write, never before: the analysis reads the assignment's
+    // final state. Wrapped for the same reason as the notification above it — the
+    // student's last answer must not 500 because the analyzer is down, and the
+    // completion stands either way. The failure is logged, never swallowed silently.
+    if (this.analyzer) {
+      try {
+        await this.analyzer.onCompleted(assignmentUuid);
+      } catch (error) {
+        this.logger.error(
+          `Completion analysis could not be started for assignment ${assignmentUuid}: ${
             error instanceof Error ? error.message : String(error)
           }`,
         );
