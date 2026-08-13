@@ -328,12 +328,25 @@ export class DrillsController {
    * One gap cluster.
    *
    * Readable by the student it belongs to — this is the theory shown above their remedial
-   * drill, the same row the source drill renders below itself. Staff may read any.
+   * drill, the same row the source drill renders below itself. Staff may read it too, but
+   * ONLY the staff account that owns the gap's source assignment — a gap carries a named
+   * student's wrong answers and the teaching written for them, which is not staff-wide
+   * material. Scoped with `assertOwnsGap`, the same helper `updateGap`/`createRemedial`
+   * use, rather than a bespoke check: it already resolves the gap's sourceAssignmentUuid,
+   * applies `ownersOf` + `getForTeacher`, and 404s (never 403s) on a mismatch or a missing
+   * gap, so this route inherits that behaviour instead of re-deriving it.
+   *
+   * Costs a second `getCluster` read on the staff path (`assertOwnsGap` loads the gap
+   * again to read its `sourceAssignmentUuid`) — accepted deliberately: reusing the first
+   * `cluster` here would mean duplicating `assertOwnsGap`'s ownership logic inline, which
+   * is exactly the kind of second copy that drifts from the original. `updateGap` and
+   * `createRemedial` already pay this same extra read.
    *
    * Declared here, beside `getAnalysis` and before the trailing `:uuid` catch-all: `gaps`
    * is a static first segment, so it cannot collide with `:uuid/analysis` or `:uuid`
    * either way, but keeping it in this group (rather than down with the `teacher/gaps/...`
-   * routes) reads truer — this one is student-readable, those are staff-only.
+   * routes) reads truer — this one is student-readable (plus the owning teacher), those
+   * are staff-only.
    */
   @Get('gaps/:gapUuid')
   async getGap(@Param('gapUuid') gapUuid: string, @Req() req: Request): Promise<unknown> {
@@ -342,13 +355,16 @@ export class DrillsController {
       throw new NotFoundException('Gap analysis not found');
     }
 
-    if (!isStaffUser(req.authUser)) {
-      const studentId = await this.identity.resolveStudentId(req.authUser!.id);
-      if (cluster.studentId !== studentId) {
-        // 404, not 403: the same reasoning as everywhere else in this file — a
-        // distinguishable error would confirm another student's gap exists.
-        throw new NotFoundException('Gap analysis not found');
-      }
+    if (isStaffUser(req.authUser)) {
+      await this.assertOwnsGap(gapUuid, req);
+      return cluster;
+    }
+
+    const studentId = await this.identity.resolveStudentId(req.authUser!.id);
+    if (cluster.studentId !== studentId) {
+      // 404, not 403: the same reasoning as everywhere else in this file — a
+      // distinguishable error would confirm another student's gap exists.
+      throw new NotFoundException('Gap analysis not found');
     }
 
     return cluster;

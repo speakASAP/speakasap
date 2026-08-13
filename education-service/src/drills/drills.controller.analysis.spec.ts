@@ -156,14 +156,32 @@ describe('GET gaps/:gapUuid', () => {
     await expect(controller.getGap('g1', studentReq)).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('a staff caller may read any gap', async () => {
-    const { controller } = build({
-      analysis: { getCluster: jest.fn(async () => ({ uuid: 'g1', studentId: 999 })) },
-    });
+  it('a staff caller who owns the gap\'s source assignment reads it successfully', async () => {
+    const { controller, teacherAssignments } = build();
 
     const result: any = await controller.getGap('g1', teacherReq);
 
+    // Ownership was actually checked against the gap's sourceAssignmentUuid, not skipped.
+    expect(teacherAssignments.getForTeacher).toHaveBeenCalledWith('a1', [7]);
     expect(result.uuid).toBe('g1');
+  });
+
+  it('a staff caller who does NOT own the gap\'s assignment gets NotFoundException, not Forbidden', async () => {
+    const { controller, teacherAssignments } = build({
+      teacherAssignments: {
+        getForTeacher: jest.fn(async () => {
+          // Real TeacherAssignmentsService.getForTeacher throws exactly this when the
+          // caller's ids don't include the assignment's teacherId.
+          throw new NotFoundException('Drill assignment not found');
+        }),
+      },
+    });
+
+    await expect(controller.getGap('g1', teacherReq)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(controller.getGap('g1', teacherReq)).rejects.not.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(teacherAssignments.getForTeacher).toHaveBeenCalled();
   });
 });
 
