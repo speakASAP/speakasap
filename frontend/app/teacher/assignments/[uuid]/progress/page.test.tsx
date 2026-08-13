@@ -434,4 +434,70 @@ describe('progress page — gap analysis', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/GAP_ALREADY_MASTERED/);
   });
+
+  it('clears the notice on reload so it cannot sit alongside a fresh status banner', async () => {
+    // Reported risk: remove() re-fetches via load(), and nothing cleared `notice`, so a
+    // teacher who creates a remedial drill and then deletes the assignment's last sentence
+    // in the same session would see two role="status" live regions at once — the drill
+    // notice and the "no sentences" banner that appears once items goes back to empty.
+    const user = userEvent.setup();
+    const oneItem = {
+      ...base,
+      status: 'ASSIGNED',
+      items: [
+        {
+          uuid: 'i-1',
+          order: 0,
+          template: 'They are not [дома]{at home} now.',
+          hint: null,
+          blanks: [
+            { index: 0, prompt: 'дома', answer: 'at home', solved: true, revealed: false, attemptCount: 1, wrongAttempts: [] },
+          ],
+        },
+      ],
+    };
+    getTeacherProgress.mockResolvedValueOnce(oneItem);
+    getTeacherProgress.mockResolvedValueOnce({ ...base, status: 'ASSIGNED', items: [] });
+    mocks.fetchAnalysis.mockResolvedValue({
+      uuid: 'run-1',
+      sourceAssignmentUuid: 'a1',
+      status: 'READY',
+      errorMessage: null,
+      attemptCount: 1,
+      clusters: [
+        {
+          uuid: 'g1',
+          topicSlug: 'en.prepositions-of-movement',
+          title: 'Предлоги движения',
+          explanation: 'x',
+          rules: [],
+          examples: [],
+          failedAnswers: [
+            { answer: 'through', normalized: 'through', mistakeCount: 12, wrongAttempts: [] },
+          ],
+          materialLanguage: 'ru',
+        },
+      ],
+    });
+    mocks.createRemedial.mockResolvedValue({
+      assignmentUuids: [],
+      setUuid: 'set-1',
+      reused: true,
+    });
+    deleteAssignmentItem.mockResolvedValue({ ok: true });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<ProgressPage />);
+
+    const createButton = await screen.findByRole('button', { name: /работу над ошибками/i });
+    await user.click(createButton);
+    expect(await screen.findByText(/уже создана для этого пробела/i)).toBeInTheDocument();
+
+    await user.click(await screen.findByRole('button', { name: /delete sentence 1/i }));
+
+    // The "no sentences" banner replaces the item list once the reload comes back empty.
+    await screen.findByText(/no sentences/i);
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    confirmSpy.mockRestore();
+  });
 });

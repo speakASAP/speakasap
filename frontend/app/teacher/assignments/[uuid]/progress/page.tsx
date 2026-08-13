@@ -48,6 +48,10 @@ export default function AssignmentProgressPage() {
     if (!params?.uuid) {
       return;
     }
+    // The notice describes one completed action. Any reload can invalidate it — most
+    // concretely, deleting the last sentence brings back the "awaiting approval" banner,
+    // which is also role="status", leaving two live regions on screen at once.
+    setNotice(null);
     try {
       setProgress(await getTeacherProgress(params.uuid));
     } catch (e) {
