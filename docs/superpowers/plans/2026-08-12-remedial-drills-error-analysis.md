@@ -2935,12 +2935,18 @@ export class AnalysisRepository {
     if (patch.rules !== undefined) data.rules = patch.rules;
     if (patch.examples !== undefined) data.examples = patch.examples;
 
-    const row: any = await (this.prisma as any).drillGapAnalysis.update({
-      where: { uuid },
-      data,
-    });
-    if (!row) {
-      throw new NotFoundException('Gap analysis not found');
+    let row: any;
+    try {
+      row = await (this.prisma as any).drillGapAnalysis.update({ where: { uuid }, data });
+    } catch (error: any) {
+      // Prisma signals "no row matched the where clause" as P2025 rather than resolving
+      // null, so a `if (!row)` guard here would be dead code and a missing cluster would
+      // escape as a raw 500. The teacher-facing PATCH route above this one documents a
+      // 404. Any other Prisma error is rethrown untouched.
+      if (error?.code === 'P2025') {
+        throw new NotFoundException('Gap analysis not found');
+      }
+      throw error;
     }
     return toClusterRecord(row);
   }
