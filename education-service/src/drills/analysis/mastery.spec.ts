@@ -80,6 +80,15 @@ describe('computeMasteryDeltas', () => {
     ]);
   });
 
+  it('does not mark a revealed blank clean even when the attempt is recorded correct', () => {
+    const items = [item('i1', [{ index: 0, answer: 'out of' }])];
+    const attempts = [attempt('i1', 0, 'out of', true, 1, true)];
+
+    expect(computeMasteryDeltas(items, attempts, 'en')).toEqual([
+      { normalizedAnswer: 'out of', displayAnswer: 'out of', clean: false, mistakes: 1 },
+    ]);
+  });
+
   it('keeps a multi-word answer as one key', () => {
     const items = [item('i1', [{ index: 0, answer: 'out of' }])];
     const attempts = [attempt('i1', 0, 'out of', true, 1)];
