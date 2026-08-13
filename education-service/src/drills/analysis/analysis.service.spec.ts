@@ -77,6 +77,10 @@ function deps(overrides: Record<string, any> = {}) {
 }
 
 describe('AnalysisService.run', () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('marks the run NO_ERRORS and never calls the model when nothing was wrong', async () => {
     const d = deps({ attempts: [
       { itemUuid: 'i1', blankIndex: 0, submittedValue: 'through', isCorrect: true, revealed: false, attemptNo: 1 },
@@ -114,6 +118,68 @@ describe('AnalysisService.run', () => {
     expect(clusters).toHaveLength(1);
     expect(clusters[0].failedAnswers.map((a: any) => a.answer).sort()).toEqual(['out of', 'through']);
     expect(d.repo.markReady).toHaveBeenCalledWith('run-1');
+  });
+
+  it('sums mistakeCount across distinct blanks that normalize to the same answer, without duplicating the entry', async () => {
+    // Two DIFFERENT items both blank on "through" — 2 wrong attempts on i1, 1 on i2.
+    // The persisted cluster must hold ONE "through" entry with mistakeCount 2+1=3, not
+    // two separate entries: this sum is what later decides how many remedial sentences
+    // the word earns, so a bug here would quietly under- or over-drill the student.
+    const twoBlankAssignment = {
+      uuid: 'a1',
+      studentId: 7,
+      languageCode: 'en',
+      materialLanguage: 'ru',
+      items: [
+        {
+          uuid: 'i1',
+          order: 0,
+          template: 'We will have to walk {{0}} this market.',
+          blanks: [{ index: 0, answer: 'through', prompt: 'через' }],
+        },
+        {
+          uuid: 'i2',
+          order: 1,
+          template: 'The train goes {{0}} the tunnel.',
+          blanks: [{ index: 0, answer: 'through', prompt: 'через' }],
+        },
+      ],
+    };
+    const twoBlankAttempts = [
+      { itemUuid: 'i1', blankIndex: 0, submittedValue: 'across', isCorrect: false, revealed: false, attemptNo: 1 },
+      { itemUuid: 'i1', blankIndex: 0, submittedValue: 'over', isCorrect: false, revealed: false, attemptNo: 2 },
+      { itemUuid: 'i1', blankIndex: 0, submittedValue: 'through', isCorrect: true, revealed: false, attemptNo: 3 },
+      { itemUuid: 'i2', blankIndex: 0, submittedValue: 'along', isCorrect: false, revealed: false, attemptNo: 1 },
+      { itemUuid: 'i2', blankIndex: 0, submittedValue: 'through', isCorrect: true, revealed: false, attemptNo: 2 },
+    ];
+
+    const d = deps({
+      assignment: twoBlankAssignment,
+      attempts: twoBlankAttempts,
+      client: {
+        analyze: jest.fn(async () => ({
+          clusters: [
+            {
+              topicSlug: 'en.prepositions-of-movement',
+              title: 't',
+              explanation: 'e',
+              rules: [],
+              examples: [],
+              answers: ['through'],
+            },
+          ],
+        })),
+      },
+    });
+    const service = new AnalysisService(d.prisma, d.repo as any, d.client as any, d.taxonomy as any);
+
+    await service.run('a1', 'cid-1');
+
+    const clusters = d.repo.replaceClusters.mock.calls[0][5];
+    expect(clusters).toHaveLength(1);
+    const throughEntries = clusters[0].failedAnswers.filter((a: any) => a.answer === 'through');
+    expect(throughEntries).toHaveLength(1);
+    expect(throughEntries[0].mistakeCount).toBe(3);
   });
 
   it('coerces an out-of-taxonomy slug to the language fallback', async () => {
