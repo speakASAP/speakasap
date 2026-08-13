@@ -395,12 +395,17 @@ Regenerating requires revoking them first (existing `revokeAssignment`).
 All on the existing drills controller, with the existing guards and the existing
 teacher-ownership rule (404, never 403, for another teacher's assignment).
 
+All paths sit under the existing `drill-assignments` controller so they inherit its
+`JwtAuthGuard` and identity resolution; staff-only routes take the `teacher/` prefix the
+controller already uses for that purpose.
+
 | Method | Path | Caller | Purpose |
 |---|---|---|---|
 | `GET` | `/drill-assignments/:uuid/analysis` | student (own) or owning teacher | Run status + clusters. Polled while `PENDING`/`RUNNING` |
+| `GET` | `/drill-assignments/gaps/:gapUuid` | student (own) or staff | One cluster — the theory shown above a remedial drill |
 | `POST` | `/drill-assignments/:uuid/analysis/retry` | owning teacher | Re-run a `FAILED` or stalled analysis |
-| `PATCH` | `/drill-gap-analysis/:uuid` | owning teacher | Edit `title` / `explanation` / `rules` / `examples`; stamps `editedByTeacherId` |
-| `POST` | `/drill-gap-analysis/:uuid/remedial` | owning teacher | Create the remedial assignment(s) for one gap |
+| `PATCH` | `/drill-assignments/teacher/gaps/:gapUuid` | owning teacher | Edit `title` / `explanation` / `rules` / `examples`; stamps `editedByTeacherId` |
+| `POST` | `/drill-assignments/teacher/gaps/:gapUuid/remedial` | owning teacher | Create the remedial assignment(s) for one gap |
 
 Internal routes for the portal (`internal-drills.controller.ts`) are **not** extended in
 this work — the portal shows counts and links, and the analysis lives on the platform
@@ -438,6 +443,10 @@ list: the same `GapAnalysisBlock`, plus per cluster:
 The runner page renders its own cluster's explanation **above** the items when
 `origin === 'REMEDIAL'`, read through `sourceAnalysisUuid`. Same component, same row —
 that is what makes "the same theory in two places" true rather than duplicated.
+
+This requires the runner payload to carry `origin` and `sourceAnalysisUuid`, which it does
+not today: `runner.projection.ts` gains both fields. They are safe to expose — neither is
+an answer, and the student already knows which drill they are on.
 
 ### 10.4 Teacher review page
 
