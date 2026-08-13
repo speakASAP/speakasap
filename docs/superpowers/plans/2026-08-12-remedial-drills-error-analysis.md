@@ -914,6 +914,20 @@ describe('computeMasteryDeltas', () => {
     ]);
   });
 
+  // The test above passes even if `!revealed &&` is deleted, because `isCorrect: false`
+  // already forces `clean: false`. This one is the discriminating case: a first attempt
+  // recorded CORRECT on a blank that was also revealed. A student who reveals an answer
+  // and types it back has demonstrated nothing, so the reveal must still spoil the
+  // appearance — and only this shape proves the rule is enforced.
+  it('does not mark a revealed blank clean even when the attempt is recorded correct', () => {
+    const items = [item('i1', [{ index: 0, answer: 'out of' }])];
+    const attempts = [attempt('i1', 0, 'out of', true, 1, true)];
+
+    expect(computeMasteryDeltas(items, attempts, 'en')).toEqual([
+      { normalizedAnswer: 'out of', displayAnswer: 'out of', clean: false, mistakes: 1 },
+    ]);
+  });
+
   it('keeps a multi-word answer as one key', () => {
     const items = [item('i1', [{ index: 0, answer: 'out of' }])];
     const attempts = [attempt('i1', 0, 'out of', true, 1)];
