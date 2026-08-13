@@ -95,7 +95,7 @@ metadata:
     managed-by: k8s-migration
 data:
   NODE_ENV: "production"
-  SERVICE_NAME: "frontend"
+  SERVICE_NAME: "speakasap-frontend"
   PORT: "4211"
   NEXT_PUBLIC_API_URL: "https://speakasap.alfares.cz"
 ---
@@ -106,9 +106,11 @@ data:
 # internal API, neither of which a browser may do.
 #
 # `x-service-name` is hardcoded to `speakasap-frontend` in the code rather than read from
-# SERVICE_NAME above (which is "frontend"), because auth's TRUSTED_INTERNAL_SERVICES
-# allowlist is keyed on the former. Finding 4 was exactly this mismatch, and it surfaces
-# as a 401 that reads like a bad token.
+# SERVICE_NAME above, because auth's TRUSTED_INTERNAL_SERVICES allowlist is keyed on that
+# value. Finding 4 was exactly this mismatch, and it surfaces as a 401 that reads like a
+# bad token. SERVICE_NAME now carries the same string (it was "frontend", which collided
+# with catalog-frontend/allegro-frontend in the log store), but the two remain independent:
+# keep the header hardcoded so a SERVICE_NAME change can never silently break auth.
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
