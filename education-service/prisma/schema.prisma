@@ -183,6 +183,10 @@ model DrillAssignment {
   batch         DrillAssignmentBatch? @relation(fields: [batchUuid], references: [uuid], onDelete: SetNull)
   items         DrillAssignmentItem[]
   attempts      DrillAttempt[]
+  sourceAnalysisUuid String? @map("source_analysis_uuid") @db.Uuid
+  remedialPart       Int?    @map("remedial_part")
+  sourceAnalysis DrillGapAnalysis? @relation("RemedialSource", fields: [sourceAnalysisUuid], references: [uuid], onDelete: SetNull)
+  analysisRun    DrillAnalysisRun? @relation("AnalysisSource")
 
   @@index([studentId, status])
   @@index([teacherId, status])
@@ -192,6 +196,7 @@ model DrillAssignment {
   // StudentCourse or one batch sequentially scans drill_assignment to apply SET NULL.
   @@index([studentCourseUuid])
   @@index([batchUuid])
+  @@index([sourceAnalysisUuid])
   @@map("drill_assignment")
 }
 
@@ -252,4 +257,79 @@ model DrillAssignmentBatch {
   assignments DrillAssignment[]
 
   @@map("drill_assignment_batch")
+}
+
+model GrammarTopic {
+  slug         String   @id @db.VarChar(128)
+  languageCode String   @map("language_code") @db.VarChar(8)
+  titles       Json     @default("{}")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  gaps DrillGapAnalysis[]
+
+  @@index([languageCode])
+  @@map("grammar_topic")
+}
+
+model DrillAnalysisRun {
+  uuid                 String    @id @db.Uuid
+  sourceAssignmentUuid String    @unique @map("source_assignment_uuid") @db.Uuid
+  studentId            Int       @map("student_id")
+  status               String    @db.VarChar(16)
+  errorMessage         String?   @map("error_message") @db.Text
+  attemptCount         Int       @default(0) @map("attempt_count")
+  startedAt            DateTime? @map("started_at")
+  finishedAt           DateTime? @map("finished_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  sourceAssignment DrillAssignment    @relation("AnalysisSource", fields: [sourceAssignmentUuid], references: [uuid], onDelete: Cascade)
+  clusters         DrillGapAnalysis[]
+
+  @@index([studentId, status])
+  @@map("drill_analysis_run")
+}
+
+model DrillGapAnalysis {
+  uuid                 String    @id @db.Uuid
+  runUuid              String    @map("run_uuid") @db.Uuid
+  sourceAssignmentUuid String    @map("source_assignment_uuid") @db.Uuid
+  studentId            Int       @map("student_id")
+  topicSlug            String    @map("topic_slug") @db.VarChar(128)
+  languageCode         String    @map("language_code") @db.VarChar(8)
+  materialLanguage     String    @map("material_language") @db.VarChar(2)
+  title                String    @db.VarChar(255)
+  explanation          String    @db.Text
+  rules                Json      @default("[]")
+  examples             Json      @default("[]")
+  failedAnswers        Json      @default("[]") @map("failed_answers")
+  editedByTeacherId    Int?      @map("edited_by_teacher_id")
+  editedAt             DateTime? @map("edited_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  run                 DrillAnalysisRun  @relation(fields: [runUuid], references: [uuid], onDelete: Cascade)
+  topic               GrammarTopic      @relation(fields: [topicSlug], references: [slug])
+  remedialAssignments DrillAssignment[] @relation("RemedialSource")
+
+  @@unique([sourceAssignmentUuid, topicSlug])
+  @@index([studentId, topicSlug])
+  @@index([runUuid])
+  @@index([topicSlug])
+  @@map("drill_gap_analysis")
+}
+
+model StudentWordMastery {
+  uuid             String    @id @db.Uuid
+  studentId        Int       @map("student_id")
+  languageCode     String    @map("language_code") @db.VarChar(8)
+  normalizedAnswer String    @map("normalized_answer") @db.Text
+  displayAnswer    String    @map("display_answer") @db.Text
+  cleanStreak      Int       @default(0) @map("clean_streak")
+  totalMistakes    Int       @default(0) @map("total_mistakes")
+  lastSeenAt       DateTime  @map("last_seen_at")
+  masteredAt       DateTime? @map("mastered_at")
+
+  @@unique([studentId, languageCode, normalizedAnswer])
+  @@index([studentId, languageCode, masteredAt])
+  @@map("student_word_mastery")
 }
