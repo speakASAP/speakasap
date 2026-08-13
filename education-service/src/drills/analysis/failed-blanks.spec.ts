@@ -131,7 +131,7 @@ describe('extractFailedBlanks', () => {
     const items = [item('i1', 'Walk {{0}} the park.', [{ index: 0, answer: 'through' }])];
     const attempts = [attempt('i1', 7, 'nonsense', false, 1)];
 
-    expect(extractFailedBlanks(items, [])).toEqual([]);
+    expect(extractFailedBlanks(items, attempts)).toEqual([]);
   });
 
   it('orders results by item order then blank index', () => {
