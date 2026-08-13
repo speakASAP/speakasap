@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { AnalysisRepository } from './analysis.repository';
 
 function prismaStub(overrides: Record<string, any> = {}) {
@@ -47,6 +48,9 @@ function prismaStub(overrides: Record<string, any> = {}) {
       ),
       update: jest.fn(async ({ where, data }: any) => {
         const cluster = state.clusters.find((c) => c.uuid === where.uuid);
+        if (!cluster) {
+          throw Object.assign(new Error('Record to update not found'), { code: 'P2025' });
+        }
         Object.assign(cluster, data);
         return cluster;
       }),
@@ -212,5 +216,93 @@ describe('AnalysisRepository.updateCluster', () => {
 
     expect(prisma.state.clusters[0].title).toBe('original');
     expect(prisma.state.clusters[0].rules).toEqual(['r']);
+  });
+
+  it('raises NotFoundException when the cluster does not exist', async () => {
+    const prisma = prismaStub();
+    const repo = new AnalysisRepository(prisma);
+
+    await expect(repo.updateCluster('missing-uuid', { title: 'x' }, 182)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+});
+
+describe('AnalysisRepository.getRunWithClusters', () => {
+  it('returns null for an assignment that was never analyzed', async () => {
+    const prisma = prismaStub();
+    const repo = new AnalysisRepository(prisma);
+
+    const result = await repo.getRunWithClusters('never-analyzed');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns the run with its clusters populated', async () => {
+    const prisma = prismaStub();
+    const repo = new AnalysisRepository(prisma);
+    const uuid = await repo.createRun('a1', 7);
+    await repo.replaceClusters(uuid, 'a1', 7, 'en', 'ru', [
+      {
+        topicSlug: 'en.prepositions-of-movement',
+        title: 'Предлоги движения',
+        explanation: 'through — сквозь',
+        rules: ['through — внутри и наружу'],
+        examples: [{ text: 'Walk through the park.', gloss: 'Пройди через парк.' }],
+        failedAnswers: [
+          { answer: 'through', normalized: 'through', mistakeCount: 3, wrongAttempts: ['across'] },
+        ],
+      },
+    ]);
+    await repo.markReady(uuid);
+
+    const result = await repo.getRunWithClusters('a1');
+
+    expect(result).not.toBeNull();
+    expect(result!.uuid).toBe(uuid);
+    expect(result!.sourceAssignmentUuid).toBe('a1');
+    expect(result!.studentId).toBe(7);
+    expect(result!.status).toBe('READY');
+    expect(result!.clusters).toHaveLength(1);
+    expect(result!.clusters[0].topicSlug).toBe('en.prepositions-of-movement');
+    expect(result!.clusters[0].title).toBe('Предлоги движения');
+    expect(result!.clusters[0].failedAnswers[0].mistakeCount).toBe(3);
+  });
+});
+
+describe('AnalysisRepository.getCluster', () => {
+  it('returns null for an unknown uuid', async () => {
+    const prisma = prismaStub();
+    const repo = new AnalysisRepository(prisma);
+
+    const result = await repo.getCluster('unknown-uuid');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns the record for a known uuid', async () => {
+    const prisma = prismaStub();
+    const repo = new AnalysisRepository(prisma);
+    const uuid = await repo.createRun('a1', 7);
+    await repo.replaceClusters(uuid, 'a1', 7, 'en', 'ru', [
+      {
+        topicSlug: 'en.other',
+        title: 'A title',
+        explanation: 'An explanation',
+        rules: ['r1'],
+        examples: [{ text: 't', gloss: 'g' }],
+        failedAnswers: [],
+      },
+    ]);
+    const clusterUuid = prisma.state.clusters[0].uuid;
+
+    const result = await repo.getCluster(clusterUuid);
+
+    expect(result).not.toBeNull();
+    expect(result!.uuid).toBe(clusterUuid);
+    expect(result!.topicSlug).toBe('en.other');
+    expect(result!.title).toBe('A title');
+    expect(result!.explanation).toBe('An explanation');
+    expect(result!.rules).toEqual(['r1']);
   });
 });
