@@ -267,7 +267,14 @@ export interface ValidateDrillResponse {
 
 export type DrillAssignmentStatus =
   | 'GENERATING' | 'PENDING_REVIEW' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-export type DrillAssignmentOrigin = 'TEACHER' | 'SELF';
+/**
+ * Where an assignment came from.
+ *
+ * `REMEDIAL` is a teacher-created drill built from one gap in a student's completed work —
+ * it has a teacher, like `TEACHER`, but its items are chosen by the student's mistakes
+ * rather than by the teacher's topic pick.
+ */
+export type DrillAssignmentOrigin = 'TEACHER' | 'SELF' | 'REMEDIAL';
 export type GenerationPhase =
   | 'RESOLVING' | 'BANK' | 'GENERATING' | 'VALIDATING' | 'READY' | 'FAILED';
 
