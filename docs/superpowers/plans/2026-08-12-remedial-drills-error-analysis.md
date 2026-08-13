@@ -6100,7 +6100,13 @@ Add the matching route to `education-service/src/drills/drills.controller.ts`, b
    * One gap cluster.
    *
    * Readable by the student it belongs to — this is the theory shown above their remedial
-   * drill, the same row the source drill renders below itself. Staff may read any.
+   * drill, the same row the source drill renders below itself.
+   *
+   * Staff are scoped to the gaps of assignments they own, exactly as `getAnalysis`,
+   * `updateGap` and `createRemedial` are. A cluster carries a named student's specific
+   * wrong answers and the teaching written for them; "any staff user may read any gap"
+   * would make that readable school-wide by guessing a uuid. Both mismatch cases are 404,
+   * never 403 — a distinguishable error confirms the gap exists.
    */
   @Get('gaps/:gapUuid')
   async getGap(@Param('gapUuid') gapUuid: string, @Req() req: Request): Promise<unknown> {
@@ -6109,7 +6115,9 @@ Add the matching route to `education-service/src/drills/drills.controller.ts`, b
       throw new NotFoundException('Gap analysis not found');
     }
 
-    if (!isStaffUser(req.authUser)) {
+    if (isStaffUser(req.authUser)) {
+      await this.assertOwnsGap(gapUuid, req);
+    } else {
       const studentId = await this.identity.resolveStudentId(req.authUser!.id);
       if (cluster.studentId !== studentId) {
         throw new NotFoundException('Gap analysis not found');
@@ -6144,6 +6152,29 @@ describe('GET gaps/:gapUuid', () => {
     const { controller } = build({ analysis: { getCluster: jest.fn(async () => null) } });
 
     await expect(controller.getGap('g1', studentReq)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  // Both directions, deliberately. A single "staff may read it" test would pass just as
+  // happily against a route with no staff scoping at all — which is exactly the bug these
+  // two exist to catch.
+  it('returns the gap to a teacher who owns its source assignment', async () => {
+    const { controller } = build();
+
+    const result: any = await controller.getGap('g1', teacherReq);
+
+    expect(result.uuid).toBe('g1');
+  });
+
+  it('404s a staff caller who does not own the gap\'s source assignment', async () => {
+    const { controller } = build({
+      teacherAssignments: {
+        getForTeacher: jest.fn(async () => {
+          throw new NotFoundException('Drill assignment not found');
+        }),
+      },
+    });
+
+    await expect(controller.getGap('g1', teacherReq)).rejects.toBeInstanceOf(NotFoundException);
   });
 });
 ```
