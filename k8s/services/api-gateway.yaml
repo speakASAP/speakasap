@@ -103,7 +103,7 @@ metadata:
     managed-by: k8s-migration
 data:
   NODE_ENV: "production"
-  SERVICE_NAME: "api-gateway"
+  SERVICE_NAME: "speakasap-api-gateway"
   PORT: "4210"
   LOG_LEVEL: "info"
   LOGGING_SERVICE_URL: "http://logging-microservice:3367"

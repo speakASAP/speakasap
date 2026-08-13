@@ -6,7 +6,9 @@ import { RemoteLogger } from './shared/remote-logger';
 import { validateEnv } from './shared/validate-env';
 import { HttpErrorFilter } from './shared/http-exception.filter';
 
-process.env.SERVICE_NAME ||= 'api-gateway';
+// Must stay prefixed: the log store keys files by SERVICE_NAME, and a bare
+// 'api-gateway' collides with allegro-api-gateway / heureka-api-gateway.
+process.env.SERVICE_NAME ||= 'speakasap-api-gateway';
 process.env.PORT ||= process.env.API_GATEWAY_PORT || process.env.GATEWAY_SERVICE_PORT || '4210';
 
 async function bootstrap(): Promise<void> {
