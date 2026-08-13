@@ -324,6 +324,36 @@ export class DrillsController {
     return run;
   }
 
+  /**
+   * One gap cluster.
+   *
+   * Readable by the student it belongs to — this is the theory shown above their remedial
+   * drill, the same row the source drill renders below itself. Staff may read any.
+   *
+   * Declared here, beside `getAnalysis` and before the trailing `:uuid` catch-all: `gaps`
+   * is a static first segment, so it cannot collide with `:uuid/analysis` or `:uuid`
+   * either way, but keeping it in this group (rather than down with the `teacher/gaps/...`
+   * routes) reads truer — this one is student-readable, those are staff-only.
+   */
+  @Get('gaps/:gapUuid')
+  async getGap(@Param('gapUuid') gapUuid: string, @Req() req: Request): Promise<unknown> {
+    const cluster = await this.analysis.getCluster(gapUuid);
+    if (!cluster) {
+      throw new NotFoundException('Gap analysis not found');
+    }
+
+    if (!isStaffUser(req.authUser)) {
+      const studentId = await this.identity.resolveStudentId(req.authUser!.id);
+      if (cluster.studentId !== studentId) {
+        // 404, not 403: the same reasoning as everywhere else in this file — a
+        // distinguishable error would confirm another student's gap exists.
+        throw new NotFoundException('Gap analysis not found');
+      }
+    }
+
+    return cluster;
+  }
+
   /** Re-run a failed or stalled analysis. Staff only — it costs a model call. */
   @Post(':uuid/analysis/retry')
   @HttpCode(HttpStatus.ACCEPTED)

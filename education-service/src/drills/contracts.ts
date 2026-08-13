@@ -322,6 +322,8 @@ export interface DrillAssignmentDTO {
   createdAt: string;
   assignedAt: string | null;
   completedAt: string | null;
+  /** Set on REMEDIAL assignments: the gap whose theory belongs above the items. */
+  sourceAnalysisUuid: string | null;
 }
 
 /** ANSWER-FREE. This is the only item shape a student-authenticated call may return. */

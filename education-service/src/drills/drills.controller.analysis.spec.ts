@@ -133,6 +133,40 @@ describe('GET :uuid/analysis', () => {
   });
 });
 
+describe('GET gaps/:gapUuid', () => {
+  it('returns the gap to the student it belongs to', async () => {
+    const { controller } = build();
+
+    const result: any = await controller.getGap('g1', studentReq);
+
+    expect(result.uuid).toBe('g1');
+  });
+
+  it("404s a student asking for another student's gap", async () => {
+    const { controller } = build({
+      analysis: { getCluster: jest.fn(async () => ({ uuid: 'g1', studentId: 999 })) },
+    });
+
+    await expect(controller.getGap('g1', studentReq)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('404s a gap that does not exist', async () => {
+    const { controller } = build({ analysis: { getCluster: jest.fn(async () => null) } });
+
+    await expect(controller.getGap('g1', studentReq)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('a staff caller may read any gap', async () => {
+    const { controller } = build({
+      analysis: { getCluster: jest.fn(async () => ({ uuid: 'g1', studentId: 999 })) },
+    });
+
+    const result: any = await controller.getGap('g1', teacherReq);
+
+    expect(result.uuid).toBe('g1');
+  });
+});
+
 describe('POST :uuid/analysis/retry', () => {
   it('re-enqueues the analysis for a staff caller', async () => {
     const { controller, jobs } = build();

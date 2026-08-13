@@ -52,5 +52,6 @@ export function toAssignmentDTO(
     createdAt: row.createdAt.toISOString(),
     assignedAt: row.assignedAt ? row.assignedAt.toISOString() : null,
     completedAt: row.completedAt ? row.completedAt.toISOString() : null,
+    sourceAnalysisUuid: row.sourceAnalysisUuid ?? null,
   };
 }

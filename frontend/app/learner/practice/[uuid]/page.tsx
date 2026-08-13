@@ -5,6 +5,10 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { RunnerResponse } from '@/lib/drills/contracts';
+import type { GapCluster } from '@/lib/drills/analysis/contracts';
+import { fetchGap } from '@/lib/drills/analysis/api';
+import { GapCard } from '@/lib/drills/analysis/GapCard';
+import { GapAnalysisBlock } from '@/lib/drills/analysis/GapAnalysisBlock';
 import { DrillRunner } from '@/lib/drills/runner/DrillRunner';
 import { fetchRunner } from '@/lib/drills/runner/api';
 
@@ -22,6 +26,7 @@ export default function PracticeRunnerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
+  const [theory, setTheory] = useState<GapCluster | null>(null);
 
   useEffect(() => {
     if (!uuid) {
@@ -50,6 +55,34 @@ export default function PracticeRunnerPage() {
     };
   }, [uuid]);
 
+  useEffect(() => {
+    const gapUuid = runner?.assignment?.sourceAnalysisUuid;
+    if (!gapUuid) {
+      return;
+    }
+    let active = true;
+    fetchGap(gapUuid)
+      .then((cluster) => {
+        if (active) {
+          setTheory(cluster);
+        }
+      })
+      .catch((error) => {
+        // The drill itself is still usable without the theory above it, so this does not
+        // replace the page — but it must not vanish either.
+        if (active) {
+          setError(
+            `Не удалось загрузить теорию к этой работе над ошибками: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [runner]);
+
   const onComplete = useCallback(() => setCompleted(true), []);
 
   return (
@@ -67,6 +100,12 @@ export default function PracticeRunnerPage() {
 
         {loading ? <p className="text-slate-600">Loading…</p> : null}
 
+        {theory ? (
+          <div data-testid="remedial-theory">
+            <GapCard cluster={theory} showRemedialAction={false} />
+          </div>
+        ) : null}
+
         {runner ? (
           <DrillRunner
             assignment={runner.assignment}
@@ -80,6 +119,8 @@ export default function PracticeRunnerPage() {
             Done — every blank is filled. Nice work.
           </p>
         ) : null}
+
+        {uuid ? <GapAnalysisBlock assignmentUuid={uuid} audience="student" /> : null}
       </div>
     </main>
   );

@@ -104,4 +104,25 @@ describe('toRunnerResponse', () => {
     expect(json).not.toContain('"answer"');
     expect(json).not.toContain('alternatives');
   });
+
+  it('carries the origin and the source gap so the runner can show the theory', () => {
+    const res = toRunnerResponse(
+      {
+        uuid: 'a-1',
+        title: 't',
+        status: 'ASSIGNED',
+        createdAt: new Date(),
+        resourceLinks: [],
+        generationProgress: {},
+        items: [item],
+        origin: 'REMEDIAL',
+        sourceAnalysisUuid: 'g1',
+      } as any,
+      [item] as any,
+      [],
+    );
+
+    expect(res.assignment.origin).toBe('REMEDIAL');
+    expect(res.assignment.sourceAnalysisUuid).toBe('g1');
+  });
 });

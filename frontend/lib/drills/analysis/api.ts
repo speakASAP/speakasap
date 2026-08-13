@@ -24,6 +24,11 @@ export function fetchAnalysis(assignmentUuid: string): Promise<AnalysisResponse>
   return request(`/drill-assignments/${encodeURIComponent(assignmentUuid)}/analysis`);
 }
 
+/** One gap cluster, for the theory shown above a remedial drill. */
+export function fetchGap(gapUuid: string): Promise<GapCluster> {
+  return request(`/drill-assignments/gaps/${encodeURIComponent(gapUuid)}`);
+}
+
 export function retryAnalysis(assignmentUuid: string): Promise<{ queued: boolean }> {
   return request(`/drill-assignments/${encodeURIComponent(assignmentUuid)}/analysis/retry`, {
     method: 'POST',
