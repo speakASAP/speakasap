@@ -34,6 +34,12 @@ describe('remedialSentenceCount', () => {
   it('reports zero for a gap with no failed answers', () => {
     expect(remedialSentenceCount(cluster([]))).toBe(0);
   });
+
+  it('counts every failed answer, since the client cannot know which are mastered', () => {
+    // The server would exclude a mastered answer before summing; this preview cannot,
+    // so it is an upper bound. Deliberate — see remedialSentenceCount's doc comment.
+    expect(remedialSentenceCount(cluster([6, 4]))).toBe(10);
+  });
 });
 
 describe('fetchAnalysis', () => {

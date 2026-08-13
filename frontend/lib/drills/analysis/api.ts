@@ -46,10 +46,13 @@ export function createRemedial(gapUuid: string): Promise<RemedialCreationResult>
 /**
  * How long the remedial drill for this gap will be, shown BEFORE the teacher clicks.
  *
- * Mirrors `composeRemedial` on the server: one sentence per mistake, floored at the
- * ten-sentence minimum. It deliberately does not account for already-mastered words — the
- * client does not know them, and the server's refusal is the authority. This is a
- * preview, not a promise.
+ * An UPPER BOUND, not a mirror of the server's rule. It applies the same sum-and-floor
+ * arithmetic as `composeRemedial`, but cannot apply the server's mastery filter: a word
+ * the student has since mastered is excluded there and counted here, so this can
+ * overstate. Mastery advances independently of when the gap was analyzed, so the gap is
+ * widest for older gaps.
+ *
+ * The server is the authority — it may also refuse outright with GAP_ALREADY_MASTERED.
  */
 export function remedialSentenceCount(cluster: GapCluster): number {
   const required = cluster.failedAnswers.reduce((sum, a) => sum + a.mistakeCount, 0);
