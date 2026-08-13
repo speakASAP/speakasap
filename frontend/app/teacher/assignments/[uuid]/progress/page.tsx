@@ -14,6 +14,7 @@ import {
 } from '@/lib/drills/teacher/api';
 import { SentenceEditor, type EditedSentence } from '@/lib/drills/teacher/SentenceEditor';
 import { parseToWords } from '@/lib/drills/sentence-editing';
+import { GapAnalysisBlock } from '@/lib/drills/analysis/GapAnalysisBlock';
 
 /**
  * What a student has done with one drill, and the teacher's chance to correct it.
@@ -35,6 +36,13 @@ export default function AssignmentProgressPage() {
   const [loading, setLoading] = useState(true);
   /** The sentence uuid being edited, or 'new' while adding. */
   const [editing, setEditing] = useState<string | null>(null);
+  /**
+   * Confirmation for actions that would otherwise finish invisibly — right now that is
+   * only remedial-drill creation from the gap analysis below. The page had no banner
+   * mechanism before this, so a click on "Создать работу над ошибками" changed a
+   * database row the teacher had no way to see.
+   */
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!params?.uuid) {
@@ -120,6 +128,15 @@ export default function AssignmentProgressPage() {
             className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
           >
             {error}
+          </p>
+        ) : null}
+
+        {notice ? (
+          <p
+            role="status"
+            className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-900 dark:border-green-900 dark:bg-green-950 dark:text-green-200"
+          >
+            {notice}
           </p>
         ) : null}
 
@@ -251,6 +268,20 @@ export default function AssignmentProgressPage() {
               </button>
             )}
           </>
+        ) : null}
+
+        {params?.uuid ? (
+          <GapAnalysisBlock
+            assignmentUuid={params.uuid}
+            audience="teacher"
+            onRemedialCreated={(result) => {
+              setNotice(
+                result.reused
+                  ? 'Работа над ошибками уже создана для этого пробела.'
+                  : `Создано заданий: ${result.assignmentUuids.length}. Проверьте и отправьте студенту.`,
+              );
+            }}
+          />
         ) : null}
       </div>
     </main>

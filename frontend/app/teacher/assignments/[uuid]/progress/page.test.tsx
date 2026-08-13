@@ -15,6 +15,24 @@ vi.mock('@/lib/drills/teacher/api', () => ({
   DrillApiError: class extends Error {},
 }));
 
+const mocks = {
+  fetchAnalysis: vi.fn(),
+  retryAnalysis: vi.fn(),
+  createRemedial: vi.fn(),
+};
+
+vi.mock('@/lib/drills/analysis/api', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/drills/analysis/api')>(
+    '@/lib/drills/analysis/api',
+  );
+  return {
+    ...actual,
+    fetchAnalysis: (...args: unknown[]) => mocks.fetchAnalysis(...args),
+    retryAnalysis: (...args: unknown[]) => mocks.retryAnalysis(...args),
+    createRemedial: (...args: unknown[]) => mocks.createRemedial(...args),
+  };
+});
+
 vi.mock('next/navigation', () => ({
   useParams: () => ({ uuid: 'a-1' }),
   useRouter: () => ({ back: vi.fn(), push: vi.fn() }),
@@ -30,7 +48,20 @@ const base = {
 };
 
 afterEach(cleanup);
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  // GapAnalysisBlock calls fetchAnalysis on mount for every test in this file (it is
+  // rendered unconditionally once `uuid` is known). NOT_ANALYZED renders nothing, so
+  // pre-existing cases that never set up this mock keep seeing the page they expect.
+  mocks.fetchAnalysis.mockResolvedValue({
+    uuid: null,
+    sourceAssignmentUuid: 'a-1',
+    status: 'NOT_ANALYZED',
+    errorMessage: null,
+    attemptCount: 0,
+    clusters: [],
+  });
+});
 
 describe('teacher drill progress — not yet approved', () => {
   /**
@@ -252,5 +283,155 @@ describe('teacher drill progress — the sentences themselves', () => {
 
     await waitFor(() => expect(deleteAssignmentItem).toHaveBeenCalledWith('i-1'));
     confirmSpy.mockRestore();
+  });
+});
+
+describe('progress page — gap analysis', () => {
+  beforeEach(() => {
+    getTeacherProgress.mockResolvedValue(base);
+  });
+
+  it('renders the analysis below the sentence list', async () => {
+    mocks.fetchAnalysis.mockResolvedValue({
+      uuid: 'run-1',
+      sourceAssignmentUuid: 'a1',
+      status: 'READY',
+      errorMessage: null,
+      attemptCount: 1,
+      clusters: [
+        {
+          uuid: 'g1',
+          topicSlug: 'en.prepositions-of-movement',
+          title: 'Предлоги движения',
+          explanation: 'through — сквозь',
+          rules: [],
+          examples: [],
+          failedAnswers: [
+            { answer: 'through', normalized: 'through', mistakeCount: 6, wrongAttempts: [] },
+          ],
+          materialLanguage: 'ru',
+        },
+      ],
+    });
+
+    render(<ProgressPage />);
+
+    expect(await screen.findByText('Предлоги движения')).toBeInTheDocument();
+  });
+
+  it('offers the teacher a button that says how long the drill will be', async () => {
+    mocks.fetchAnalysis.mockResolvedValue({
+      uuid: 'run-1',
+      sourceAssignmentUuid: 'a1',
+      status: 'READY',
+      errorMessage: null,
+      attemptCount: 1,
+      clusters: [
+        {
+          uuid: 'g1',
+          topicSlug: 'en.prepositions-of-movement',
+          title: 'Предлоги движения',
+          explanation: 'x',
+          rules: [],
+          examples: [],
+          failedAnswers: [
+            { answer: 'through', normalized: 'through', mistakeCount: 12, wrongAttempts: [] },
+          ],
+          materialLanguage: 'ru',
+        },
+      ],
+    });
+
+    render(<ProgressPage />);
+
+    const button = await screen.findByRole('button', { name: /работу над ошибками/i });
+    expect(button).toHaveTextContent('12');
+  });
+
+  it('offers a retry when the analysis failed', async () => {
+    mocks.fetchAnalysis.mockResolvedValue({
+      uuid: 'run-1',
+      sourceAssignmentUuid: 'a1',
+      status: 'FAILED',
+      errorMessage: 'upstream 502',
+      attemptCount: 1,
+      clusters: [],
+    });
+
+    render(<ProgressPage />);
+
+    expect(await screen.findByRole('button', { name: /повторить/i })).toBeInTheDocument();
+  });
+
+  it('confirms a created drill, including the reused case', async () => {
+    const user = userEvent.setup();
+    mocks.fetchAnalysis.mockResolvedValue({
+      uuid: 'run-1',
+      sourceAssignmentUuid: 'a1',
+      status: 'READY',
+      errorMessage: null,
+      attemptCount: 1,
+      clusters: [
+        {
+          uuid: 'g1',
+          topicSlug: 'en.prepositions-of-movement',
+          title: 'Предлоги движения',
+          explanation: 'x',
+          rules: [],
+          examples: [],
+          failedAnswers: [
+            { answer: 'through', normalized: 'through', mistakeCount: 12, wrongAttempts: [] },
+          ],
+          materialLanguage: 'ru',
+        },
+      ],
+    });
+    mocks.createRemedial.mockResolvedValue({
+      assignmentUuids: [],
+      setUuid: 'set-1',
+      reused: true,
+    });
+
+    render(<ProgressPage />);
+
+    const button = await screen.findByRole('button', { name: /работу над ошибками/i });
+    await user.click(button);
+
+    expect(
+      await screen.findByText(/уже создана для этого пробела/i),
+    ).toBeInTheDocument();
+  });
+
+  it('surfaces a server refusal instead of swallowing it', async () => {
+    const user = userEvent.setup();
+    mocks.fetchAnalysis.mockResolvedValue({
+      uuid: 'run-1',
+      sourceAssignmentUuid: 'a1',
+      status: 'READY',
+      errorMessage: null,
+      attemptCount: 1,
+      clusters: [
+        {
+          uuid: 'g1',
+          topicSlug: 'en.prepositions-of-movement',
+          title: 'Предлоги движения',
+          explanation: 'x',
+          rules: [],
+          examples: [],
+          failedAnswers: [
+            { answer: 'through', normalized: 'through', mistakeCount: 12, wrongAttempts: [] },
+          ],
+          materialLanguage: 'ru',
+        },
+      ],
+    });
+    mocks.createRemedial.mockRejectedValue(new Error('GAP_ALREADY_MASTERED'));
+
+    render(<ProgressPage />);
+
+    const button = await screen.findByRole('button', { name: /работу над ошибками/i });
+    await user.click(button);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/GAP_ALREADY_MASTERED/);
   });
 });
