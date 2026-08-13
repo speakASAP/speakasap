@@ -96,7 +96,12 @@ function url(path: string): string {
   return `${base}/api/v1${path}`;
 }
 
-async function request<T>(
+/**
+ * Shared by every drill client module, including `lib/drills/analysis/api.ts` — this is
+ * the ONE place a failed response gets turned into a `DrillApiError`. A second copy would
+ * mean two places that could silently disagree about what "failed" means.
+ */
+export async function request<T>(
   path: string,
   init: { method?: string; body?: unknown } = {},
 ): Promise<T> {
