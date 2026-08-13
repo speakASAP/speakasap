@@ -24,6 +24,13 @@ import { SelfDrillService } from './runner/self-drill.service';
 import { TeacherAssignmentsService } from './teacher/teacher-assignments.service';
 import { TeacherRosterService } from './teacher/roster.service';
 import { LessonClientModule } from '../lesson-client/lesson-client.module';
+import { AnalysisClient } from './analysis/analysis.client';
+import { AnalysisRepository } from './analysis/analysis.repository';
+import { AnalysisService } from './analysis/analysis.service';
+import { AnalysisJobRunner, CompletionAnalysisAdapter } from './analysis/analysis.job-runner';
+import { MasteryRepository } from './analysis/mastery.repository';
+import { RemedialService } from './analysis/remedial.service';
+import { TaxonomyService } from './analysis/taxonomy';
 
 /**
  * Track B shipped `AssignmentsRepository` with no module, so it was unreachable at
@@ -44,17 +51,21 @@ import { LessonClientModule } from '../lesson-client/lesson-client.module';
     AssignmentsRepository,
     DrillAssignmentsService,
 
-    // RunnerService takes the notifier as an optional third argument, which Nest
-    // cannot supply by reflection — an optional parameter typed as an interface has
-    // no token to resolve. Constructed explicitly so completion actually notifies.
+    // RunnerService takes the notifier and the analyzer as optional third/fourth
+    // arguments, which Nest cannot supply by reflection — an optional parameter typed
+    // as an interface has no token to resolve. Constructed explicitly so completion
+    // actually notifies AND actually starts analysis. Without the fourth argument here,
+    // `RunnerService.analyzer` stays undefined and every earlier analysis task's code is
+    // unreachable — completion would notify but never trigger a single analysis run.
     {
       provide: RunnerService,
       useFactory: (
         prisma: PrismaService,
         assignments: AssignmentsRepository,
         notifications: NotificationsHook,
-      ) => new RunnerService(prisma, assignments, notifications),
-      inject: [PrismaService, AssignmentsRepository, NotificationsHook],
+        analyzer: CompletionAnalysisAdapter,
+      ) => new RunnerService(prisma, assignments, notifications, analyzer),
+      inject: [PrismaService, AssignmentsRepository, NotificationsHook, CompletionAnalysisAdapter],
     },
 
     // Track D — upstream clients, adapters and the orchestration pipeline.
@@ -133,6 +144,42 @@ import { LessonClientModule } from '../lesson-client/lesson-client.module';
         PrismaService,
         AssignmentsRepository,
         DrillSetsClientAdapter,
+        StudentProgressClientAdapter,
+      ],
+    },
+
+    // Error analysis and remedial drilling (Tasks 1-12). `AnalysisJobRunner` is the
+    // fire-and-forget entry point, `CompletionAnalysisAdapter` is the port RunnerService
+    // calls on completion (bound above, in RunnerService's factory) — without that bind
+    // these providers exist but nothing ever calls them.
+    AnalysisClient,
+    AnalysisRepository,
+    AnalysisService,
+    AnalysisJobRunner,
+    CompletionAnalysisAdapter,
+    MasteryRepository,
+    TaxonomyService,
+
+    // RemedialService takes `StudentProgressReader` as its sixth argument, a plain
+    // TypeScript interface that erases at runtime and so carries no DI token — the same
+    // situation SelfDrillService and TeacherAssignmentsService are in above, given the
+    // same explicit-factory treatment.
+    {
+      provide: RemedialService,
+      useFactory: (
+        prisma: PrismaService,
+        analysis: AnalysisRepository,
+        mastery: MasteryRepository,
+        content: ContentClient,
+        jobs: JobRunner,
+        progress: StudentProgressClientAdapter,
+      ) => new RemedialService(prisma, analysis, mastery, content, jobs, progress),
+      inject: [
+        PrismaService,
+        AnalysisRepository,
+        MasteryRepository,
+        ContentClient,
+        JobRunner,
         StudentProgressClientAdapter,
       ],
     },

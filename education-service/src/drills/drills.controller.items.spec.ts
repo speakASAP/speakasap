@@ -54,6 +54,9 @@ function harness() {
     teacherAssignments,
     roster,
     sets,
+    {} as any,
+    {} as any,
+    {} as any,
   );
 
   return { controller, identity, teacherAssignments, roster, sets };

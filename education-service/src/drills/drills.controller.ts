@@ -26,6 +26,9 @@ import { DrillAssignmentsService } from './runner/assignments.service';
 import { TeacherAssignmentsService } from './teacher/teacher-assignments.service';
 import { TeacherRosterService } from './teacher/roster.service';
 import { ContentClient } from './orchestration/content.client';
+import { AnalysisRepository } from './analysis/analysis.repository';
+import { AnalysisJobRunner } from './analysis/analysis.job-runner';
+import { RemedialService } from './analysis/remedial.service';
 import {
   AssignFromSetRequest,
   AssignFromSetResponse,
@@ -73,6 +76,9 @@ export class DrillsController {
     private readonly teacherAssignments: TeacherAssignmentsService,
     private readonly roster: TeacherRosterService,
     private readonly sets: ContentClient,
+    private readonly analysis: AnalysisRepository,
+    private readonly analysisJobs: AnalysisJobRunner,
+    private readonly remedial: RemedialService,
   ) {}
 
   /** The student's own assignment list. */
@@ -269,6 +275,110 @@ export class DrillsController {
       uuid,
       lessonTeacherId === null ? [userId] : [userId, lessonTeacherId],
     );
+  }
+
+  /**
+   * The error analysis for one completed assignment.
+   *
+   * Readable by the student who owns it and by the owning teacher (both id spaces, same
+   * rule as `teacherProgress`). Returns `NOT_ANALYZED` rather than 404 when no run exists:
+   * the drill may simply not be finished yet, and a 404 would make the student's page
+   * render an error for a perfectly normal state.
+   *
+   * Every other status is passed through untouched. `NO_ERRORS` and `FAILED` must stay
+   * distinguishable here — collapsing them is how a dead analyzer starts looking like a
+   * flawless drill.
+   */
+  @Get(':uuid/analysis')
+  async getAnalysis(@Param('uuid') uuid: string, @Req() req: Request): Promise<unknown> {
+    const run = await this.analysis.getRunWithClusters(uuid);
+
+    if (!run) {
+      return {
+        uuid: null,
+        sourceAssignmentUuid: uuid,
+        status: 'NOT_ANALYZED',
+        errorMessage: null,
+        attemptCount: 0,
+        clusters: [],
+      };
+    }
+
+    if (isStaffUser(req.authUser)) {
+      // Ownership is judged the same way `getOne`/`teacherProgress` judge it: the
+      // assignment must be attributed to the caller's own legacy id, or to the lesson's
+      // teacher. `getForTeacher` throws its own 404 when neither owns it — a 403 here
+      // would confirm another teacher's assignment exists.
+      const owners = await this.ownersOf(uuid, req);
+      await this.teacherAssignments.getForTeacher(uuid, owners);
+      return run;
+    }
+
+    const studentId = await this.identity.resolveStudentId(req.authUser!.id);
+    if (run.studentId !== studentId) {
+      // 404, not 403: a distinguishable error would confirm another student's
+      // assignment exists.
+      throw new NotFoundException('Drill assignment not found');
+    }
+
+    return run;
+  }
+
+  /** Re-run a failed or stalled analysis. Staff only — it costs a model call. */
+  @Post(':uuid/analysis/retry')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async retryAnalysis(
+    @Param('uuid') uuid: string,
+    @Req() req: Request,
+  ): Promise<{ queued: boolean }> {
+    this.assertStaff(req);
+    this.analysisJobs.enqueue(uuid);
+    this.logger.log(`Analysis retry queued for assignment ${uuid}`);
+    return { queued: true };
+  }
+
+  /** A teacher's edit to the theory a student will read. */
+  @Patch('teacher/gaps/:gapUuid')
+  @HttpCode(HttpStatus.OK)
+  async updateGap(
+    @Param('gapUuid') gapUuid: string,
+    @Body()
+    body: {
+      title?: string;
+      explanation?: string;
+      rules?: string[];
+      examples?: Array<{ text: string; gloss: string }>;
+    },
+    @Req() req: Request,
+  ): Promise<unknown> {
+    this.assertStaff(req);
+
+    if (body.explanation !== undefined && body.explanation.trim().length === 0) {
+      throw new BadRequestException('explanation cannot be empty');
+    }
+    if (body.title !== undefined && body.title.trim().length === 0) {
+      throw new BadRequestException('title cannot be empty');
+    }
+
+    const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
+    return this.analysis.updateCluster(gapUuid, body, teacherId);
+  }
+
+  /**
+   * Create the "работа над ошибками" drill for one gap.
+   *
+   * Teacher-initiated: the analysis is automatic, the second assignment is a judgement
+   * call. Idempotent — a second call returns the drill the first one made.
+   */
+  @Post('teacher/gaps/:gapUuid/remedial')
+  @HttpCode(HttpStatus.CREATED)
+  async createRemedial(
+    @Param('gapUuid') gapUuid: string,
+    @Req() req: Request,
+  ): Promise<unknown> {
+    this.assertStaff(req);
+    const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
+    return this.remedial.createForGap(gapUuid, teacherId, this.bearer(req));
   }
 
   /**
