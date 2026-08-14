@@ -197,6 +197,10 @@ model DrillAssignment {
   @@index([studentCourseUuid])
   @@index([batchUuid])
   @@index([sourceAnalysisUuid])
+  // There is also a partial unique index on (source_analysis_uuid, COALESCE(remedial_part, 0))
+  // filtered to the live statuses — "drill_assignment_live_remedial_per_gap", created by
+  // migration 20260814090000_remedial_idempotence. Prisma cannot express a partial unique
+  // index, so it exists only in raw SQL; it is not missing, it is unrepresentable here.
   @@map("drill_assignment")
 }
 

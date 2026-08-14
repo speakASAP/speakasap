@@ -193,6 +193,64 @@ describe('RemedialService.createForGap', () => {
     expect(d.created).toHaveLength(1);
   });
 
+  // The read-then-write idempotence check above has no lock between its two round trips,
+  // so a fast enough second click gets past it and is stopped by the partial unique index
+  // "drill_assignment_live_remedial_per_gap" instead. Losing that race must give the second
+  // click the same answer the check would have: the winner's drill, reused.
+  describe('when a double click races past the idempotence check', () => {
+    // Empty on the first read (the check passes, both clicks proceed), populated on the
+    // second (the winner has since committed) — exactly what the loser observes.
+    function racingDeps(violation: any) {
+      const d = deps();
+      d.prisma.drillAssignment.findMany = jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([{ uuid: 'winner-1', setUuid: 'winner-set' }]);
+      d.prisma.drillAssignment.createMany = jest.fn(async () => {
+        throw violation;
+      });
+      return d;
+    }
+
+    it.each([
+      ['Prisma P2002', Object.assign(new Error('Unique constraint failed'), { code: 'P2002' })],
+      ['a raw 23505', Object.assign(new Error('duplicate key value'), { code: '23505' })],
+      [
+        'a 23505 under meta',
+        Object.assign(new Error('duplicate key value'), { meta: { code: '23505' } }),
+      ],
+    ])('returns the winner\'s drill when the violation surfaces as %s', async (_label, violation) => {
+      const d = racingDeps(violation);
+
+      const result = await build(d).createForGap('g1', 182, 'token');
+
+      expect(result.reused).toBe(true);
+      expect(result.assignmentUuids).toEqual(['winner-1']);
+      expect(result.setUuid).toBe('winner-set');
+      // The loser must not queue a generation job — that is the wasted model call the
+      // index exists to prevent.
+      expect(d.jobs.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('re-raises a unique violation that leaves nothing live to return', async () => {
+      const d = racingDeps(Object.assign(new Error('duplicate key value'), { code: '23505' }));
+      // A violation on some other constraint: there is no winner, so swallowing it would
+      // hide a genuinely broken write behind an empty result.
+      d.prisma.drillAssignment.findMany = jest.fn(async () => []);
+
+      await expect(build(d).createForGap('g1', 182, 'token')).rejects.toThrow(/duplicate key/i);
+    });
+
+    it('re-raises an error that is not a unique violation', async () => {
+      const d = racingDeps(Object.assign(new Error('connection terminated'), { code: '08006' }));
+
+      await expect(build(d).createForGap('g1', 182, 'token')).rejects.toThrow(
+        /connection terminated/i,
+      );
+      expect(d.jobs.enqueue).not.toHaveBeenCalled();
+    });
+  });
+
   it('raises when the gap does not exist', async () => {
     const d = deps();
     d.analysis.getCluster = jest.fn(async () => null);
