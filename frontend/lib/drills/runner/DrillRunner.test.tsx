@@ -283,6 +283,51 @@ describe('DrillRunner', () => {
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
   });
 
+  it('does not re-check a blank the student left unchanged', async () => {
+    // Blur is the trigger, but leaving a field is not an answer. Tabbing out of a wrong
+    // blank and back — without touching it — used to post the same value again, so the
+    // server counted a fresh wrong attempt for every visit and escalated the hints of a
+    // student who had answered once.
+    const spy = vi.spyOn(api, 'checkBlank').mockResolvedValue({
+      correct: false, acceptedText: null, attemptNo: 1,
+      blanksCorrect: 0, blanksTotal: 1, assignmentCompleted: false,
+    });
+    render(<DrillRunner assignment={assignment} items={items as any} onComplete={vi.fn()} />);
+
+    const input = screen.getByPlaceholderText('на');
+    await userEvent.type(input, 'bei');
+    await userEvent.tab();
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+
+    await userEvent.click(input);
+    await userEvent.tab();
+    await userEvent.click(input);
+    await userEvent.tab();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks again once the student actually edits the blank', async () => {
+    // The guard is "unchanged", not "already answered" — a corrected answer must still
+    // be graded, including one edited back to a value tried earlier.
+    const spy = vi.spyOn(api, 'checkBlank').mockResolvedValue({
+      correct: false, acceptedText: null, attemptNo: 1,
+      blanksCorrect: 0, blanksTotal: 1, assignmentCompleted: false,
+    });
+    render(<DrillRunner assignment={assignment} items={items as any} onComplete={vi.fn()} />);
+
+    const input = screen.getByPlaceholderText('на');
+    await userEvent.type(input, 'bei');
+    await userEvent.tab();
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+
+    await userEvent.type(input, 'm');
+    await userEvent.tab();
+
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+    expect(spy).toHaveBeenLastCalledWith('a-1', expect.objectContaining({ value: 'beim' }));
+  });
+
   it('shows the server hint after a wrong answer', async () => {
     vi.spyOn(api, 'checkBlank').mockResolvedValue({
       correct: false, acceptedText: null, attemptNo: 1, hint: 'Не то. В ответе 3 буквы.',

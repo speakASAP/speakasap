@@ -336,23 +336,39 @@ export class RunnerService {
 
     const grade = gradeBlank(req.value ?? '', blank, gradingOptionsFor(assignment.languageCode));
 
+    const submittedValue = req.value ?? '';
+
+    // The runner checks a blank when it loses focus, so a student tabbing past an answer
+    // they have not touched re-posts it. That is one attempt, not two: counting each
+    // visit inflated attemptNo, escalated the wrong-answer hints towards a reveal, and
+    // pushed first-try accuracy down for a student who had answered once. Compared only
+    // against the immediately preceding attempt — retyping a value tried earlier, after
+    // trying something else in between, is a real new attempt.
+    const previous = await this.prisma.drillAttempt.findFirst({
+      where: { assignmentUuid, itemUuid: req.itemUuid, blankIndex: req.blankIndex },
+      orderBy: { attemptNo: 'desc' },
+    });
+    const repeated = previous?.revealed === false && previous.submittedValue === submittedValue;
+
     const priorAttempts = await this.prisma.drillAttempt.count({
       where: { assignmentUuid, itemUuid: req.itemUuid, blankIndex: req.blankIndex },
     });
-    const attemptNo = priorAttempts + 1;
+    const attemptNo = repeated ? previous!.attemptNo : priorAttempts + 1;
 
-    await this.prisma.drillAttempt.create({
-      data: {
-        uuid: randomUUID(),
-        assignmentUuid,
-        itemUuid: req.itemUuid,
-        blankIndex: req.blankIndex,
-        submittedValue: req.value ?? '',
-        isCorrect: grade.correct,
-        attemptNo,
-        revealed: false,
-      },
-    });
+    if (!repeated) {
+      await this.prisma.drillAttempt.create({
+        data: {
+          uuid: randomUUID(),
+          assignmentUuid,
+          itemUuid: req.itemUuid,
+          blankIndex: req.blankIndex,
+          submittedValue,
+          isCorrect: grade.correct,
+          attemptNo,
+          revealed: false,
+        },
+      });
+    }
 
     // ASSIGNED -> IN_PROGRESS on the first attempt of the assignment.
     if (status === 'ASSIGNED') {

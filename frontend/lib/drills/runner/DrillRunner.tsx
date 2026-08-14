@@ -76,9 +76,17 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
   const completed = useRef(false);
   // Guards against the debounced check and an Enter press both firing for one edit.
   const inFlight = useRef<Record<string, boolean>>({});
+  // The value each blank was last graded on. Blur fires whenever the student leaves a
+  // field, but leaving a field is not answering it: without this, tabbing past a wrong
+  // blank re-posted the same answer and the server counted another wrong attempt each
+  // time, escalating hints for a student who had tried once.
+  const lastChecked = useRef<Record<string, string>>({});
 
   useEffect(() => {
     setBlanks(initialState(items));
+    // New sentences mean new blanks behind the same keys; a value graded for the old set
+    // must not suppress the first check of the new one.
+    lastChecked.current = {};
   }, [items]);
 
   const order = useMemo(
@@ -110,10 +118,14 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
         return;
       }
       const value = current.value.trim();
-      if (!value) {
+      if (!value || lastChecked.current[key] === value) {
         return;
       }
 
+      // Recorded before the request, not after: two blurs in quick succession would both
+      // read an unset entry otherwise, and the second is exactly the duplicate attempt
+      // this guard exists to stop.
+      lastChecked.current[key] = value;
       inFlight.current[key] = true;
       setBlanks((prev) => ({ ...prev, [key]: { ...prev[key], pending: true, wrong: false } }));
 
@@ -163,6 +175,9 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
         }
       } catch (error) {
         const isNetwork = (error as Error)?.name === 'NetworkError';
+        // Nothing was graded, so the same value must stay retryable — the guard above is
+        // about not counting an answer twice, never about refusing one that never landed.
+        delete lastChecked.current[key];
         // A wrong answer is the student's; a dropped connection is ours. Only the former
         // marks the input invalid.
         setBlanks((prev) => ({

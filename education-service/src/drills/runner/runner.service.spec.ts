@@ -58,14 +58,18 @@ function harness() {
       }),
       count: jest.fn(async () => attemptRows.length),
       findMany: jest.fn(async () => attemptRows),
-      findFirst: jest.fn(async ({ where }: any) =>
-        attemptRows.find(
-          (a) =>
-            a.itemUuid === where.itemUuid &&
-            a.blankIndex === where.blankIndex &&
-            (a.isCorrect === true || a.revealed === true),
-        ) ?? null,
-      ),
+      // Two query shapes reach this stub: the resolved-blank lookup (which filters on
+      // isCorrect/revealed) and the latest-attempt lookup used to recognise a repeat of
+      // the same answer, which filters on neither and orders by attemptNo desc.
+      findFirst: jest.fn(async ({ where, orderBy }: any) => {
+        const forBlank = attemptRows.filter(
+          (a) => a.itemUuid === where.itemUuid && a.blankIndex === where.blankIndex,
+        );
+        if (orderBy?.attemptNo === 'desc') {
+          return [...forBlank].sort((a, b) => b.attemptNo - a.attemptNo)[0] ?? null;
+        }
+        return forBlank.find((a) => a.isCorrect === true || a.revealed === true) ?? null;
+      }),
     },
     $transaction: jest.fn(async (fn: any) => fn(prisma)),
   };
@@ -156,6 +160,30 @@ describe('RunnerService.check', () => {
       2,
       expect.objectContaining({ data: expect.objectContaining({ attemptNo: 2 }) }),
     );
+  });
+
+  it('does not count a resubmission of the same wrong answer as a new attempt', async () => {
+    // The runner checks on blur, so leaving and re-entering a field re-posts an untouched
+    // answer. Counting each one drove the hint escalation — and first-try accuracy — off a
+    // student who had answered once. The client now suppresses it too; this is the floor
+    // under every client.
+    const first = await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'bei' });
+    const second = await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'bei' });
+
+    expect(prisma.drillAttempt.create).toHaveBeenCalledTimes(1);
+    expect(second.attemptNo).toBe(first.attemptNo);
+    expect(second.correct).toBe(false);
+  });
+
+  it('counts a changed answer even when an earlier attempt used that value', async () => {
+    // Dedup is only against the immediately preceding attempt. A student who tries "bei",
+    // then "an", then "bei" again has made three tries and the third is a real one.
+    await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'bei' });
+    await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'an' });
+    const third = await svc.check('a-1', 42, { itemUuid: 'i-1', blankIndex: 0, value: 'bei' });
+
+    expect(prisma.drillAttempt.create).toHaveBeenCalledTimes(3);
+    expect(third.attemptNo).toBe(3);
   });
 
   it('moves ASSIGNED to IN_PROGRESS on the first attempt', async () => {
