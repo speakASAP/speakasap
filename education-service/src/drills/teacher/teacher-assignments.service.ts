@@ -168,7 +168,7 @@ export class TeacherAssignmentsService {
       level: request.level ?? null,
       topicSlugs: request.topicSlugs ?? [],
       topics: (request.topicSlugs ?? []).map((slug) => ({ slug, title: slug })),
-      instructions: request.instructions ?? '',
+      instructions: this.briefFor(request),
       itemCount: request.count,
       courseKey,
       maxLessonOrder,
@@ -754,6 +754,36 @@ export class TeacherAssignmentsService {
       return topics.slice(0, 3).join(', ').slice(0, 255);
     }
     return 'Grammar practice';
+  }
+
+  /**
+   * The brief the generator is given — never empty.
+   *
+   * A teacher who picks topics and types nothing is a supported request here (see the
+   * `hasSubject` check in `generate`), but ai-microservice validates `instructions` with
+   * `@IsNotEmpty`, so forwarding the empty string failed the whole generation with
+   * `400 instructions should not be empty` (production, 2026-08-14).
+   *
+   * The topics are the teacher's stated subject, so they are what the brief is derived
+   * from. This is the generator's copy only — `drillAssignmentBatch.instructions` keeps
+   * the teacher's verbatim text (empty when they wrote nothing), because that row is the
+   * record of what was asked for, not of what the model was told.
+   */
+  private briefFor(request: GenerateAssignmentsRequest): string {
+    const instructions = (request.instructions ?? '').trim();
+    if (instructions) {
+      return instructions;
+    }
+
+    const topics = request.topicSlugs ?? [];
+    if (topics.length > 0) {
+      return `Drill these grammar topics: ${topics.join(', ')}.`;
+    }
+
+    // Unreachable: `generate` rejects a request with neither. Kept because an empty
+    // string here is a 400 from the generator, and a generic brief is recoverable
+    // where that is not.
+    return 'General grammar practice at the requested level.';
   }
 
   /**

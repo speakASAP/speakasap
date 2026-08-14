@@ -132,6 +132,22 @@ describe('RegenerationService.regenerate', () => {
     expect(ai.generate.mock.calls[0][0].instructions).toContain('Practise dative prepositions');
   });
 
+  /**
+   * ai-microservice rejects an empty `instructions` with a 400, and a set created from
+   * topics alone before 2026-08-14 carries none — with no validator issues and no teacher
+   * note, everything composed here was the empty string.
+   */
+  it('never asks the generator with an empty brief', async () => {
+    setDetail.instructions = null;
+    setDetail.items = [setItem(3, 3, 'A')];
+
+    await svc.regenerate('s-1', [3], undefined, ctx());
+
+    const sent = ai.generate.mock.calls[0][0].instructions;
+    expect(sent.trim()).not.toBe('');
+    expect(sent).toContain('prepositions');
+  });
+
   it('avoids every other sentence already in the set', async () => {
     await svc.regenerate('s-1', [3], undefined, ctx());
 

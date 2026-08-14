@@ -57,7 +57,7 @@ export class RegenerationService {
     // The validator's own complaints are the single most useful thing to tell the
     // generator: they say precisely why the last attempt was wrong. Dropping them
     // means asking the same question again and getting the same answer.
-    const instructions = composeInstructions(set.instructions, rejected, note);
+    const instructions = composeInstructions(set.instructions, rejected, note, set.topicSlugs);
 
     const generated = await this.ai.generate(
       {
@@ -195,10 +195,16 @@ function composeInstructions(
   original: string | null,
   rejected: DrillSetItemDTO[],
   note: string | undefined,
+  topicSlugs: string[],
 ): string {
   const parts: string[] = [];
-  if (original) {
-    parts.push(original);
+  if (original && original.trim()) {
+    parts.push(original.trim());
+  } else if (topicSlugs.length > 0) {
+    // A set built from topics alone carries no instructions, and ai-microservice
+    // rejects an empty brief outright (`@IsNotEmpty`, 400). The topics are what the
+    // teacher asked for, so they stand in for the words they never typed.
+    parts.push(`Drill these grammar topics: ${topicSlugs.join(', ')}.`);
   }
 
   const issues = rejected
@@ -210,6 +216,13 @@ function composeInstructions(
 
   if (note && note.trim()) {
     parts.push(`Teacher note: ${note.trim()}`);
+  }
+
+  // A set with neither instructions nor topics, whose rejected items carry no issues
+  // and which the teacher regenerated without a note, would otherwise compose to the
+  // empty string and 400 at the generator.
+  if (parts.length === 0) {
+    return 'Replace these sentences with new ones testing the same material.';
   }
 
   return parts.join('\n\n');

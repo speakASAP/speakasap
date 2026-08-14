@@ -243,6 +243,52 @@ describe('TeacherAssignmentsService.generate', () => {
       ).resolves.toBeDefined();
     });
   });
+
+  /**
+   * A teacher who picks topics and types nothing is a supported request here, but
+   * ai-microservice rejects an empty `instructions` outright (`@IsNotEmpty`), so the
+   * whole generation failed with `400 instructions should not be empty` in production
+   * (2026-08-14). The brief the model receives is derived from the topics instead.
+   */
+  describe('topics-only requests', () => {
+    it('sends the model a topic-derived brief rather than an empty one', async () => {
+      const h = harness();
+      await h.service.generate(
+        99,
+        { ...GENERATE_REQUEST, topicSlugs: ['prepositions', 'dative'], instructions: '' } as never,
+        'tok',
+      );
+
+      const job = h.jobs.enqueue.mock.calls[0][1];
+      expect(job.instructions.trim()).not.toBe('');
+      expect(job.instructions).toContain('prepositions');
+      expect(job.instructions).toContain('dative');
+    });
+
+    it('keeps the teacher\'s own words when they typed some', async () => {
+      const h = harness();
+      await h.service.generate(
+        99,
+        { ...GENERATE_REQUEST, topicSlugs: ['prepositions'], instructions: 'focus on dative' } as never,
+        'tok',
+      );
+
+      expect(h.jobs.enqueue.mock.calls[0][1].instructions).toBe('focus on dative');
+    });
+
+    it('records the teacher\'s verbatim instructions on the batch, not the derived brief', async () => {
+      const h = harness();
+      await h.service.generate(
+        99,
+        { ...GENERATE_REQUEST, topicSlugs: ['prepositions'], instructions: '' } as never,
+        'tok',
+      );
+
+      expect(h.tx.drillAssignmentBatch.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ instructions: '' }) }),
+      );
+    });
+  });
 });
 
 describe('TeacherAssignmentsService.assignFromSet', () => {
