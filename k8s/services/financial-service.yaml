@@ -101,7 +101,7 @@ data:
   FINANCIAL_SERVICE_PORT: "4213"
   DB_HOST: "db-server-postgres"
   DB_PORT: "5432"
-  DB_USER: "dbadmin"
+  DB_USER: "speakasap_financial"
   DB_NAME: "speakasap_financial_db"
   FINANCIAL_DB_NAME: "speakasap_financial_db"
   DB_SYNC: "false"

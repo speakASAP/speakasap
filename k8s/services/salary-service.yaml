@@ -101,7 +101,7 @@ data:
   SALARY_SERVICE_PORT: "4212"
   DB_HOST: "db-server-postgres"
   DB_PORT: "5432"
-  DB_USER: "dbadmin"
+  DB_USER: "speakasap_salary"
   DB_NAME: "speakasap_salary_db"
   DB_SYNC: "false"
   DB_AUTO_CREATE: "true"
