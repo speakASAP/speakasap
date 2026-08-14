@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { SetsService } from './sets.service';
+import { hashItem, parseTemplate } from '../template';
 
 /**
  * Teacher edits to a set's sentences: patch, delete, append.
@@ -44,6 +45,20 @@ const existingSet = () => ({
 });
 
 const GOOD = 'Ich warte [на]{auf} den Bus.';
+
+/**
+ * Seeds the bank with one row, looked up the way the service looks it up — by hash, not
+ * by "whatever findUnique was asked for". A blanket mock cannot tell a plain-text hit from
+ * a markup-variant miss, which is exactly the distinction under test here.
+ */
+const bankHolding = (prisma: any, rows: { id: number; template: string }[]): void => {
+  const byHash = new Map(
+    rows.map((row) => [hashItem(parseTemplate(row.template).plainText, 'de'), row]),
+  );
+  prisma.drillItem.findUnique.mockImplementation(
+    async ({ where }: any) => byHash.get(where.hash) ?? null,
+  );
+};
 
 describe('SetsService.updateSetItem', () => {
   let prisma: any;
@@ -91,6 +106,36 @@ describe('SetsService.updateSetItem', () => {
         where: { id: 10 },
         data: expect.objectContaining({ validationState: 'PASS', validationIssues: [] }),
       }),
+    );
+  });
+
+  it('keeps a re-blanked sentence instead of reusing the bank row it was cut from', async () => {
+    // The bank dedups on plain text with the answers substituted in, so re-marking which
+    // words are blank — the review screen's main edit — leaves the hash unchanged and used
+    // to hand back the *unedited* row. The teacher saw "saved" and their markup was gone.
+    // Same words, different blank: hashes identical, exercises different.
+    bankHolding(prisma, [{ id: 321, template: 'Ich warte [на]{auf} den [автобус]{Bus}.' }]);
+
+    await svc.updateSetItem('s-1', 10, { template: GOOD });
+
+    expect(prisma.drillItem.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ template: GOOD }) }),
+    );
+    expect(prisma.drillSetItem.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 10 }, data: expect.objectContaining({ itemId: 500 }) }),
+    );
+  });
+
+  it('still reuses the bank row when the template is character-identical', async () => {
+    // Dedup is only wrong when it discards an edit. An unchanged template must not mint a
+    // second row on every save, or a teacher clicking Save twice forks the bank.
+    bankHolding(prisma, [{ id: 321, template: GOOD }]);
+
+    await svc.updateSetItem('s-1', 10, { template: GOOD });
+
+    expect(prisma.drillItem.create).not.toHaveBeenCalled();
+    expect(prisma.drillSetItem.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 10 }, data: expect.objectContaining({ itemId: 321 }) }),
     );
   });
 
@@ -214,7 +259,7 @@ describe('SetsService.addSetItem', () => {
   it('reuses an identical sentence already in the bank instead of colliding on hash', async () => {
     // DrillItem.hash is @unique. A teacher retyping a sentence the bank already holds
     // must reuse that row, not fail the save with a constraint error.
-    prisma.drillItem.findUnique.mockResolvedValue({ id: 321 });
+    bankHolding(prisma, [{ id: 321, template: GOOD }]);
     await svc.addSetItem('s-1', { template: GOOD, hint: null });
     expect(prisma.drillItem.create).not.toHaveBeenCalled();
     expect(prisma.drillSetItem.create).toHaveBeenCalledWith(

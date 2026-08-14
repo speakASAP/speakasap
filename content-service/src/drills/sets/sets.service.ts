@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from '../../shared/prisma.service';
 import { computePopularityScore } from './popularity';
 import { buildSetListQuery, groupByLesson } from './sets.query';
-import { hashItem, parseTemplate } from '../template';
+import { hashItem, hashTemplateVariant, parseTemplate } from '../template';
 import { sanitizeTemplate } from '../template-sanitize';
 import { blanksFor, validateSentence } from '../sentence-editing';
 import {
@@ -537,11 +537,25 @@ export class SetsService {
     // rather than only in the importer that happened to cause it.
     const template = sanitizeTemplate(replacement.template);
     const parsed = parseTemplate(template);
-    const hash = hashItem(parsed.plainText, languageCode);
+    const plainHash = hashItem(parsed.plainText, languageCode);
 
-    const existing = await tx.drillItem.findUnique({ where: { hash } });
-    if (existing) {
+    // Reuse only a row that carries the very same template. The bank's hash is computed
+    // from the plain text with the answers substituted in, so every way of blanking one
+    // sentence collides on it — and returning the colliding row here silently handed a
+    // teacher back the sentence they had just re-blanked, reporting the edit as saved.
+    // A sentence whose blanks differ is a different exercise and gets its own row, keyed
+    // by the markup so the @unique hash accepts it alongside the original.
+    const existing = await tx.drillItem.findUnique({ where: { hash: plainHash } });
+    if (existing?.template === template) {
       return existing.id;
+    }
+
+    const hash = existing ? hashTemplateVariant(template, languageCode) : plainHash;
+    const variant = existing
+      ? await tx.drillItem.findUnique({ where: { hash } })
+      : null;
+    if (variant) {
+      return variant.id;
     }
 
     const topic = replacement.topicSlug

@@ -49,3 +49,18 @@ export function hashItem(plainText: string, languageCode: string): string {
   const normalized = plainText.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
   return createHash('sha256').update(`${languageCode}::${normalized}`).digest('hex');
 }
+
+/**
+ * Identity for a sentence that shares its plain text with a bank row but blanks different
+ * words — two drills, not one, because which words a student must supply is the exercise.
+ *
+ * Separate from `hashItem` rather than replacing it: `hashItem` is what 14k+ imported rows
+ * and the generation pipeline dedup on, and re-basing it on the template would change every
+ * stored hash. This one is only reached when a template mismatch has already ruled reuse
+ * out, so it never has to agree with the plain-text hash — only to be stable and distinct,
+ * which the markup makes it.
+ */
+export function hashTemplateVariant(template: DrillTemplate, languageCode: string): string {
+  const normalized = template.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+  return createHash('sha256').update(`${languageCode}::tpl::${normalized}`).digest('hex');
+}
