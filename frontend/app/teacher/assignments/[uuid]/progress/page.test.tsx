@@ -142,6 +142,43 @@ const withSentence = {
   ],
 };
 
+describe('teacher drill progress — a finished assignment cannot be edited', () => {
+  /**
+   * The reported defect: a COMPLETED assignment still rendered Edit, Delete and "Add
+   * sentence", and every one of them came back "Request failed with status 409".
+   *
+   * The backend is right to refuse — assertEditableAssignment rejects the terminal
+   * statuses because COMPLETED has no outgoing edge in the state machine, so an edit
+   * would rewrite finished history while the student's recorded result still described
+   * questions that no longer exist. The page was offering an action that could never
+   * succeed, so the fix belongs here, not there.
+   */
+  it.each(['COMPLETED', 'CANCELLED'])('offers no editing controls when %s', async (status) => {
+    getTeacherProgress.mockResolvedValue({ ...withSentence, status });
+    render(<ProgressPage />);
+
+    await screen.findByTestId('sentence-1');
+    expect(screen.queryByRole('button', { name: /edit sentence 1/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /delete sentence 1/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add sentence/i })).not.toBeInTheDocument();
+  });
+
+  it('says why the sentences are locked, rather than just hiding the buttons', async () => {
+    getTeacherProgress.mockResolvedValue({ ...withSentence, status: 'COMPLETED' });
+    render(<ProgressPage />);
+
+    expect(await screen.findByTestId('locked-note')).toHaveTextContent(/finished/i);
+  });
+
+  it('still offers the controls while the drill is live', async () => {
+    getTeacherProgress.mockResolvedValue(withSentence);
+    render(<ProgressPage />);
+
+    expect(await screen.findByRole('button', { name: /edit sentence 1/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add sentence/i })).toBeInTheDocument();
+  });
+});
+
 describe('teacher drill progress — the sentences themselves', () => {
   /**
    * The reported defect: the page rendered only the blank pairs ("совещания → meeting"),

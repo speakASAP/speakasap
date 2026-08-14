@@ -44,6 +44,19 @@ export default function AssignmentProgressPage() {
    */
   const [notice, setNotice] = useState<string | null>(null);
 
+  /**
+   * COMPLETED and CANCELLED are terminal, and education-service refuses to edit an
+   * assignment in either — they have no outgoing edge in the state machine, so a change
+   * would rewrite finished history while the student's recorded result still described
+   * questions that no longer exist.
+   *
+   * The page used to offer Edit, Delete and "Add sentence" regardless, so on a finished
+   * drill every one of them failed with a bare "Request failed with status 409". Hiding
+   * them is the honest version of the same rule: the server's answer has not changed,
+   * the teacher just is not invited to discover it the hard way any more.
+   */
+  const locked = progress?.status === 'COMPLETED' || progress?.status === 'CANCELLED';
+
   const load = useCallback(async () => {
     if (!params?.uuid) {
       return;
@@ -200,24 +213,26 @@ export default function AssignmentProgressPage() {
                 >
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-zinc-500">Sentence {i + 1}</p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        aria-label={`Edit sentence ${i + 1}`}
-                        onClick={() => setEditing(item.uuid)}
-                        className="text-xs text-sky-700 underline hover:text-sky-900 dark:text-sky-400"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Delete sentence ${i + 1}`}
-                        onClick={() => void remove(item.uuid, i + 1)}
-                        className="text-xs text-zinc-500 underline hover:text-red-700 dark:hover:text-red-400"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    {locked ? null : (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          aria-label={`Edit sentence ${i + 1}`}
+                          onClick={() => setEditing(item.uuid)}
+                          className="text-xs text-sky-700 underline hover:text-sky-900 dark:text-sky-400"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Delete sentence ${i + 1}`}
+                          onClick={() => void remove(item.uuid, i + 1)}
+                          className="text-xs text-zinc-500 underline hover:text-red-700 dark:hover:text-red-400"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {editing === item.uuid ? (
@@ -260,7 +275,16 @@ export default function AssignmentProgressPage() {
               ))}
             </ol>
 
-            {editing === 'new' ? (
+            {locked ? (
+              <p
+                data-testid="locked-note"
+                className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+              >
+                This drill is finished, so its sentences can no longer be changed — the
+                student&rsquo;s answers describe the questions as they were. To give them more
+                practice, create a new drill.
+              </p>
+            ) : editing === 'new' ? (
               <SentenceEditor mode="add" onSave={saveNew} onCancel={() => setEditing(null)} />
             ) : (
               <button
