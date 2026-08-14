@@ -6,11 +6,20 @@
     "module": "commonjs",
     "target": "ES2020",
     "outDir": "dist",
-    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "skipLibCheck": true
-  }
+  },
+  // Typechecking covers the seed scripts beside the schema as well as src. Without an
+  // explicit list tsc defaults to `**/*`, which pulled prisma/*.ts in while `rootDir` was
+  // `src` and failed the whole run with TS6059 — so `npm run typecheck` reported an error
+  // that had nothing to do with the code. Narrowing to `src` would have silenced it by
+  // dropping prisma/seed-grammar-topics.ts and its spec from the check instead; they are
+  // real code with a real test, so they are listed rather than excluded.
+  //
+  // `rootDir` lives in tsconfig.build.json, which is what emits: it excludes prisma, so
+  // src stays the emit root and `dist/main.js` (what `npm start` runs) keeps its path.
+  "include": ["src/**/*.ts", "prisma/**/*.ts"]
 }

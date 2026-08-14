@@ -1,4 +1,8 @@
 {
   "extends": "./tsconfig.json",
+  // The emit root, held here rather than in tsconfig.json: this config is the one that
+  // produces dist, and `src` is only a valid root once prisma is excluded below.
+  "compilerOptions": { "rootDir": "src" },
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "prisma"]
 }
