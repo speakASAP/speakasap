@@ -10,6 +10,7 @@ import {
   PersistedFailedAnswer,
 } from './contracts';
 import { extractFailedBlanks } from './failed-blanks';
+import { toPlainText, toPlainTextAll } from './plain-text';
 import { TaxonomyService } from './taxonomy';
 
 /**
@@ -222,12 +223,19 @@ export class AnalysisService {
         continue;
       }
 
+      // Sanitized on the way in, not on the way out: the student's page renders these
+      // strings literally, and a model that reaches for LaTeX would otherwise put
+      // "$\rightarrow$" on screen. Storing the clean version also fixes the teacher's copy,
+      // which is the same row.
       clusters.push({
         topicSlug: slug,
-        title: candidate.title,
-        explanation: candidate.explanation,
-        rules: candidate.rules ?? [],
-        examples: candidate.examples ?? [],
+        title: toPlainText(candidate.title),
+        explanation: toPlainText(candidate.explanation),
+        rules: toPlainTextAll(candidate.rules ?? []),
+        examples: (candidate.examples ?? []).map((example) => ({
+          text: toPlainText(example.text),
+          gloss: toPlainText(example.gloss),
+        })),
         failedAnswers: claimed,
       });
     }

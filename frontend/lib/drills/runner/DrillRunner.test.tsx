@@ -412,5 +412,44 @@ describe('DrillRunner', () => {
       await waitFor(() => expect(revealSpy).toHaveBeenCalledWith('a-1', 'i-1', 0));
       await waitFor(() => expect(screen.getByText('auf')).toBeInTheDocument());
     });
+
+    /**
+     * Revealing the last blank finishes the drill: the server decides completion from
+     * blanksResolved, which counts reveals. `onComplete` used to be reachable only through
+     * `check`, so a student who gave up on their final blank was never told the error
+     * analysis was coming — the message appeared only after a manual page reload.
+     */
+    it('calls onComplete when revealing the last blank finishes the drill', async () => {
+      const onComplete = vi.fn();
+      vi.spyOn(api, 'checkBlank').mockResolvedValue(wrongThrice);
+      vi.spyOn(api, 'revealBlank').mockResolvedValue({
+        correct: false, acceptedText: 'auf', attemptNo: 4,
+        blanksCorrect: 0, blanksTotal: 1, assignmentCompleted: true,
+      } as any);
+      render(<DrillRunner assignment={assignment} items={items as any} onComplete={onComplete} />);
+
+      await userEvent.type(screen.getByPlaceholderText('на'), 'bei{Enter}');
+      await waitFor(() => screen.getByRole('button', { name: /показать ответ/i }));
+      await userEvent.click(screen.getByRole('button', { name: /показать ответ/i }));
+
+      await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    });
+
+    it('does not call onComplete when a reveal leaves blanks unresolved', async () => {
+      const onComplete = vi.fn();
+      vi.spyOn(api, 'checkBlank').mockResolvedValue(wrongThrice);
+      vi.spyOn(api, 'revealBlank').mockResolvedValue({
+        correct: false, acceptedText: 'auf', attemptNo: 4,
+        blanksCorrect: 0, blanksTotal: 2, assignmentCompleted: false,
+      } as any);
+      render(<DrillRunner assignment={assignment} items={items as any} onComplete={onComplete} />);
+
+      await userEvent.type(screen.getByPlaceholderText('на'), 'bei{Enter}');
+      await waitFor(() => screen.getByRole('button', { name: /показать ответ/i }));
+      await userEvent.click(screen.getByRole('button', { name: /показать ответ/i }));
+
+      await waitFor(() => expect(screen.getByText('auf')).toBeInTheDocument());
+      expect(onComplete).not.toHaveBeenCalled();
+    });
   });
 });

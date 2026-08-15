@@ -222,12 +222,21 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
         }));
         setProgress({ correct: response.blanksCorrect, total: response.blanksTotal });
         setAnnouncement(`Ответ: ${response.acceptedText}`);
+
+        // Revealing the last blank finishes the drill exactly as answering it does — the
+        // server decides completion from blanksResolved, which counts reveals. Without
+        // this the student saw nothing about the error analysis until a manual reload,
+        // because `onComplete` was only ever reachable through `check`.
+        if (response.assignmentCompleted && !completed.current) {
+          completed.current = true;
+          onComplete();
+        }
       } catch {
         setBlanks((prev) => ({ ...prev, [key]: { ...prev[key], pending: false } }));
         setAnnouncement('Не удалось показать ответ. Попробуйте ещё раз.');
       }
     },
-    [assignment.uuid],
+    [assignment.uuid, onComplete],
   );
 
   /**

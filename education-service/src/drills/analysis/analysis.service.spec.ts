@@ -397,6 +397,33 @@ describe('AnalysisService.run — German case-sensitive attribution', () => {
     expect(d.repo.markFailed).toHaveBeenCalledWith('run-1', expect.stringContaining('attributed none'));
   });
 
+  it('stores model text as plain text, never as LaTeX', async () => {
+    // A student saw "Мужской род (der) + ein $\rightarrow$ окончание -er" on the page.
+    const d = germanDeps(['das', 'den', 'die']);
+    d.client.analyze = jest.fn(async () => ({
+      clusters: [
+        {
+          topicSlug: 'de.articles-and-gender',
+          title: 'Артикли $\\rightarrow$ род',
+          explanation: 'ein $\\rightarrow$ окончание -er',
+          rules: ['der $\\to$ dem'],
+          examples: [{ text: '$\\textbf{Das}$ Haus', gloss: 'дом' }],
+          answers: ['das', 'den', 'die'],
+        },
+      ],
+    }));
+    const service = new AnalysisService(d.prisma, d.repo as any, d.client as any, d.taxonomy as any);
+
+    await service.run('de-1', 'cid-de');
+
+    const cluster = d.repo.replaceClusters.mock.calls[0][5][0];
+    expect(cluster.title).toBe('Артикли → род');
+    expect(cluster.explanation).toBe('ein → окончание -er');
+    expect(cluster.rules).toEqual(['der → dem']);
+    expect(cluster.examples[0].text).toBe('Das Haus');
+    expect(JSON.stringify(cluster)).not.toMatch(/\\rightarrow|\$/);
+  });
+
   it('gives the fallback bucket a real title when only some answers are unclaimed', async () => {
     const d = germanDeps(['das', 'die']);
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
