@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { WizardWhat } from './WizardWhat';
+import { DEFAULT_ITEM_COUNT, WizardWhat } from './WizardWhat';
 
 afterEach(cleanup);
 
@@ -11,10 +11,10 @@ describe('WizardWhat', () => {
     expect(screen.getByRole('button', { name: /next/i })).toBeDisabled();
   });
 
-  it('defaults the item count to 50 and accepts 1..200', async () => {
+  it('defaults the item count to 10 and accepts 1..200', async () => {
     render(<WizardWhat onNext={vi.fn()} />);
     const input = screen.getByLabelText(/number of exercises/i);
-    expect(input).toHaveValue(50);
+    expect(input).toHaveValue(DEFAULT_ITEM_COUNT);
     await userEvent.clear(input);
     await userEvent.type(input, '500');
     expect(screen.getByRole('button', { name: /next/i })).toBeDisabled();
@@ -76,7 +76,7 @@ describe('WizardWhat', () => {
     expect(onNext).toHaveBeenCalledWith({
       topics: [expect.objectContaining({ slug: 'prepositions' })],
       instructions: 'focus on dative',
-      count: 50,
+      count: DEFAULT_ITEM_COUNT,
     });
   });
 });

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { DrillTopicDTO } from '@/lib/drills/contracts';
 import { TopicPicker, type SelectedTopic } from './TopicPicker';
 
-export const DEFAULT_ITEM_COUNT = 50;
+export const DEFAULT_ITEM_COUNT = 10;
 export const MIN_ITEM_COUNT = 1;
 export const MAX_ITEM_COUNT = 200;
 
