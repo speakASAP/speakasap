@@ -268,6 +268,10 @@ model GrammarTopic {
   languageCode String   @map("language_code") @db.VarChar(8)
   titles       Json     @default("{}")
   sortOrder    Int      @default(0) @map("sort_order")
+  /// The theory page on speakasap.com, or null where the site has no page for this topic.
+  /// Nullable on purpose: only de/en/es/fr/it/pt are covered there, and a guessed URL is a
+  /// 404 shown to a student who just made a mistake. No link beats a broken one.
+  url          String?  @db.VarChar(512)
   createdAt    DateTime @default(now()) @map("created_at")
 
   gaps DrillGapAnalysis[]

@@ -20,6 +20,25 @@ interface GapAnalysisBlockProps {
   assignmentUuid: string;
   audience: 'student' | 'teacher';
   onRemedialCreated?: (result: RemedialCreationResult) => void;
+  /**
+   * Bumped by the parent the moment the drill completes.
+   *
+   * Analysis is enqueued server-side by the request that finished the drill, so a block
+   * mounted while the student was still answering has already seen `NOT_ANALYZED` and
+   * stopped polling. Without this the student finished the last blank and the page simply
+   * never mentioned the analysis again until a manual reload.
+   */
+  refreshKey?: number;
+  /**
+   * Whether the drill is known to be finished.
+   *
+   * `NOT_ANALYZED` is ambiguous on its own: it means both "still being answered" and
+   * "finished, and the job has not written its row yet". Rendering the first as a pending
+   * message would put "разбираем ошибки" under every unfinished drill; rendering the
+   * second as nothing leaves the student staring at a blank page. The parent knows which
+   * it is, so it tells us.
+   */
+  drillCompleted?: boolean;
 }
 
 /**
@@ -38,11 +57,17 @@ export function GapAnalysisBlock({
   assignmentUuid,
   audience,
   onRemedialCreated,
+  refreshKey = 0,
+  drillCompleted = false,
 }: GapAnalysisBlockProps) {
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyGap, setBusyGap] = useState<string | null>(null);
+  const [gapResults, setGapResults] = useState<
+    Record<string, { reused: boolean; count: number }>
+  >({});
+  const [gapErrors, setGapErrors] = useState<Record<string, string | null>>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -60,6 +85,16 @@ export function GapAnalysisBlock({
     }
   }, [assignmentUuid]);
 
+  // A per-gap confirmation describes one completed click against the analysis as it stood.
+  // When the parent forces a reload the page around it has changed, so the message is
+  // stale — and leaving it up would stack a second live region under whatever banner the
+  // reload brings. Polling ticks deliberately do NOT clear it: the teacher must keep
+  // seeing the confirmation for the click they just made.
+  useEffect(() => {
+    setGapResults({});
+    setGapErrors({});
+  }, [refreshKey, assignmentUuid]);
+
   useEffect(() => {
     let active = true;
 
@@ -68,7 +103,15 @@ export function GapAnalysisBlock({
       if (!active) {
         return;
       }
-      if (response && IN_FLIGHT_STATUSES.includes(response.status)) {
+      // `NOT_ANALYZED` is a polling state too once the drill is finished: the completing
+      // request enqueues the job and returns, so the run row appears a moment later.
+      // Treating it as terminal is what left the student's page permanently blank.
+      const waiting =
+        response !== null &&
+        (IN_FLIGHT_STATUSES.includes(response.status) ||
+          (drillCompleted && response.status === 'NOT_ANALYZED'));
+
+      if (waiting) {
         timer.current = setTimeout(tick, POLL_INTERVAL_MS);
       }
     };
@@ -81,7 +124,7 @@ export function GapAnalysisBlock({
         clearTimeout(timer.current);
       }
     };
-  }, [load]);
+  }, [load, refreshKey, drillCompleted]);
 
   const onRetry = useCallback(async () => {
     setActionError(null);
@@ -98,14 +141,23 @@ export function GapAnalysisBlock({
   const onCreateRemedial = useCallback(
     async (gapUuid: string) => {
       setActionError(null);
+      setGapErrors((prev) => ({ ...prev, [gapUuid]: null }));
       setBusyGap(gapUuid);
       try {
         const result = await createRemedial(gapUuid);
+        // Recorded per gap so the card that was clicked can confirm itself. The page-level
+        // callback stays — it drives the banner at the top — but it is no longer the only
+        // sign that anything happened.
+        setGapResults((prev) => ({
+          ...prev,
+          [gapUuid]: { reused: result.reused, count: result.assignmentUuids.length },
+        }));
         onRemedialCreated?.(result);
       } catch (error) {
-        setActionError(
-          error instanceof Error ? error.message : 'Не удалось создать работу над ошибками',
-        );
+        const message =
+          error instanceof Error ? error.message : 'Не удалось создать работу над ошибками';
+        setActionError(message);
+        setGapErrors((prev) => ({ ...prev, [gapUuid]: message }));
       } finally {
         setBusyGap(null);
       }
@@ -121,12 +173,30 @@ export function GapAnalysisBlock({
     );
   }
 
-  if (!analysis || analysis.status === 'NOT_ANALYZED') {
-    return null;
+  // Before the run row exists there is nothing to say — UNLESS the drill was just
+  // finished, in which case the analysis is already queued and the student is told so
+  // immediately instead of watching an empty page.
+  const pending =
+    IN_FLIGHT_STATUSES.includes(analysis?.status ?? 'NOT_ANALYZED') ||
+    (drillCompleted && (!analysis || analysis.status === 'NOT_ANALYZED'));
+
+  if (pending) {
+    return (
+      <section
+        role="status"
+        aria-live="polite"
+        className="rounded border border-zinc-300 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
+      >
+        <h3 className="text-lg font-semibold">Разбор ошибок</h3>
+        <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+          Идёт анализ ошибок… Разбор появится здесь через несколько секунд.
+        </p>
+      </section>
+    );
   }
 
-  if (IN_FLIGHT_STATUSES.includes(analysis.status)) {
-    return <p className="text-zinc-600 dark:text-zinc-400">Разбираем твои ошибки…</p>;
+  if (!analysis || analysis.status === 'NOT_ANALYZED') {
+    return null;
   }
 
   if (analysis.status === 'NO_ERRORS') {
@@ -171,6 +241,8 @@ export function GapAnalysisBlock({
           showRemedialAction={audience === 'teacher'}
           onCreateRemedial={onCreateRemedial}
           busy={busyGap === cluster.uuid}
+          result={gapResults[cluster.uuid] ?? null}
+          error={gapErrors[cluster.uuid] ?? null}
         />
       ))}
     </div>

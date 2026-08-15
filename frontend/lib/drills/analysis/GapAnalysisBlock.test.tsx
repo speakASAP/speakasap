@@ -99,7 +99,30 @@ describe('GapAnalysisBlock', () => {
 
     render(<GapAnalysisBlock assignmentUuid="a1" audience="student" />);
 
-    expect(await screen.findByText(/разбираем/i)).toBeInTheDocument();
+    expect(await screen.findByText(/идёт анализ ошибок/i)).toBeInTheDocument();
+  });
+
+  /**
+   * The student finishes the last blank and must be told the analysis is coming, right
+   * then. The run row does not exist yet at that moment — the request that completed the
+   * drill only just enqueued the job — so `NOT_ANALYZED` on a finished drill is a pending
+   * state, not an empty one.
+   */
+  it('announces the analysis immediately on a drill that was just completed', async () => {
+    mocks.fetchAnalysis.mockResolvedValue(analysis('NOT_ANALYZED'));
+
+    render(<GapAnalysisBlock assignmentUuid="a1" audience="student" drillCompleted />);
+
+    expect(await screen.findByText(/идёт анализ ошибок/i)).toBeInTheDocument();
+  });
+
+  it('stays silent on a drill the student has not finished', async () => {
+    mocks.fetchAnalysis.mockResolvedValue(analysis('NOT_ANALYZED'));
+
+    const { container } = render(<GapAnalysisBlock assignmentUuid="a1" audience="student" />);
+
+    await waitFor(() => expect(mocks.fetchAnalysis).toHaveBeenCalled());
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('offers no retry button to a student', async () => {
@@ -162,7 +185,27 @@ describe('GapAnalysisBlock', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /работу над ошибками/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/mastered/i);
+    // Two alerts on purpose: the block-level one, and one beside the button that was
+    // actually clicked. The button sits far below the top of a long progress page, so a
+    // failure reported only at the top reads as "nothing happened".
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts.length).toBeGreaterThanOrEqual(1);
+    alerts.forEach((alert) => expect(alert).toHaveTextContent(/mastered/i));
+  });
+
+  it('confirms a created drill next to the button that created it', async () => {
+    mocks.fetchAnalysis.mockResolvedValue(analysis('READY', { clusters: [readyCluster] }));
+    mocks.createRemedial.mockResolvedValue({
+      assignmentUuids: ['r1'],
+      setUuid: 's1',
+      reused: false,
+    });
+
+    render(<GapAnalysisBlock assignmentUuid="a1" audience="teacher" />);
+
+    await userEvent.click(await screen.findByRole('button', { name: /работу над ошибками/i }));
+
+    expect(await screen.findByText(/создано заданий: 1/i)).toBeInTheDocument();
   });
 
   it('renders nothing at all when the assignment has never been analyzed', async () => {

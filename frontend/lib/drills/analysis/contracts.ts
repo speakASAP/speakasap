@@ -31,6 +31,12 @@ export interface GapFailedAnswer {
 export interface GapCluster {
   uuid: string;
   topicSlug: string;
+  /**
+   * The theory page for this topic on speakasap.com, or null when the site has no page.
+   * Only de/en/es/fr/it/pt have a grammar section, so this is absent far more often than
+   * not and the card must render fine without it.
+   */
+  topicUrl: string | null;
   title: string;
   explanation: string;
   rules: string[];

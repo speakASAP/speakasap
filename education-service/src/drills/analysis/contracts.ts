@@ -117,6 +117,8 @@ export interface GapClusterRecord extends PersistableCluster {
   runUuid: string;
   sourceAssignmentUuid: string;
   studentId: number;
+  /** The theory page on speakasap.com; null when the site has none for this topic. */
+  topicUrl: string | null;
   languageCode: string;
   materialLanguage: string;
   editedByTeacherId: number | null;

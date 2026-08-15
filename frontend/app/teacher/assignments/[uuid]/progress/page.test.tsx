@@ -434,9 +434,12 @@ describe('progress page — gap analysis', () => {
     const button = await screen.findByRole('button', { name: /работу над ошибками/i });
     await user.click(button);
 
+    // Twice: the banner at the top of the page, and beside the button that was clicked.
+    // The button is far below the fold on a real progress page, so the inline copy is the
+    // one the teacher actually sees.
     expect(
-      await screen.findByText(/уже создана для этого пробела/i),
-    ).toBeInTheDocument();
+      (await screen.findAllByText(/уже создана для этого пробела/i)).length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it('surfaces a server refusal instead of swallowing it', async () => {
@@ -469,7 +472,9 @@ describe('progress page — gap analysis', () => {
     const button = await screen.findByRole('button', { name: /работу над ошибками/i });
     await user.click(button);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/GAP_ALREADY_MASTERED/);
+    // Both the page banner and the inline message beside the button carry the refusal.
+    const alerts = await screen.findAllByRole('alert');
+    alerts.forEach((alert) => expect(alert).toHaveTextContent(/GAP_ALREADY_MASTERED/));
   });
 
   it('clears the notice on reload so it cannot sit alongside a fresh status banner', async () => {
@@ -528,7 +533,9 @@ describe('progress page — gap analysis', () => {
 
     const createButton = await screen.findByRole('button', { name: /работу над ошибками/i });
     await user.click(createButton);
-    expect(await screen.findByText(/уже создана для этого пробела/i)).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText(/уже создана для этого пробела/i)).length,
+    ).toBeGreaterThanOrEqual(1);
 
     await user.click(await screen.findByRole('button', { name: /delete sentence 1/i }));
 

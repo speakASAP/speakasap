@@ -43,6 +43,7 @@ export default function AssignmentProgressPage() {
    * database row the teacher had no way to see.
    */
   const [notice, setNotice] = useState<string | null>(null);
+  const [analysisRefresh, setAnalysisRefresh] = useState(0);
 
   /**
    * COMPLETED and CANCELLED are terminal, and education-service refuses to edit an
@@ -65,6 +66,9 @@ export default function AssignmentProgressPage() {
     // concretely, deleting the last sentence brings back the "awaiting approval" banner,
     // which is also role="status", leaving two live regions on screen at once.
     setNotice(null);
+    // Same reasoning for the gap block's own inline confirmations, which live inside a
+    // child that survives this reload and would otherwise leave a second live region up.
+    setAnalysisRefresh((n) => n + 1);
     try {
       setProgress(await getTeacherProgress(params.uuid));
     } catch (e) {
@@ -302,6 +306,11 @@ export default function AssignmentProgressPage() {
           <GapAnalysisBlock
             assignmentUuid={params.uuid}
             audience="teacher"
+            refreshKey={analysisRefresh}
+            // The teacher opens this page right after the student finishes, so the run row
+            // may not exist yet. Same polling rule as the student's page — the analysis is
+            // stored once and read by both, never computed twice.
+            drillCompleted={progress?.status === 'COMPLETED'}
             onRemedialCreated={(result) => {
               setNotice(
                 result.reused

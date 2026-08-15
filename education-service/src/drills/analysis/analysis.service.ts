@@ -162,7 +162,40 @@ export class AnalysisService {
       }
     }
 
+    // A second, case-folded index over the same keys, used ONLY to match what the model
+    // echoed back against what the student actually faced.
+    //
+    // `normalizeAnswer` is the GRADING normalizer, and for German it preserves case on
+    // purpose — "die" and "Die" are different answers to mark. Matching model output is a
+    // different question from marking a student: the model writes the word in running
+    // prose ("die" mid-sentence) rather than echoing the stored surface form, so under
+    // the grading rule every German answer failed to match, every cluster was left
+    // holding nothing, and the whole analysis collapsed into the empty fallback bucket
+    // below — a card with no title, explanation, rules or examples.
+    //
+    // Ambiguity is possible in principle (two answers differing only by case in one
+    // drill); first writer wins and the other stays unclaimed, which lands it in the
+    // fallback exactly as before. That is strictly better than today, where ALL of them do.
+    const byCaseFolded = new Map<string, string>();
+    for (const key of byNormalized.keys()) {
+      const folded = key.toLowerCase();
+      if (!byCaseFolded.has(folded)) {
+        byCaseFolded.set(folded, key);
+      }
+    }
+
     const unclaimed = new Set(byNormalized.keys());
+
+    /** The unclaimed key for a model-supplied answer, exact match first. */
+    const resolveKey = (answer: string): string | null => {
+      const exact = normalizeAnswer(answer, options);
+      if (unclaimed.has(exact)) {
+        return exact;
+      }
+      const folded = byCaseFolded.get(exact.toLowerCase());
+      return folded && unclaimed.has(folded) ? folded : null;
+    };
+
     const clusters: PersistableCluster[] = [];
 
     for (const candidate of raw) {
@@ -175,12 +208,12 @@ export class AnalysisService {
 
       const claimed: PersistedFailedAnswer[] = [];
       for (const answer of candidate.answers ?? []) {
-        const normalized = normalizeAnswer(answer, options);
-        if (!unclaimed.has(normalized)) {
+        const key = resolveKey(answer);
+        if (!key) {
           continue;
         }
-        unclaimed.delete(normalized);
-        claimed.push(byNormalized.get(normalized)!);
+        unclaimed.delete(key);
+        claimed.push(byNormalized.get(key)!);
       }
 
       if (claimed.length === 0) {
@@ -202,20 +235,36 @@ export class AnalysisService {
     if (unclaimed.size > 0) {
       const leftovers = [...unclaimed].map((key) => byNormalized.get(key)!);
       this.logger.warn(
-        `Analysis left ${leftovers.length} answer(s) unclustered; filing under the fallback topic: ${leftovers
+        `Analysis left ${leftovers.length} of ${byNormalized.size} answer(s) unclustered; filing under the fallback topic: ${leftovers
           .map((a) => a.answer)
           .join(', ')}`,
       );
+
+      // Every answer unclaimed means attribution matched nothing at all — the model
+      // returned clusters that describe none of this drill. That is a broken analysis,
+      // not a grammar gap called "other", and it must not be served as one: an empty card
+      // reads to the student as "here is your explanation" with the explanation missing.
+      // Raising here routes it to `markFailed`, which the UI renders as a failure with a
+      // retry the teacher can press.
+      if (raw.length > 0 && clusters.length === 0) {
+        throw new Error(
+          `Analysis attributed none of the ${byNormalized.size} failed answer(s) to the ${raw.length} cluster(s) the model returned — refusing to store an analysis with no explanation`,
+        );
+      }
 
       const fallbackSlug = this.taxonomy.fallbackSlug(languageCode);
       const existing = clusters.find((c) => c.topicSlug === fallbackSlug);
       if (existing) {
         existing.failedAnswers.push(...leftovers);
       } else {
+        // No explanation to give — the model did not describe these answers. Say that
+        // plainly instead of rendering a titleless card with a bare word list under it,
+        // which reads as a broken page rather than a known gap in the analysis.
         clusters.push({
           topicSlug: fallbackSlug,
-          title: '',
-          explanation: '',
+          title: 'Остальные ошибки',
+          explanation:
+            'Эти ошибки не удалось отнести к одной грамматической теме — разберите их с преподавателем.',
           rules: [],
           examples: [],
           failedAnswers: leftovers,

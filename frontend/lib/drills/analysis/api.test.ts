@@ -5,6 +5,7 @@ import type { GapCluster } from './contracts';
 const cluster = (mistakeCounts: number[]): GapCluster => ({
   uuid: 'g1',
   topicSlug: 'en.prepositions-of-movement',
+  topicUrl: null,
   title: 'Предлоги движения',
   explanation: 'x',
   rules: [],

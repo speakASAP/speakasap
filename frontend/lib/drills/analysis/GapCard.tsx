@@ -9,6 +9,15 @@ interface GapCardProps {
   showRemedialAction: boolean;
   onCreateRemedial?: (gapUuid: string) => void;
   busy?: boolean;
+  /**
+   * The outcome of this card's own remedial creation, rendered next to the button.
+   *
+   * The page-level banner sits at the top of a long progress page, far above the button —
+   * a teacher who clicked saw nothing happen and clicked again. Feedback belongs where
+   * the click was.
+   */
+  result?: { reused: boolean; count: number } | null;
+  error?: string | null;
 }
 
 /**
@@ -18,7 +27,14 @@ interface GapCardProps {
  * produced — one row, one explanation, two places. Do not fork it for either audience;
  * the only difference is the action button, which is a prop.
  */
-export function GapCard({ cluster, showRemedialAction, onCreateRemedial, busy }: GapCardProps) {
+export function GapCard({
+  cluster,
+  showRemedialAction,
+  onCreateRemedial,
+  busy,
+  result = null,
+  error = null,
+}: GapCardProps) {
   // A cluster the analyzer never wrote text for — the fallback bucket for answers no
   // cluster claimed. Its topic slug is all there is, and showing an empty card would be
   // worse than showing the slug.
@@ -62,15 +78,53 @@ export function GapCard({ cluster, showRemedialAction, onCreateRemedial, busy }:
         </p>
       ) : null}
 
+      {/*
+        The full theory on speakasap.com. Absent for most topics — only six languages have
+        a grammar section — so it is rendered only when the server supplied one. A link
+        built here from the slug would 404 for everything else.
+      */}
+      {cluster.topicUrl ? (
+        <p className="mt-3">
+          <a
+            href={cluster.topicUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-sky-700 underline hover:text-sky-900 dark:text-sky-400"
+          >
+            Разобрать тему на speakasap.com →
+          </a>
+        </p>
+      ) : null}
+
       {showRemedialAction ? (
-        <button
-          type="button"
-          disabled={busy || sentenceCount === 0}
-          onClick={() => onCreateRemedial?.(cluster.uuid)}
-          className="mt-4 rounded bg-sky-700 px-3 py-2 text-sm text-white disabled:opacity-50"
-        >
-          Создать работу над ошибками ({sentenceCount} предложений)
-        </button>
+        <div className="mt-4 space-y-2">
+          <button
+            type="button"
+            disabled={busy || sentenceCount === 0}
+            aria-busy={busy}
+            onClick={() => onCreateRemedial?.(cluster.uuid)}
+            className="rounded bg-sky-700 px-3 py-2 text-sm text-white disabled:opacity-50"
+          >
+            {busy
+              ? 'Создаём работу над ошибками…'
+              : `Создать работу над ошибками (${sentenceCount} предложений)`}
+          </button>
+
+          {/* Both outcomes render HERE, beside the button, not only in the page banner. */}
+          {error ? (
+            <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+              {error}
+            </p>
+          ) : null}
+
+          {result && !error ? (
+            <p role="status" className="text-sm text-green-700 dark:text-green-400">
+              {result.reused
+                ? 'Работа над ошибками уже создана для этого пробела.'
+                : `Готово. Создано заданий: ${result.count}. Проверьте и отправьте студенту.`}
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );

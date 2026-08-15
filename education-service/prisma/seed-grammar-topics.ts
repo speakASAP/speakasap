@@ -9,105 +9,131 @@ import { PrismaClient } from '@prisma/client';
  *
  * Every language carries an `<lang>.other` row. The analyzer must always have a legal
  * target, so an unrecognised cluster lands there and is logged rather than dropped.
+ *
+ * Theory pages on speakasap.com follow one template: `/<lang>/grammar/<page>/`.
+ *
+ * The page slugs are transliterated Russian and are NOT derivable from the taxonomy slug
+ * ("de.articles-and-gender" -> "artikli"), nor shared across languages: German has
+ * "glagol-sein", Spanish spells articles "artikl" while everyone else uses "artikli". So
+ * the mapping is written out and each entry was verified to return 200.
+ *
+ * Only de/en/es/fr/it/pt have a grammar section on the site. Topics without a page — and
+ * the other twelve languages in the taxonomy — carry no URL at all. Guessing produces a
+ * 404 for a student who has just been told they made a mistake, which is worse than
+ * offering no link.
  */
+const SITE_LANGUAGE_PREFIX: Record<string, string> = {
+  de: 'de', en: 'en', es: 'es', fr: 'fr', it: 'it', pt: 'pt',
+};
+
+function topicUrl(languageCode: string, page: string | null): string | null {
+  const prefix = SITE_LANGUAGE_PREFIX[languageCode];
+  if (!prefix || !page) {
+    return null;
+  }
+  return `https://speakasap.com/${prefix}/grammar/${page}/`;
+}
+
 export const GRAMMAR_TOPICS: Array<{
   slug: string;
   languageCode: string;
   titles: Record<string, string>;
   sortOrder: number;
+  /** The `<page>` segment on speakasap.com, or null where no page exists. */
+  page?: string | null;
 }> = [
   { slug: 'en.prepositions-of-place', languageCode: 'en', sortOrder: 10,
-    titles: { ru: 'Предлоги места', en: 'Prepositions of place' } },
+    titles: { ru: 'Предлоги места', en: 'Prepositions of place' }, page: 'predlogi' },
   { slug: 'en.prepositions-of-movement', languageCode: 'en', sortOrder: 20,
-    titles: { ru: 'Предлоги движения', en: 'Prepositions of movement' } },
+    titles: { ru: 'Предлоги движения', en: 'Prepositions of movement' }, page: 'predlogi' },
   { slug: 'en.prepositions-of-time', languageCode: 'en', sortOrder: 30,
-    titles: { ru: 'Предлоги времени', en: 'Prepositions of time' } },
+    titles: { ru: 'Предлоги времени', en: 'Prepositions of time' }, page: 'predlogi' },
   { slug: 'en.phrasal-prepositions', languageCode: 'en', sortOrder: 40,
-    titles: { ru: 'Составные предлоги', en: 'Phrasal prepositions' } },
+    titles: { ru: 'Составные предлоги', en: 'Phrasal prepositions' }, page: 'predlogi' },
   { slug: 'en.articles', languageCode: 'en', sortOrder: 50,
-    titles: { ru: 'Артикли', en: 'Articles' } },
+    titles: { ru: 'Артикли', en: 'Articles' }, page: 'artikli' },
   { slug: 'en.verb-tenses', languageCode: 'en', sortOrder: 60,
-    titles: { ru: 'Времена глагола', en: 'Verb tenses' } },
+    titles: { ru: 'Времена глагола', en: 'Verb tenses' }, page: 'spryazhenie-glagolov' },
   { slug: 'en.irregular-verbs', languageCode: 'en', sortOrder: 70,
-    titles: { ru: 'Неправильные глаголы', en: 'Irregular verbs' } },
+    titles: { ru: 'Неправильные глаголы', en: 'Irregular verbs' }, page: 'nepravilnye-glagoly' },
   { slug: 'en.word-order', languageCode: 'en', sortOrder: 80,
     titles: { ru: 'Порядок слов', en: 'Word order' } },
   { slug: 'en.pronouns', languageCode: 'en', sortOrder: 90,
-    titles: { ru: 'Местоимения', en: 'Pronouns' } },
+    titles: { ru: 'Местоимения', en: 'Pronouns' }, page: 'mestoimeniya' },
   { slug: 'en.modal-verbs', languageCode: 'en', sortOrder: 100,
-    titles: { ru: 'Модальные глаголы', en: 'Modal verbs' } },
+    titles: { ru: 'Модальные глаголы', en: 'Modal verbs' }, page: 'modalnye-glagoly' },
   { slug: 'en.plurals-and-countability', languageCode: 'en', sortOrder: 110,
     titles: { ru: 'Множественное число и исчисляемость', en: 'Plurals and countability' } },
   { slug: 'en.spelling', languageCode: 'en', sortOrder: 120,
-    titles: { ru: 'Орфография', en: 'Spelling' } },
+    titles: { ru: 'Орфография', en: 'Spelling' }, page: 'pravila-chteniya' },
   { slug: 'en.vocabulary-choice', languageCode: 'en', sortOrder: 130,
-    titles: { ru: 'Выбор слова', en: 'Vocabulary choice' } },
+    titles: { ru: 'Выбор слова', en: 'Vocabulary choice' }, page: 'idiomy' },
   { slug: 'en.other', languageCode: 'en', sortOrder: 999,
     titles: { ru: 'Прочее', en: 'Other' } },
 
   { slug: 'de.prepositions-with-cases', languageCode: 'de', sortOrder: 10,
-    titles: { ru: 'Предлоги и падежи', en: 'Prepositions and cases' } },
+    titles: { ru: 'Предлоги и падежи', en: 'Prepositions and cases' }, page: 'predlogi-dativ' },
   { slug: 'de.articles-and-gender', languageCode: 'de', sortOrder: 20,
-    titles: { ru: 'Артикли и род', en: 'Articles and gender' } },
+    titles: { ru: 'Артикли и род', en: 'Articles and gender' }, page: 'artikli' },
   { slug: 'de.word-order', languageCode: 'de', sortOrder: 30,
     titles: { ru: 'Порядок слов', en: 'Word order' } },
   { slug: 'de.verb-tenses', languageCode: 'de', sortOrder: 40,
-    titles: { ru: 'Времена глагола', en: 'Verb tenses' } },
+    titles: { ru: 'Времена глагола', en: 'Verb tenses' }, page: 'spryazhenie-glagolov' },
   { slug: 'de.separable-verbs', languageCode: 'de', sortOrder: 50,
-    titles: { ru: 'Отделяемые приставки', en: 'Separable verbs' } },
+    titles: { ru: 'Отделяемые приставки', en: 'Separable verbs' }, page: 'glagoly-s-otdelyaemymi-pristavkami' },
   { slug: 'de.spelling', languageCode: 'de', sortOrder: 60,
-    titles: { ru: 'Орфография', en: 'Spelling' } },
+    titles: { ru: 'Орфография', en: 'Spelling' }, page: 'pravila-chteniya' },
   { slug: 'de.vocabulary-choice', languageCode: 'de', sortOrder: 70,
-    titles: { ru: 'Выбор слова', en: 'Vocabulary choice' } },
+    titles: { ru: 'Выбор слова', en: 'Vocabulary choice' }, page: 'idiomy' },
   { slug: 'de.other', languageCode: 'de', sortOrder: 999,
     titles: { ru: 'Прочее', en: 'Other' } },
 
   { slug: 'es.prepositions', languageCode: 'es', sortOrder: 10,
-    titles: { ru: 'Предлоги', en: 'Prepositions' } },
+    titles: { ru: 'Предлоги', en: 'Prepositions' }, page: 'predlogi' },
   { slug: 'es.ser-vs-estar', languageCode: 'es', sortOrder: 20,
-    titles: { ru: 'Ser и estar', en: 'Ser vs estar' } },
+    titles: { ru: 'Ser и estar', en: 'Ser vs estar' }, page: 'glagoly-byt-ser-estar' },
   { slug: 'es.verb-tenses', languageCode: 'es', sortOrder: 30,
-    titles: { ru: 'Времена глагола', en: 'Verb tenses' } },
+    titles: { ru: 'Времена глагола', en: 'Verb tenses' }, page: 'glagoly-v-nastoyashem-vremeni' },
   { slug: 'es.subjunctive', languageCode: 'es', sortOrder: 40,
-    titles: { ru: 'Сослагательное наклонение', en: 'Subjunctive' } },
+    titles: { ru: 'Сослагательное наклонение', en: 'Subjunctive' }, page: 'soslagatelnoe-naklonenie' },
   { slug: 'es.articles-and-gender', languageCode: 'es', sortOrder: 50,
-    titles: { ru: 'Артикли и род', en: 'Articles and gender' } },
+    titles: { ru: 'Артикли и род', en: 'Articles and gender' }, page: 'artikl' },
   { slug: 'es.spelling', languageCode: 'es', sortOrder: 60,
-    titles: { ru: 'Орфография', en: 'Spelling' } },
+    titles: { ru: 'Орфография', en: 'Spelling' }, page: 'pravila-chteniya' },
   { slug: 'es.vocabulary-choice', languageCode: 'es', sortOrder: 70,
-    titles: { ru: 'Выбор слова', en: 'Vocabulary choice' } },
+    titles: { ru: 'Выбор слова', en: 'Vocabulary choice' }, page: 'idiomy' },
   { slug: 'es.other', languageCode: 'es', sortOrder: 999,
     titles: { ru: 'Прочее', en: 'Other' } },
 
   { slug: 'fr.articles-and-gender', languageCode: 'fr', sortOrder: 10,
-    titles: { ru: 'Артикли и род существительных', en: 'Articles and noun gender' } },
+    titles: { ru: 'Артикли и род существительных', en: 'Articles and noun gender' }, page: 'artikli' },
   { slug: 'fr.prepositions', languageCode: 'fr', sortOrder: 20,
-    titles: { ru: 'Предлоги', en: 'Prepositions' } },
+    titles: { ru: 'Предлоги', en: 'Prepositions' }, page: 'predlogi' },
   { slug: 'fr.verb-tenses', languageCode: 'fr', sortOrder: 30,
-    titles: { ru: 'Времена глагола', en: 'Verb tenses' } },
+    titles: { ru: 'Времена глагола', en: 'Verb tenses' }, page: 'spryazhenie-glagolov' },
   { slug: 'fr.être-vs-avoir-auxiliary', languageCode: 'fr', sortOrder: 40,
-    titles: { ru: 'Вспомогательные глаголы être/avoir', en: 'Être vs avoir as auxiliary' } },
+    titles: { ru: 'Вспомогательные глаголы être/avoir', en: 'Être vs avoir as auxiliary' }, page: 'proshedshee-zakonchennoe-vremya-passe-compose' },
   { slug: 'fr.adjective-agreement', languageCode: 'fr', sortOrder: 50,
-    titles: { ru: 'Согласование прилагательных', en: 'Adjective agreement' } },
+    titles: { ru: 'Согласование прилагательных', en: 'Adjective agreement' }, page: 'prilagatelnye' },
   { slug: 'fr.negation', languageCode: 'fr', sortOrder: 60,
     titles: { ru: 'Отрицание (ne...pas)', en: 'Negation (ne...pas)' } },
   { slug: 'fr.spelling', languageCode: 'fr', sortOrder: 70,
-    titles: { ru: 'Орфография', en: 'Spelling' } },
+    titles: { ru: 'Орфография', en: 'Spelling' }, page: 'diakriticheskie-znaki' },
   { slug: 'fr.other', languageCode: 'fr', sortOrder: 999,
     titles: { ru: 'Прочее', en: 'Other' } },
 
   { slug: 'it.articles-and-gender', languageCode: 'it', sortOrder: 10,
-    titles: { ru: 'Артикли и род существительных', en: 'Articles and noun gender' } },
+    titles: { ru: 'Артикли и род существительных', en: 'Articles and noun gender' }, page: 'artikli' },
   { slug: 'it.prepositions', languageCode: 'it', sortOrder: 20,
-    titles: { ru: 'Предлоги', en: 'Prepositions' } },
+    titles: { ru: 'Предлоги', en: 'Prepositions' }, page: 'predlogi' },
   { slug: 'it.verb-tenses', languageCode: 'it', sortOrder: 30,
-    titles: { ru: 'Времена глагола', en: 'Verb tenses' } },
+    titles: { ru: 'Времена глагола', en: 'Verb tenses' }, page: 'spryazhenie-glagolov-1-gruppy' },
   { slug: 'it.essere-vs-avere-auxiliary', languageCode: 'it', sortOrder: 40,
-    titles: { ru: 'Вспомогательные глаголы essere/avere', en: 'Essere vs avere as auxiliary' } },
+    titles: { ru: 'Вспомогательные глаголы essere/avere', en: 'Essere vs avere as auxiliary' }, page: 'glagoly-upotreblyaemye-s-avere-essere' },
   { slug: 'it.adjective-agreement', languageCode: 'it', sortOrder: 50,
-    titles: { ru: 'Согласование прилагательных', en: 'Adjective agreement' } },
+    titles: { ru: 'Согласование прилагательных', en: 'Adjective agreement' }, page: 'prilagatelnye' },
   { slug: 'it.spelling', languageCode: 'it', sortOrder: 60,
-    titles: { ru: 'Орфография', en: 'Spelling' } },
+    titles: { ru: 'Орфография', en: 'Spelling' }, page: 'pravila-chteniya' },
   { slug: 'it.other', languageCode: 'it', sortOrder: 999,
     titles: { ru: 'Прочее', en: 'Other' } },
 
@@ -121,8 +147,10 @@ export const GRAMMAR_TOPICS: Array<{
     titles: { ru: 'Времена глагола', en: 'Verb tenses' } },
   { slug: 'pt.subjunctive', languageCode: 'pt', sortOrder: 50,
     titles: { ru: 'Сослагательное наклонение', en: 'Subjunctive' } },
+  // Portuguese has only five grammar pages on the site — no articles, verbs or
+  // prepositions section — so the rest of the pt topics stay unlinked.
   { slug: 'pt.spelling', languageCode: 'pt', sortOrder: 60,
-    titles: { ru: 'Орфография', en: 'Spelling' } },
+    titles: { ru: 'Орфография', en: 'Spelling' }, page: 'pravila-chteniya' },
   { slug: 'pt.other', languageCode: 'pt', sortOrder: 999,
     titles: { ru: 'Прочее', en: 'Other' } },
 
@@ -320,10 +348,20 @@ export const GRAMMAR_TOPICS: Array<{
 
 export async function seedGrammarTopics(prisma: PrismaClient): Promise<number> {
   for (const topic of GRAMMAR_TOPICS) {
+    // `page` is a seed-authoring convenience, not a column — it is resolved to the full
+    // URL here. Spreading `topic` into `create` would send it to Prisma as an unknown
+    // field, so both branches are written out explicitly.
+    const row = {
+      languageCode: topic.languageCode,
+      titles: topic.titles,
+      sortOrder: topic.sortOrder,
+      url: topicUrl(topic.languageCode, topic.page ?? null),
+    };
+
     await prisma.grammarTopic.upsert({
       where: { slug: topic.slug },
-      update: { languageCode: topic.languageCode, titles: topic.titles, sortOrder: topic.sortOrder },
-      create: topic,
+      update: row,
+      create: { slug: topic.slug, ...row },
     });
   }
   return GRAMMAR_TOPICS.length;

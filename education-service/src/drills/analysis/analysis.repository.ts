@@ -116,7 +116,12 @@ export class AnalysisRepository {
   async getRunWithClusters(sourceAssignmentUuid: string): Promise<AnalysisRunRecord | null> {
     const row: any = await (this.prisma as any).drillAnalysisRun.findUnique({
       where: { sourceAssignmentUuid },
-      include: { clusters: { orderBy: { topicSlug: 'asc' } } },
+      // `topic` carries the speakasap.com theory link, which the student and the teacher
+      // both read straight off the cluster. Joined here rather than resolved per cluster
+      // in the controller: one query serves both audiences and neither can forget it.
+      include: {
+        clusters: { orderBy: { topicSlug: 'asc' }, include: { topic: true } },
+      },
     });
     if (!row) {
       return null;
@@ -136,7 +141,10 @@ export class AnalysisRepository {
   }
 
   async getCluster(uuid: string): Promise<GapClusterRecord | null> {
-    const row: any = await (this.prisma as any).drillGapAnalysis.findUnique({ where: { uuid } });
+    const row: any = await (this.prisma as any).drillGapAnalysis.findUnique({
+      where: { uuid },
+      include: { topic: true },
+    });
     return row ? toClusterRecord(row) : null;
   }
 
@@ -189,6 +197,9 @@ function toClusterRecord(row: any): GapClusterRecord {
     sourceAssignmentUuid: row.sourceAssignmentUuid,
     studentId: row.studentId,
     topicSlug: row.topicSlug,
+    // Null whenever the topic was not joined in, or the site has no page for it. The UI
+    // renders no link in either case rather than a dead one.
+    topicUrl: row.topic?.url ?? null,
     languageCode: row.languageCode,
     materialLanguage: row.materialLanguage,
     title: row.title,

@@ -26,6 +26,7 @@ export default function PracticeRunnerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
+  const [analysisRefresh, setAnalysisRefresh] = useState(0);
   const [theory, setTheory] = useState<GapCluster | null>(null);
 
   useEffect(() => {
@@ -83,7 +84,13 @@ export default function PracticeRunnerPage() {
     };
   }, [runner]);
 
-  const onComplete = useCallback(() => setCompleted(true), []);
+  // Completion both reveals the "done" banner and kicks the analysis block into polling:
+  // the request that finished the drill is what enqueued the analysis server-side, so the
+  // block must re-ask now rather than keep the `NOT_ANALYZED` it saw on mount.
+  const onComplete = useCallback(() => {
+    setCompleted(true);
+    setAnalysisRefresh((n) => n + 1);
+  }, []);
 
   return (
     <main className="min-h-full bg-zinc-50 px-4 py-10 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6">
@@ -120,7 +127,19 @@ export default function PracticeRunnerPage() {
           </p>
         ) : null}
 
-        {uuid ? <GapAnalysisBlock assignmentUuid={uuid} audience="student" /> : null}
+        {/*
+          `drillCompleted` is true both for a drill finished in this session and for one
+          finished earlier and reopened — the server's status covers the reload case, which
+          local `completed` state cannot.
+        */}
+        {uuid ? (
+          <GapAnalysisBlock
+            assignmentUuid={uuid}
+            audience="student"
+            refreshKey={analysisRefresh}
+            drillCompleted={completed || runner?.assignment?.status === 'COMPLETED'}
+          />
+        ) : null}
       </div>
     </main>
   );

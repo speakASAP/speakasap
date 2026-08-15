@@ -309,3 +309,105 @@ describe('AnalysisService.run', () => {
     expect(order).toEqual(['running', 'analyze']);
   });
 });
+
+/**
+ * German attribution — the regression that produced an empty `de.other` card in production.
+ *
+ * German is in `CASE_SENSITIVE_LANGUAGES`, so the grading normalizer preserves case. The
+ * model writes the article in running prose ("die"), not in the stored surface form
+ * ("Die"), so a case-sensitive match dropped every answer into the fallback bucket and the
+ * student was shown a card with no title, explanation, rules or examples.
+ *
+ * The data below is assignment 6320c263-bbab-4bed-85e7-6891fbf52bb6 as it actually was.
+ */
+describe('AnalysisService.run — German case-sensitive attribution', () => {
+  const germanAssignment = {
+    uuid: 'de-1',
+    studentId: 7,
+    languageCode: 'de',
+    materialLanguage: 'ru',
+    items: [
+      { uuid: 'g1', order: 0, template: '{{0}} Haus ist groß.', blanks: [{ index: 0, answer: 'Das', prompt: 'это' }] },
+      { uuid: 'g2', order: 1, template: 'Ich sehe {{0}} Hund.', blanks: [{ index: 0, answer: 'den', prompt: 'этот' }] },
+      { uuid: 'g3', order: 2, template: '{{0}} Frau ist hier.', blanks: [{ index: 0, answer: 'Die', prompt: 'это' }] },
+    ],
+  };
+
+  const germanAttempts = [
+    { itemUuid: 'g1', blankIndex: 0, submittedValue: 'die', isCorrect: false, revealed: false, attemptNo: 1 },
+    { itemUuid: 'g2', blankIndex: 0, submittedValue: 'diese', isCorrect: false, revealed: false, attemptNo: 1 },
+    { itemUuid: 'g3', blankIndex: 0, submittedValue: 'Das', isCorrect: false, revealed: false, attemptNo: 1 },
+  ];
+
+  function germanDeps(modelAnswers: string[]) {
+    const d = deps({ assignment: germanAssignment, attempts: germanAttempts });
+    d.taxonomy.slugsFor = jest.fn(async () => ['de.articles-and-gender', 'de.other']);
+    d.client.analyze = jest.fn(async () => ({
+      clusters: [
+        {
+          topicSlug: 'de.articles-and-gender',
+          title: 'Артикли и род',
+          explanation: 'Род существительного определяет артикль.',
+          rules: ['das Haus — средний род'],
+          examples: [{ text: 'Das Haus ist groß.', gloss: 'Дом большой.' }],
+          answers: modelAnswers,
+        },
+      ],
+    }));
+    return d;
+  }
+
+  it('attributes answers the model echoed in lowercase to the real grammar cluster', async () => {
+    // The model writes "das"/"die" mid-sentence; the stored answers are "Das"/"Die".
+    const d = germanDeps(['das', 'den', 'die']);
+    const service = new AnalysisService(d.prisma, d.repo as any, d.client as any, d.taxonomy as any);
+
+    await service.run('de-1', 'cid-de');
+
+    expect(d.repo.markFailed).not.toHaveBeenCalled();
+    const clusters = d.repo.replaceClusters.mock.calls[0][5];
+    expect(clusters).toHaveLength(1);
+    expect(clusters[0].topicSlug).toBe('de.articles-and-gender');
+    expect(clusters[0].explanation).not.toBe('');
+    expect(clusters[0].failedAnswers.map((a: any) => a.answer).sort()).toEqual(['Das', 'Die', 'den']);
+  });
+
+  it('still prefers an exact-case match over a case-folded one', async () => {
+    const d = germanDeps(['Das', 'den', 'Die']);
+    const service = new AnalysisService(d.prisma, d.repo as any, d.client as any, d.taxonomy as any);
+
+    await service.run('de-1', 'cid-de');
+
+    const clusters = d.repo.replaceClusters.mock.calls[0][5];
+    expect(clusters[0].failedAnswers).toHaveLength(3);
+  });
+
+  it('fails the run rather than storing an explanation-free card when nothing matches', async () => {
+    // The model described a completely different drill. Storing this would render as a
+    // titleless card with a bare word list — the exact production symptom.
+    const d = germanDeps(['völlig', 'andere', 'wörter']);
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const service = new AnalysisService(d.prisma, d.repo as any, d.client as any, d.taxonomy as any);
+
+    await service.run('de-1', 'cid-de');
+
+    expect(d.repo.replaceClusters).not.toHaveBeenCalled();
+    expect(d.repo.markReady).not.toHaveBeenCalled();
+    expect(d.repo.markFailed).toHaveBeenCalledWith('run-1', expect.stringContaining('attributed none'));
+  });
+
+  it('gives the fallback bucket a real title when only some answers are unclaimed', async () => {
+    const d = germanDeps(['das', 'die']);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const service = new AnalysisService(d.prisma, d.repo as any, d.client as any, d.taxonomy as any);
+
+    await service.run('de-1', 'cid-de');
+
+    const clusters = d.repo.replaceClusters.mock.calls[0][5];
+    const fallback = clusters.find((c: any) => c.topicSlug === 'de.other');
+    expect(fallback.failedAnswers.map((a: any) => a.answer)).toEqual(['den']);
+    expect(fallback.title).not.toBe('');
+    expect(fallback.explanation).not.toBe('');
+  });
+});
