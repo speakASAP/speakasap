@@ -123,7 +123,7 @@ export default function PracticeRunnerPage() {
 
         {completed ? (
           <p className="rounded border border-green-300 bg-green-50 p-4 text-green-900">
-            Done — every blank is filled. Nice work.
+            Отлично! Все задания заполнены.
           </p>
         ) : null}
 
