@@ -39,7 +39,7 @@ export default function PracticePage() {
       })
       .catch(() => {
         if (active) {
-          setError('Could not load your practice. Please refresh.');
+          setError('Не удалось загрузить практику. Обновите страницу.');
         }
       })
       .finally(() => {
@@ -65,8 +65,8 @@ export default function PracticePage() {
           >
             ← Мои курсы
           </a>
-          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Learner portal</p>
-          <h1 className="mt-2 text-2xl font-semibold">Practice</h1>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Портал ученика</p>
+          <h1 className="mt-2 text-2xl font-semibold">Практика</h1>
         </header>
 
         {error ? (
@@ -75,7 +75,7 @@ export default function PracticePage() {
           </p>
         ) : null}
 
-        {loading ? <p className="text-slate-600">Loading…</p> : null}
+        {loading ? <p className="text-slate-600">Загрузка…</p> : null}
 
         {/* A failed load knows neither what is assigned nor whether self-drilling is
             allowed. Rendering either section from those defaults tells the student
@@ -84,9 +84,9 @@ export default function PracticePage() {
         {loading || error ? null : (
           <>
             <section>
-              <h2 className="text-lg font-semibold">Assigned to you</h2>
+              <h2 className="text-lg font-semibold">Назначено вам</h2>
               {outstanding.length === 0 ? (
-                <p className="mt-2 text-slate-600">Nothing assigned right now.</p>
+                <p className="mt-2 text-slate-600">Сейчас ничего не назначено.</p>
               ) : (
                 <ul className="mt-3 space-y-2">
                   {outstanding.map((assignment) => (
@@ -97,14 +97,14 @@ export default function PracticePage() {
                       <span>
                         <span className="font-medium">{assignment.title}</span>{' '}
                         <span className="text-sm text-slate-500">
-                          {assignment.blanksCorrect} of {assignment.blanksTotal} blanks
+                          {assignment.blanksCorrect} из {assignment.blanksTotal} пропусков
                         </span>
                       </span>
                       <Link
                         href={`/learner/practice/${assignment.uuid}`}
                         className="rounded bg-sky-600 px-3 py-1 text-white"
                       >
-                        Continue
+                        Продолжить
                       </Link>
                     </li>
                   ))}

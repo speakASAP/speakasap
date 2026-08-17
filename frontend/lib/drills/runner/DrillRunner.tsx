@@ -167,7 +167,7 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
         });
 
         setProgress({ correct: response.blanksCorrect, total: response.blanksTotal });
-        setAnnouncement(response.correct ? `Correct: ${response.acceptedText}` : 'Not quite — try again');
+        setAnnouncement(response.correct ? `Правильно: ${response.acceptedText}` : 'Не совсем — попробуйте ещё раз');
 
         if (response.assignmentCompleted && !completed.current) {
           completed.current = true;
@@ -186,8 +186,8 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
         }));
         setAnnouncement(
           isNetwork
-            ? 'Not saved — check your connection and try again'
-            : 'Something went wrong. Your answer was not saved',
+            ? 'Не сохранено — проверьте соединение и попробуйте ещё раз'
+            : 'Что-то пошло не так. Ответ не сохранён',
         );
       } finally {
         inFlight.current[key] = false;
@@ -264,7 +264,7 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
         aria-valuenow={progress.correct}
         aria-valuemin={0}
         aria-valuemax={progress.total}
-        aria-label="Blanks completed"
+        aria-label="Заполнено пропусков"
         className="my-4 h-2 w-full overflow-hidden rounded bg-slate-200"
       >
         <div
@@ -294,7 +294,7 @@ export function DrillRunner({ assignment, items, onComplete }: DrillRunnerProps)
                     ref={(element) => {
                       inputs.current[key] = element;
                     }}
-                    label={`Sentence ${itemPosition + 1}, blank ${segment.index + 1}`}
+                    label={`Предложение ${itemPosition + 1}, пропуск ${segment.index + 1}`}
                     prompt={blank.prompt}
                     maxLength={blank.maxLength}
                     value={state.value}

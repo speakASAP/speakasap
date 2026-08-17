@@ -43,7 +43,7 @@ export default function PracticeRunnerPage() {
       })
       .catch(() => {
         if (active) {
-          setError('Could not load this drill. Please refresh.');
+          setError('Не удалось загрузить упражнение. Обновите страницу.');
         }
       })
       .finally(() => {
@@ -96,7 +96,7 @@ export default function PracticeRunnerPage() {
     <main className="min-h-full bg-zinc-50 px-4 py-10 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6">
       <div className="mx-auto w-full max-w-3xl space-y-6">
         <Link href="/learner/practice" className="text-sm text-sky-700 underline">
-          ← Back to practice
+          ← Назад к практике
         </Link>
 
         {error ? (
@@ -105,7 +105,7 @@ export default function PracticeRunnerPage() {
           </p>
         ) : null}
 
-        {loading ? <p className="text-slate-600">Loading…</p> : null}
+        {loading ? <p className="text-slate-600">Загрузка…</p> : null}
 
         {theory ? (
           <div data-testid="remedial-theory">

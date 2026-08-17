@@ -152,7 +152,7 @@ describe('DrillRunner', () => {
     const input = screen.getByPlaceholderText('на');
     await userEvent.type(input, 'auf{Enter}');
 
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/not saved/i));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/не сохранено/i));
     expect(input).not.toHaveAttribute('aria-invalid', 'true');
   });
 
@@ -240,7 +240,7 @@ describe('DrillRunner', () => {
   it('labels every blank so it is reachable and identifiable by keyboard alone', () => {
     render(<DrillRunner assignment={assignment} items={items as any} onComplete={vi.fn()} />);
 
-    expect(screen.getByLabelText(/sentence 1.*blank 1/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/предложение 1.*пропуск 1/i)).toBeInTheDocument();
   });
 
   it('sizes the input from maxLength, which is derived from length and never the answer', () => {

@@ -15,7 +15,7 @@ describe('SelfDrillBrowser', () => {
   it('shows a lock message and no set list while an assignment is outstanding', () => {
     render(<SelfDrillBrowser allowed={false} blockingTitle="Prepositions" sets={[]} />);
 
-    expect(screen.getByText(/finish.*Prepositions/i)).toBeInTheDocument();
+    expect(screen.getByText(/выполните.*Prepositions/i)).toBeInTheDocument();
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
 
@@ -29,7 +29,7 @@ describe('SelfDrillBrowser', () => {
     vi.spyOn(api, 'startSelfDrill').mockRejectedValue({ code: 'ASSIGNMENT_OUTSTANDING' });
     render(<SelfDrillBrowser allowed={true} blockingTitle={null} sets={sets as any} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /start/i }));
+    await userEvent.click(screen.getByRole('button', { name: /начать/i }));
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     // The page survives: the set is still listed and still startable.
@@ -43,7 +43,7 @@ describe('SelfDrillBrowser', () => {
       <SelfDrillBrowser allowed={true} blockingTitle={null} sets={sets as any} onStarted={onStarted} />,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /start/i }));
+    await userEvent.click(screen.getByRole('button', { name: /начать/i }));
 
     await waitFor(() => expect(spy).toHaveBeenCalledWith('s-1'));
     expect(onStarted).toHaveBeenCalledWith('a-9');
@@ -55,7 +55,7 @@ describe('SelfDrillBrowser', () => {
       .mockImplementation(() => new Promise(() => {}) as Promise<any>);
     render(<SelfDrillBrowser allowed={true} blockingTitle={null} sets={sets as any} />);
 
-    const button = screen.getByRole('button', { name: /start/i });
+    const button = screen.getByRole('button', { name: /начать/i });
     await userEvent.click(button);
     await userEvent.click(button);
 
@@ -65,6 +65,6 @@ describe('SelfDrillBrowser', () => {
   it('tells the student when there is nothing available to drill', () => {
     render(<SelfDrillBrowser allowed={true} blockingTitle={null} sets={[]} />);
 
-    expect(screen.getByText(/nothing.*available|no sets/i)).toBeInTheDocument();
+    expect(screen.getByText(/нет наборов/i)).toBeInTheDocument();
   });
 });

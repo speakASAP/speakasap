@@ -35,8 +35,8 @@ export function SelfDrillBrowser({ allowed, blockingTitle, sets, onStarted }: Se
       <section className="rounded border border-amber-300 bg-amber-50 p-4">
         <p>
           {blockingTitle
-            ? `Finish your assignment "${blockingTitle}" before practising on your own.`
-            : 'Finish your current assignment before practising on your own.'}
+            ? `Сначала выполните задание «${blockingTitle}», затем можно тренироваться самостоятельно.`
+            : 'Сначала выполните текущее задание, затем можно тренироваться самостоятельно.'}
         </p>
       </section>
     );
@@ -55,8 +55,8 @@ export function SelfDrillBrowser({ allowed, blockingTitle, sets, onStarted }: Se
       const code = (caught as { code?: string })?.code;
       setError(
         code === 'ASSIGNMENT_OUTSTANDING'
-          ? 'Your teacher has assigned new work. Finish that first, then come back.'
-          : 'Could not start this drill. Please try again.',
+          ? 'Преподаватель назначил новое задание. Сначала выполните его, затем вернитесь сюда.'
+          : 'Не удалось начать это упражнение. Попробуйте ещё раз.',
       );
     } finally {
       setStarting(null);
@@ -65,7 +65,7 @@ export function SelfDrillBrowser({ allowed, blockingTitle, sets, onStarted }: Se
 
   return (
     <section>
-      <h2 className="text-lg font-semibold">Practise on your own</h2>
+      <h2 className="text-lg font-semibold">Тренируйтесь самостоятельно</h2>
 
       {error ? (
         <p role="alert" className="my-2 rounded border border-red-300 bg-red-50 p-3 text-red-800">
@@ -74,14 +74,14 @@ export function SelfDrillBrowser({ allowed, blockingTitle, sets, onStarted }: Se
       ) : null}
 
       {sets.length === 0 ? (
-        <p className="text-slate-600">No sets are available to practise yet.</p>
+        <p className="text-slate-600">Пока нет наборов для самостоятельной практики.</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {sets.map((set) => (
             <li key={set.uuid} className="flex items-center justify-between rounded border p-3">
               <span>
                 <span className="font-medium">{set.title}</span>{' '}
-                <span className="text-sm text-slate-500">{set.itemCount} sentences</span>
+                <span className="text-sm text-slate-500">{set.itemCount} предложений</span>
               </span>
               <button
                 type="button"
@@ -89,7 +89,7 @@ export function SelfDrillBrowser({ allowed, blockingTitle, sets, onStarted }: Se
                 disabled={starting !== null}
                 onClick={() => void start(set.uuid)}
               >
-                {starting === set.uuid ? 'Starting…' : 'Start'}
+                {starting === set.uuid ? 'Запуск…' : 'Начать'}
               </button>
             </li>
           ))}
