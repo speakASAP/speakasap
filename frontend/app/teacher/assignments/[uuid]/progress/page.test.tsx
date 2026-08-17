@@ -78,6 +78,31 @@ describe('teacher drill progress — not yet approved', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(/approv/i);
   });
 
+  /**
+   * Telling the teacher to "approve it on the review screen" without saying where that
+   * screen is left the page a dead end: the review route is keyed by this same assignment
+   * uuid, which is in the URL bar and nowhere a teacher would think to look.
+   */
+  it('links to the review screen for this assignment', async () => {
+    getTeacherProgress.mockResolvedValue({ ...base, status: 'PENDING_REVIEW' });
+
+    render(<ProgressPage />);
+
+    expect(await screen.findByRole('link', { name: /review|одобр/i })).toHaveAttribute(
+      'href',
+      '/teacher/assignments/a-1/review',
+    );
+  });
+
+  it('offers no review link for an assigned but empty assignment', async () => {
+    getTeacherProgress.mockResolvedValue({ ...base, status: 'ASSIGNED', items: [] });
+
+    render(<ProgressPage />);
+
+    await screen.findByRole('status');
+    expect(screen.queryByRole('link', { name: /review|одобр/i })).not.toBeInTheDocument();
+  });
+
   it('does not show the solved tiles when there is nothing to solve yet', async () => {
     getTeacherProgress.mockResolvedValue({ ...base, status: 'PENDING_REVIEW' });
 

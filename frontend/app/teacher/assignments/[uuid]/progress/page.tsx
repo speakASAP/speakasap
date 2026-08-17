@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
 import {
@@ -180,14 +181,33 @@ export default function AssignmentProgressPage() {
            * content, which is a defect — so it is not described with the reassuring
            * approval wording.
            */
-          <p
+          <div
             role="status"
-            className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+            className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
           >
-            {progress.status === 'PENDING_REVIEW'
-              ? 'This set is still awaiting your approval, so the student has not started it yet. Approve it on the review screen and progress will appear here.'
-              : 'This assignment has no sentences, so there is no progress to show. Please report it if it stays this way.'}
-          </p>
+            <p>
+              {progress.status === 'PENDING_REVIEW'
+                ? 'This set is still awaiting your approval, so the student has not started it yet. Approve it on the review screen and progress will appear here.'
+                : 'This assignment has no sentences, so there is no progress to show. Please report it if it stays this way.'}
+            </p>
+
+            {/*
+              The review screen is keyed by this same assignment uuid, so naming it without
+              linking to it made this page a dead end — the teacher had to hand-edit the
+              URL. Only for PENDING_REVIEW: an ASSIGNED assignment with no items is a
+              defect, and there is nothing to approve.
+            */}
+            {progress.status === 'PENDING_REVIEW' ? (
+              <p>
+                <Link
+                  href={`/teacher/assignments/${params.uuid}/review`}
+                  className="font-medium underline hover:text-amber-950 dark:hover:text-amber-100"
+                >
+                  Open the review screen to approve it →
+                </Link>
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         {progress && progress.items.length > 0 ? (

@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import type { GapCluster } from '@/lib/drills/analysis/contracts';
 import { remedialSentenceCount } from '@/lib/drills/analysis/api';
 
@@ -15,8 +17,12 @@ interface GapCardProps {
    * The page-level banner sits at the top of a long progress page, far above the button —
    * a teacher who clicked saw nothing happen and clicked again. Feedback belongs where
    * the click was.
+   *
+   * `assignmentUuids` carries the drills that were created (or found), because a remedial
+   * drill starts in PENDING_REVIEW: it exists but the student cannot see it until the
+   * teacher approves it. The confirmation therefore has to hand back the way to do that.
    */
-  result?: { reused: boolean; count: number } | null;
+  result?: { reused: boolean; count: number; assignmentUuids: string[] } | null;
   error?: string | null;
 }
 
@@ -118,11 +124,33 @@ export function GapCard({
           ) : null}
 
           {result && !error ? (
-            <p role="status" className="text-sm text-green-700 dark:text-green-400">
-              {result.reused
-                ? 'Работа над ошибками уже создана для этого пробела.'
-                : `Готово. Создано заданий: ${result.count}. Проверьте и отправьте студенту.`}
-            </p>
+            <div role="status" className="space-y-1 text-sm text-green-700 dark:text-green-400">
+              <p>
+                {result.reused
+                  ? 'Работа над ошибками уже создана для этого пробела.'
+                  : `Готово. Создано заданий: ${result.count}. Проверьте и отправьте студенту.`}
+              </p>
+
+              {/*
+                The created drill is PENDING_REVIEW — it exists, and the student cannot see
+                it until it is approved. "Проверьте и отправьте студенту" described that
+                without saying where, so the teacher had to guess the review URL. One link
+                per created drill, because a gap can produce more than one.
+
+                The reused case needs this most: nothing was created just now, so the only
+                trace of the waiting drill was this sentence.
+              */}
+              {result.assignmentUuids.map((assignmentUuid) => (
+                <p key={assignmentUuid}>
+                  <Link
+                    href={`/teacher/assignments/${assignmentUuid}/review`}
+                    className="underline hover:text-green-900 dark:hover:text-green-300"
+                  >
+                    Проверить и отправить студенту →
+                  </Link>
+                </p>
+              ))}
+            </div>
           ) : null}
         </div>
       ) : null}

@@ -65,7 +65,7 @@ export function GapAnalysisBlock({
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyGap, setBusyGap] = useState<string | null>(null);
   const [gapResults, setGapResults] = useState<
-    Record<string, { reused: boolean; count: number }>
+    Record<string, { reused: boolean; count: number; assignmentUuids: string[] }>
   >({});
   const [gapErrors, setGapErrors] = useState<Record<string, string | null>>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -148,9 +148,17 @@ export function GapAnalysisBlock({
         // Recorded per gap so the card that was clicked can confirm itself. The page-level
         // callback stays — it drives the banner at the top — but it is no longer the only
         // sign that anything happened.
+        //
+        // The uuids travel with the confirmation because the drill lands in PENDING_REVIEW:
+        // the card turns them into review links, which is the only way a teacher reaches
+        // the approval screen from here.
         setGapResults((prev) => ({
           ...prev,
-          [gapUuid]: { reused: result.reused, count: result.assignmentUuids.length },
+          [gapUuid]: {
+            reused: result.reused,
+            count: result.assignmentUuids.length,
+            assignmentUuids: result.assignmentUuids,
+          },
         }));
         onRemedialCreated?.(result);
       } catch (error) {

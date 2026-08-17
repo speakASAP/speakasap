@@ -208,6 +208,63 @@ describe('GapAnalysisBlock', () => {
     expect(await screen.findByText(/создано заданий: 1/i)).toBeInTheDocument();
   });
 
+  it('links the created drill to its review screen so the teacher can approve it', async () => {
+    mocks.fetchAnalysis.mockResolvedValue(analysis('READY', { clusters: [readyCluster] }));
+    mocks.createRemedial.mockResolvedValue({
+      assignmentUuids: ['r1'],
+      setUuid: 's1',
+      reused: false,
+    });
+
+    render(<GapAnalysisBlock assignmentUuid="a1" audience="teacher" />);
+
+    await userEvent.click(await screen.findByRole('button', { name: /работу над ошибками/i }));
+
+    // A created drill lands in PENDING_REVIEW, where the student cannot see it. Without a
+    // link from here the teacher had to guess the review URL from the assignment uuid.
+    const link = await screen.findByRole('link', { name: /проверить и отправить/i });
+    expect(link).toHaveAttribute('href', '/teacher/assignments/r1/review');
+  });
+
+  it('links every created drill when a gap produces more than one', async () => {
+    mocks.fetchAnalysis.mockResolvedValue(analysis('READY', { clusters: [readyCluster] }));
+    mocks.createRemedial.mockResolvedValue({
+      assignmentUuids: ['r1', 'r2'],
+      setUuid: 's1',
+      reused: false,
+    });
+
+    render(<GapAnalysisBlock assignmentUuid="a1" audience="teacher" />);
+
+    await userEvent.click(await screen.findByRole('button', { name: /работу над ошибками/i }));
+
+    const links = await screen.findAllByRole('link', { name: /проверить и отправить/i });
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/teacher/assignments/r1/review',
+      '/teacher/assignments/r2/review',
+    ]);
+  });
+
+  it('links the existing drill when the gap was already turned into one', async () => {
+    mocks.fetchAnalysis.mockResolvedValue(analysis('READY', { clusters: [readyCluster] }));
+    mocks.createRemedial.mockResolvedValue({
+      assignmentUuids: ['r1'],
+      setUuid: 's1',
+      reused: true,
+    });
+
+    render(<GapAnalysisBlock assignmentUuid="a1" audience="teacher" />);
+
+    await userEvent.click(await screen.findByRole('button', { name: /работу над ошибками/i }));
+
+    // Reuse is the case that stranded teachers hardest: the drill exists, is unapproved,
+    // and the old message gave no way back to it.
+    expect(await screen.findByRole('link', { name: /проверить и отправить/i })).toHaveAttribute(
+      'href',
+      '/teacher/assignments/r1/review',
+    );
+  });
+
   it('renders nothing at all when the assignment has never been analyzed', async () => {
     mocks.fetchAnalysis.mockResolvedValue(analysis('NOT_ANALYZED', { uuid: null }));
 
