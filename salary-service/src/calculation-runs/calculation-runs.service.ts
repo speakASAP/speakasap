@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CalculationRunStatus, Prisma, SalaryExpenseKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EducationClientService, PeriodAggregateResult } from '../deps/education-client.service';
@@ -39,6 +39,8 @@ function mergeCursor(
 
 @Injectable()
 export class CalculationRunsService {
+  private readonly logger = new Logger(CalculationRunsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly education: EducationClientService,
@@ -274,6 +276,43 @@ export class CalculationRunsService {
     return { calculationRunId: runId, status: 'finalized' as const };
   }
 
+  /**
+   * Return a finalized run to draft so a wrong one can be withdrawn instead of paid.
+   *
+   * Deliberately does NOT delete the run or its lines: the audit trail of what was once
+   * finalized is the point. It only reopens it for correction.
+   */
+  async unfinalize(runId: string, reason: string) {
+    if (!reason || !reason.trim()) {
+      throw salaryHttpException(
+        HttpStatus.BAD_REQUEST,
+        'VALIDATION_FAILED',
+        'reason is required: an un-finalized payroll run must say why on the record',
+      );
+    }
+    const run = await this.prisma.calculationRun.findUnique({
+      where: { id: runId },
+      include: { _count: { select: { payoutRuns: true } } },
+    });
+    if (!run) {
+      throw new NotFoundException('Calculation run not found');
+    }
+    assertRunCanBeUnfinalized({
+      id: run.id,
+      status: run.status,
+      payoutRunCount: run._count.payoutRuns,
+    });
+    await this.prisma.calculationRun.update({
+      where: { id: runId },
+      data: { status: CalculationRunStatus.draft },
+    });
+    this.logger.warn(
+      `Calculation run ${runId} (period ${run.period}, rules ${run.rulesVersion}) ` +
+        `returned to draft. Reason: ${reason.trim()}`,
+    );
+    return { calculationRunId: runId, status: 'draft' as const, reason: reason.trim() };
+  }
+
   private async loadImportedLessonSalaryTotals(
     period: string,
     legacyPortalUserIds: number[],
@@ -340,6 +379,38 @@ export type ImportedCoverageRow = {
  * Only a SHORTFALL is a failure. Imports exceeding the aggregate mean legacy paid for
  * something this computation cannot see, which is not this gate's business.
  */
+/**
+ * Whether a finalized calculation run may be returned to draft.
+ *
+ * `finalized` is the state payout-runs requires, so finalizing on bad inputs was a one-way
+ * door into the payout path. Reversing is safe only while no payout run references it;
+ * after that the money may already have moved and the run is history, not a draft.
+ */
+export function assertRunCanBeUnfinalized(run: {
+  id: string;
+  status: string;
+  payoutRunCount: number;
+}): void {
+  if (run.status !== 'finalized') {
+    throw salaryHttpException(
+      HttpStatus.CONFLICT,
+      'SALARY_RUN_NOT_FINALIZED',
+      `Calculation run ${run.id} is ${run.status}, not finalized; there is nothing to reverse.`,
+      { calculationRunId: run.id, status: run.status },
+    );
+  }
+  if (run.payoutRunCount > 0) {
+    throw salaryHttpException(
+      HttpStatus.CONFLICT,
+      'SALARY_RUN_HAS_PAYOUTS',
+      `Calculation run ${run.id} is referenced by ${run.payoutRunCount} payout run(s); ` +
+        `reversing it would detach payouts from the figures they were computed from. ` +
+        `Reverse or void the payout runs first.`,
+      { calculationRunId: run.id, payoutRunCount: run.payoutRunCount },
+    );
+  }
+}
+
 export function assertImportedLessonSalaryCoverage(
   period: string,
   rows: ImportedCoverageRow[],
