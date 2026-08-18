@@ -267,8 +267,40 @@ The gap grows every day the ETL stays frozen.
 |---|---|
 | Portal `/lessons/by-teacher/` endpoint | Done, `8dfed1f93a` on `feat/salary-teacher-range-endpoint` (speakasap-portal) |
 | `lesson-client.listLessonsByTeachers()` | Done, `7540bf8` on `feat/salary-lessons-from-portal` |
-| Repoint `internal-salary` to the client | **Not started** — changes payout inputs, kept separate on purpose |
-| Parity check against real 2026-05 payout figures | **Not started — must precede any calculation run** |
+| Repoint `internal-salary` to the client | Done, `a08abb8` — 14 tests, each verified to fail when broken |
+| Parity check against real 2026-05 payout figures | **Script written (`scripts/salary-parity-2026-05.ts`), run pending deploy** |
+
+**Baseline captured 2026-08-18 from the live pod, BEFORE the repoint deployed:**
+2026-05 returns **172 finished lessons, 10,175 payable minutes, 14 teachers**,
+`salaryCalculationReady=false` with `shortRecordCount=6`.
+
+2026-05 predates the 2026-06-26 freeze, so the copy and the portal should agree on
+this month almost exactly. That makes it a clean control rather than a recovery
+test: a delta here is a source-swap defect, not a lesson the copy could not see.
+**PARITY PASSED — verified 2026-08-18 against the deployed repoint (`a08abb8`).**
+
+2026-05 is byte-identical across the source swap: 14 teachers, 172 finished lessons,
+10,175 payable minutes, `shortRecordCount=6`. Checked per-teacher as well as in total,
+because equal totals can hide offsetting deltas — all 14 rows match individually. No
+teacher is paid for fewer lessons under the new source.
+
+**What the frozen copy was actually costing, measured the same day:**
+
+| Month | Frozen copy | Portal (now) | Missing |
+|---|---|---|---|
+| 2026-05 | 172 | 172 | 0 — control, predates the freeze |
+| 2026-06 | 47 | 135 | 88 |
+| 2026-07 | **0** | 128 | **128** |
+| 2026-08 | **0** | 46 | **46** |
+
+**262 lessons** were invisible to payroll, not the 191 previously estimated. July and
+August aggregated to **zero for every teacher** — a payout run in that window would
+have paid nobody for two months and looked like a legitimate result.
+
+Remaining gate before a calculation run: `salaryCalculationReady` is still `false`
+because of `shortRecordCount=6` in 2026-05. That is the pre-existing short-record
+question from Goal 9.5, unchanged by this work — it is not a regression from the
+source swap.
 
 **Duration stays local, by owner decision.** The portal has no `duration_seconds`
 column; length comes from `LessonRecord.get_record_length()`, which opens the MP3
