@@ -2,6 +2,15 @@
 
 Status values: `pending`, `active`, `done`, `blocked`.
 
+> Live day-to-day state is in root `TASKS.md`, not in `STATUS.md` (whose last entry
+> is 2026-06-24). This file holds chunk status; `TASKS.md` holds what is being
+> worked on right now. Reconciled 2026-08-18.
+
+> **Goals 1-8 are done, but cutover has not happened.** Goal 8 covers the
+> controlled-cutover *validation*; the owner then chose legacy retention, so
+> `speakasap.com` still serves the legacy Django portal on a separate host. Moving
+> real traffic is Goal 11.
+
 ## Goal 1 - Intent Preservation And Refactor Governance
 
 Status: done
@@ -220,6 +229,15 @@ Progress notes:
 
 - Goal 9.5 is complete at scoped-smoke level: no-write readiness and short-record reconciliation isolated blockers, historical imported lesson salary quantities are preserved for the May 2026 preview, and owner-approved draft run `6576ac90-526e-47c6-8755-9631a4fb3149` created 14 draft lines with no payout or payment disbursement.
 - Goal 9.6 remains active: the education-service fixed five-minute salary duration source change is verified by build/contract tests but is not deployed; runtime readiness and calculation preview must be rerun after owner-approved deploy before broader calculation enablement.
+- **2026-08-18 gate update.** The salary aggregate reads the FROZEN `education_lesson`
+  copy (182,600 rows, last start 2026-06-26), so lessons finished after that date are
+  missing from teacher payout aggregation and the gap grows daily. The portal-side
+  dependency is now **cleared**: `TeacherLessonsView` (`/lessons/by-teacher/`) is merged
+  to portal `main` (`8dfed1f93a`) and confirmed present on the production portal host,
+  so the "blocked on your deploy" note in `TASKS.md` is stale. `listLessonsByTeachers()`
+  exists and is unit-tested in education-service. Outstanding: repoint
+  `internal-salary.service.ts` to the client, then a 2026-05 parity check against the
+  legacy `LessonSalaryExpense.qty` figures BEFORE any calculation run.
 
 Acceptance criteria:
 
@@ -254,3 +272,32 @@ Acceptance criteria:
 - Dry-run reports include source counts, target counts, missing templates/assets, duplicates, source IDs, target IDs, and write status.
 - No target DB write, deployment, destructive operation, or legacy route retirement runs without explicit owner approval and rollback evidence.
 - Legacy `speakasap-portal` remains fallback/reference until a later cutover goal.
+
+## Goal 11 - Legacy Retirement And Domain Cutover
+
+Status: pending
+
+Intent: Retire the legacy portal by moving real `speakasap.com` traffic to the new
+platform, only after parity and payroll correctness are proven. This is the goal that
+ends the cost of running two stacks.
+
+Chunks:
+
+- [ ] 11.1 Backfill the auth user migration. auth holds users only up to legacy id
+      314012; ~113 portal users have no auth record. A rising `named_by_portal` counter
+      in the roster log means the migration is falling further behind.
+- [ ] 11.2 Drop the copied lesson tables and cross-database FKs (`TASKS.md` Task 10) —
+      destructive, gated behind Tasks 1-9 merged and Task 11 verification passing.
+- [ ] 11.3 Parity-sweep the remaining legacy surfaces against
+      `PORTAL_SURFACE_INVENTORY.md`.
+- [ ] 11.4 Move `speakasap.com` DNS/nginx to the new platform with the rollback window
+      open.
+- [ ] 11.5 Decommission the legacy portal after the rollback window closes.
+
+Acceptance criteria:
+
+- Goal 9 payroll parity passes before any traffic moves; teachers must not be paid from
+  an unverified aggregate.
+- Every legacy surface is migrated, deferred, or explicitly retired with owner sign-off.
+- Rollback to the legacy host is available and tested for the whole window.
+- No legacy data deletion until the rollback window has closed with owner approval.

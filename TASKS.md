@@ -292,11 +292,18 @@ bad course class raises `ImportError`. `StudentAccess` is 300 unpaid of 184,822,
 which is why a sampled paid/unpaid split reads as uniform — not a broken
 annotation.
 
-**Blocked on your deploy.** The endpoint is committed but not on the portal host,
-and `ssh speakasap` is read-only, so these run only after you deploy it:
-auth denial without/with a wrong token, the seven 400-validation cases, real
-payload shape, and two-page pagination reassembling the full set. Scripts are
-written and ready to pipe into `python3 -` on the host.
+**Unblocked 2026-08-18 — the endpoint IS on the portal host.** `8dfed1f93a` is
+merged to portal `main` and `TeacherLessonsView` is present in
+`/home/portal_db/speakasap-portal/education/internal_api/urls.py` on the production
+host (deployed at `3103bfe`). The earlier "blocked on your deploy" note was stale.
+
+Still to run against it, now possible: auth denial without/with a wrong token, the
+seven 400-validation cases, real payload shape, and two-page pagination reassembling
+the full set. Scripts are written and ready to pipe into `python3 -` on the host.
+
+Remember the host quirk recorded in `docs/LESSON_API_OPERATIONS.md`: an auth refusal
+returns **HTTP 200**, not 401, because `CustomLoginRequiredMiddleware` serves the login
+page ahead of DRF. Assert on the response **body**.
 
 **Do not enable a calculation run off these aggregates until the parity check
 passes.** Goal 9's payout for 2026-05 was computed from imported legacy

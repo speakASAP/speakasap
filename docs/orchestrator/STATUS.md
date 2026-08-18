@@ -1,3 +1,16 @@
+# SpeakASAP Orchestrator Status Log
+
+> **This file is history, not current state.** It is append-only evidence, newest
+> entry first, and its newest entry is **2026-06-24**.
+>
+> Work did not stop on that date. The drilling-assignments and lesson-API
+> workstreams ran through **2026-08-10** and were recorded in root `TASKS.md` and
+> `docs/superpowers/plans/` instead of here. Read `TASKS.md` first for live state,
+> `GOALS.md` for chunk status, and this file only for the evidence behind a
+> specific Goal 1-10 decision.
+>
+> Reconciled 2026-08-18.
+
 ## 2026-06-24 - Hosted Auth Contract Checker
 
 Status: source contract hardened for new SpeakASAP frontend; no runtime deploy required for this no-behavior checker pass.

@@ -1,5 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { LessonClientService } from '../lesson-client/lesson-client.service';
+import { PortalTeacherLesson } from '../lesson-client/lesson-client.types';
 
 type TeacherMapItem = { teacherId: number; legacyPortalUserId: number };
 type Aggregate = {
@@ -42,7 +44,10 @@ export class InternalSalaryService {
 
   private readonly serviceName = process.env.SERVICE_NAME || 'speakasap-education';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly lessonClient: LessonClientService,
+  ) {}
 
   async periodAggregates(period: string, legacyPortalUserIds: number[]) {
     const teacherMap = await this.fetchTeacherMap(legacyPortalUserIds);
@@ -69,29 +74,28 @@ export class InternalSalaryService {
     }
 
     const { start, end } = periodBounds(period);
-    const lessons = await this.prisma.lesson.findMany({
-      where: {
-        isFinished: true,
-        start: { gte: start, lt: end },
-        teacherId: { in: teacherIds },
-      },
-      select: {
-        uuid: true,
-        teacherId: true,
-        moduleClass: true,
-        start: true,
-        studentCourse: {
-          select: {
-            courseDisplayTitle: true,
-            group: { select: { groupStudents: { select: { studentId: true } } } },
-          },
-        },
-        studentAccesses: { select: { isPaid: true } },
-        lessonRecord: {
-          select: { recordKey: true, recordUnavailable: true, durationSeconds: true, parts: true, processed: true },
-        },
-      },
-    });
+
+    // LESSON-API: lessons come from the portal, which owns them. This service used to read
+    // its own `lesson` table, but that was an ETL COPY frozen at 2026-06-26 — every lesson
+    // finished after that date was silently missing from teacher payouts.
+    //
+    // A failure here must never look like "the teacher taught nothing this month", so the
+    // client raises rather than returning a partial month, and we let that propagate.
+    let portalLessons: PortalTeacherLesson[];
+    try {
+      portalLessons = await this.lessonClient.listLessonsByTeachers(teacherIds, start, end);
+    } catch (error) {
+      this.logger.error(
+        `portal lesson lookup failed for period=${period} teachers=${teacherIds.length}: ` +
+          `${(error as Error).message}`,
+      );
+      throw new ServiceUnavailableException('portal lesson source unavailable for salary aggregate');
+    }
+
+    // Duration stays local by owner decision: the portal has no `duration_seconds` column,
+    // and deriving it there means opening every MP3 out of object storage. We join our own
+    // `lesson_record` by uuid instead.
+    const durationByUuid = await this.recordDurations(portalLessons.map((lesson) => lesson.uuid));
 
     const byUser = new Map<number, Aggregate>();
     const blockerSamples: BlockerSample[] = missingTeacherMappingLegacyUserIds
@@ -103,7 +107,7 @@ export class InternalSalaryService {
         reason: 'teacher_mapping_missing',
         lessonStart: null,
       }));
-    for (const lesson of lessons) {
+    for (const lesson of portalLessons) {
       if (lesson.teacherId === null) {
         continue;
       }
@@ -112,15 +116,18 @@ export class InternalSalaryService {
         continue;
       }
       const agg = getAggregate(byUser, legacyPortalUserId, lesson.teacherId);
-      const title = lesson.studentCourse.courseDisplayTitle || '';
-      const isDemo = /demo/i.test(lesson.moduleClass) || /demo|проб/i.test(title);
-      const hasPaidAccess = lesson.studentAccesses.some((access) => access.isPaid);
-      const isGroup = (lesson.studentCourse.group?.groupStudents.length ?? 0) > 1;
-      const scheduledMinutes = scheduledLessonMinutes(isDemo, isGroup);
-      const record = lesson.lessonRecord;
-      const hasRecord = Boolean(record?.recordKey) || partsCount(record?.parts) > 0;
-      const unavailable = Boolean(record?.recordUnavailable && record.recordUnavailable.trim());
-      const durationSeconds = Number.isInteger(record?.durationSeconds) ? record?.durationSeconds ?? null : null;
+
+      // The portal decides these; this service used to guess. `isDemo` was a regex over
+      // Russian course titles (/demo|проб/i) and is now the course CODE decision, and
+      // `scheduledMinutes` now follows the legacy `Lesson.duration` rule at the source.
+      const isDemo = lesson.isDemo;
+      const isGroup = lesson.isGroup;
+      const scheduledMinutes = lesson.scheduledMinutes;
+      const hasPaidAccess = lesson.hasPaidAccess;
+
+      const hasRecord = lesson.record.hasRecord;
+      const unavailable = Boolean(lesson.record.recordUnavailable.trim());
+      const durationSeconds = durationByUuid.get(lesson.uuid) ?? null;
       const payable = salaryPayableMinutes({ isDemo, hasRecord, unavailable, scheduledMinutes, durationSeconds });
       const payableMinutes = payable.minutes;
       const missingDuration = hasRecord && !unavailable && durationSeconds === null;
@@ -147,7 +154,7 @@ export class InternalSalaryService {
           teacherId: lesson.teacherId,
           legacyPortalUserId,
           reason: 'lesson_record_duration_seconds_missing',
-          lessonStart: lesson.start?.toISOString() ?? null,
+          lessonStart: lesson.start,
           scheduledMinutes,
           durationSeconds: null,
           isDemo,
@@ -161,7 +168,7 @@ export class InternalSalaryService {
           teacherId: lesson.teacherId,
           legacyPortalUserId,
           reason: 'short_record_duration',
-          lessonStart: lesson.start?.toISOString() ?? null,
+          lessonStart: lesson.start,
           scheduledMinutes,
           durationSeconds,
           isDemo,
@@ -193,6 +200,31 @@ export class InternalSalaryService {
       missingTeacherMappingLegacyUserIds,
       blockerSamples,
     });
+  }
+
+  /**
+   * Local recording lengths for these lessons, keyed by lesson uuid.
+   *
+   * Absent from the map and present-but-null are the same thing to the caller — both mean
+   * "we do not know how long this lesson was" — and both are counted as missingDuration,
+   * which pays the legacy fallback rather than silently paying zero.
+   */
+  private async recordDurations(lessonUuids: string[]): Promise<Map<string, number | null>> {
+    const byUuid = new Map<string, number | null>();
+    if (!lessonUuids.length) {
+      return byUuid;
+    }
+    const records = await this.prisma.lessonRecord.findMany({
+      where: { lessonUuid: { in: lessonUuids } },
+      select: { lessonUuid: true, durationSeconds: true },
+    });
+    for (const record of records) {
+      byUuid.set(
+        record.lessonUuid,
+        Number.isInteger(record.durationSeconds) ? record.durationSeconds : null,
+      );
+    }
+    return byUuid;
   }
 
   private async fetchTeacherMap(legacyPortalUserIds: number[]): Promise<TeacherMapItem[]> {
@@ -295,13 +327,6 @@ function getAggregate(map: Map<number, Aggregate>, legacyPortalUserId: number, t
 
 type PayableSource = 'record_duration' | 'missing_duration_fallback' | 'demo_without_record';
 
-function scheduledLessonMinutes(isDemo: boolean, isGroup: boolean): number {
-  if (isDemo) {
-    return 30;
-  }
-  return isGroup ? 90 : 60;
-}
-
 const FULL_LESSON_TOLERANCE_SECONDS = 5 * 60;
 
 function salaryPayableMinutes(input: {
@@ -346,17 +371,3 @@ function periodBounds(period: string): { start: Date; end: Date } {
   };
 }
 
-function partsCount(value: unknown): number {
-  if (Array.isArray(value)) {
-    return value.length;
-  }
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value) as unknown;
-      return Array.isArray(parsed) ? parsed.length : 0;
-    } catch {
-      return 0;
-    }
-  }
-  return 0;
-}
