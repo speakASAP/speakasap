@@ -19,7 +19,7 @@ type Aggregate = {
   recordUnavailableCount: number;
   missingRecordCount: number;
   missingDurationCount: number;
-  shortRecordCount: number;
+  implausibleRecordCount: number;
   fallbackPaidLessonCount: number;
   currency: string | null;
   warnings: string[];
@@ -131,11 +131,14 @@ export class InternalSalaryService {
       const payable = salaryPayableMinutes({ isDemo, hasRecord, unavailable, scheduledMinutes, durationSeconds });
       const payableMinutes = payable.minutes;
       const missingDuration = hasRecord && !unavailable && durationSeconds === null;
-      const shortRecord =
+      // A recording shorter than the slot is the 95% rule working as designed, not a
+      // blocker: short recordings are normal, so flagging them all would gate every payout
+      // run forever. Only an implausibly short one gets a human's attention.
+      const implausibleRecord =
         hasRecord &&
         !unavailable &&
         durationSeconds !== null &&
-        durationSeconds < scheduledMinutes * 60 - FULL_LESSON_TOLERANCE_SECONDS;
+        durationSeconds < scheduledMinutes * 60 * IMPLAUSIBLE_RECORD_RATIO;
 
       agg.finishedLessonCount += 1;
       agg.scheduledMinutes += scheduledMinutes;
@@ -160,14 +163,14 @@ export class InternalSalaryService {
           isDemo,
         });
       }
-      if (shortRecord) {
-        agg.shortRecordCount += 1;
-        addWarning(agg, 'short_record_duration_requires_salary_parity_review');
+      if (implausibleRecord) {
+        agg.implausibleRecordCount += 1;
+        addWarning(agg, 'record_too_short_to_be_a_lesson_requires_review');
         pushBlockerSample(blockerSamples, {
           lessonUuid: lesson.uuid,
           teacherId: lesson.teacherId,
           legacyPortalUserId,
-          reason: 'short_record_duration',
+          reason: 'record_too_short_to_be_a_lesson',
           lessonStart: lesson.start,
           scheduledMinutes,
           durationSeconds,
@@ -271,22 +274,22 @@ export class InternalSalaryService {
     },
   ) {
     const missingDurationCount = items.reduce((sum, item) => sum + item.missingDurationCount, 0);
-    const shortRecordCount = items.reduce((sum, item) => sum + item.shortRecordCount, 0);
+    const implausibleRecordCount = items.reduce((sum, item) => sum + item.implausibleRecordCount, 0);
     const teacherMappingMissingCount = extras?.missingTeacherMappingLegacyUserIds?.length ?? 0;
     return {
       period,
       items,
       meta: {
         source: 'education-service',
-        rulesVersion: 'salary-duration-v3-record-length-5min-tolerance',
+        rulesVersion: 'salary-duration-v4-legacy-95pct-full-lesson',
         generatedAt: new Date().toISOString(),
         readiness: {
           salaryCalculationReady:
             missingDurationCount === 0 &&
-            shortRecordCount === 0 &&
+            implausibleRecordCount === 0 &&
             teacherMappingMissingCount === 0,
           missingDurationCount,
-          shortRecordCount,
+          implausibleRecordCount,
           teacherMappingMissingCount,
           missingTeacherMappingLegacyUserIds: extras?.missingTeacherMappingLegacyUserIds ?? [],
         },
@@ -315,7 +318,7 @@ function getAggregate(map: Map<number, Aggregate>, legacyPortalUserId: number, t
       recordUnavailableCount: 0,
       missingRecordCount: 0,
       missingDurationCount: 0,
-      shortRecordCount: 0,
+      implausibleRecordCount: 0,
       fallbackPaidLessonCount: 0,
       currency: null,
       warnings: ['salary_duration_rule_v3: record duration capped at scheduled lesson length with five_minute_full_lesson_tolerance'],
@@ -327,7 +330,24 @@ function getAggregate(map: Map<number, Aggregate>, legacyPortalUserId: number, t
 
 type PayableSource = 'record_duration' | 'missing_duration_fallback' | 'demo_without_record';
 
-const FULL_LESSON_TOLERANCE_SECONDS = 5 * 60;
+/**
+ * Legacy full-lesson threshold, from `expenses/salary/utils.py`:
+ *
+ *   "Если запись длиннее, чем 95% длительности урока, то считаем урок полным."
+ *
+ * RELATIVE to the lesson, not a flat number of minutes. This service previously used an
+ * absolute five-minute window, which is a different rule for every lesson length: it paid
+ * a full 60-minute lesson from 55 minutes where legacy required 57, and gave a 30-minute
+ * demo five minutes of slack where legacy allowed 1.5.
+ */
+const FULL_LESSON_RATIO = 0.95;
+
+/**
+ * Below this, a recording is not a short lesson — it is a broken upload, a mis-click, or a
+ * call that never started. Legacy pays the real length either way and so do we; this only
+ * decides whether a human is asked to look before payouts are run.
+ */
+const IMPLAUSIBLE_RECORD_RATIO = 0.1;
 
 function salaryPayableMinutes(input: {
   isDemo: boolean;
@@ -343,9 +363,11 @@ function salaryPayableMinutes(input: {
     return { minutes: input.isDemo ? 30 : 60, source: 'missing_duration_fallback' };
   }
   const scheduledSeconds = input.scheduledMinutes * 60;
-  if (scheduledSeconds - input.durationSeconds <= FULL_LESSON_TOLERANCE_SECONDS) {
+  // Strictly greater, matching legacy's `duration_hours > duration_limit`.
+  if (input.durationSeconds > scheduledSeconds * FULL_LESSON_RATIO) {
     return { minutes: input.scheduledMinutes, source: 'record_duration' };
   }
+  // legacy: quantize(min(duration_hours, lesson.duration)) — never more than scheduled.
   return { minutes: Math.min(Math.round(input.durationSeconds / 60), input.scheduledMinutes), source: 'record_duration' };
 }
 

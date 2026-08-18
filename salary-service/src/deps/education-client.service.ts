@@ -16,6 +16,7 @@ export type PeriodAggregateItem = {
   missingRecordCount?: number;
   missingDurationCount?: number;
   shortRecordCount?: number;
+  implausibleRecordCount?: number;
   fallbackPaidLessonCount?: number;
   warnings?: string[];
 };
@@ -24,6 +25,7 @@ export type SalaryAggregateReadiness = {
   salaryCalculationReady?: boolean;
   missingDurationCount?: number;
   shortRecordCount?: number;
+  implausibleRecordCount?: number;
   teacherMappingMissingCount?: number;
   missingTeacherMappingLegacyUserIds?: number[];
 };

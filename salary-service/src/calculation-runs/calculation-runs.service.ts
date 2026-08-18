@@ -144,7 +144,7 @@ export class CalculationRunsService {
                 recordUnavailableCount: a?.recordUnavailableCount ?? 0,
                 missingRecordCount: a?.missingRecordCount ?? 0,
                 missingDurationCount: a?.missingDurationCount ?? 0,
-                shortRecordCount: a?.shortRecordCount ?? 0,
+                implausibleRecordCount: a?.implausibleRecordCount ?? 0,
                 fallbackPaidLessonCount: a?.fallbackPaidLessonCount ?? 0,
                 aggregateWarnings: a?.warnings ?? [],
                 lessonSalaryHoursSource: importedLessonSalary
@@ -306,18 +306,34 @@ export class CalculationRunsService {
   }
 }
 
-function assertSalaryAggregateReady(
+export function assertSalaryAggregateReady(
   result: PeriodAggregateResult,
   importedLessonSalaryTotals: Map<number, ImportedLessonSalaryTotal>,
 ): void {
   const readiness = result.readiness;
   const missingDurationCount = readiness.missingDurationCount ?? 0;
-  const shortRecordCount = readiness.shortRecordCount ?? 0;
+  // education-service renamed this in salary-duration-v4: a recording shorter than the
+  // slot is the legacy 95% rule working, not a blocker, so only an IMPLAUSIBLY short one
+  // is flagged. Defaulting a missing field to 0 here would silently open the payout gate,
+  // so an aggregate that carries neither field is refused outright below.
+  const implausibleRecordCount = readiness.implausibleRecordCount ?? 0;
   const teacherMappingMissingCount = readiness.teacherMappingMissingCount ?? 0;
+  if (
+    readiness.implausibleRecordCount === undefined &&
+    readiness.shortRecordCount === undefined
+  ) {
+    throw salaryHttpException(
+      HttpStatus.PRECONDITION_FAILED,
+      'SALARY_AGGREGATE_CONTRACT_UNKNOWN',
+      'education-service returned no short/implausible record count; refusing to run payroll against an aggregate whose contract is not understood',
+      { readiness },
+    );
+  }
   const dependencyWarnings = result.warnings.length;
   const importedCoveredBlockers = result.blockerSamples.filter(
     (sample) =>
-      (sample.reason === 'short_record_duration' ||
+      (sample.reason === 'record_too_short_to_be_a_lesson' ||
+      sample.reason === 'short_record_duration' ||
       sample.reason === 'lesson_record_duration_seconds_missing') &&
       sample.legacyPortalUserId !== null &&
       sample.legacyPortalUserId !== undefined &&
@@ -330,24 +346,25 @@ function assertSalaryAggregateReady(
   ).length;
   const importedCoverableBlockers = result.blockerSamples.filter(
     (sample) =>
+      sample.reason === 'record_too_short_to_be_a_lesson' ||
       sample.reason === 'short_record_duration' ||
       sample.reason === 'lesson_record_duration_seconds_missing',
   ).length;
   const durationBlockersCoveredByImports =
-    missingDurationCount + shortRecordCount > 0 &&
+    missingDurationCount + implausibleRecordCount > 0 &&
     teacherMappingMissingCount === 0 &&
-    importedCoverableBlockers === missingDurationCount + shortRecordCount &&
+    importedCoverableBlockers === missingDurationCount + implausibleRecordCount &&
     importedCoveredBlockers === importedCoverableBlockers;
   if (
     (readiness.salaryCalculationReady === false && !durationBlockersCoveredByImports) ||
-    ((missingDurationCount > 0 || shortRecordCount > 0) && !durationBlockersCoveredByImports) ||
+    ((missingDurationCount > 0 || implausibleRecordCount > 0) && !durationBlockersCoveredByImports) ||
     teacherMappingMissingCount > 0 ||
     dependencyWarnings > 0
   ) {
     throw salaryHttpException(
       HttpStatus.PRECONDITION_FAILED,
       'SALARY_PARITY_BLOCKERS_PRESENT',
-      'Salary calculation runs are blocked until missing-duration, short-record, and teacher-mapping rows are isolated and reconciled',
+      'Salary calculation runs are blocked until missing-duration, implausible-record, and teacher-mapping rows are isolated and reconciled',
       {
         readiness,
         blockerSamples: result.blockerSamples.slice(0, 50),

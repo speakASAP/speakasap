@@ -100,7 +100,7 @@ describe('InternalSalaryService period aggregates from the portal', () => {
 
     // 30 min against a 60 min slot is past the 5 min tolerance, so it pays the real length.
     expect(agg.payableMinutes).toBe(30);
-    expect(agg.shortRecordCount).toBe(1);
+    expect(agg.implausibleRecordCount).toBe(0);
   });
 
   it('pays the legacy fallback when the local record has no duration', async () => {
@@ -187,6 +187,107 @@ describe('InternalSalaryService period aggregates from the portal', () => {
 
     expect(agg.finishedLessonCount).toBe(1);
     expect(agg.payableMinutes).toBe(60);
+  });
+
+  describe('the legacy 95% full-lesson rule', () => {
+    // expenses/salary/utils.py get_record_length_in_hours():
+    //   "Если запись длиннее, чем 95% длительности урока, то считаем урок полным."
+    // Threshold is RELATIVE to the lesson, not a flat 5 minutes. For a 60 min lesson that
+    // is 57 min; the old absolute rule paid a full lesson from 55 min and so overpaid the
+    // 55-57 band. Demos were worst hit: 5 min of slack on a 30 min lesson vs legacy's 1.5.
+
+    it('pays a full lesson just above 95% of its duration', async () => {
+      // 3421s = 57.02 min > 57.0 min threshold.
+      const h = harness([portalLesson()], [{ lessonUuid: portalLesson().uuid, durationSeconds: 3421 }]);
+      const agg = await aggregateOf(h);
+
+      expect(agg.payableMinutes).toBe(60);
+    });
+
+    it('pays the real length AT exactly 95%, matching legacy\'s strict >', async () => {
+      // legacy: `if duration_hours > duration_limit` — exactly 95% is NOT a full lesson.
+      // 3420s is exactly 95% of 3600s, so this pays 57, not 60.
+      const h = harness([portalLesson()], [{ lessonUuid: portalLesson().uuid, durationSeconds: 3420 }]);
+      const agg = await aggregateOf(h);
+
+      expect(agg.payableMinutes).toBe(57);
+    });
+
+    it('pays the real length just below 95%, where the old rule wrongly paid full', async () => {
+      // 3414s = 56.9 min. Legacy pays 57; the 5-minute rule paid 60.
+      const h = harness([portalLesson()], [{ lessonUuid: portalLesson().uuid, durationSeconds: 3414 }]);
+      const agg = await aggregateOf(h);
+
+      expect(agg.payableMinutes).toBe(57);
+    });
+
+    it('scales the threshold with a 90 minute group lesson', async () => {
+      // 95% of 90 min is 85.5 min. 5100s = 85.0 min is BELOW it, though the old absolute
+      // rule treated it as full.
+      const lesson = portalLesson({ isGroup: true, scheduledMinutes: 90 });
+      const h = harness([lesson], [{ lessonUuid: lesson.uuid, durationSeconds: 5100 }]);
+      const agg = await aggregateOf(h);
+
+      expect(agg.payableMinutes).toBe(85);
+    });
+
+    it('scales the threshold with a 30 minute demo', async () => {
+      // 95% of 30 min is 28.5 min. A 26 min demo paid full under the 5-minute rule.
+      const lesson = portalLesson({ isDemo: true, scheduledMinutes: 30 });
+      const h = harness([lesson], [{ lessonUuid: lesson.uuid, durationSeconds: 1560 }]);
+      const agg = await aggregateOf(h);
+
+      expect(agg.payableMinutes).toBe(26);
+    });
+
+    it('never pays more than the scheduled length for a long recording', async () => {
+      // legacy: quantize(min(duration_hours, lesson.duration))
+      const h = harness([portalLesson()], [{ lessonUuid: portalLesson().uuid, durationSeconds: 7200 }]);
+      const agg = await aggregateOf(h);
+
+      expect(agg.payableMinutes).toBe(60);
+    });
+  });
+
+  describe('readiness reflects unexplained records, not correct proration', () => {
+    it('stays ready when a recording is simply shorter than the slot', async () => {
+      // A prorated lesson is the rule working, not a blocker. Flagging every short record
+      // would gate every run forever, since short recordings are normal.
+      const h = harness([portalLesson()], [{ lessonUuid: portalLesson().uuid, durationSeconds: 2155 }]);
+      const res = (await h.service.periodAggregates(PERIOD, [LEGACY_USER_ID])) as {
+        items: Array<Record<string, unknown>>;
+        meta: { readiness: { salaryCalculationReady: boolean; implausibleRecordCount: number } };
+      };
+
+      expect(res.items[0].payableMinutes).toBe(36);
+      expect(res.meta.readiness.implausibleRecordCount).toBe(0);
+      expect(res.meta.readiness.salaryCalculationReady).toBe(true);
+    });
+
+    it('blocks when a record exists but its duration is unknown', async () => {
+      // This one IS unexplained: we cannot tell what to pay, so it falls back and says so.
+      const h = harness([portalLesson()], [{ lessonUuid: portalLesson().uuid, durationSeconds: null }]);
+      const res = (await h.service.periodAggregates(PERIOD, [LEGACY_USER_ID])) as {
+        meta: { readiness: { salaryCalculationReady: boolean; missingDurationCount: number } };
+      };
+
+      expect(res.meta.readiness.missingDurationCount).toBe(1);
+      expect(res.meta.readiness.salaryCalculationReady).toBe(false);
+    });
+
+    it('flags a recording too short to be a real lesson', async () => {
+      // 60 seconds against a 60 minute slot is not a short lesson, it is a broken upload.
+      // Legacy pays the real length either way, but a human should look.
+      const h = harness([portalLesson()], [{ lessonUuid: portalLesson().uuid, durationSeconds: 60 }]);
+      const res = (await h.service.periodAggregates(PERIOD, [LEGACY_USER_ID])) as {
+        items: Array<Record<string, unknown>>;
+        meta: { readiness: { implausibleRecordCount: number; salaryCalculationReady: boolean } };
+      };
+
+      expect(res.items[0].payableMinutes).toBe(1);
+      expect(res.meta.readiness.implausibleRecordCount).toBe(1);
+      expect(res.meta.readiness.salaryCalculationReady).toBe(false);
+    });
   });
 
   it('raises when the portal is unreachable instead of reporting an empty month', async () => {
