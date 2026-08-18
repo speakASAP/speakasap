@@ -108,6 +108,16 @@ export class CalculationRunsService {
       profiles.map((p) => p.legacyPortalUserId),
     );
     assertSalaryAggregateReady(aggregateResult, importedLessonSalaryTotals);
+    // Imported legacy hours win over the computed aggregate wherever they exist, so they
+    // must not be older than it. See assertImportedLessonSalaryCoverage.
+    assertImportedLessonSalaryCoverage(
+      body.period,
+      profiles.map((p) => ({
+        legacyPortalUserId: p.legacyPortalUserId,
+        imported: importedLessonSalaryTotals.get(p.legacyPortalUserId),
+        aggregate: aggregateResult.items.get(p.legacyPortalUserId),
+      })),
+    );
     const agg = aggregateResult.items;
 
     const run = await this.prisma.calculationRun.create({
@@ -304,6 +314,70 @@ export class CalculationRunsService {
     }
     return totals;
   }
+}
+
+/**
+ * How far imported legacy hours may fall short of the computed aggregate before the month
+ * is treated as stale rather than merely rounded. Legacy quantizes to 0.01h and the 95%
+ * rule rounds to whole lessons, so small drift is expected; a frozen import is not small.
+ */
+const IMPORTED_HOURS_SHORTFALL_TOLERANCE = 1;
+
+export type ImportedCoverageRow = {
+  legacyPortalUserId: number;
+  imported?: { qtyHours: number; lessonExpenseCount: number } | undefined;
+  aggregate?: { totalMinutes: number; finishedLessonCount: number } | undefined;
+};
+
+/**
+ * Refuse to pay from imported legacy hours that the live aggregate has outgrown.
+ *
+ * `hours = imported?.qtyHours ?? aggregateHours` lets imported rows win whenever ANY exist
+ * for a teacher. The imports stop at the 2026-06-26 ETL freeze, so a teacher with partial
+ * imports silently gets the stale number — measured on production, June 2026 would underpay
+ * 10 teachers by 86.38 hours in total, one of them by 39.
+ *
+ * Only a SHORTFALL is a failure. Imports exceeding the aggregate mean legacy paid for
+ * something this computation cannot see, which is not this gate's business.
+ */
+export function assertImportedLessonSalaryCoverage(
+  period: string,
+  rows: ImportedCoverageRow[],
+): void {
+  const stale = rows
+    .map((row) => {
+      if (!row.imported) {
+        return null;
+      }
+      const aggregateHours = (row.aggregate?.totalMinutes ?? 0) / 60;
+      const shortfallHours = aggregateHours - row.imported.qtyHours;
+      if (shortfallHours <= IMPORTED_HOURS_SHORTFALL_TOLERANCE) {
+        return null;
+      }
+      return {
+        legacyPortalUserId: row.legacyPortalUserId,
+        importedQtyHours: Number(row.imported.qtyHours.toFixed(2)),
+        importedLessonExpenseCount: row.imported.lessonExpenseCount,
+        aggregateHours: Number(aggregateHours.toFixed(2)),
+        aggregateFinishedLessonCount: row.aggregate?.finishedLessonCount ?? 0,
+        shortfallHours: Number(shortfallHours.toFixed(2)),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  if (!stale.length) {
+    return;
+  }
+
+  const totalShortfall = stale.reduce((sum, row) => sum + row.shortfallHours, 0);
+  throw salaryHttpException(
+    HttpStatus.PRECONDITION_FAILED,
+    'SALARY_IMPORTED_HOURS_STALE',
+    `Imported legacy lesson hours for ${period} fall short of the computed aggregate for ` +
+      `${stale.length} teacher(s) by ${totalShortfall.toFixed(2)}h in total. Paying from ` +
+      `these imports would underpay real teachers; reconcile or clear the imported rows first.`,
+    { period, staleImportedTeachers: stale, totalShortfallHours: Number(totalShortfall.toFixed(2)) },
+  );
 }
 
 export function assertSalaryAggregateReady(
