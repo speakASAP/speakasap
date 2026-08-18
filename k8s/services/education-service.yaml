@@ -178,10 +178,6 @@ spec:
       remoteRef:
         key: secret/prod/speakasap/education
         property: INTERNAL_API_TOKEN
-    - secretKey: JWT_TOKEN
-      remoteRef:
-        key: secret/prod/speakasap
-        property: JWT_TOKEN
     # ai-microservice's ServiceAuthGuard verifies an HS256 service JWT signed
     # with ITS OWN JWT_SECRET, so this reads from ai-microservice's Vault path
     # rather than speakasap's. Without it, AiClient cannot mint a token the
