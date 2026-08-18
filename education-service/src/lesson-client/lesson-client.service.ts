@@ -3,6 +3,7 @@ import {
   LessonNotFoundError,
   LessonServiceUnavailableError,
   PortalLesson,
+  PortalLessonRecord,
   PortalRoster,
   PortalTeacherLesson,
   PortalTeacherLessonsPage,
@@ -250,6 +251,97 @@ export class LessonClientService {
    * Every branch either returns a parsed body or throws. There is deliberately no path
    * that returns a default, an empty object, or null.
    */
+  /**
+   * Lesson recordings created in [from, to), following pagination.
+   *
+   * Rebuilds `lesson_record`, whose one-shot ETL last ran 2026-06-13 — nothing scheduled
+   * it, so no row exists for any recording since. Salary joins duration by lesson uuid, so
+   * a missing row silently became a flat full-hour payment instead of the real length.
+   *
+   * Pages to exhaustion and raises rather than returning what it managed to collect: a
+   * short read is indistinguishable downstream from "these lessons had no recording",
+   * which is the confusion that hid the freeze for two months.
+   */
+  async listLessonRecords(from: Date, to: Date): Promise<PortalLessonRecord[]> {
+    if (!(from instanceof Date) || Number.isNaN(from.getTime())) {
+      throw new LessonServiceUnavailableError('lesson-records', 'invalid "from" date');
+    }
+    if (!(to instanceof Date) || Number.isNaN(to.getTime())) {
+      throw new LessonServiceUnavailableError('lesson-records', 'invalid "to" date');
+    }
+    if (to.getTime() <= from.getTime()) {
+      throw new LessonServiceUnavailableError('lesson-records', '"to" must be after "from"');
+    }
+
+    const records: PortalLessonRecord[] = [];
+    let offset = 0;
+
+    for (let page = 0; page < MAX_RANGE_PAGES; page += 1) {
+      const params = new URLSearchParams({
+        from: from.toISOString(),
+        to: to.toISOString(),
+        limit: String(RANGE_PAGE_SIZE),
+        offset: String(offset),
+      });
+
+      const body = await this.request(
+        'lesson-records',
+        `/lesson-records/?${params.toString()}`,
+        'GET',
+        undefined,
+        this.rangeTimeoutMs,
+      );
+
+      const batch = this.toArray(body.records).map((raw) =>
+        this.toLessonRecord(raw as Record<string, unknown>),
+      );
+      records.push(...batch);
+
+      if (!body.has_more) {
+        const expected = Number(body.count);
+        if (Number.isInteger(expected) && records.length !== expected) {
+          this.logger.error(
+            `Portal lesson-record pagination incomplete: collected=${records.length} ` +
+              `expected=${expected}`,
+          );
+          throw new LessonServiceUnavailableError(
+            'lesson-records',
+            `incomplete pagination: got ${records.length} of ${expected}`,
+          );
+        }
+        return records;
+      }
+
+      if (!batch.length) {
+        this.logger.error('Portal reported has_more with an empty record page; refusing to loop');
+        throw new LessonServiceUnavailableError('lesson-records', 'has_more=true with an empty page');
+      }
+
+      offset += batch.length;
+    }
+
+    this.logger.error(`Portal lesson-record pagination exceeded ${MAX_RANGE_PAGES} pages`);
+    throw new LessonServiceUnavailableError(
+      'lesson-records',
+      `pagination exceeded ${MAX_RANGE_PAGES} pages`,
+    );
+  }
+
+  private toLessonRecord(raw: Record<string, unknown>): PortalLessonRecord {
+    const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+    return {
+      uuid: str(raw.uuid),
+      lessonUuid: str(raw.lesson_uuid),
+      recordKey: str(raw.record_key),
+      partKeys: Array.isArray(raw.part_keys)
+        ? raw.part_keys.filter((k): k is string => typeof k === 'string' && Boolean(k))
+        : [],
+      created: typeof raw.created === 'string' ? raw.created : null,
+      processed: Boolean(raw.processed),
+      recordUnavailable: str(raw.record_unavailable),
+    };
+  }
+
   private async request(
     lessonUuid: string,
     path: string,

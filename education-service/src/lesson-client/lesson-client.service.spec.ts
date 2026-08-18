@@ -221,6 +221,99 @@ describe('LessonClientService', () => {
     });
   });
 
+  describe('listLessonRecords', () => {
+    const FROM = new Date('2026-07-01T00:00:00Z');
+    const TO = new Date('2026-08-01T00:00:00Z');
+
+    function recordRow(overrides: Record<string, unknown> = {}) {
+      return {
+        uuid: 'b1e2c3d4-0000-0000-0000-00000000000a',
+        lesson_uuid: LESSON,
+        record_key: '2026/07/01/lesson_' + LESSON + '.mp3',
+        part_keys: [],
+        created: '2026-07-01T11:00:00Z',
+        processed: true,
+        record_unavailable: '',
+        ...overrides,
+      };
+    }
+
+    function recordPage(records: unknown[], extra: Record<string, unknown> = {}) {
+      return {
+        records,
+        count: records.length,
+        limit: 500,
+        offset: 0,
+        has_more: false,
+        ...extra,
+      };
+    }
+
+    it('camelizes a record row', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(okResponse(recordPage([recordRow()])));
+      const rows = await serviceWith(fetchFn).listLessonRecords(FROM, TO);
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].lessonUuid).toBe(LESSON);
+      expect(rows[0].recordKey).toBe('2026/07/01/lesson_' + LESSON + '.mp3');
+      expect(rows[0].processed).toBe(true);
+      expect(rows[0].partKeys).toEqual([]);
+    });
+
+    it('sends the half-open created range', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(okResponse(recordPage([])));
+      await serviceWith(fetchFn).listLessonRecords(FROM, TO);
+
+      const url = new URL(fetchFn.mock.calls[0][0]);
+      expect(url.pathname).toBe('/lesson-records/');
+      expect(url.searchParams.get('from')).toBe('2026-07-01T00:00:00.000Z');
+      expect(url.searchParams.get('to')).toBe('2026-08-01T00:00:00.000Z');
+    });
+
+    it('carries part keys through for a parts-only recording', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        okResponse(recordPage([recordRow({ record_key: '', part_keys: ['p/a.mp3', 'p/b.mp3'] })])),
+      );
+      const rows = await serviceWith(fetchFn).listLessonRecords(FROM, TO);
+
+      expect(rows[0].recordKey).toBe('');
+      expect(rows[0].partKeys).toEqual(['p/a.mp3', 'p/b.mp3']);
+    });
+
+    it('follows pagination to exhaustion', async () => {
+      const fetchFn = jest
+        .fn()
+        .mockResolvedValueOnce(okResponse(recordPage([recordRow()], { count: 2, has_more: true })))
+        .mockResolvedValueOnce(
+          okResponse(recordPage([recordRow({ uuid: 'second' })], { count: 2, offset: 1, has_more: false })),
+        );
+      const rows = await serviceWith(fetchFn).listLessonRecords(FROM, TO);
+
+      expect(rows).toHaveLength(2);
+      expect(fetchFn).toHaveBeenCalledTimes(2);
+    });
+
+    it('raises when the page count does not match what was collected', async () => {
+      // A short read here would look downstream like "these lessons had no recording",
+      // which is exactly the confusion that froze the copy in the first place.
+      const fetchFn = jest
+        .fn()
+        .mockResolvedValue(okResponse(recordPage([recordRow()], { count: 9, has_more: false })));
+
+      await expect(serviceWith(fetchFn).listLessonRecords(FROM, TO)).rejects.toBeInstanceOf(
+        LessonServiceUnavailableError,
+      );
+    });
+
+    it('rejects an inverted range without calling the portal', async () => {
+      const fetchFn = jest.fn();
+      await expect(serviceWith(fetchFn).listLessonRecords(TO, FROM)).rejects.toBeInstanceOf(
+        LessonServiceUnavailableError,
+      );
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+  });
+
   describe('listLessonsByTeachers', () => {
     const FROM = new Date('2026-05-01T00:00:00Z');
     const TO = new Date('2026-06-01T00:00:00Z');

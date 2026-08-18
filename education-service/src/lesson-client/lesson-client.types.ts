@@ -154,3 +154,34 @@ export class LessonServiceUnavailableError extends Error {
     this.name = 'LessonServiceUnavailableError';
   }
 }
+
+/**
+ * One lesson recording as the portal holds it.
+ *
+ * Carries the object KEY, not the length. The portal can compute length via
+ * `LessonRecord.get_record_length()`, but that opens the MP3 out of storage — hundreds of
+ * remote reads for a month — so this service probes the object itself instead.
+ *
+ * `recordKey` and `partKeys` are alternatives: a merged recording has the first, an
+ * unmerged one has the second, and a lesson explicitly marked unavailable may have
+ * neither. All three are real states, so none is treated as an error here.
+ */
+export interface PortalLessonRecord {
+  uuid: string;
+  /** Blank when the record has no lesson — returned rather than skipped, so counts stay honest. */
+  lessonUuid: string;
+  recordKey: string;
+  partKeys: string[];
+  created: string | null;
+  processed: boolean;
+  recordUnavailable: string;
+}
+
+/** A page of lesson recordings. `hasMore` is explicit for the same reason as lessons. */
+export interface PortalLessonRecordsPage {
+  records: PortalLessonRecord[];
+  count: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
