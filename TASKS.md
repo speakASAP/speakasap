@@ -240,17 +240,28 @@ change the first two needed:
 Verified on the live pod: `LITELLM_TIMEOUT_MS=75000`, `FALLBACK=cheap,free`, retry code
 present in both compiled files.
 
-### Still yours: Steps 3, 4, 5 — the browser
+### Steps 3, 4, 5 — DONE in the browser 2026-08-18
 
-These need a signed-in teacher session, which an agent cannot mint for a real person's
-account (students here are real people with graded work):
+Run against production with the owner's own teacher session (ssfskype@gmail.com,
+teacher 182 / user 3), on their own student record, so no other student's graded work
+was touched.
 
-- **Step 3:** open `https://speakasap.com/teacher/students/215116/lessons/f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477/`,
-  start the drill wizard, confirm the picker lists **215116** rather than an empty list.
-- **Step 4:** repeat for any lesson with `start > now()` — future lessons were the
-  original complaint.
-- **Step 5:** open the teacher record view for a lesson created after 2026-06-26 and
-  confirm it loads instead of `Lesson not found`.
+- **Step 5 PASS.** `ce053675-…` (2026-07-31, a month the frozen copy could not see)
+  opens as "Module 7. Прошедшее время. Слабые глаголы. Практика" with breadcrumbs,
+  lesson info, and record upload — not `Lesson not found`.
+- **Step 3 PASS.** The drill wizard lists **Сергей Партизанов**, named and
+  pre-selected, plus the group `241015-DE-Партизанов`. Not an empty picker, and the
+  right person — the Student.id/User.id defect would have shown someone else.
+- **Step 4 PASS.** Repeated on `9278f5da-…`, an unscheduled lesson ("Time not set") —
+  the unfinished/future case that was the original complaint. Roster resolves the same.
+
+The topic picker on the German B1 course offered German topics (`schwacheverben`,
+`prateritum`, `perfekt`), confirming `courseLanguageOf()` derives the language from the
+lesson rather than hardcoding `de`. Worth re-checking on an English course before
+calling the language fix verified in the browser for every case.
+
+Incidental evidence the feature works end to end: `9278f5da-…` already carries a
+finished drill — 20/20 blanks correct, 103 attempts, completed 2026-08-05.
 
 A passing unit test is not a substitute, and neither is the pod-level check above — it
 proves the data path, not the UI.
