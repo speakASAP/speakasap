@@ -67,7 +67,8 @@ model Lesson {
   toManager                    String        @default("") @map("to_manager") @db.Text
   studentCourse                StudentCourse @relation(fields: [studentCourseUuid], references: [uuid], onDelete: Cascade)
   homeworks                    Homework[]
-  lessonRecord                 LessonRecord?
+  // No back-relation to LessonRecord: see the CROSS-DATABASE note on that model.
+  // `education_lesson` is a frozen copy, so it cannot be the parent of a live record.
   studentAccesses              StudentAccess[]
 
   @@index([studentCourseUuid])
@@ -120,7 +121,12 @@ model LessonRecord {
   // legacy table Django may still write to is not this feature's change to make.
   // If you regenerate a migration and see that ALTER, strip it — it is expected.
   updatedAt         DateTime           @updatedAt @map("updated")
-  lesson            Lesson             @relation(fields: [lessonUuid], references: [uuid], onDelete: Cascade)
+  // CROSS-DATABASE — no relation, deliberately. `lesson_id` names a lesson in the
+  // PORTAL, which owns lessons; `education_lesson` here is a frozen copy. The FK was
+  // dropped in 20260818210000_drop_lesson_record_cross_database_fk because it rejected
+  // 279 real recordings for lessons created after that copy stopped updating.
+  // Existence is checked against the portal before writing. Do not re-add the relation:
+  // Prisma would emit the constraint again and restore the defect.
   recordParts       LessonRecordPart[]
 
   @@index([lessonUuid])

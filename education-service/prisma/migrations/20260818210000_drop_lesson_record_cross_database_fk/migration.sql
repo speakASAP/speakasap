@@ -1,0 +1,35 @@
+-- Drop the cross-database foreign key on education_lessonrecord.lesson_id.
+--
+-- `lesson_id` points at `education_lesson`, a COPY of the portal's table populated by a
+-- one-shot ETL. The portal is the single source of truth for lessons; Postgres cannot
+-- enforce a foreign key across two databases.
+--
+-- This is the same defect already fixed for `drill_assignment` in
+-- 20260809220000_drop_drill_cross_database_fks, reached from the other direction. There
+-- the copy blocked WRITING a drill for a real lesson; here it blocks REBUILDING the
+-- recording metadata whose own ETL stopped on 2026-06-13:
+--
+--   Foreign key constraint violated: education_lessonrecord_lesson_id_fkey
+--
+-- for 279 recordings that genuinely exist in the portal and in object storage. While
+-- those rows cannot be written, the salary aggregate finds no duration for them and pays
+-- a flat full hour instead of the recorded length — 2026-07 aggregated 128 lessons with
+-- 126 missing durations.
+--
+-- The COLUMN REMAINS, as a plain UUID with its UNIQUE constraint intact — only the
+-- foreign key goes. One recording per lesson is a local invariant this database can still
+-- enforce; the existence of the lesson is not. The precedent is
+-- DrillAssignmentItem.sourceItemId, deliberately bare because it points at
+-- content-service's database.
+--
+-- Existence is checked before the write instead: the ingest reads lessons from the portal
+-- and refuses a record whose lesson_uuid is blank, so a row can only be created for a
+-- lesson the portal itself returned.
+--
+-- Verified before applying: 0 of 101,197 existing rows have no matching lesson, so this
+-- drops no enforcement that is currently doing work.
+--
+-- Reversible in form, but re-adding the constraint would restore the defect. Do not.
+
+ALTER TABLE "education_lessonrecord"
+  DROP CONSTRAINT IF EXISTS "education_lessonrecord_lesson_id_fkey";
