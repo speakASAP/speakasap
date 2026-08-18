@@ -33,6 +33,15 @@ spec:
           ports:
             - containerPort: 4203
               name: http
+          env:
+            # F1 step 2: use the dedicated logging credential instead of falling back to the
+            # shared JWT_TOKEN. remote-logger.ts reads LOGGING_SERVICE_TOKEN || JWT_TOKEN;
+            # without this the shared token is this service's only logging credential.
+            - name: LOGGING_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: logging-ingest-credentials
+                  key: LOGGING_SERVICE_TOKEN
           envFrom:
             - configMapRef:
                 name: speakasap-assessment-config
