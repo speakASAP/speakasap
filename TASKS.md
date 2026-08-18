@@ -357,8 +357,43 @@ and opened the payout gate. It now accepts either name and refuses outright when
 aggregate carries neither. That gate had NO tests despite guarding real payouts; it
 has six now, including the rename trap.
 
-Remaining before a calculation run: review the one implausible record
-(`4668280d-…`, 60s, teacher 182), then Goal 9.6's write gates and rollback evidence.
+**The one implausible record is settled (owner, 2026-08-18).** `4668280d-…` is a real
+12-second recording, so paying it as 1 minute rather than a full hour is correct. It
+stays flagged for review; it is not a defect to fix.
+
+### Goal 9.6 write gates — done 2026-08-18
+
+**Gate 1 — imported hours the aggregate has outgrown (`87d38da`).** Fixing the frozen
+lesson copy exposed the same bug class one layer up.
+`hours = importedLessonSalary?.qtyHours ?? aggregateHours` lets imported legacy rows win
+wherever any exist, and those imports stop at the same 2026-06-26 freeze:
+
+| Month | Imported | Computed |
+|---|---|---|
+| 2026-05 | 170h | 169.35h — agree, legacy rounding |
+| 2026-06 | 48h | 134.38h |
+| 2026-07 | 0h | ~128 lessons |
+| 2026-08 | 0h | ~46 lessons |
+
+A teacher with NO imports is safe — the `??` falls through to live data. The dangerous
+case is **partial** imports: rows exist, so the fallback never fires and the stale number
+is used silently. A June run would have underpaid **10 teachers by 83.39 hours**, one of
+them by 39, and looked entirely normal. `assertImportedLessonSalaryCoverage` refuses,
+naming each teacher with imported hours, computed hours, and shortfall. Only shortfalls
+fail; imports exceeding the aggregate mean legacy paid for something this computation
+cannot see.
+
+**Gate 2 — rollback (`83058cc`).** `finalize` was a one-way door into the payout path,
+since `finalized` is the state payout-runs requires. `POST /calculation-runs/:runId/unfinalize`
+returns a run to draft with a required, logged reason. It keeps the run and its lines —
+reopening for correction, not erasing — and is refused once any payout references it.
+
+Both gates have negative controls: every test was confirmed to fail when the logic is
+deliberately broken.
+
+**Still open before a calculation run:** reconcile or clear the stale imported rows for
+2026-06 (Gate 1 blocks the run until then), and `salary-service` still has no test suite
+beyond the 17 tests added with these gates.
 
 **Duration stays local, by owner decision.** The portal has no `duration_seconds`
 column; length comes from `LessonRecord.get_record_length()`, which opens the MP3
