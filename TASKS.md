@@ -319,10 +319,46 @@ teacher is paid for fewer lessons under the new source.
 August aggregated to **zero for every teacher** — a payout run in that window would
 have paid nobody for two months and looked like a legitimate result.
 
-Remaining gate before a calculation run: `salaryCalculationReady` is still `false`
-because of `shortRecordCount=6` in 2026-05. That is the pre-existing short-record
-question from Goal 9.5, unchanged by this work — it is not a regression from the
-source swap.
+### The 6 short records: resolved 2026-08-18 — the rule was wrong, not the data
+
+The 6 were never data defects. Investigating them found the payable rule diverging
+from legacy, and an earlier claim in this file that legacy "never prorates" was
+WRONG — it came from reading migrated `qty` values instead of the rule that produces
+them, and from misreading `qty=1` as "one lesson" when it means **one hour**.
+
+**Legacy rule** (`expenses/salary/utils.py:get_record_length_in_hours`, portal):
+
+- demo course -> `quantize(0)`, unpaid
+- recording > **95% of `lesson.duration`** -> pay the full lesson
+- otherwise -> pay `min(actual_hours, lesson.duration)`, the real length
+- no record / record unavailable -> a full unit
+
+`lesson.duration` is in HOURS: 1 normal, 1.5 group, 0.5 demo.
+
+**The divergence.** This service used an absolute 5-minute tolerance, which is a
+different rule at every lesson length: full pay from 55 min on a 60-min lesson where
+legacy wanted 57, and 5 minutes of slack on a 30-min demo where legacy allowed 1.5.
+Measured on production May 2026: 4 of 172 lessons overpaid, 14 minutes.
+
+**Fixed in `e6d89df`** with the relative 95% test, strictly greater to match legacy's
+`duration_hours > duration_limit`. May 2026 now matches legacy exactly — **10,161 =
+10,161 minutes, zero differing rows**.
+
+**`shortRecordCount` is gone, replaced by `implausibleRecordCount`.** Counting every
+recording shorter than its slot flagged the 95% rule working as designed, and would
+have gated every payout run forever. The new count fires under 10% of the slot, where
+a recording is a broken upload rather than a short lesson. May 2026 has exactly one:
+a 60-second recording against a 60-minute lesson — surfaced for review, not silently
+paid.
+
+**salary-service had a silent-failure trap here.** It read
+`readiness.shortRecordCount ?? 0`, so a renamed field would have read zero blockers
+and opened the payout gate. It now accepts either name and refuses outright when an
+aggregate carries neither. That gate had NO tests despite guarding real payouts; it
+has six now, including the rename trap.
+
+Remaining before a calculation run: review the one implausible record
+(`4668280d-…`, 60s, teacher 182), then Goal 9.6's write gates and rollback evidence.
 
 **Duration stays local, by owner decision.** The portal has no `duration_seconds`
 column; length comes from `LessonRecord.get_record_length()`, which opens the MP3
