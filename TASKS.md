@@ -255,10 +255,21 @@ was touched.
 - **Step 4 PASS.** Repeated on `9278f5da-…`, an unscheduled lesson ("Time not set") —
   the unfinished/future case that was the original complaint. Roster resolves the same.
 
-The topic picker on the German B1 course offered German topics (`schwacheverben`,
-`prateritum`, `perfekt`), confirming `courseLanguageOf()` derives the language from the
-lesson rather than hardcoding `de`. Worth re-checking on an English course before
-calling the language fix verified in the browser for every case.
+**The language fix is verified in the browser on both languages.** German B1 course
+(`ce053675-…`) offers 72 German topics (`schwacheverben`, `prateritum`, `perfekt`);
+English course (`2e3764c1-…`, `course_materials.data.ru.en._10r.Course`) offers 21
+English ones (`future simple`, `gerund`, `conditional sentence`, `present perfect`).
+Same wizard, language read from the lesson. The original bug would have rendered
+`adjektivgruppen` on that English course and generated German drills for a student
+learning English.
+
+One more safety behavior confirmed while testing: opening the English lesson with a
+`studentId` belonging to a different teacher's student preselected nothing and said
+*"That student is not on your roster… this lesson may belong to another teacher"*
+rather than silently assigning a drill to the wrong person.
+
+Nothing was generated or assigned during this verification — the wizard was walked to
+the topic step and abandoned.
 
 Incidental evidence the feature works end to end: `9278f5da-…` already carries a
 finished drill — 20/20 blanks correct, 103 attempts, completed 2026-08-05.
