@@ -391,9 +391,56 @@ reopening for correction, not erasing — and is refused once any payout referen
 Both gates have negative controls: every test was confirmed to fail when the logic is
 deliberately broken.
 
-**Still open before a calculation run:** reconcile or clear the stale imported rows for
-2026-06 (Gate 1 blocks the run until then), and `salary-service` still has no test suite
-beyond the 17 tests added with these gates.
+### A THIRD frozen copy blocks July onward — duration ingest (diagnosed 2026-08-18)
+
+Checking whether the aggregate was clean enough to reconcile June against found that it
+is not, for a different reason.
+
+**`education_lessonrecord` — the duration source — is frozen at 2026-06-13.** 101,184
+rows, max `created` 2026-06-13, and the monthly trend shows an ETL that died rather than
+a migration that ended:
+
+| Month | rows created | with duration |
+|---|---|---|
+| 2026-03 | 196 | 179 |
+| 2026-04 | 163 | 140 |
+| 2026-05 | 166 | 140 |
+| 2026-06 | 50 | 41 (stops 06-13) |
+| 2026-07 | **0** | 0 |
+| 2026-08 | **0** | 0 |
+
+**Consequence for payroll.** 2026-07: 128 lessons, **126 missing duration**,
+`recordedMinutes: 0`, every lesson paying the flat 60-minute `missing_duration_fallback`
+instead of its recorded length. The legacy 95% rule cannot apply to a duration that is
+not there.
+
+**The recordings themselves are fine — only the DB rows are missing.** Of 168 Jul-Aug
+lessons the portal reports 165 with `has_record: true, processed: true`, while the local
+table holds **zero** rows for them. Object keys are deterministic
+(`YYYY/MM/DD/lesson_<uuid>.mp3`) and the objects are present: two sampled July keys
+returned 58 MB and 56 MB from `speakasap-records`.
+
+**Recovery is proven, not theoretical.** `ffprobe` against a presigned GET returned
+**3671.59s (61.2 min)** for July lesson `4a445b84-…` — read from the MP3 header, no full
+download. Under the 95% rule that is a full 60-minute lesson rather than the fallback it
+currently gets.
+
+**`scripts/backfill-lesson-record-durations.js` already exists** and is properly gated
+(`--apply` requires `--confirm-write`, `--approval-note`, `--rollback-plan`), but it
+**cannot fix this alone**: it probes rows that already exist and sets their
+`durationSeconds`. July/August have no rows to probe. What is missing is the row-creation
+step — the ingest that used to write `education_lessonrecord` from the portal's records.
+Note it runs from a workstation, not the pod: neither `ffprobe` nor the script is in the
+image.
+
+**Still open before a calculation run:**
+1. **Duration ingest for 2026-07 onward** — the real blocker. Needs a row-creation path,
+   then the existing backfill can fill durations.
+2. Reconcile or clear the stale 2026-06 imported rows (Gate 1 blocks that month).
+3. `salary-service` still has no test suite beyond the 17 tests added with these gates.
+
+Ordering matters: clearing June's imports first would swap one stale source for another,
+because for July onward the "live" aggregate is itself running on fallbacks.
 
 **Duration stays local, by owner decision.** The portal has no `duration_seconds`
 column; length comes from `LessonRecord.get_record_length()`, which opens the MP3
