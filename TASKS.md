@@ -433,9 +433,59 @@ step — the ingest that used to write `education_lessonrecord` from the portal'
 Note it runs from a workstation, not the pod: neither `ffprobe` nor the script is in the
 image.
 
+#### Root cause: the ETL never ran on a schedule (confirmed 2026-08-18)
+
+Nothing broke on 2026-06-13. `scripts/migrate-lesson-records-from-legacy.py` is a
+**one-shot manual ETL** — run by hand with `--apply --confirm-write --approval-note
+--rollback-plan`. There is no CronJob in `statex-apps` (the namespace has none at all),
+no scheduler references the script, and the only code in education-service that creates
+a `lessonRecord` row is the new platform's own upload-commit flow
+(`lesson-records.service.ts`), which teachers do not use — they upload through the
+portal, which writes to its own DB.
+
+So the copy went stale the day the last manual run finished. It will go stale again after
+any one-off backfill.
+
+#### What is actually missing, and what is not
+
+| | |
+|---|---|
+| Existing rows total | 101,184 |
+| Missing duration, with a key | 95,719 — **historical, pre-2026** |
+| Missing duration in 2026-01..06 | **3 rows** (1 in Jan, 2 in Mar) |
+| Missing ROWS for 2026-07..08 | ~165 lessons the portal has records for |
+
+Recent months are fully populated. The 95,719 are years-old rows and are irrelevant to
+payroll; the current blocker is purely the **absent July/August rows**.
+
+#### The constraint that shapes the fix
+
+The original ETL connects source DB -> target DB directly. That is not available here:
+the portal DB is on `speakasap.com`, a different host reachable only through
+`ssh speakasap`, which is **READ ONLY**. education-service's own DB is
+`db-server-postgres`. So the ETL cannot be re-run from this machine as designed.
+
+The portal's internal API *is* reachable and already reads `lesson.lessonrecord` to build
+`_record_payload()` — it returns `has_record`/`record_unavailable`/`processed` but not the
+object key. `LessonRecord.record.name` is the key, and `uuid`, `created`, `parts` are all
+on the model.
+
+**Recommended fix, in order:**
+
+1. **Portal:** extend `_record_payload()` with `record_key`, `record_uuid`, `created`, and
+   part keys. Small and additive. NOTE: `speakasap-portal` is deny-listed from
+   auto-deploy, so this needs a manual deploy by the owner.
+2. **education-service:** an ingest that creates missing `lessonRecord` rows from that
+   payload, then hands off to the existing `backfill-lesson-record-durations.js` for
+   durations. Same gating, dry-run first.
+3. **Schedule it.** A backfill alone repeats this failure. Whatever runs it must run
+   regularly, or the seam must move to the portal notifying education-service on upload.
+
+Recovery of the durations themselves is already proven: `ffprobe` over a presigned GET
+returned 3671.59s for a July object without downloading it.
+
 **Still open before a calculation run:**
-1. **Duration ingest for 2026-07 onward** — the real blocker. Needs a row-creation path,
-   then the existing backfill can fill durations.
+1. **Duration ingest for 2026-07 onward** — the real blocker, per the plan above.
 2. Reconcile or clear the stale 2026-06 imported rows (Gate 1 blocks that month).
 3. `salary-service` still has no test suite beyond the 17 tests added with these gates.
 
