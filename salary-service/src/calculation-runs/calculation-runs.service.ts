@@ -495,14 +495,21 @@ export function assertSalaryAggregateReady(
       sample.reason === 'short_record_duration' ||
       sample.reason === 'lesson_record_duration_seconds_missing',
   ).length;
+  // `implausibleRecordCount` is reported, never gated on. An implausibly short recording
+  // has a KNOWN length that happens to be tiny — legacy pays the real length and so does
+  // education-service, so the amount is already correct and there is nothing to reconcile
+  // before paying. Owner decision 2026-08-19, after adjudicating a 12s and a 129s
+  // recording as genuine short lessons rather than defects.
+  //
+  // `missingDurationCount` still gates: an unknown length means a run would be guessing.
   const durationBlockersCoveredByImports =
-    missingDurationCount + implausibleRecordCount > 0 &&
+    missingDurationCount > 0 &&
     teacherMappingMissingCount === 0 &&
-    importedCoverableBlockers === missingDurationCount + implausibleRecordCount &&
+    importedCoverableBlockers === missingDurationCount &&
     importedCoveredBlockers === importedCoverableBlockers;
   if (
     (readiness.salaryCalculationReady === false && !durationBlockersCoveredByImports) ||
-    ((missingDurationCount > 0 || implausibleRecordCount > 0) && !durationBlockersCoveredByImports) ||
+    (missingDurationCount > 0 && !durationBlockersCoveredByImports) ||
     teacherMappingMissingCount > 0 ||
     dependencyWarnings > 0
   ) {

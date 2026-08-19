@@ -484,10 +484,48 @@ on the model.
 Recovery of the durations themselves is already proven: `ffprobe` over a presigned GET
 returned 3671.59s for a July object without downloading it.
 
+#### Duration ingest DONE 2026-08-18/19 — July and August are clean
+
+Ran end to end: portal endpoint -> ingest -> duration backfill.
+
+| Month | Missing duration before | after |
+|---|---|---|
+| 2026-07 | 126 of 128 | **0** |
+| 2026-08 | all | **0** |
+
+2026-07 now reports `recordedMinutes: 7236` (was **0**) and `payableMinutes: 7356`
+(was 7590 under flat fallbacks). The drop of ~234 min is the correct direction: real
+recording lengths replacing a generous full-hour default.
+
+Steps that were needed, in order:
+1. Portal `LessonRecordsView` (`34d09e1db3` + `8f9647412b`), deployed manually by the owner.
+2. **A fourth cross-database FK had to go** (`40ba27c`): `education_lessonrecord.lesson_id`
+   pointed at the frozen `education_lesson` copy, so the first insert failed with
+   `Foreign key constraint violated`. Same defect already fixed for `drill_assignment`.
+   Rehearsed on throwaway tables in a rolled-back transaction first; the UNIQUE index on
+   `lesson_id` survives, so one-recording-per-lesson still holds.
+3. Ingest created 266 rows; a re-run reports 328 of 328 present, 0 to create.
+4. `backfill-lesson-record-durations.js` filled the durations via ffprobe over presigned
+   GETs.
+
+**Owner scope decision 2026-08-19: only the current and previous month matter.** Salary is
+calculated from them and durations are not needed afterwards, so the 30 remaining gaps in
+2026-06 are deliberately left unfilled. Do not "fix" them.
+
+**Implausible records no longer gate a run** (owner, 2026-08-19). A 12s and a 129s
+recording were both adjudicated as genuine short lessons. Such a record has a KNOWN length
+that happens to be tiny — legacy pays the real length and so do we, so the amount is
+already correct and there is nothing to reconcile before paying. `implausibleRecordCount`
+is still reported so a human can look. `missingDurationCount` still gates, and the
+distinction is the point: an unknown length means a run would be guessing.
+
 **Still open before a calculation run:**
-1. **Duration ingest for 2026-07 onward** — the real blocker, per the plan above.
-2. Reconcile or clear the stale 2026-06 imported rows (Gate 1 blocks that month).
-3. `salary-service` still has no test suite beyond the 17 tests added with these gates.
+1. Reconcile or clear the stale 2026-06 imported rows (Gate 1 blocks that month).
+2. **The freeze is not cured.** The ingest is a manual backfill; nothing schedules it, and
+   `ffprobe` is `apk add`-ed into the pod and vanishes on restart. September will need the
+   same dance unless a scheduled ingest exists or the portal notifies education-service on
+   upload.
+3. `salary-service` still has no test suite beyond the 18 tests added with these gates.
 
 Ordering matters: clearing June's imports first would swap one stale source for another,
 because for July onward the "live" aggregate is itself running on fallbacks.

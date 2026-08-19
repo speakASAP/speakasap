@@ -70,11 +70,24 @@ describe('assertSalaryAggregateReady', () => {
     expect(() => assertSalaryAggregateReady(result(v3), new Map())).not.toThrow();
   });
 
-  it('blocks on an implausible record', () => {
+  it('does NOT block on an implausible record — it is reported, not a gate', () => {
+    // An implausibly short recording has a KNOWN length that happens to be tiny; legacy
+    // pays the real length and so do we, so the figure is already correct. Owner decision
+    // 2026-08-19 after adjudicating a 12s and a 129s recording as genuine short lessons.
+    expect(() =>
+      assertSalaryAggregateReady(
+        result({ ...CLEAN, implausibleRecordCount: 1 }),
+        new Map(),
+      ),
+    ).not.toThrow();
+  });
+
+  it('still blocks on a missing duration', () => {
+    // Distinct from the above: here we cannot tell what to pay at all.
     expect(
       codeOf(() =>
         assertSalaryAggregateReady(
-          result({ ...CLEAN, salaryCalculationReady: false, implausibleRecordCount: 1 }),
+          result({ ...CLEAN, salaryCalculationReady: false, missingDurationCount: 1 }),
           new Map(),
         ),
       ),

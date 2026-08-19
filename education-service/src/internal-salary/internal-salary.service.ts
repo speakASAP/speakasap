@@ -284,10 +284,17 @@ export class InternalSalaryService {
         rulesVersion: 'salary-duration-v4-legacy-95pct-full-lesson',
         generatedAt: new Date().toISOString(),
         readiness: {
+          // `implausibleRecordCount` is deliberately NOT a gate. An implausibly short
+          // recording has a KNOWN length that happens to be tiny — legacy pays the real
+          // length and so do we, so the figure is already correct and there is nothing to
+          // fix before paying. It is reported so a human can look, not to hold up payroll.
+          // Owner decision 2026-08-19, after adjudicating a 12s and a 129s recording as
+          // genuinely short lessons rather than defects.
+          //
+          // `missingDurationCount` still gates, and the distinction is the point: there we
+          // cannot tell what to pay at all, so a run would be guessing.
           salaryCalculationReady:
-            missingDurationCount === 0 &&
-            implausibleRecordCount === 0 &&
-            teacherMappingMissingCount === 0,
+            missingDurationCount === 0 && teacherMappingMissingCount === 0,
           missingDurationCount,
           implausibleRecordCount,
           teacherMappingMissingCount,

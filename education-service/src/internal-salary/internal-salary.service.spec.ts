@@ -275,9 +275,13 @@ describe('InternalSalaryService period aggregates from the portal', () => {
       expect(res.meta.readiness.salaryCalculationReady).toBe(false);
     });
 
-    it('flags a recording too short to be a real lesson', async () => {
-      // 60 seconds against a 60 minute slot is not a short lesson, it is a broken upload.
-      // Legacy pays the real length either way, but a human should look.
+    it('reports a recording too short to be a real lesson WITHOUT blocking the run', async () => {
+      // 60 seconds against a 60 minute slot is not a short lesson, it is a broken upload
+      // or a call that never started. Legacy pays the real length and so do we, so the
+      // figure is already correct — the count exists so a human can look, not to gate.
+      //
+      // Owner decision 2026-08-19, after adjudicating a 12s and a 129s recording as
+      // genuinely short lessons: these must not hold up a payroll run.
       const h = harness([portalLesson()], [{ lessonUuid: portalLesson().uuid, durationSeconds: 60 }]);
       const res = (await h.service.periodAggregates(PERIOD, [LEGACY_USER_ID])) as {
         items: Array<Record<string, unknown>>;
@@ -286,6 +290,28 @@ describe('InternalSalaryService period aggregates from the portal', () => {
 
       expect(res.items[0].payableMinutes).toBe(1);
       expect(res.meta.readiness.implausibleRecordCount).toBe(1);
+      expect(res.meta.readiness.salaryCalculationReady).toBe(true);
+    });
+
+    it('still blocks on a missing duration even when an implausible record is present', async () => {
+      // The two are different: an implausible record has a known length that happens to be
+      // tiny, while a missing duration means we cannot tell what to pay at all. Relaxing
+      // the first must not relax the second.
+      const short = portalLesson();
+      const unknown = portalLesson({ uuid: 'cccccccc-0000-0000-0000-00000000000c' });
+      const h = harness(
+        [short, unknown],
+        [
+          { lessonUuid: short.uuid, durationSeconds: 60 },
+          { lessonUuid: unknown.uuid, durationSeconds: null },
+        ],
+      );
+      const res = (await h.service.periodAggregates(PERIOD, [LEGACY_USER_ID])) as {
+        meta: { readiness: { implausibleRecordCount: number; missingDurationCount: number; salaryCalculationReady: boolean } };
+      };
+
+      expect(res.meta.readiness.implausibleRecordCount).toBe(1);
+      expect(res.meta.readiness.missingDurationCount).toBe(1);
       expect(res.meta.readiness.salaryCalculationReady).toBe(false);
     });
   });
