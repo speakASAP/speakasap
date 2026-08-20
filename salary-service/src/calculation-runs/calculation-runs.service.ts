@@ -133,10 +133,12 @@ export class CalculationRunsService {
             const a = agg.get(p.legacyPortalUserId);
             const importedLessonSalary = importedLessonSalaryTotals.get(p.legacyPortalUserId);
             const aggregateHours = a ? a.totalMinutes / 60 : 0;
-            const hours = importedLessonSalary?.qtyHours ?? aggregateHours;
-            const fromRate = Number(p.rate.toString()) * hours;
-            const fromSalary = Number(p.salary.toString());
-            const amount = (fromSalary + fromRate).toFixed(2);
+            const { hours, fromRate, fromSalary, amount } = calculationLineAmount({
+              rate: p.rate.toString(),
+              salary: p.salary.toString(),
+              aggregateHours,
+              importedQtyHours: importedLessonSalary?.qtyHours,
+            });
             return {
               profileId: p.id,
               legacyPortalUserId: p.legacyPortalUserId,
@@ -386,6 +388,41 @@ export type ImportedCoverageRow = {
  * door into the payout path. Reversing is safe only while no payout run references it;
  * after that the money may already have moved and the run is history, not a draft.
  */
+/**
+ * What one teacher is paid for a period: a fixed monthly salary plus an hourly component.
+ *
+ * Extracted from the line builder so it can be tested. It was inline inside a
+ * `prisma.calculationRun.create()` call, which meant the arithmetic that decides a real
+ * person's pay had no way to be exercised without a database.
+ *
+ * `importedQtyHours` wins over the computed aggregate wherever it exists — see
+ * assertImportedLessonSalaryCoverage, which refuses a run when those imports are staler
+ * than the aggregate.
+ */
+export function calculationLineAmount(input: {
+  rate: string;
+  salary: string;
+  aggregateHours: number;
+  importedQtyHours?: number;
+}): { hours: number; fromRate: number; fromSalary: number; amount: string } {
+  const hours = input.importedQtyHours ?? input.aggregateHours;
+  const rate = Number(input.rate);
+  const salary = Number(input.salary);
+  // A non-finite rate or salary would make `amount` the string "NaN", which is then stored
+  // as a Decimal and later handed to payment-service. Raising keeps a broken profile from
+  // becoming a broken payment.
+  if (!Number.isFinite(rate) || !Number.isFinite(salary) || !Number.isFinite(hours)) {
+    throw salaryHttpException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'SALARY_AMOUNT_INVALID',
+      `cannot compute a line amount from rate=${input.rate} salary=${input.salary} hours=${hours}`,
+    );
+  }
+  const fromRate = rate * hours;
+  const fromSalary = salary;
+  return { hours, fromRate, fromSalary, amount: (fromSalary + fromRate).toFixed(2) };
+}
+
 export function assertRunCanBeUnfinalized(run: {
   id: string;
   status: string;
