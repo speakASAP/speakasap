@@ -1,0 +1,83 @@
+---
+# Keeps education-service's copy of lesson recordings in step with the portal.
+#
+# WHY THIS EXISTS
+# ---------------
+# `education_lessonrecord` is a COPY of the portal's recordings, and the portal is the only
+# thing that writes recordings. Its original ETL was a one-shot MANUAL script that nothing
+# ever scheduled, so it went stale the day its last run finished (2026-06-13). The salary
+# aggregate joins `duration_seconds` from this copy by lesson uuid, so every lesson after
+# that date silently paid a flat full hour instead of its recorded length — 2026-07
+# aggregated 128 lessons with 126 missing durations.
+#
+# Backfilling by hand fixed July and August, and the copy REFROZE within two days: five
+# lessons taught on 2026-08-19/20 were already missing again. Salary is calculated from the
+# current and previous month, so the current month is exactly the one a manual process
+# leaves stale. That is what this job prevents.
+#
+# It is idempotent — a run with nothing to do writes nothing and exits 0 — so the schedule
+# is a floor, not a constraint. Running it by hand before a payroll calculation is fine and
+# is the same command.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: speakasap-lesson-record-sync
+  namespace: statex-apps
+  labels:
+    app: speakasap-education
+    component: lesson-record-sync
+spec:
+  # 02:20 UTC daily: after the day's lessons are uploaded, well before anyone calculates
+  # salary. Not hourly — ffprobe reads a remote object per new recording, and a day's worth
+  # is a few dozen at most.
+  schedule: "20 2 * * *"
+  timeZone: "Etc/UTC"
+  # A run must never overlap itself: two ingests racing on the same lesson would both try
+  # to create its row, and the loser fails the whole run on a unique violation.
+  concurrencyPolicy: Forbid
+  # A missed window is not worth catching up on — the next run covers the same month.
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 7
+  jobTemplate:
+    spec:
+      # Retry twice. A transient portal or S3 failure should not leave the month stale for
+      # a day, but a real breakage should stop and stay visible rather than loop.
+      backoffLimit: 2
+      # Well above a normal run (a day's recordings take minutes); this only stops a hung
+      # ffprobe from holding the job open indefinitely.
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 172800
+      template:
+        metadata:
+          labels:
+            app: speakasap-education
+            component: lesson-record-sync
+        spec:
+          restartPolicy: Never
+          initContainers:
+            - name: wait-postgres
+              image: busybox:1.36
+              command: ['sh', '-c', 'until nc -z db-server-postgres 5432; do echo waiting for postgres; sleep 2; done']
+          containers:
+            - name: sync
+              # The same image the service runs, so the scripts and their Prisma client are
+              # always the version deployed. ffprobe is installed in that image; it used to
+              # be `apk add`-ed into a running pod by hand and lost on every restart.
+              image: localhost:5000/speakasap-education:latest
+              imagePullPolicy: Always
+              command:
+                - node
+                - scripts/sync-lesson-record-durations.js
+              envFrom:
+                - configMapRef:
+                    name: speakasap-education-config
+                - secretRef:
+                    name: speakasap-education-secret
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
