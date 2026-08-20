@@ -544,7 +544,34 @@ distinction is the point: an unknown length means a run would be guessing.
    The job is idempotent, so running it by hand before a payroll calculation is safe and
    is the same command:
    `kubectl create job -n statex-apps --from=cronjob/speakasap-lesson-record-sync <name>`
-3. `salary-service` still has no test suite beyond the 18 tests added with these gates.
+3. ~~`salary-service` has no test suite.~~ **18 -> 93 tests across 9 suites (2026-08-20).**
+   Prioritised by what could cost money, and it found two live defects rather than only
+   documenting behaviour:
+
+   - **`Number('')` is `0`**, so a blank amount became a silent ZERO PAYOUT. A teacher paid
+     nothing looked identical to a teacher who earned nothing.
+   - An unparseable amount became **`NaN` and flowed onward as the amount** handed to
+     payment-service.
+
+   Both now raise `SALARY_AMOUNT_INVALID` (`d656a09`), as does a negative amount — salary
+   is a disbursement, never a withdrawal.
+
+   Covered: money conversion and the payout flag · the staff gate on every payroll endpoint
+   · idempotency (what stops a retry paying twice) · `commit` orchestration (lock,
+   already-paid lines, partial failure, status rollup) · `calculationLineAmount` · the
+   guards `create` runs before building any line.
+
+   Every guard was verified to FAIL when deliberately broken. Two things worth knowing for
+   whoever continues:
+   - Disabling a branch with `&& false` can break TypeScript narrowing and fail to compile,
+     which reports `Tests: 0` and proves nothing. Use a runtime-opaque flag.
+   - `??` vs `||` on imported hours is load-bearing: an imported ZERO is a real answer and
+     must not fall through to the aggregate.
+
+   **Still untested:** the HTTP clients (`education-client`, `payment-client` — timeouts,
+   non-2xx, malformed JSON), the CRUD services, `admin-summary`, and cursor pagination. The
+   HTTP clients are the next most valuable: a mishandled timeout there is how a run gets
+   wrong inputs.
 
 Ordering matters: clearing June's imports first would swap one stale source for another,
 because for July onward the "live" aggregate is itself running on fallbacks.
