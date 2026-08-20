@@ -520,7 +520,10 @@ is still reported so a human can look. `missingDurationCount` still gates, and t
 distinction is the point: an unknown length means a run would be guessing.
 
 **Still open before a calculation run:**
-1. Reconcile or clear the stale 2026-06 imported rows (Gate 1 blocks that month).
+1. ~~Reconcile the stale 2026-06 imported rows.~~ **Dropped by the owner 2026-08-20.**
+   Salary is calculated from the current and previous month only, so June is behind the
+   window and will never be run. Gate 1 still blocks it, which is correct and harmless —
+   do not "fix" June, and do not clear its imported rows.
 2. ~~The freeze is not cured.~~ **CURED 2026-08-20 (`f513bc7`).** CronJob
    `speakasap-lesson-record-sync` runs `scripts/sync-lesson-record-durations.js` at
    02:20 UTC daily, `concurrencyPolicy: Forbid`, on the same image as the service.
