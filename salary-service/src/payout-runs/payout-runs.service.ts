@@ -16,8 +16,44 @@ import {
 import { idempotencyReplayException, salaryHttpException } from '../shared/salary-http.exception';
 import { IdempotencyService, requestBodyHash } from '../idempotency/idempotency.service';
 
-function minorFromDecimal(amount: string, _currency: string): number {
-  return Math.round(Number(amount) * 100);
+/**
+ * Decimal money string -> integer minor units (cents/haléře).
+ *
+ * Exported for tests: this is the last conversion before an amount is handed to
+ * payment-service, so a rounding error here is a real over- or under-payment.
+ */
+export function minorFromDecimal(amount: string, _currency: string): number {
+  // `Number('')` is 0, so a blank amount would become a silent zero payout rather than a
+  // failure. A missing amount is not the same as an amount of nothing.
+  if (typeof amount !== 'string' || !amount.trim()) {
+    throw salaryHttpException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'SALARY_AMOUNT_INVALID',
+      'payout amount is empty',
+    );
+  }
+  const parsed = Number(amount);
+  // An unparseable amount used to become NaN and flow onward as the amount handed to
+  // payment-service. There is no correct number to substitute — paying zero silently is
+  // not one — so this raises instead.
+  if (!Number.isFinite(parsed)) {
+    throw salaryHttpException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'SALARY_AMOUNT_INVALID',
+      `payout amount ${JSON.stringify(amount)} is not a finite number`,
+    );
+  }
+  if (parsed < 0) {
+    // Salary is a disbursement, never a withdrawal. A negative here means the calculation
+    // produced something nonsensical, and sending it to payment-service could reverse a
+    // real payment.
+    throw salaryHttpException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'SALARY_AMOUNT_INVALID',
+      `payout amount ${JSON.stringify(amount)} is negative`,
+    );
+  }
+  return Math.round(parsed * 100);
 }
 
 const PAYOUT_FLOWS_ENABLED_ENV = 'SALARY_PAYOUT_FLOWS_ENABLED';
@@ -298,7 +334,7 @@ export class PayoutRunsService {
   }
 }
 
-function assertPayoutFlowsEnabled(): void {
+export function assertPayoutFlowsEnabled(): void {
   if (process.env[PAYOUT_FLOWS_ENABLED_ENV] !== 'true') {
     throw salaryHttpException(
       HttpStatus.PRECONDITION_FAILED,
