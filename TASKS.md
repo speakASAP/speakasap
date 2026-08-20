@@ -521,10 +521,26 @@ distinction is the point: an unknown length means a run would be guessing.
 
 **Still open before a calculation run:**
 1. Reconcile or clear the stale 2026-06 imported rows (Gate 1 blocks that month).
-2. **The freeze is not cured.** The ingest is a manual backfill; nothing schedules it, and
-   `ffprobe` is `apk add`-ed into the pod and vanishes on restart. September will need the
-   same dance unless a scheduled ingest exists or the portal notifies education-service on
-   upload.
+2. ~~The freeze is not cured.~~ **CURED 2026-08-20 (`f513bc7`).** CronJob
+   `speakasap-lesson-record-sync` runs `scripts/sync-lesson-record-durations.js` at
+   02:20 UTC daily, `concurrencyPolicy: Forbid`, on the same image as the service.
+   `ffmpeg` and `scripts/` are now baked into that image — `ffprobe` was previously
+   `apk add`-ed into a running pod by hand and lost on every restart, which is why a
+   scheduled job could not have been relied on before.
+
+   Proven, not assumed: the copy had already refrozen (5 lessons taught 2026-08-19/20 were
+   missing durations again within two days of the manual backfill). A manually triggered
+   run of the CronJob created those 5 rows and filled their durations, after which
+   **2026-07 and 2026-08 both report `READY=true`**:
+
+   | Month | lessons | missingDur | implausible | recordedMin | payableMin |
+   |---|---|---|---|---|---|
+   | 2026-07 | 128 | 0 | 1 (non-blocking) | 7236 | 7356 |
+   | 2026-08 | 54 | 0 | 0 | 3162 | 3222 |
+
+   The job is idempotent, so running it by hand before a payroll calculation is safe and
+   is the same command:
+   `kubectl create job -n statex-apps --from=cronjob/speakasap-lesson-record-sync <name>`
 3. `salary-service` still has no test suite beyond the 18 tests added with these gates.
 
 Ordering matters: clearing June's imports first would swap one stale source for another,
