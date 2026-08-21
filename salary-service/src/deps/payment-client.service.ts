@@ -45,7 +45,11 @@ export class PaymentClientService {
         this.logger.error(`payment disburse failed status=${res.status} duration_ms=${durationMs}`);
         throw new Error(`payment_disburse_${res.status}`);
       }
-      const json = (await res.json()) as DisburseResponse;
+      const json = await parseDisburseResponse(res, (message) =>
+        this.logger.error(
+          `payment disburse malformed response duration_ms=${durationMs} ${message}`,
+        ),
+      );
       this.logger.log(`payment disburse ok duration_ms=${durationMs} payoutRef=${json.payoutRef}`);
       return json;
     } finally {
@@ -64,6 +68,12 @@ export class PaymentClientService {
     const timeoutMs = Number(process.env.HTTP_CLIENT_TIMEOUT_MS || '8000');
     const maxAttempts = 5;
     const delayMs = 200;
+    // Why this loop must not swallow failures: the money has already left via disburse().
+    // Reporting `processing` after an attempt we could not read makes an outage
+    // indistinguishable from a payment that is genuinely still in flight, and the caller
+    // stores that as PayoutLineStatus.processing. Only an attempt we actually read may
+    // conclude the payment is still queued.
+    let lastFailure: string | null = null;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       const started = Date.now();
       const controller = new AbortController();
@@ -76,16 +86,28 @@ export class PaymentClientService {
         });
         const durationMs = Date.now() - started;
         if (!res.ok) {
+          lastFailure = String(res.status);
           this.logger.warn(
             `payment poll disburse attempt=${attempt} status=${res.status} duration_ms=${durationMs}`,
           );
         } else {
-          const json = (await res.json()) as DisburseResponse;
-          this.logger.log(
-            `payment poll disburse attempt=${attempt} duration_ms=${durationMs} status=${json.status}`,
-          );
-          if (json.status === 'completed' || json.status === 'failed') {
-            return json;
+          const json = await parseDisburseResponse(res, (message) =>
+            this.logger.warn(
+              `payment poll disburse attempt=${attempt} malformed response duration_ms=${durationMs} ${message}`,
+            ),
+          ).catch((error: Error) => {
+            lastFailure = 'malformed_response';
+            void error;
+            return null;
+          });
+          if (json) {
+            lastFailure = null;
+            this.logger.log(
+              `payment poll disburse attempt=${attempt} duration_ms=${durationMs} status=${json.status}`,
+            );
+            if (json.status === 'completed' || json.status === 'failed') {
+              return json;
+            }
           }
         }
       } finally {
@@ -93,6 +115,38 @@ export class PaymentClientService {
       }
       await new Promise((r) => setTimeout(r, delayMs));
     }
+    if (lastFailure) {
+      this.logger.error(
+        `payment poll disburse unresolved payoutRef=${payoutRef} attempts=${maxAttempts} last_failure=${lastFailure}`,
+      );
+      throw new Error(`payment_poll_unresolved_${lastFailure}`);
+    }
     return { payoutRef, status: 'processing' };
   }
+}
+
+/**
+ * Reads a disburse response body, refusing anything that is not a usable payout.
+ *
+ * A body that will not parse, or that carries no payoutRef, is a failure — never a
+ * payout. Returning it would store `undefined` as the line's payout reference and poll
+ * `/disburse/undefined` afterwards.
+ */
+async function parseDisburseResponse(
+  res: Response,
+  logFailure: (message: string) => void,
+): Promise<DisburseResponse> {
+  let json: unknown;
+  try {
+    json = await res.json();
+  } catch (e) {
+    logFailure((e as Error).message);
+    throw new Error('payment_disburse_malformed_response');
+  }
+  const payoutRef = (json as DisburseResponse | null)?.payoutRef;
+  if (typeof payoutRef !== 'string' || !payoutRef) {
+    logFailure('missing payoutRef');
+    throw new Error('payment_disburse_malformed_response');
+  }
+  return json as DisburseResponse;
 }
