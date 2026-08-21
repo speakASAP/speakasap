@@ -568,10 +568,29 @@ distinction is the point: an unknown length means a run would be guessing.
    - `??` vs `||` on imported hours is load-bearing: an imported ZERO is a real answer and
      must not fall through to the aggregate.
 
-   **Still untested:** the HTTP clients (`education-client`, `payment-client` — timeouts,
-   non-2xx, malformed JSON), the CRUD services, `admin-summary`, and cursor pagination. The
-   HTTP clients are the next most valuable: a mishandled timeout there is how a run gets
-   wrong inputs.
+4. ~~The HTTP clients are untested.~~ **Done 2026-08-21 (`02b72ee`), 93 -> 129 tests.**
+   It found a third silent failure, in the one place that had already moved money:
+
+   - **`pollDisburse` returned `{status:'processing'}` when EVERY poll attempt failed.**
+     `disburse` has already sent the money at that point; the caller writes
+     `PayoutLineStatus.processing`, which is the same value a genuinely queued payment
+     gets. A total payment-service outage was indistinguishable from money in flight.
+     Now throws `payment_poll_unresolved_<status>` unless an attempt we actually read
+     reported the payment still queued.
+   - A **disburse body without a `payoutRef`** flowed onward and was stored as the line's
+     reference (`undefined`), which then polled `/disburse/undefined`. An **unparseable
+     body** threw a bare `SyntaxError` with no log at all from the money-moving call.
+     Both now raise `payment_disburse_malformed_response` and log with context.
+
+   `education-client`'s empty result on 404/501 was left as-is: it is real fail-soft —
+   it sets `salaryCalculationReady:false`, and `assertSalaryAggregateReady` blocks the
+   run on it. Every other status throws. Both guards were verified to fail when disabled.
+
+   **Still untested:** the CRUD services, `admin-summary`, and cursor pagination — none
+   of which move money. Coverage is no longer the blocker for a calculation run.
+
+   Pre-existing, unrelated: `scripts/migrate-salary-data.ts:450` fails `npm run typecheck`
+   (Prisma `count` overload). Present before this work; the src tree itself is clean.
 
 Ordering matters: clearing June's imports first would swap one stale source for another,
 because for July onward the "live" aggregate is itself running on fallbacks.
