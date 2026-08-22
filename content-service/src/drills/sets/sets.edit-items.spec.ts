@@ -21,7 +21,12 @@ const makePrisma = () => {
       create: jest.fn(),
       delete: jest.fn(),
     },
-    drillItem: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+    drillItem: {
+      findUnique: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
     drillItemRevision: { create: jest.fn() },
     drillTopic: { findFirst: jest.fn().mockResolvedValue({ id: 9 }) },
     $transaction: jest.fn(async (fn: any) => fn(prisma)),
@@ -52,12 +57,21 @@ const GOOD = 'Ich warte [на]{auf} den Bus.';
  * a markup-variant miss, which is exactly the distinction under test here.
  */
 const bankHolding = (prisma: any, rows: { id: number; template: string }[]): void => {
-  const byHash = new Map(
-    rows.map((row) => [hashItem(parseTemplate(row.template).plainText, 'de'), row]),
-  );
+  const stored = rows.map((row) => {
+    const plainText = parseTemplate(row.template).plainText;
+    return { ...row, plainText, hash: hashItem(plainText, 'de') };
+  });
+  const byHash = new Map(stored.map((row) => [row.hash, row]));
+
   prisma.drillItem.findUnique.mockImplementation(
     async ({ where }: any) => byHash.get(where.hash) ?? null,
   );
+  // The punctuation-tolerant lookup reads the bank by plainText prefix, the way it must
+  // in order to reach the 27k legacy rows that carry only the strict hash.
+  prisma.drillItem.findMany.mockImplementation(async ({ where }: any) => {
+    const prefix = where?.plainText?.startsWith ?? '';
+    return stored.filter((row) => row.plainText.startsWith(prefix));
+  });
 };
 
 describe('SetsService.updateSetItem', () => {
@@ -183,6 +197,44 @@ describe('SetsService.updateSetItem', () => {
         data: expect.objectContaining({ validationState: 'OVERRIDDEN' }),
       }),
     );
+  });
+});
+
+describe('SetsService.updateSetItem — punctuation and bank reuse', () => {
+  let prisma: any;
+  let svc: SetsService;
+
+  beforeEach(() => {
+    prisma = makePrisma();
+    prisma.drillSet.findUnique.mockResolvedValue(existingSet());
+    prisma.drillItem.findUnique.mockResolvedValue(null);
+    prisma.drillItem.create.mockImplementation(async ({ data }: any) => ({ id: 500, ...data }));
+    svc = new SetsService(prisma);
+  });
+
+  it('reuses the bank row when a re-blanked sentence lost its final period', () => {
+    // The cause of the duplicates in production set 3c9a3b78. A teacher re-blanking a
+    // sentence retyped it without the closing '.', the exact-hash lookup missed, and a
+    // second bank row was created for what is the same sentence. The set then showed it
+    // twice. The loose key has to catch this before anything is created.
+    const banked = 'Ich warte [на]{auf} den Bus.';
+    bankHolding(prisma, [{ id: 777, template: banked }]);
+
+    // Same sentence, same blanks, no trailing period.
+    return svc.updateSetItem('s-1', 10, { template: 'Ich warte [на]{auf} den Bus' }).then(() => {
+      expect(prisma.drillItem.create).not.toHaveBeenCalled();
+      const patch = prisma.drillSetItem.update.mock.calls[0][0].data;
+      expect(patch.itemId).toBe(777);
+    });
+  });
+
+  it('still creates a row for a sentence that differs by more than its terminator', () => {
+    bankHolding(prisma, [{ id: 777, template: 'Ich warte [на]{auf} den Bus.' }]);
+    return svc
+      .updateSetItem('s-1', 10, { template: 'Ich warte [на]{auf} den Zug.' })
+      .then(() => {
+        expect(prisma.drillItem.create).toHaveBeenCalled();
+      });
   });
 });
 

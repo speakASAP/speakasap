@@ -36,6 +36,8 @@ const makePrisma = () => {
     drillSetItem: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     drillItem: {
       findUnique: jest.fn().mockResolvedValue(null),
+      // The punctuation-tolerant bank lookup in upsertItem; an empty bank here.
+      findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn(async (args: any) => {
         created.push(args.data);
         return { id: 500 + created.length, ...args.data };

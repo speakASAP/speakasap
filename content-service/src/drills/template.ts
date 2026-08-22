@@ -51,6 +51,70 @@ export function hashItem(plainText: string, languageCode: string): string {
 }
 
 /**
+ * Trailing sentence punctuation — the part of a sentence a teacher retypes inconsistently.
+ *
+ * Deliberately anchored to the end. Punctuation inside a sentence changes what the
+ * sentence says, so it stays part of the identity; a final `.`/`?`/`!` does not, and
+ * closing quotes and brackets ride along with it.
+ */
+export const TRAILING_PUNCT = /[\s.,;:!?…"'”’»)\]]+$/u;
+
+/**
+ * A second lookup key for the bank, tolerant of a changed or missing final terminator.
+ *
+ * `hashItem` hashes the plain text verbatim. That made a sentence retyped without its
+ * final period a different sentence: the lookup in `upsertItem` missed, a fresh row was
+ * created, and the set ended up holding the same sentence twice. Production set
+ * 3c9a3b78 collected three such pairs in eight minutes of editing on 2026-08-22, which
+ * is the whole reason this exists.
+ *
+ * A separate keyspace, never a replacement — note the `loose::` tag. `hash` is @unique
+ * and all 27,685 stored rows carry the strict value, so rebasing `hashItem` would have
+ * to rewrite every one of them; worse, ignoring punctuation wholesale would collide
+ * 5,884 rows that differ only in which words they blank, which are distinct exercises by
+ * design (see `hashTemplateVariant`). So this is consulted as a fallback after the exact
+ * hash misses, and what gets stored is still `hashItem`.
+ */
+export function hashItemLoose(plainText: string, languageCode: string): string {
+  const normalized = plainText
+    .normalize('NFC')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(TRAILING_PUNCT, '');
+  return createHash('sha256').update(`${languageCode}::loose::${normalized}`).digest('hex');
+}
+
+/**
+ * Whether two templates are the same drill.
+ *
+ * Same words blanked, same sentence — differing only in the final terminator, which a
+ * teacher retyping a sentence in the review screen routinely drops or changes. Comparing
+ * templates verbatim made `upsertItem` treat `...den Bus.` and `...den Bus` as two
+ * exercises, so an edit that lost the period created a second bank row and the set
+ * showed the sentence twice.
+ *
+ * Only the tail is ignored. Punctuation inside the sentence, and any difference in which
+ * words are blanked, still make two distinct drills — that distinction is the whole
+ * point of `hashTemplateVariant`.
+ */
+export function sameDrill(
+  a: DrillTemplate | null | undefined,
+  b: DrillTemplate | null | undefined,
+): boolean {
+  // A missing template is not equal to anything, including another missing one: the
+  // callers use this to decide whether to reuse a bank row, and "both unknown" is not
+  // grounds for reuse. The verbatim comparison this replaced was null-safe by accident,
+  // and a legacy row can reach here without a template.
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    return false;
+  }
+  const strip = (t: string): string =>
+    t.normalize('NFC').replace(/\s+/g, ' ').trim().replace(TRAILING_PUNCT, '');
+  return strip(a) === strip(b);
+}
+
+/**
  * Identity for a sentence that shares its plain text with a bank row but blanks different
  * words — two drills, not one, because which words a student must supply is the exercise.
  *

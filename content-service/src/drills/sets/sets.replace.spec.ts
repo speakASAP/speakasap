@@ -9,7 +9,13 @@ const makePrisma = () => {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    drillItem: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+    drillItem: {
+      findUnique: jest.fn(),
+      // The punctuation-tolerant bank lookup in upsertItem; an empty bank here.
+      findMany: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
     drillItemRevision: { create: jest.fn() },
     drillTopic: { findFirst: jest.fn().mockResolvedValue({ id: 9 }) },
     $transaction: jest.fn(async (fn: any) => fn(prisma)),

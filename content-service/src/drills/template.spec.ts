@@ -1,4 +1,4 @@
-import { parseTemplate, hashItem, toSegments } from './template';
+import { parseTemplate, hashItem, hashItemLoose, sameDrill, toSegments } from './template';
 
 describe('parseTemplate', () => {
   it('extracts a single blank', () => {
@@ -72,6 +72,69 @@ describe('hashItem', () => {
 
   it('differs across languages', () => {
     expect(hashItem('Hallo', 'de')).not.toBe(hashItem('Hallo', 'en'));
+  });
+});
+
+describe('hashItemLoose', () => {
+  it('ignores trailing sentence punctuation so an edit that drops it still finds the row', () => {
+    // The defect this exists for: a teacher re-blanking a sentence in the review screen
+    // retyped it without its final period. `hashItem` hashes the plain text verbatim, so
+    // the bank lookup missed, a second row was created, and the set ended up holding the
+    // sentence twice. Production set 3c9a3b78 collected three such pairs on 2026-08-22.
+    expect(hashItemLoose('The train is coming in fifteen minutes.', 'en')).toBe(
+      hashItemLoose('The train is coming in fifteen minutes', 'en'),
+    );
+  });
+
+  it('ignores a change of terminator, not just its absence', () => {
+    expect(hashItemLoose('Are you coming?', 'en')).toBe(hashItemLoose('Are you coming!', 'en'));
+  });
+
+  it('keeps punctuation that carries meaning inside the sentence', () => {
+    // Only the tail is normalized. An internal comma changes the sentence, so two rows
+    // differing there stay two rows.
+    expect(hashItemLoose('Nula je, kterym nelze delit.', 'cs')).not.toBe(
+      hashItemLoose('Nula je kterym nelze delit.', 'cs'),
+    );
+  });
+
+  it('still separates different sentences and different languages', () => {
+    expect(hashItemLoose('Hallo', 'de')).not.toBe(hashItemLoose('Hallo', 'en'));
+    expect(hashItemLoose('Ich gehe.', 'de')).not.toBe(hashItemLoose('Ich komme.', 'de'));
+  });
+
+  it('is a different keyspace from hashItem, which 27k stored rows depend on', () => {
+    // Stored hashes must not move: `hash` is @unique and every imported row carries the
+    // strict value. The loose hash is a second lookup key, never a replacement.
+    expect(hashItemLoose('Ich gehe.', 'de')).not.toBe(hashItem('Ich gehe.', 'de'));
+  });
+});
+
+describe('sameDrill', () => {
+  it('treats a dropped final period as the same drill', () => {
+    expect(sameDrill('Ich warte [на]{auf} den Bus.', 'Ich warte [на]{auf} den Bus')).toBe(true);
+  });
+
+  it('treats a changed terminator as the same drill', () => {
+    expect(sameDrill('Kommst du [mit]{mit}?', 'Kommst du [mit]{mit}!')).toBe(true);
+  });
+
+  it('does NOT merge templates that blank different words', () => {
+    // The distinction hashTemplateVariant exists to preserve: which words a student
+    // supplies is the exercise, so these stay two rows.
+    expect(sameDrill('Mám tam [остаться]{zůstat}?', '[Mít]{Mám} tam zůstat?')).toBe(false);
+  });
+
+  it('never reports a match when a template is missing', () => {
+    // Reuse decisions run through this; a legacy bank row can arrive without a template
+    // and "both unknown" must not be grounds for reusing it.
+    expect(sameDrill(undefined, undefined)).toBe(false);
+    expect(sameDrill(null, 'Ich warte [на]{auf} den Bus.')).toBe(false);
+    expect(sameDrill('Ich warte [на]{auf} den Bus.', undefined)).toBe(false);
+  });
+
+  it('does NOT ignore punctuation inside the sentence', () => {
+    expect(sameDrill('Nula je, [x]{y} delit.', 'Nula je [x]{y} delit.')).toBe(false);
   });
 });
 

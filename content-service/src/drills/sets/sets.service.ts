@@ -2,7 +2,14 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from '../../shared/prisma.service';
 import { computePopularityScore } from './popularity';
 import { buildSetListQuery, groupByLesson } from './sets.query';
-import { hashItem, hashTemplateVariant, parseTemplate } from '../template';
+import {
+  hashItem,
+  hashItemLoose,
+  hashTemplateVariant,
+  parseTemplate,
+  sameDrill,
+  TRAILING_PUNCT,
+} from '../template';
 import { sanitizeTemplate } from '../template-sanitize';
 import { blanksFor, validateSentence } from '../sentence-editing';
 import {
@@ -556,8 +563,44 @@ export class SetsService {
     // teacher back the sentence they had just re-blanked, reporting the edit as saved.
     // A sentence whose blanks differ is a different exercise and gets its own row, keyed
     // by the markup so the @unique hash accepts it alongside the original.
-    const existing = await tx.drillItem.findUnique({ where: { hash: plainHash } });
-    if (existing?.template === template) {
+    let existing = await tx.drillItem.findUnique({ where: { hash: plainHash } });
+
+    // Second chance, ignoring a changed or missing final terminator. Without it, a
+    // teacher who re-blanked a sentence and retyped it without its closing '.' missed
+    // the bank entirely and got a duplicate row — the set then held the same sentence
+    // twice, once per punctuation (production set 3c9a3b78, three pairs in eight
+    // minutes on 2026-08-22).
+    //
+    // Matched on `plainText` rather than on a second hash column: the loose value would
+    // have to be stored to be looked up, and all 27,685 existing rows carry only the
+    // strict hash — so a stored key would have matched nothing until every row was
+    // backfilled, which is precisely the rows this needs to find. Candidates are
+    // narrowed in SQL by the language and the terminator-stripped prefix, then compared
+    // on the loose hash so the final decision uses one normalization, not two.
+    //
+    // Only reached when the exact hash found nothing, so a verbatim match still wins,
+    // and what is stored below is still `plainHash`: loose is a lookup, never identity.
+    if (!existing) {
+      const looseKey = hashItemLoose(parsed.plainText, languageCode);
+      const stem = parsed.plainText.replace(TRAILING_PUNCT, '');
+      const candidates = await tx.drillItem.findMany({
+        where: { languageId: set.languageId, plainText: { startsWith: stem } },
+        // Bounded: `stem` is a whole sentence, so this is a handful of rows at most.
+        // The cap keeps a pathologically short sentence from reading the table.
+        take: 25,
+      });
+      existing =
+        candidates.find(
+          (row: any) => hashItemLoose(row.plainText, languageCode) === looseKey,
+        ) ?? null;
+    }
+
+    // Compared with the final terminator stripped from both sides. The blanks are what
+    // make two rows different exercises; a closing '.' is not, so a teacher who retyped
+    // the sentence without it must land back on the row they were editing. Comparing
+    // verbatim forked a new row for the same drill and the set then showed the sentence
+    // twice (production set 3c9a3b78, three pairs on 2026-08-22).
+    if (existing && sameDrill(existing.template, template)) {
       return existing.id;
     }
 
