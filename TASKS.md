@@ -41,7 +41,79 @@ captured and `SALARY_PAYOUT_FLOWS_ENABLED` left disabled.
 
 ---
 
-## In progress — Lesson API single source of truth (2026-08-09)
+## Done — Task 10 + Task 11 (2026-08-22, `0853b09`)
+
+**The copied lesson tables are gone.** `speakasap_education_db` no longer holds any copy
+of the portal's lesson data: 461k rows / ~261 MB dropped in one transaction.
+
+| Table | Rows dropped |
+|---|---|
+| `education_studentaccess` | 184,464 |
+| `education_lesson` | 182,600 (still frozen at 2026-06-26; portal had 182,958) |
+| `education_homework` | 52,616 |
+| `education_group` | 21,476 |
+| `education_studentcourse` | 20,125 |
+| `education_group_students` | (dropped with the set) |
+
+**The point was correctness, not disk.** 261 MB is nothing. These tables were a stale copy
+of data the portal owns, with no recurring sync — the thing that froze lessons for six
+weeks. Every reader moved to the portal API in Tasks 5-9, so they were read by nothing and
+were purely a trap for future code. Now `prisma.lesson` is a **compile error**, confirmed
+with a negative-control probe. A stale read is impossible, not merely unlikely.
+
+**Step 4 was deliberately skipped — do not "finish" it later.** The plan said to recreate
+`drill_assignment` clean, assuming 6 disposable test rows (`6 | 1 | 1`). Reality at run
+time was `23 | 3 | 2`, including assignments created **2026-08-22** for students 314082 and
+313978. Owner confirmed these are real teacher work. All 23 preserved and verified present
+after the migration. The schema change never needed an empty table.
+
+**FK work was already done.** `DrillAssignment.lessonUuid`/`studentCourseUuid` lost their
+FKs on 2026-08-09; `education_lessonrecord` in `20260818210000_...`. The 6 FKs this
+migration drops are constraints *among the six doomed tables*, incidental to the drops.
+
+### How it was applied
+
+Schema-only dump → scratch DB (`speakasap_education_scratch`) → migration applied there,
+exit 0 → verified survivors → applied to production in `BEGIN/COMMIT` with `ON_ERROR_STOP`.
+Scratch DB and its role dropped afterwards. Safety dump of all six tables **with data**
+(324 MB) taken before the drop.
+
+Pre-drop safety checks, all clean: no FK from a surviving table into the six, no view
+depending on them, no `prisma.<model>` call site in `src/`.
+
+Known drift (`education_lessonrecord.updated DROP DEFAULT`) stripped from the migration as
+the schema comment instructs.
+
+**Verified after:** service healthy, roster for the reference lesson still returns student
+314082, no `relation does not exist` in logs, `tsc --noEmit` clean, **684 tests pass**.
+
+### Task 11 — all remaining groups PASSED
+
+Ran from inside the education pod so the token never left it.
+
+| Check | Result |
+|---|---|
+| Auth: correct / absent / wrong / empty | Only the correct token yields lesson JSON; the other three get the login page |
+| 7 validation cases | All 404, no data leaked, no 500s |
+| Payload shape (lesson) | 11 fields, `teacher_id 182`, `start 2026-08-12T15:00:00Z` |
+| Payload shape (roster) | `student_ids [314082]`, `paid_student_ids [314082]` |
+| Two-page pagination | 5 pages of 2 reassemble to the same 9 lessons as one 500-row fetch, no dupes/gaps |
+
+**The host quirk is real and matters**: an auth refusal returns **HTTP 200** with an HTML
+login page, because `CustomLoginRequiredMiddleware` runs ahead of DRF. Assert on the
+**body**, never the status. A first pass of this check reported a false "leak" because the
+login page echoes the requested URL (containing the lesson UUID) in its `next=` parameter —
+assert on *parsed JSON*, not on substring presence.
+
+### Note on the queue item that turned out not to exist
+
+"Phase E cutover" was **already completed 2026-07-18** (33 services onto the shared deploy
+runner). It is a deploy-script cutover and has no hosting-cost component. Whatever halves
+the hosting cost, it is not Phase E and not this task — 261 MB of Postgres.
+
+---
+
+## Mostly done — Lesson API single source of truth (2026-08-09)
 
 Plan: `docs/superpowers/plans/2026-08-09-lesson-api-single-source-of-truth.md`
 
@@ -58,8 +130,8 @@ service.
 | 7 drill roster → portal | Done (`985c223`) |
 | 8 lesson-records → portal | Done (`7375f19`) |
 | 9 remaining lesson readers | Done except internal-salary (`7cdebb3`) |
-| 10 drop FKs / legacy models / copied tables | **Not started — destructive, gated** |
-| 11 verify against the real broken lesson | **Blocked on the portal deploy** |
+| 10 drop FKs / legacy models / copied tables | **DONE 2026-08-22 (`0853b09`)** — Step 4 skipped, see below |
+| 11 verify against the real broken lesson | **PASSED 2026-08-22** — all groups |
 
 406 tests green, `tsc --noEmit` clean. Error propagation and the paid-vs-attendance
 split were each confirmed to fail when deliberately broken, not merely to pass.
