@@ -141,6 +141,11 @@ data:
   ASSETS_BASE_URL: "https://assets.alfares.cz"
   FRONTEND_URL: "https://speakasap.alfares.cz"
   CORS_ORIGIN: "https://speakasap.alfares.cz"
+  # Write gate for POST /calculation-runs. Enabled 2026-08-22 to create the 2026-07
+  # draft run; the endpoint 412s without it. Creating a run writes calculation_runs +
+  # calculation_lines as status=draft only — it moves no money. Disbursement is a
+  # separate gate (SALARY_PAYOUT_FLOWS_ENABLED), deliberately left unset.
+  SALARY_CALCULATION_RUNS_ENABLED: "true"
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret

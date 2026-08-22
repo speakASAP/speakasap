@@ -2,7 +2,71 @@
 
 This file is the root task index for the SpeakASAP master orchestrator. Detailed goals and chunk status live in `docs/orchestrator/GOALS.md`; runtime state lives in `docs/orchestrator/IMPLEMENTATION_STATE.md`, `docs/orchestrator/STATE.json`, and root `STATE.json`.
 
-## Ready to run — 2026-07 calculation (2026-08-22)
+## Done — 2026-07 draft calculation run (2026-08-22)
+
+**Run `837ab65d-1389-4afd-9923-16b5ca9e5c8b`, status `draft`, 11 lines, scoped to the 11
+teachers with July lessons.** Rules label `salary-duration-v3-aggregate-only-v1`.
+Rollback SQL: `/tmp/claude-1000/rollback-2026-07.sql` (delete lines, run, idempotency row).
+
+| id | lessons | hours | amount | cur |
+|---|---|---|---|---|
+| 3 | 9 | 7.33 | 23,481.67 | CZK (incl. 23,335 monthly salary) |
+| 168458 | 23 | 22.48 | 7,869.17 | CZK |
+| **305115** | **1** | **1.00** | **1,800.00** | **EUR — see currency warning** |
+| 197762 | 51 | 49.22 | 738.25 | EUR |
+| 1655 | 19 | 18.63 | 279.50 | EUR |
+| 201136 | 9 | 8.90 | 133.50 | EUR |
+| 1361 | 5 | 5.00 | 75.00 | EUR |
+| 197739 | 3 | 3.00 | 54.00 | EUR |
+| 292551 | 4 | 4.00 | 48.00 | EUR |
+| 300800 | 3 | 2.03 | 30.50 | EUR |
+| 238492 | 1 | 1.00 | 12.00 | EUR |
+
+Totals: **CZK 31,350.84** (2 lines) and **EUR 3,170.75** (9 lines). Counts moved 3→4 runs,
+42→53 lines. All 11 lines carry `lessonSalaryHoursSource=education_recording_aggregate` —
+no imported legacy qty exists for July, so the `aggregate-only` label is accurate.
+
+### DO NOT FINALIZE OR PAY UNTIL THE 305115 CURRENCY IS FIXED
+
+Profile 305115 has `rate=1800.00` with `currency=EUR`. **The owner confirmed the rate is
+1800 RUB/hour, not EUR** — the currency field is wrong and will be corrected separately.
+The draft records EUR because that is what the profile says.
+
+Consequences, both real:
+- July's EUR total reads 3,170.75 instead of ~1,370.75 EUR + 1,800 RUB. 305115 alone is
+  57% of the July EUR figure off one lesson.
+- **The finalized 2026-05 run already paid this teacher EUR 19,800** (11h x 1800). If that
+  disbursed in euros it is a large overpayment to recover. Check before doing anything else
+  with that run.
+
+A draft is safe: `SALARY_PAYOUT_FLOWS_ENABLED` is unset and disbursement is a separate
+endpoint behind a separate gate. Finalizing then paying is what would send euros.
+
+### Write gate enabled
+
+`SALARY_CALCULATION_RUNS_ENABLED: "true"` added to the salary ConfigMap (the endpoint 412s
+without it), applied under the deploy lock, rollout converged. Verified in the pod:
+`CALC_RUNS=true`, `PAYOUT_FLOWS=<unset>`. **Leave payout flows unset.**
+
+### Scope matters — do not run unscoped
+
+386 salary profiles exist, only 11 taught in July. All three 2026-05 runs were scoped too.
+An unscoped run creates 386 lines and pays the monthly component to the 25 profiles that
+carry one, whether or not they taught.
+
+### Creating a run requires a staff JWT
+
+No salary admin UI exists — the endpoint is API-only, and `salary:cli` is read-only
+(`status`, `period-summary`). Tokens come from auth-microservice's
+`POST /internal/users/:userId/session` (12h access token, no refresh, audited). That route
+needs BOTH `x-internal-service-token` AND an `x-service-name` on
+`TRUSTED_INTERNAL_SERVICES` — currently `orders-microservice, marathon, education-service,
+speakasap-frontend`. A name off that list returns 401 "Service is not trusted" even with a
+valid token.
+
+---
+
+## Superseded — readiness measurement (2026-08-22)
 
 **July is ready. August is not, and should not be run yet.** Measured live, no writes:
 
