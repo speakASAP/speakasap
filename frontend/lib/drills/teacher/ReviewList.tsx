@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { ValidationState } from '@/lib/drills/contracts';
 import { ReviewItem, type ReviewItemData } from './ReviewItem';
 
@@ -63,12 +63,48 @@ export function ReviewList({
   const stateOf = (item: ReviewItemData): ValidationState =>
     overridden.includes(item.id) ? 'OVERRIDDEN' : item.validationState;
 
+  /**
+   * Where each item sits, decided once and then held.
+   *
+   * The worst-first sort is a reading order for a teacher arriving at the screen, not a
+   * live ranking. Re-sorting while they work moves the row under their cursor: editing a
+   * FAIL turns it PASS, which sent it to the bottom of the list the instant it was
+   * saved, so the sentence they had just fixed left the viewport and a different one
+   * took its place. Overriding did the same thing.
+   *
+   * So position is assigned on an item's first appearance and kept for the life of the
+   * screen. Items added later (Add sentence) land after everything already placed, which
+   * is where a teacher who just typed one expects to find it. A reload re-sorts, which is
+   * the right moment for it: nothing is mid-edit.
+   */
+  const placement = useRef(new Map<number, number>());
+  const nextPlacement = useRef(0);
+
   const ordered = useMemo(() => {
-    return [...items].sort((a, b) => {
-      const byState = (STATE_ORDER[stateOf(a)] ?? 9) - (STATE_ORDER[stateOf(b)] ?? 9);
-      return byState !== 0 ? byState : a.order - b.order;
-    });
-    // `overridden` participates because overriding an item re-sorts it out of the top.
+    const stateRank = (item: ReviewItemData): number =>
+      STATE_ORDER[overridden.includes(item.id) ? 'OVERRIDDEN' : item.validationState] ?? 9;
+    // Deliberately not `stateOf`: this runs inside useMemo, whose dependency list is
+    // `[items, overridden]`, and reading the closure-captured helper instead would tie
+    // placement to a value the memo does not track.
+
+    // First render places everything by the worst-first rule; later renders only place
+    // items this screen has not seen before, appending them after the existing rows.
+    const unplaced = items.filter((item) => !placement.current.has(item.id));
+    if (unplaced.length > 0) {
+      const sorted = [...unplaced].sort((a, b) => {
+        const byState = stateRank(a) - stateRank(b);
+        return byState !== 0 ? byState : a.order - b.order;
+      });
+      for (const item of sorted) {
+        placement.current.set(item.id, nextPlacement.current++);
+      }
+    }
+
+    return [...items].sort(
+      (a, b) => (placement.current.get(a.id) ?? 0) - (placement.current.get(b.id) ?? 0),
+    );
+    // `overridden` participates only so a newly overridden item is ranked correctly if it
+    // is being placed for the first time; already-placed items keep their position.
   }, [items, overridden]);
 
   const flaggedIds = items

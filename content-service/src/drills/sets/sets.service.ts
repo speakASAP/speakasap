@@ -429,10 +429,19 @@ export class SetsService {
 
       await tx.drillSetItem.delete({ where: { id: itemId } });
 
-      for (const row of items) {
-        if (row.order > target.order) {
-          await tx.drillSetItem.update({ where: { id: row.id }, data: { order: row.order - 1 } });
-        }
+      // Ascending, and only after sorting: `@@unique([setUuid, order])` is checked per
+      // statement, not at commit, so a row shifted down onto an order its neighbour
+      // still holds aborts the whole transaction — the delete then fails and the
+      // teacher is told the sentence could not be removed. Prisma gives no ordering
+      // guarantee for included relation rows, so iterating `items` as received moved
+      // higher positions first and collided. Sorting first means every gap is closed
+      // before the next row moves into it.
+      const survivors = items
+        .filter((row: any) => row.order > target.order)
+        .sort((a: any, b: any) => a.order - b.order);
+
+      for (const row of survivors) {
+        await tx.drillSetItem.update({ where: { id: row.id }, data: { order: row.order - 1 } });
       }
     });
 
@@ -474,7 +483,9 @@ export class SetsService {
 
       await tx.drillSetItem.create({
         data: {
-          setId: set.id,
+          // By uuid: the relation is `setUuid -> DrillSet.uuid` and `drill_set` has no
+          // id column, so `setId` was an unknown argument and every Add sentence failed.
+          setUuid: set.uuid,
           itemId: newItemId,
           order: nextOrder,
           // The teacher authored it, so it is reviewed by definition — same reasoning

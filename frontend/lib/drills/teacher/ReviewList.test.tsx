@@ -36,6 +36,33 @@ describe('ReviewList', () => {
     expect(headings).toEqual(['FAIL', 'WARN', 'PASS']);
   });
 
+  it('keeps an item where it is when editing changes its state', () => {
+    // A teacher fixing the second sentence watches it re-sort to the bottom of the list
+    // the moment it turns PASS — the row under their cursor is suddenly a different
+    // sentence, and the one they just fixed is off-screen. Order is decided on arrival
+    // and held for the life of the screen; a re-sort mid-session is never what the
+    // person editing wants.
+    const { rerender } = render(<ReviewList items={items as never} onApprove={vi.fn()} />);
+    expect(screen.getAllByTestId('review-item-state').map((n) => n.textContent)).toEqual([
+      'FAIL',
+      'WARN',
+      'PASS',
+    ]);
+
+    // The FAIL at the top is edited and comes back PASS, as updateSetItem returns it.
+    const edited = items.map((item) =>
+      item.id === 2 ? { ...item, validationState: 'PASS', validationIssues: [] } : item,
+    );
+    rerender(<ReviewList items={edited as never} onApprove={vi.fn()} />);
+
+    // Still first: same row, new state.
+    expect(screen.getAllByTestId('review-item-state').map((n) => n.textContent)).toEqual([
+      'PASS',
+      'WARN',
+      'PASS',
+    ]);
+  });
+
   it('shows the validation message next to the flagged item', () => {
     render(<ReviewList items={items as never} onApprove={vi.fn()} />);
     expect(screen.getByText('Blank tests an article')).toBeInTheDocument();

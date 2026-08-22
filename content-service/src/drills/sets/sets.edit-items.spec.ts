@@ -206,6 +206,39 @@ describe('SetsService.deleteSetItem', () => {
     );
   });
 
+  it('renumbers survivors low-to-high so the unique (setUuid, order) never collides', async () => {
+    // `@@unique([setUuid, order])` is enforced per statement, not at commit. Shifting a
+    // row down onto an order still occupied by its neighbour aborts the transaction, so
+    // the whole delete fails and the teacher is told nothing was removed. The renumber
+    // must therefore run in ascending order of the survivors, closing each gap before
+    // the next row moves into it.
+    //
+    // Production set 3c9a3b78 hit exactly this: 18 sentences, deletes rejected.
+    prisma.drillSet.findUnique.mockResolvedValue({
+      ...existingSet(),
+      // Deliberately not sorted: Prisma returns relation rows in no guaranteed order,
+      // and the previous implementation renumbered in whatever order it received.
+      items: [
+        { id: 13, order: 3, itemId: 103, item: { id: 103, template: 'D', blanks: [], hint: null } },
+        { id: 11, order: 1, itemId: 101, item: { id: 101, template: 'B', blanks: [], hint: null } },
+        { id: 12, order: 2, itemId: 102, item: { id: 102, template: 'C', blanks: [], hint: null } },
+        { id: 10, order: 0, itemId: 100, item: { id: 100, template: 'A', blanks: [], hint: null } },
+      ],
+    });
+
+    await svc.deleteSetItem('s-1', 10);
+
+    const moves = prisma.drillSetItem.update.mock.calls.map((call: any[]) => ({
+      id: call[0].where.id,
+      order: call[0].data.order,
+    }));
+    expect(moves).toEqual([
+      { id: 11, order: 0 },
+      { id: 12, order: 1 },
+      { id: 13, order: 2 },
+    ]);
+  });
+
   it('refuses to delete the last remaining sentence', async () => {
     // An empty set cannot be approved and cannot be drilled; deleting to zero would
     // produce a set no screen can act on.
@@ -239,6 +272,18 @@ describe('SetsService.addSetItem', () => {
     expect(prisma.drillSetItem.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ order: 2, itemId: 500 }) }),
     );
+  });
+
+  it('links the new row by setUuid — DrillSetItem has no setId field', async () => {
+    // The relation is `setUuid -> DrillSet.uuid`; `drill_set` has no id column at all.
+    // Writing `setId` makes Prisma reject the create with "Unknown argument `setId`",
+    // so Add sentence failed outright. The other assertions here use objectContaining,
+    // which cannot see a surplus key, which is how this shipped.
+    await svc.addSetItem('s-1', { template: GOOD, hint: null });
+
+    const data = prisma.drillSetItem.create.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty('setId');
+    expect(data.setUuid).toBe('s-1');
   });
 
   it('appends at position 0 when the set is empty', async () => {
