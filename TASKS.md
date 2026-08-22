@@ -2,6 +2,45 @@
 
 This file is the root task index for the SpeakASAP master orchestrator. Detailed goals and chunk status live in `docs/orchestrator/GOALS.md`; runtime state lives in `docs/orchestrator/IMPLEMENTATION_STATE.md`, `docs/orchestrator/STATE.json`, and root `STATE.json`.
 
+## Ready to run — 2026-07 calculation (2026-08-22)
+
+**July is ready. August is not, and should not be run yet.** Measured live, no writes:
+
+| Period | Teachers | Finished lessons | Total minutes | `salaryCalculationReady` |
+|---|---|---|---|---|
+| 2026-05 (control) | 14 | 172 | 10,161 | true |
+| **2026-07** | **11** | **128** | **7,356** | **true** |
+| 2026-08 | 7 | 59 | 3,522 | **false** |
+
+July matches the 128 lessons recorded on 2026-08-18 exactly — the lesson-record sync is
+holding, and the month is no longer the zero it aggregated to before the repoint.
+
+**August's single blocker is not a defect.** `missingDurationCount=1`, lesson
+`4e5324f0-…`, teacher 270, start **2026-08-21 17:00Z** — a recording from the day before
+the check whose duration had not synced yet (CronJob runs 02:20 UTC). August is also a
+partial month. Re-check after the month closes; do not chase this row.
+
+**The historical-parity question below (line ~706) does not apply to July.** Imported
+`salary_expenses` rows taper across the freeze — 2026-04: 4 profiles, 2026-05: 4,
+2026-06: 2, **2026-07: 0**. With no imported `qty` to preserve, July's lines compute
+from the aggregate, which is exactly the path 2026-05 parity validated per-teacher.
+
+### Fixed first: salary-service could never have run a calculation at all (`55e2522`)
+
+`EDUCATION_SERVICE_URL` was missing from the ConfigMap and no education token was in the
+Secret, so `EducationClientService` took its unconfigured branch in production and
+returned zero aggregates with `salaryCalculationReady=false` on every request. The
+fail-soft did its job — it blocked the run instead of paying zero hours — but it meant no
+calculation run could ever have succeeded. Token reads from `secret/prod/speakasap/education`
+`INTERNAL_API_TOKEN`, verified against the live endpoint (that key 200, `INTERNAL_SERVICE_TOKEN`
+401). After rollout the salary pod reads July's 11 teachers / 128 lessons / ready=true.
+
+**Not yet done — needs owner decision:** creating the draft run itself. Precedent from
+2026-05 is a no-write preview first, then an owner-approved draft, with rollback SQL
+captured and `SALARY_PAYOUT_FLOWS_ENABLED` left disabled.
+
+---
+
 ## In progress — Lesson API single source of truth (2026-08-09)
 
 Plan: `docs/superpowers/plans/2026-08-09-lesson-api-single-source-of-truth.md`
