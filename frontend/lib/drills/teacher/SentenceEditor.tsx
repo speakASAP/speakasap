@@ -93,6 +93,14 @@ export function SentenceEditor({
     );
   };
 
+  /**
+   * Turns a blank back into an ordinary word. The prompt is dropped with it so a stale
+   * translation cannot reappear if the same word is marked again later.
+   */
+  const unmarkBlank = (draftId: number, index: number): void => {
+    updateWords(draftId, index, { isBlank: false, prompt: '' });
+  };
+
   const acceptPasted = (): void => {
     const sentences = splitSentences(pasted);
     if (sentences.length === 0) {
@@ -168,12 +176,9 @@ export function SentenceEditor({
                   type="button"
                   aria-pressed={word.isBlank}
                   onClick={() =>
-                    updateWords(draft.id, index, {
-                      isBlank: !word.isBlank,
-                      // Dropping the prompt on unmark keeps a stale translation from
-                      // reappearing if the word is marked again later.
-                      prompt: word.isBlank ? '' : word.prompt,
-                    })
+                    word.isBlank
+                      ? unmarkBlank(draft.id, index)
+                      : updateWords(draft.id, index, { isBlank: true })
                   }
                   className={`rounded px-1.5 py-0.5 text-sm transition-colors ${
                     word.isBlank
@@ -198,6 +203,17 @@ export function SentenceEditor({
                     onChange={(e) => updateWords(draft.id, index, { prompt: e.target.value })}
                     className="rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-950"
                   />
+                  {/* Clicking the word above unmarks it too, but a teacher removing a word
+                      the student already knows looks for a control next to the translation
+                      they are deleting, not for a second click on the sentence. */}
+                  <button
+                    type="button"
+                    aria-label={`Remove the blank “${word.text}”`}
+                    onClick={() => unmarkBlank(draft.id, index)}
+                    className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                  >
+                    Remove
+                  </button>
                 </div>
               ) : null,
             )}

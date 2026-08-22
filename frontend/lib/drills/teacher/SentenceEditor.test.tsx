@@ -52,6 +52,31 @@ describe('SentenceEditor — editing one sentence', () => {
     expect(wordButton('outside')).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('removes a blank from the drill via its Remove button, restoring the plain word', async () => {
+    // A teacher who does not want a student typing "train" removes that blank; the word
+    // stays in the sentence, it just stops being something to fill in.
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SentenceEditor
+        mode="edit"
+        initialTemplate="The [поезд]{train} is coming [через пятнадцать минут]{in fifteen minutes}."
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /remove the blank “train”/i }));
+
+    expect(wordButton('train')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByLabelText(/translation for “train”/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledWith([
+      { template: 'The train is coming [через пятнадцать минут]{in fifteen minutes}.', hint: null },
+    ]);
+  });
+
   it('blocks saving a sentence with no blank, and says why', async () => {
     // The rule the teacher asked for: a sentence with nothing to fill in is not a drill.
     const onSave = vi.fn();
