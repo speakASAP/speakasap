@@ -126,6 +126,10 @@ data:
   AUTH_RETRY_DELAY_MS: "1000"
   USER_SERVICE_URL: "http://speakasap-user:4207"
   PAYMENT_SERVICE_URL: "http://speakasap-payment:4208"
+  # Where the lesson hours every payout is computed from come from. Without this,
+  # EducationClientService takes its unconfigured branch and returns zero aggregates
+  # with salaryCalculationReady=false, so no calculation run can ever succeed.
+  EDUCATION_SERVICE_URL: "http://speakasap-education:4206"
   NOTIFICATION_SERVICE_URL: "http://speakasap-notification:4209"
   NOTIFICATION_SERVICE_TIMEOUT: "5000"
   HTTP_TIMEOUT: "30000"
@@ -168,3 +172,10 @@ spec:
       remoteRef:
         key: secret/prod/speakasap
         property: PAYMENT_API_KEY
+    # education-service validates the salary aggregates endpoint against its OWN
+    # INTERNAL_API_TOKEN, so this must read from education's Vault path — verified
+    # against the live endpoint (INTERNAL_API_TOKEN 200, INTERNAL_SERVICE_TOKEN 401).
+    - secretKey: EDUCATION_SERVICE_INTERNAL_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap/education
+        property: INTERNAL_API_TOKEN
