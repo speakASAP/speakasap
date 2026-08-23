@@ -1,10 +1,44 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { HostedAuthButton } from "@/app/components/hosted-auth-button";
 import { getGatewayBaseUrl } from "@/lib/gateway";
 import { HostedAuthLink } from "@/app/components/hosted-auth-link";
+import { getAuthSession, getSpeakasapRole } from "@/lib/auth-session";
+
+const ROLE_PORTAL: Record<"admin" | "user", string> = {
+  admin: "/admin",
+  user: "/learner",
+};
 
 export default function Home() {
+  const router = useRouter();
+  const [checked, setChecked] = useState(false);
+  const started = useRef(false);
+
+  useEffect(() => {
+    // React 18+ mounts effects twice in development; the redirect must not fire twice.
+    if (started.current) {
+      return;
+    }
+    started.current = true;
+
+    const session = getAuthSession();
+    const role = session ? getSpeakasapRole(session.accessToken) : null;
+    if (role) {
+      router.replace(ROLE_PORTAL[role]);
+      return;
+    }
+    setChecked(true);
+  }, [router]);
+
   const gatewayBaseUrl = getGatewayBaseUrl();
+
+  if (!checked) {
+    return null;
+  }
 
   return (
     <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 py-12 font-sans dark:bg-black">

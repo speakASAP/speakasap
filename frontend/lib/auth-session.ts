@@ -98,6 +98,41 @@ export function clearAuthSession(): void {
   browserStorage()?.removeItem(AUTH_SESSION_KEY);
 }
 
+export type SpeakasapRole = "admin" | "user";
+
+/**
+ * Decodes the JWT payload (no signature verification — routing/display only;
+ * the gateway enforces real authorization via /auth/validate) and returns the
+ * most privileged speakasap-scoped role found in the token's `roles` array,
+ * or null if the token is malformed or carries no speakasap role.
+ */
+export function getSpeakasapRole(accessToken: string): SpeakasapRole | null {
+  const parts = accessToken.split(".");
+  if (parts.length !== 3) {
+    return null;
+  }
+  try {
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"))
+        .join(""),
+    );
+    const payload = JSON.parse(json) as { roles?: unknown };
+    const roles = Array.isArray(payload.roles) ? payload.roles : [];
+    if (roles.includes("app:speakasap:admin")) {
+      return "admin";
+    }
+    if (roles.includes("app:speakasap:user")) {
+      return "user";
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function consumeHostedAuthFragment(locationLike: Location = window.location): { nextPath: string; stored: boolean; error?: string } {
   const params = new URLSearchParams(locationLike.hash.replace(/^#/, ""));
   const url = new URL(locationLike.href);
