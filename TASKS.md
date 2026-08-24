@@ -105,6 +105,46 @@ captured and `SALARY_PAYOUT_FLOWS_ENABLED` left disabled.
 
 ---
 
+## Done — Teacher role end-to-end (2026-08-24, `dd9a275` + auth `3d40671`)
+
+Teachers held only `app:speakasap:user`, so they landed on the learner portal. The role
+is now recognised, routed, and granted automatically.
+
+| Piece | Where |
+|---|---|
+| `SpeakasapRole` gains `teacher`, ranked `admin > teacher > user` | `frontend/lib/auth-session.ts` |
+| Home page routes teacher to the teacher portal | `frontend/app/page.tsx` |
+| Staff vs teacher split for drill routes | `education-service/src/shared/staff-access.ts` |
+| Scoped grant endpoint `POST /internal/roles/speakasap/teacher/:userId` | auth-microservice `src/roles/internal-speakasap-roles.controller.ts` |
+| Grant called on every teacher upsert | `user-service/src/teachers/teachers.service.ts` |
+
+**Why a new auth endpoint rather than the existing admin API.** `POST
+/auth/admin/users/:id/roles` is gated on `global:superadmin`, a *user* role. Giving it to
+a user-service machine account would let a compromise of user-service assign any role in
+any application Auth serves, including superadmin. The new endpoint hardcodes the role it
+grants — no request field can redirect it — so the caller's token is worth exactly one
+role. It authenticates with `InternalServiceGuard`, not a user JWT.
+
+**Grants are idempotent.** Portal sync re-sends the whole roster each run, so an existing
+assignment returns `granted:false` rather than the service's 409. 378 grants already
+existed from the earlier manual backfill, so that is the common path.
+
+**A failed grant fails the batch.** The teacher row is already committed, so a re-run
+repairs it; reporting a partial sync as success is how a teacher stays locked out with
+nothing surfacing it. The response reports `rolesGranted` alongside `upserted`.
+
+**Out-of-band config (not in git):** Vault
+`secret/prod/auth-microservice#TRUSTED_INTERNAL_SERVICES` gained `speakasap-user` — the
+guard rejects unlisted callers, so without it every grant 401s. user-service reads
+`INTERNAL_SERVICE_TOKEN` from auth's Vault path (same pattern as education-service); it is
+required at boot, and is *not* interchangeable with `INTERNAL_API_TOKEN`.
+
+**Known unrelated failure:** `education-service/src/drills/template.drift.spec.ts` fails —
+the vendored `drills/template.ts` has drifted from its content-service source. Pre-dates
+this work; verified by stashing these changes and re-running.
+
+---
+
 ## Done — Task 10 + Task 11 (2026-08-22, `0853b09`)
 
 **The copied lesson tables are gone.** `speakasap_education_db` no longer holds any copy
