@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, type Teacher, type UserIdentityMirror } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeacherRoleClientService } from '../auth-client/teacher-role-client.service';
 import type { AuthContextUser } from '../shared/auth.types';
 import { buildAvatarUrl } from '../shared/avatar-url.util';
 import { buildPaginatedResponse, getPaginationParams } from '../shared/pagination';
@@ -44,7 +45,10 @@ function isoDate(d: Date | null): string | null {
 
 @Injectable()
 export class TeachersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly teacherRoleClient: TeacherRoleClientService,
+  ) {}
 
   toTeacherProfile(
     row: Teacher,
@@ -292,8 +296,22 @@ export class TeachersService {
     return buildPaginatedResponse(items, total, page, limit);
   }
 
-  async upsertBatchFromInternal(items: unknown[]): Promise<{ upserted: number }> {
+  /**
+   * Portal sync's only ingress for Teacher rows, and therefore the only place a new
+   * teacher can be granted `app:speakasap:teacher` automatically. Without the grant a
+   * synced teacher is a teacher in this database but an ordinary user to Auth, and the
+   * teacher portal answers 403.
+   *
+   * The grant runs after each upsert commits, so a failing grant leaves a repairable
+   * state: the row exists and the next sync run retries the grant. The failure is
+   * re-thrown rather than counted, because a partial sync reported as success is how a
+   * locked-out teacher goes unnoticed.
+   */
+  async upsertBatchFromInternal(
+    items: unknown[],
+  ): Promise<{ upserted: number; rolesGranted: number }> {
     let upserted = 0;
+    let rolesGranted = 0;
     for (const raw of items) {
       if (!raw || typeof raw !== 'object') {
         continue;
@@ -362,7 +380,12 @@ export class TeachersService {
         });
       }
       upserted += 1;
+
+      const { granted } = await this.teacherRoleClient.grantTeacherRole(authUserId);
+      if (granted) {
+        rolesGranted += 1;
+      }
     }
-    return { upserted };
+    return { upserted, rolesGranted };
   }
 }

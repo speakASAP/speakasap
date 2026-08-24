@@ -93,7 +93,9 @@ export class InternalController {
   }
 
   @Post('teachers/upsert-by-auth-user')
-  async upsertTeachers(@Body() body: { items?: unknown[] }): Promise<{ upserted: number }> {
+  async upsertTeachers(
+    @Body() body: { items?: unknown[] },
+  ): Promise<{ upserted: number; rolesGranted: number }> {
     const items = body.items;
     if (!Array.isArray(items) || items.length === 0) {
       throw new BadRequestException('items must be a non-empty array');

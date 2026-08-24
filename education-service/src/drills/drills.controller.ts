@@ -19,7 +19,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { isStaffUser } from '../shared/staff-access';
+import { isTeacherUser } from '../shared/staff-access';
 import { RunnerService } from './runner/runner.service';
 import { SelfDrillService } from './runner/self-drill.service';
 import { DrillAssignmentsService } from './runner/assignments.service';
@@ -100,7 +100,7 @@ export class DrillsController {
     @Body() body: GenerateAssignmentsRequest,
     @Req() req: Request,
   ): Promise<GenerateAssignmentsResponse> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     const lessonUuid = this.assertLesson(body?.lessonUuid);
     const teacherId = await this.resolveTeacherId(req, lessonUuid);
     return this.teacherAssignments.generate(teacherId, body, this.bearer(req));
@@ -113,7 +113,7 @@ export class DrillsController {
     @Body() body: AssignFromSetRequest,
     @Req() req: Request,
   ): Promise<AssignFromSetResponse> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     const lessonUuid = this.assertLesson(body?.lessonUuid);
     const teacherId = await this.resolveTeacherId(req, lessonUuid);
     return this.teacherAssignments.assignFromSet(teacherId, body, this.bearer(req));
@@ -135,7 +135,7 @@ export class DrillsController {
     @Query('offset') offset?: string,
     @Query('lessonUuid') lessonUuid?: string,
   ): Promise<DrillTeacherRosterResponse> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
 
     // Scoped to a lesson when the caller names one. `Lesson.teacherId` is the legacy
     // Teacher profile pk (182) while `resolveStudentId` returns the user id (3), and this
@@ -232,7 +232,7 @@ export class DrillsController {
   /** Teacher-only. Staff role required — a student token is refused. */
   @Get('teacher/summary')
   async teacherSummary(@Req() req: Request): Promise<InternalTeacherAssignmentsResponse> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
     return this.assignments.listForTeacher(teacherId);
   }
@@ -249,7 +249,7 @@ export class DrillsController {
     @Param('uuid') uuid: string,
     @Req() req: Request,
   ): Promise<DrillAssignmentDTO> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     // Both id spaces: assignments created before the lesson-teacher fix carry the legacy
     // user id, newer ones carry the Teacher profile pk. Same person either way.
     const userId = await this.identity.resolveStudentId(req.authUser!.id);
@@ -268,7 +268,7 @@ export class DrillsController {
    */
   @Get('teacher/progress/:uuid')
   async teacherProgress(@Param('uuid') uuid: string, @Req() req: Request): Promise<unknown> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     const userId = await this.identity.resolveStudentId(req.authUser!.id);
     const lessonTeacherId = await this.teacherIdForAssignment(uuid);
     return this.teacherAssignments.progressForTeacher(
@@ -304,7 +304,7 @@ export class DrillsController {
       };
     }
 
-    if (isStaffUser(req.authUser)) {
+    if (isTeacherUser(req.authUser)) {
       // Ownership is judged the same way `getOne`/`teacherProgress` judge it: the
       // assignment must be attributed to the caller's own legacy id, or to the lesson's
       // teacher. `getForTeacher` throws its own 404 when neither owns it — a 403 here
@@ -355,7 +355,7 @@ export class DrillsController {
       throw new NotFoundException('Gap analysis not found');
     }
 
-    if (isStaffUser(req.authUser)) {
+    if (isTeacherUser(req.authUser)) {
       await this.assertOwnsGap(gapUuid, req);
       return cluster;
     }
@@ -387,7 +387,7 @@ export class DrillsController {
     @Param('uuid') uuid: string,
     @Req() req: Request,
   ): Promise<{ queued: boolean }> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     await this.teacherAssignments.getForTeacher(uuid, await this.ownersOf(uuid, req));
     this.analysisJobs.enqueue(uuid);
     this.logger.log(`Analysis retry queued for assignment ${uuid}`);
@@ -418,7 +418,7 @@ export class DrillsController {
     },
     @Req() req: Request,
   ): Promise<unknown> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
 
     if (body.explanation !== undefined && body.explanation.trim().length === 0) {
       throw new BadRequestException('explanation cannot be empty');
@@ -450,7 +450,7 @@ export class DrillsController {
     @Param('gapUuid') gapUuid: string,
     @Req() req: Request,
   ): Promise<unknown> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
 
     await this.assertOwnsGap(gapUuid, req);
 
@@ -495,7 +495,7 @@ export class DrillsController {
     @Param('setUuid') setUuid: string,
     @Req() req: Request,
   ): Promise<DrillSetDetailDTO> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     return this.sets.getSet(setUuid, this.bearer(req));
   }
 
@@ -515,7 +515,7 @@ export class DrillsController {
     @Body() body: { template?: string; hint?: string | null; validationState?: ValidationState },
     @Req() req: Request,
   ): Promise<DrillSetDetailDTO> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     return this.sets.updateSetItem(setUuid, this.assertItemId(itemId), body, this.bearer(req));
   }
 
@@ -526,7 +526,7 @@ export class DrillsController {
     @Param('itemId') itemId: string,
     @Req() req: Request,
   ): Promise<DrillSetDetailDTO> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     return this.sets.deleteSetItem(setUuid, this.assertItemId(itemId), this.bearer(req));
   }
 
@@ -537,7 +537,7 @@ export class DrillsController {
     @Body() body: { template?: string; hint?: string | null },
     @Req() req: Request,
   ): Promise<DrillSetDetailDTO> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     if (typeof body?.template !== 'string' || body.template.trim() === '') {
       throw new BadRequestException('template is required');
     }
@@ -563,7 +563,7 @@ export class DrillsController {
     @Body() body: { template?: string; hint?: string | null },
     @Req() req: Request,
   ): Promise<{ ok: true }> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     if (body?.template === undefined && body?.hint === undefined) {
       // An empty patch would report success having changed nothing, which a teacher
       // reads as "my edit was saved".
@@ -583,7 +583,7 @@ export class DrillsController {
     @Param('itemUuid') itemUuid: string,
     @Req() req: Request,
   ): Promise<{ ok: true }> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     await this.teacherAssignments.deleteAssignmentItem(
       itemUuid,
       await this.ownersForItem(itemUuid, req),
@@ -598,7 +598,7 @@ export class DrillsController {
     @Body() body: { template?: string; hint?: string | null },
     @Req() req: Request,
   ): Promise<{ ok: true }> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     if (typeof body?.template !== 'string' || body.template.trim() === '') {
       throw new BadRequestException('template is required');
     }
@@ -723,7 +723,7 @@ export class DrillsController {
   @Post('teacher/sets/:setUuid/approve')
   @HttpCode(HttpStatus.OK)
   async approveSet(@Param('setUuid') setUuid: string, @Req() req: Request): Promise<unknown> {
-    this.assertStaff(req);
+    this.assertTeacher(req);
     const teacherId = await this.identity.resolveStudentId(req.authUser!.id);
     this.logger.log(`Approving set ${setUuid} for teacher ${teacherId}`);
     const approved = await this.sets.approveSet(setUuid, teacherId, this.bearer(req));
@@ -745,9 +745,22 @@ export class DrillsController {
     return approved;
   }
 
-  private assertStaff(req: Request): void {
-    if (!isStaffUser(req.authUser)) {
-      throw new ForbiddenException('Staff access required');
+  /**
+   * Every teacher-facing drills route starts here.
+   *
+   * `isTeacherUser`, not `isStaffUser`: until 2026-08-24 these routes required staff,
+   * and auth-microservice issued no teacher role at all, so every real teacher — all
+   * 378 of them, holding `app:speakasap:user` exactly like a student — got a 403 from
+   * `GET teacher/students` and the wizard showed "Request failed with status 403" over
+   * an empty roster. The feature only ever worked for admins.
+   *
+   * This proves the caller is a teacher, not that the lesson or set is theirs. Routes
+   * that can name an owner still check one (`getForTeacher`, `ownersOf`, `assertOwnsGap`);
+   * `teacher/students` cannot, and is lesson-scoped only.
+   */
+  private assertTeacher(req: Request): void {
+    if (!isTeacherUser(req.authUser)) {
+      throw new ForbiddenException('Teacher access required');
     }
   }
 

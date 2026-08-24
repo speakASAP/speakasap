@@ -10,6 +10,9 @@ const REQUIRED_ENV = [
   'DEFAULT_PAGE_SIZE',
   'MAX_PAGE_SIZE',
   'INTERNAL_API_TOKEN',
+  // Sent as `x-internal-service-token` when granting the speakasap teacher role on
+  // portal sync. Missing here means every grant 401s, so fail at boot instead.
+  'INTERNAL_SERVICE_TOKEN',
 ];
 
 export function validateEnv(): void {

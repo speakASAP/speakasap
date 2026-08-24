@@ -6,10 +6,11 @@ import Link from "next/link";
 import { HostedAuthButton } from "@/app/components/hosted-auth-button";
 import { getGatewayBaseUrl } from "@/lib/gateway";
 import { HostedAuthLink } from "@/app/components/hosted-auth-link";
-import { getAuthSession, getSpeakasapRole } from "@/lib/auth-session";
+import { getAuthSession, getSpeakasapRole, type SpeakasapRole } from "@/lib/auth-session";
 
-const ROLE_PORTAL: Record<"admin" | "user", string> = {
+const ROLE_PORTAL: Record<SpeakasapRole, string> = {
   admin: "/admin",
+  teacher: "/teacher",
   user: "/learner",
 };
 

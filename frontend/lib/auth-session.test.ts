@@ -22,6 +22,23 @@ describe("getSpeakasapRole", () => {
     expect(getSpeakasapRole(token)).toBe("user");
   });
 
+  it("returns teacher when roles include app:speakasap:teacher", () => {
+    const token = makeToken({ roles: ["app:speakasap:teacher"] });
+    expect(getSpeakasapRole(token)).toBe("teacher");
+  });
+
+  // A teacher who is also enrolled as a student holds both roles. Teaching is the
+  // more privileged of the two, so the teacher portal wins.
+  it("prefers teacher over user", () => {
+    const token = makeToken({ roles: ["app:speakasap:user", "app:speakasap:teacher"] });
+    expect(getSpeakasapRole(token)).toBe("teacher");
+  });
+
+  it("prefers admin over teacher", () => {
+    const token = makeToken({ roles: ["app:speakasap:teacher", "app:speakasap:admin"] });
+    expect(getSpeakasapRole(token)).toBe("admin");
+  });
+
   it("returns null when roles has no speakasap entries", () => {
     const token = makeToken({ roles: ["app:marathon:admin"] });
     expect(getSpeakasapRole(token)).toBeNull();

@@ -166,3 +166,11 @@ spec:
       remoteRef:
         key: secret/prod/speakasap/user
         property: INTERNAL_API_TOKEN
+    # auth-microservice's InternalServiceGuard checks `x-internal-service-token`
+    # against ITS OWN INTERNAL_SERVICE_TOKEN, so this reads from auth's Vault
+    # path. Distinct from INTERNAL_API_TOKEN above — sending the wrong one 401s
+    # every teacher role grant on portal sync.
+    - secretKey: INTERNAL_SERVICE_TOKEN
+      remoteRef:
+        key: secret/prod/auth-microservice
+        property: INTERNAL_SERVICE_TOKEN

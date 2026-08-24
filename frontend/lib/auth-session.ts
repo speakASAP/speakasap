@@ -98,7 +98,7 @@ export function clearAuthSession(): void {
   browserStorage()?.removeItem(AUTH_SESSION_KEY);
 }
 
-export type SpeakasapRole = "admin" | "user";
+export type SpeakasapRole = "admin" | "teacher" | "user";
 
 /**
  * Decodes the JWT payload (no signature verification — routing/display only;
@@ -123,6 +123,12 @@ export function getSpeakasapRole(accessToken: string): SpeakasapRole | null {
     const roles = Array.isArray(payload.roles) ? payload.roles : [];
     if (roles.includes("app:speakasap:admin")) {
       return "admin";
+    }
+    // Before the teacher role existed, teachers held only `app:speakasap:user` and
+    // landed on the learner portal. A teacher who also studies here holds both roles,
+    // so teacher is checked first: the more privileged portal wins.
+    if (roles.includes("app:speakasap:teacher")) {
+      return "teacher";
     }
     if (roles.includes("app:speakasap:user")) {
       return "user";
