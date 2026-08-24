@@ -139,9 +139,18 @@ guard rejects unlisted callers, so without it every grant 401s. user-service rea
 `INTERNAL_SERVICE_TOKEN` from auth's Vault path (same pattern as education-service); it is
 required at boot, and is *not* interchangeable with `INTERNAL_API_TOKEN`.
 
-**Known unrelated failure:** `education-service/src/drills/template.drift.spec.ts` fails —
-the vendored `drills/template.ts` has drifted from its content-service source. Pre-dates
-this work; verified by stashing these changes and re-running.
+**Was failing, now fixed (`9d47c70`):**
+`education-service/src/drills/template.drift.spec.ts`. Root cause was not drift in
+education-service but content-service moving ahead: `d931d95` added `hashItemLoose` and
+`sameDrill` to `content-service/src/drills/template.ts` and never re-copied the vendored
+duplicate. Re-copied per the test's own instruction; the diff was purely additive (+64,
+-0), so nothing education-specific was lost.
+
+education-service imports only `parseTemplate`, `toSegments` and `hashItem`, none of which
+changed — the two new functions serve content-service's `upsertItem`, which has no
+counterpart here. So the diverged code was never on an education-service call path: the
+test failed on the vendoring contract, not on a behavioural break. The functions are
+carried anyway because byte-identity is the contract.
 
 ---
 
