@@ -24,6 +24,7 @@ import { SelfDrillService } from './runner/self-drill.service';
 import { TeacherAssignmentsService } from './teacher/teacher-assignments.service';
 import { TeacherRosterService } from './teacher/roster.service';
 import { LessonClientModule } from '../lesson-client/lesson-client.module';
+import { LessonClientService } from '../lesson-client/lesson-client.service';
 import { AnalysisClient } from './analysis/analysis.client';
 import { AnalysisRepository } from './analysis/analysis.repository';
 import { AnalysisService } from './analysis/analysis.service';
@@ -119,15 +120,25 @@ import { TaxonomyService } from './analysis/taxonomy';
         content: ContentClient,
         jobs: JobRunner,
         progress: StudentProgressClientAdapter,
+        lessons: LessonClientService,
         notifications: NotificationsHook,
       ) =>
-        new TeacherAssignmentsService(prisma, assignments, content, jobs, progress, notifications),
+        new TeacherAssignmentsService(
+          prisma,
+          assignments,
+          content,
+          jobs,
+          progress,
+          lessons,
+          notifications,
+        ),
       inject: [
         PrismaService,
         AssignmentsRepository,
         ContentClient,
         JobRunner,
         StudentProgressClientAdapter,
+        LessonClientService,
         NotificationsHook,
       ],
     },

@@ -106,6 +106,37 @@ describe('approveSet', () => {
     expect(error).toMatchObject({ status: 409, message: '2 items still fail validation' });
   });
 
+  // The shape education-service actually sends. `HttpErrorFilter` wraps every failure as
+  // `{error:{code,message,details}}`, but this client read the flat `body.message` and so
+  // fell back to "Request failed with status 500" for EVERY drill error at every status.
+  // A teacher hitting a 500 on the wizard saw only the status, with the real cause —
+  // "Cannot read properties of undefined (reading 'findFirst')" — logged server-side and
+  // nowhere on screen.
+  it('reads the message and code out of the nested error envelope', async () => {
+    errorFetch(409, {
+      error: {
+        code: 'UNRESOLVED_VALIDATION_FAILURES',
+        message: '2 items still fail validation',
+        details: {},
+      },
+    });
+    const error = await approveSet('s-1').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(DrillApiError);
+    expect(error).toMatchObject({
+      status: 409,
+      code: 'UNRESOLVED_VALIDATION_FAILURES',
+      message: '2 items still fail validation',
+    });
+  });
+
+  // The gateway and Nest's own default filter both send a flat body, so both shapes have
+  // to keep working — the envelope must not become the only one understood.
+  it('still reads a flat error body', async () => {
+    errorFetch(500, { statusCode: 500, message: 'Internal server error' });
+    const error = await approveSet('s-1').catch((e: unknown) => e);
+    expect(error).toMatchObject({ status: 500, message: 'Internal server error' });
+  });
+
   // A gateway 502 or a proxy timeout returns HTML, not the typed error body. Parsing it
   // must not turn a failed request into a resolved promise.
   it('still throws when the error body is not JSON', async () => {

@@ -56,6 +56,8 @@ function harness(assignmentOverrides: Record<string, unknown> = {}) {
     {} as any,
     {} as any,
     {} as any,
+    // Lesson reader: item editing never reaches `generate`, the only caller of it.
+    {} as any,
     {} as any,
   );
 

@@ -38,6 +38,20 @@ export interface StudentProgressReader {
 }
 
 /**
+ * The one lesson field pair `generate` needs, narrowed from `LessonClientService`.
+ *
+ * Teacher-origin drilling is always created within a lesson, so the lesson itself
+ * carries the ceiling: its `order` is the furthest point the batch may draw from, and
+ * its `courseClass` names the course the material must belong to. Reading it here
+ * replaced a per-student lookup against `prisma.studentCourse` / `prisma.lesson`, tables
+ * this service dropped in 0853b09 — the call survived a compile check only because of an
+ * `as any` cast and 500'd every generation from 2026-08-22 onward.
+ */
+export interface LessonCeilingReader {
+  getLesson(lessonUuid: string): Promise<{ order: number; courseClass: string }>;
+}
+
+/**
  * The teacher's write path: create drilling for students.
  *
  * Two entry points, deliberately separate. `generate` mints a set uuid and hands the
@@ -61,6 +75,7 @@ export class TeacherAssignmentsService {
     private readonly content: ContentClient,
     private readonly jobs: JobRunner,
     private readonly progress: StudentProgressReader,
+    private readonly lessons: LessonCeilingReader,
     private readonly notifications: NotificationsHook,
   ) {}
 
@@ -97,17 +112,22 @@ export class TeacherAssignmentsService {
     // is not.
     const languageId = await this.content.resolveLanguageId(request.languageCode, token);
 
-    // The lesson ceiling is per student, but the set is shared. The lowest ceiling wins,
-    // so no student in the batch is shown material they have not reached — the
-    // alternative leaks a later lesson's vocabulary to whoever is furthest behind.
-    const ceilings = await Promise.all(
-      studentIds.map((studentId) => this.progress.getStudentProgress(studentId)),
-    );
-    const lessonOrders = ceilings
-      .map((where) => where?.lessonOrder)
-      .filter((order): order is number => typeof order === 'number');
-    const maxLessonOrder = lessonOrders.length > 0 ? Math.min(...lessonOrders) : null;
-    const courseKey = ceilings.find((where) => where?.courseKey)?.courseKey ?? null;
+    // The ceiling is the lesson the teacher is assigning FROM, read from the portal.
+    //
+    // It used to be the lowest per-student ceiling across the batch, computed from this
+    // service's own `StudentCourse`/`Lesson` tables. Those tables were copies of the
+    // portal's, frozen since 2026-06-26, and were dropped in 0853b09; the reads survived
+    // compilation behind an `as any` cast and then threw
+    // `Cannot read properties of undefined (reading 'findFirst')` on every generation.
+    //
+    // The lesson is the better source regardless of that history: the set is shared by
+    // the whole batch and the teacher picked one lesson for it, so the lesson's own order
+    // is the bound they intended. Not fail-soft — a lesson that cannot be read fails the
+    // request, because a null ceiling would silently widen the bank to material the
+    // students have not reached.
+    const lesson = await this.lessons.getLesson(request.lessonUuid);
+    const maxLessonOrder = typeof lesson.order === 'number' ? lesson.order : null;
+    const courseKey = lesson.courseClass || null;
 
     const setUuid = randomUUID();
     const batchUuid = randomUUID();

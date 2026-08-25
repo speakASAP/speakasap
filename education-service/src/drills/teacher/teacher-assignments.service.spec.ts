@@ -24,6 +24,7 @@ const APPROVED_SET = {
 
 const GENERATE_REQUEST = {
   studentIds: [7, 8],
+  lessonUuid: 'lesson-1',
   languageCode: 'de',
   materialLanguage: 'ru',
   topicSlugs: ['prepositions'],
@@ -76,9 +77,25 @@ function harness(overrides: Record<string, unknown> = {}) {
     })),
   };
 
+  const lessons: any = {
+    getLesson: jest.fn(async () => ({
+      uuid: 'lesson-1',
+      order: 5,
+      teacherId: 182,
+      start: null,
+      isFinished: false,
+      studentCourseUuid: 'sc-1',
+      moduleClass: 'course_materials.data.seven.german.ModuleSevenGermanCourse',
+      courseClass: 'course_materials.data.seven.german.SevenGermanCourse',
+      needsTeacher: false,
+      recommendation: '',
+      toManager: '',
+    })),
+  };
+
   const notifications: any = { onAssigned: jest.fn(async () => undefined) };
 
-  Object.assign({ prisma, content, jobs, progress, notifications }, overrides);
+  Object.assign({ prisma, content, jobs, progress, lessons, notifications }, overrides);
 
   return {
     service: new TeacherAssignmentsService(
@@ -87,6 +104,7 @@ function harness(overrides: Record<string, unknown> = {}) {
       content,
       jobs,
       progress,
+      lessons,
       notifications,
     ),
     prisma,
@@ -94,6 +112,7 @@ function harness(overrides: Record<string, unknown> = {}) {
     content,
     jobs,
     progress,
+    lessons,
     notifications,
     rows,
   };
@@ -148,19 +167,40 @@ describe('TeacherAssignmentsService.generate', () => {
     expect(h.jobs.enqueue).not.toHaveBeenCalled();
   });
 
-  // The set is shared by the whole batch, so the furthest-behind student sets the
-  // ceiling. Taking the max would show them a later lesson's vocabulary.
-  it('takes the LOWEST lesson ceiling across the batch', async () => {
+  // The ceiling comes from the lesson being assigned from, not from a per-student
+  // progress lookup. education-service dropped its copied lesson tables (0853b09) and
+  // the portal is the only source of truth left; the lesson also IS the ceiling the
+  // teacher intends, since teacher-origin work is always created within one.
+  it('takes the ceiling and course key from the lesson', async () => {
     const h = harness();
     await h.service.generate(99, GENERATE_REQUEST as never, 'tok');
-    expect(h.jobs.enqueue.mock.calls[0][1].maxLessonOrder).toBe(5);
+
+    expect(h.lessons.getLesson).toHaveBeenCalledWith('lesson-1');
+    const job = h.jobs.enqueue.mock.calls[0][1];
+    expect(job.maxLessonOrder).toBe(5);
+    expect(job.courseKey).toBe('course_materials.data.seven.german.SevenGermanCourse');
   });
 
-  it('sends a null ceiling when no student has progress', async () => {
+  // Reading student rows out of this service's own database is what 500'd every
+  // generation after the tables were dropped. The lesson replaces it outright.
+  it('never reads per-student progress from the local database', async () => {
     const h = harness();
-    h.progress.getStudentProgress.mockResolvedValue({ courseKey: null, lessonOrder: null });
     await h.service.generate(99, GENERATE_REQUEST as never, 'tok');
-    expect(h.jobs.enqueue.mock.calls[0][1].maxLessonOrder).toBeNull();
+    expect(h.progress.getStudentProgress).not.toHaveBeenCalled();
+  });
+
+  // The portal is deliberately not fail-soft: an unreachable lesson must fail the
+  // request, not silently generate against a null ceiling, which would hand the
+  // student material from a lesson they have not reached.
+  it('fails the request when the lesson cannot be read', async () => {
+    const h = harness();
+    h.lessons.getLesson.mockRejectedValue(new Error('portal unreachable'));
+
+    await expect(h.service.generate(99, GENERATE_REQUEST as never, 'tok')).rejects.toThrow(
+      /portal unreachable/,
+    );
+    expect(h.tx.drillAssignment.createMany).not.toHaveBeenCalled();
+    expect(h.jobs.enqueue).not.toHaveBeenCalled();
   });
 
   it('records the batch so the request is reconstructable', async () => {

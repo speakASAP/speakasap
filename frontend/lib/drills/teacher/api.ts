@@ -127,9 +127,18 @@ export async function request<T>(
     let code: DrillErrorCode | null = null;
     let message = `Request failed with status ${response.status}`;
     try {
-      const body = (await response.json()) as { code?: DrillErrorCode; message?: string };
-      code = body?.code ?? null;
-      message = body?.message ?? message;
+      // Two shapes, both real. education-service's `HttpErrorFilter` wraps failures as
+      // `{error:{code,message,details}}`; the gateway and Nest's default filter send a
+      // flat `{code,message}`. Reading only the flat one discarded the message on every
+      // error the service itself produced, leaving the teacher with a bare status code.
+      const body = (await response.json()) as {
+        code?: DrillErrorCode;
+        message?: string;
+        error?: { code?: DrillErrorCode; message?: string };
+      };
+      const envelope = body?.error ?? body;
+      code = envelope?.code ?? null;
+      message = envelope?.message ?? message;
     } catch {
       // Non-JSON error body; the status is all there is to report.
     }
