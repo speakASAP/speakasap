@@ -74,7 +74,14 @@ import { TaxonomyService } from './analysis/taxonomy';
     AiClient,
     RegenerationService,
     DrillSetsClientAdapter,
-    StudentProgressClientAdapter,
+    // Explicit factory, not a bare class: its one constructor argument is the
+    // `StudentProgressSource` interface, which erases at runtime and so carries no DI
+    // token for Nest to resolve by type. Same treatment as the services below.
+    {
+      provide: StudentProgressClientAdapter,
+      useFactory: (lessons: LessonClientService) => new StudentProgressClientAdapter(lessons),
+      inject: [LessonClientService],
+    },
     DrillIdentityResolverAdapter,
     GenerationJobRepositoryAdapter,
 

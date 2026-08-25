@@ -55,52 +55,44 @@ export class DrillSetsClientAdapter {
 }
 
 /**
+ * The portal read this adapter needs, narrowed from `LessonClientService`.
+ *
+ * An interface rather than the class so the adapter states its one dependency, and so
+ * `drills.module.ts` remains the only place that knows which implementation it gets.
+ */
+export interface StudentProgressSource {
+  getStudentProgress(
+    studentId: number,
+  ): Promise<{ courseKey: string | null; lessonOrder: number | null }>;
+}
+
+/**
  * `StudentProgressClient` — where the student currently is in their course.
  *
- * Read from this service's own tables rather than over HTTP: the data is already here,
- * and a network hop to fetch a local row is a failure mode for nothing.
+ * Reads the portal, which is the single source of truth for lessons and courses. This
+ * used to query this service's OWN `StudentCourse` and `Lesson` tables — copies of the
+ * portal's, frozen since 2026-06-26 — until 0853b09 dropped them. The reads were written
+ * as `(this.prisma as any).studentCourse`, so the cast carried them past the type check
+ * and they became `Cannot read properties of undefined (reading 'findFirst')` at runtime,
+ * 500'ing every self-drill and remedial generation from 2026-08-22 onward.
  *
- * The join is not direct. `StudentCourse` carries no `studentId` — a student reaches a
- * course through `GroupStudent -> Group -> StudentCourse` (the legacy Django shape).
- * `courseKey` is `StudentCourse.courseClass`, and the lesson ceiling is the highest
- * `Lesson.order` the student has finished, not a stored counter.
+ * The join that used to live here (GroupStudent -> Group -> StudentCourse, then the
+ * highest finished `Lesson.order`) now lives in the portal's own
+ * `StudentProgressView`, expressed against the tables it actually owns.
+ *
+ * `studentId` is the legacy portal USER id, as everywhere else in the drills code.
  */
 @Injectable()
 export class StudentProgressClientAdapter {
-  private readonly logger = new Logger(StudentProgressClientAdapter.name);
-
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly lessons: StudentProgressSource) {}
 
   async getStudentProgress(
     studentId: number,
   ): Promise<{ courseKey: string | null; lessonOrder: number | null }> {
-    const course = await (this.prisma as any).studentCourse.findFirst({
-      where: {
-        isFinished: false,
-        group: { groupStudents: { some: { studentId } } },
-      },
-      orderBy: { createdAt: 'desc' },
-      select: { uuid: true, courseClass: true },
-    });
-
-    if (!course) {
-      // Not an error: a student with no active course simply has no ceiling. The caller
-      // decides what that means — this must not guess a lesson order, because guessing
-      // high shows the student material they have not reached.
-      this.logger.warn(`No active StudentCourse for student ${studentId}; progress unknown`);
-      return { courseKey: null, lessonOrder: null };
-    }
-
-    const furthest = await (this.prisma as any).lesson.findFirst({
-      where: { studentCourseUuid: course.uuid, isFinished: true },
-      orderBy: { order: 'desc' },
-      select: { order: true },
-    });
-
-    return {
-      courseKey: course.courseClass ?? null,
-      lessonOrder: furthest?.order ?? null,
-    };
+    // Deliberately unguarded: a portal outage must fail the drill request, not resolve
+    // to a null ceiling, which reads downstream as "this student has no limit" and
+    // widens the bank to material they have not been taught.
+    return this.lessons.getStudentProgress(studentId);
   }
 }
 

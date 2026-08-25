@@ -60,6 +60,40 @@ export class LessonClientService {
     return this.toLesson(body);
   }
 
+  /**
+   * Where a student is in their course, for the drilling lesson ceiling.
+   *
+   * `studentId` is the legacy portal USER id — what `resolveStudentId` returns and what
+   * the roster emits. Never a `students.Student` pk: the two spaces overlap numerically
+   * and name different people.
+   *
+   * Used by the paths that hold no lesson (self-drilling, remedial drills). The teacher
+   * wizard takes its ceiling from the lesson it is assigning from instead, which is both
+   * cheaper and closer to what the teacher chose.
+   *
+   * Null `courseKey`/`lessonOrder` is a real answer — the student has no active course,
+   * or has finished nothing on it — and the caller drills without a ceiling. A failure
+   * to ASK raises, like every other read here, because a silently null ceiling would
+   * widen the bank to material the student has not reached.
+   */
+  async getStudentProgress(
+    studentId: number,
+  ): Promise<{ courseKey: string | null; lessonOrder: number | null }> {
+    const body = await this.request(
+      // The request helper labels errors with a lesson uuid; these calls carry no
+      // lesson, so the student is named instead and the log still says who it was for.
+      `student:${studentId}`,
+      `/students/${encodeURIComponent(String(studentId))}/progress/`,
+    );
+
+    const order = body.lesson_order;
+    return {
+      courseKey: typeof body.course_key === 'string' && body.course_key ? body.course_key : null,
+      // Zero is a real lesson order. `?? null` rather than `|| null` keeps it.
+      lessonOrder: typeof order === 'number' ? order : null,
+    };
+  }
+
   async getRoster(lessonUuid: string): Promise<PortalRoster> {
     const body = await this.request(
       lessonUuid,

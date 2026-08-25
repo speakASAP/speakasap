@@ -7,6 +7,7 @@ import { JobRunner } from './orchestration/job-runner.service';
 import { RegenerationService } from './orchestration/regeneration.service';
 import { TeacherAssignmentsService } from './teacher/teacher-assignments.service';
 import { TeacherRosterService } from './teacher/roster.service';
+import { StudentProgressClientAdapter } from './orchestration/adapters';
 
 /**
  * Track B2 shipped DrillsModule with three cross-service providers deliberately
@@ -40,6 +41,23 @@ describe('DrillsModule', () => {
     expect(svc).toBeInstanceOf(SelfDrillService);
     expect((svc as any).sets).toBeDefined();
     expect((svc as any).progress).toBeDefined();
+  });
+
+  /**
+   * `StudentProgressClientAdapter` takes the `StudentProgressSource` interface, which
+   * erases at runtime and carries no DI token — a bare class registration would have
+   * Nest inject nothing and the adapter would throw on first use, in production, with a
+   * clean typecheck behind it. That is the same shape of failure that left
+   * `prisma.studentCourse` reads compiling after the tables were dropped.
+   */
+  it('resolves the progress adapter with a portal source that can actually be called', async () => {
+    const moduleRef = await compile();
+    const adapter = moduleRef.get(StudentProgressClientAdapter);
+
+    expect(adapter).toBeInstanceOf(StudentProgressClientAdapter);
+    const source = (adapter as any).lessons;
+    expect(source).toBeDefined();
+    expect(typeof source.getStudentProgress).toBe('function');
   });
 
   it('resolves the job runner with the pipeline wired to it as the progress sink', async () => {

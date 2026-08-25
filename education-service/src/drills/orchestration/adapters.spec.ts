@@ -106,60 +106,72 @@ describe('DrillIdentityResolverAdapter', () => {
   });
 });
 
+/**
+ * These tests used to build a fake prisma carrying `studentCourse` and `lesson` and
+ * assert the shape of the queries against it. They kept passing after 0853b09 dropped
+ * both tables, because the fake still had them — while production threw
+ * `Cannot read properties of undefined (reading 'findFirst')` on every self-drill and
+ * remedial generation. A mock of a database that no longer exists proves nothing, so the
+ * adapter now reads the portal and the tests assert against that.
+ */
 describe('StudentProgressClientAdapter', () => {
-  const course = { uuid: 'sc-1', courseClass: 'de-a1' };
-
-  const makePrisma = (over: any = {}) => ({
-    studentCourse: { findFirst: jest.fn().mockResolvedValue(course) },
-    lesson: { findFirst: jest.fn().mockResolvedValue({ order: 4 }) },
-    ...over,
+  const lessonsWith = (progress: unknown) => ({
+    getStudentProgress: jest.fn().mockResolvedValue(progress),
   });
 
   it('returns the course key and the furthest finished lesson', async () => {
-    const prisma = makePrisma();
+    const lessons = lessonsWith({ courseKey: 'de-a1', lessonOrder: 4 });
 
-    const result = await new StudentProgressClientAdapter(prisma as any).getStudentProgress(42);
+    const result = await new StudentProgressClientAdapter(lessons as any).getStudentProgress(42);
 
     expect(result).toEqual({ courseKey: 'de-a1', lessonOrder: 4 });
   });
 
-  // StudentCourse carries no studentId — the student reaches a course through
-  // GroupStudent -> Group -> StudentCourse. A query that forgot that would return
-  // some other student's course.
-  it('joins through the group to reach the student', async () => {
-    const prisma = makePrisma();
+  it('asks the portal about that student', async () => {
+    const lessons = lessonsWith({ courseKey: 'de-a1', lessonOrder: 4 });
 
-    await new StudentProgressClientAdapter(prisma as any).getStudentProgress(42);
+    await new StudentProgressClientAdapter(lessons as any).getStudentProgress(42);
 
-    const where = prisma.studentCourse.findFirst.mock.calls[0][0].where;
-    expect(where.group.groupStudents.some.studentId).toBe(42);
-    expect(where.isFinished).toBe(false);
+    expect(lessons.getStudentProgress).toHaveBeenCalledWith(42);
   });
 
   // A student with no active course has no ceiling. Guessing one high enough to be
   // useful would show them material from lessons they have not reached.
   it('returns nulls rather than a guess when the student has no active course', async () => {
-    const prisma = makePrisma({ studentCourse: { findFirst: jest.fn().mockResolvedValue(null) } });
+    const lessons = lessonsWith({ courseKey: null, lessonOrder: null });
 
-    const result = await new StudentProgressClientAdapter(prisma as any).getStudentProgress(42);
+    const result = await new StudentProgressClientAdapter(lessons as any).getStudentProgress(42);
 
     expect(result).toEqual({ courseKey: null, lessonOrder: null });
   });
 
   it('returns a null lesson ceiling when no lesson is finished yet', async () => {
-    const prisma = makePrisma({ lesson: { findFirst: jest.fn().mockResolvedValue(null) } });
+    const lessons = lessonsWith({ courseKey: 'de-a1', lessonOrder: null });
 
-    const result = await new StudentProgressClientAdapter(prisma as any).getStudentProgress(42);
+    const result = await new StudentProgressClientAdapter(lessons as any).getStudentProgress(42);
 
     expect(result).toEqual({ courseKey: 'de-a1', lessonOrder: null });
   });
 
-  it('counts only finished lessons toward the ceiling', async () => {
-    const prisma = makePrisma();
+  // Zero is a real lesson order, not an absent one.
+  it('keeps a zero ceiling', async () => {
+    const lessons = lessonsWith({ courseKey: 'de-a1', lessonOrder: 0 });
 
-    await new StudentProgressClientAdapter(prisma as any).getStudentProgress(42);
+    const result = await new StudentProgressClientAdapter(lessons as any).getStudentProgress(42);
 
-    expect(prisma.lesson.findFirst.mock.calls[0][0].where.isFinished).toBe(true);
+    expect(result.lessonOrder).toBe(0);
+  });
+
+  // Not fail-soft. A portal outage swallowed into a null ceiling would silently widen
+  // the drill bank to material the student has not reached.
+  it('raises when the portal cannot be reached', async () => {
+    const lessons = {
+      getStudentProgress: jest.fn().mockRejectedValue(new Error('portal unreachable')),
+    };
+
+    await expect(
+      new StudentProgressClientAdapter(lessons as any).getStudentProgress(42),
+    ).rejects.toThrow(/portal unreachable/);
   });
 });
 

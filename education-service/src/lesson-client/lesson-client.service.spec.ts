@@ -37,6 +37,75 @@ function okResponse(body: unknown) {
 }
 
 describe('LessonClientService', () => {
+  // The ceiling for self-drilling and remedial drills, which hold no lesson and so
+  // cannot take it from one. education-service used to compute this from its own copies
+  // of the portal's tables; 0853b09 dropped them and every such generation then threw
+  // `Cannot read properties of undefined (reading 'findFirst')`.
+  describe('getStudentProgress', () => {
+    const PROGRESS_BODY = {
+      student_id: 42,
+      course_key: 'course_materials.data.ru.en._10r.Course',
+      lesson_order: 7,
+    };
+
+    it('camelizes a progress payload', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(okResponse(PROGRESS_BODY));
+      const progress = await serviceWith(fetchFn).getStudentProgress(42);
+
+      expect(progress).toEqual({
+        courseKey: 'course_materials.data.ru.en._10r.Course',
+        lessonOrder: 7,
+      });
+    });
+
+    it('asks the portal for that student', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(okResponse(PROGRESS_BODY));
+      await serviceWith(fetchFn).getStudentProgress(42);
+
+      expect(String(fetchFn.mock.calls[0][0])).toBe(
+        'http://portal.test/students/42/progress/',
+      );
+      expect(fetchFn.mock.calls[0][1].headers['x-internal-token']).toBe('secret-token');
+    });
+
+    // "No active course" is a real answer, and the caller generates without a ceiling.
+    // It must not be confused with a failed lookup, which raises.
+    it('passes through nulls for a student with no active course', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        okResponse({ student_id: 42, course_key: null, lesson_order: null }),
+      );
+      const progress = await serviceWith(fetchFn).getStudentProgress(42);
+
+      expect(progress).toEqual({ courseKey: null, lessonOrder: null });
+    });
+
+    // Zero is a real lesson order, not an absent one.
+    it('keeps a zero lesson order', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        okResponse({ student_id: 42, course_key: 'c', lesson_order: 0 }),
+      );
+      const progress = await serviceWith(fetchFn).getStudentProgress(42);
+
+      expect(progress.lessonOrder).toBe(0);
+    });
+
+    // Deliberately NOT fail-soft, like every other read here. A silent null ceiling
+    // would widen the drill bank to material the student has not reached.
+    it('raises LessonServiceUnavailableError when the portal is down', async () => {
+      const fetchFn = jest.fn().mockResolvedValue(
+        { ok: false, status: 500, json: async () => ({}), text: async () => 'boom' },
+      );
+      await expect(serviceWith(fetchFn).getStudentProgress(42))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+    });
+
+    it('raises LessonServiceUnavailableError when the transport throws', async () => {
+      const fetchFn = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      await expect(serviceWith(fetchFn).getStudentProgress(42))
+        .rejects.toBeInstanceOf(LessonServiceUnavailableError);
+    });
+  });
+
   describe('getLesson', () => {
     it('camelizes a lesson payload', async () => {
       const fetchFn = jest.fn().mockResolvedValue(okResponse(LESSON_BODY));
