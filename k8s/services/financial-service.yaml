@@ -129,10 +129,6 @@ data:
   COURSE_SERVICE_URL: "http://speakasap-course:4205"
   PAYMENT_SERVICE_URL: "http://speakasap-payment:4208"
   SALARY_SERVICE_URL: "http://speakasap-salary:4212"
-  COURSE_SERVICE_INTERNAL_TOKEN: "6629c420d6d902079715b004394bae612ca4f0ccb80da7c0"
-  PAYMENT_SERVICE_INTERNAL_TOKEN: "6629c420d6d902079715b004394bae612ca4f0ccb80da7c0"
-  SALARY_SERVICE_INTERNAL_TOKEN: "6629c420d6d902079715b004394bae612ca4f0ccb80da7c0"
-  INTERNAL_API_TOKEN: "6629c420d6d902079715b004394bae612ca4f0ccb80da7c0"
   NOTIFICATION_SERVICE_URL: "http://speakasap-notification:4209"
   NOTIFICATION_SERVICE_TIMEOUT: "5000"
   HTTP_TIMEOUT: "30000"
@@ -172,6 +168,25 @@ spec:
         key: secret/prod/speakasap/financial
         property: FINANCIAL_DATABASE_URL
     - secretKey: FINANCIAL_INTERNAL_API_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap/financial
+        property: FINANCIAL_INTERNAL_API_TOKEN
+    # Outbound internal-hop token. Previously four plaintext copies of this same
+    # value sat in the ConfigMap above (and in git). financial-service falls back
+    # across these names, so one Vault-sourced property serves all four.
+    - secretKey: INTERNAL_API_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap/financial
+        property: FINANCIAL_INTERNAL_API_TOKEN
+    - secretKey: COURSE_SERVICE_INTERNAL_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap/financial
+        property: FINANCIAL_INTERNAL_API_TOKEN
+    - secretKey: PAYMENT_SERVICE_INTERNAL_TOKEN
+      remoteRef:
+        key: secret/prod/speakasap/financial
+        property: FINANCIAL_INTERNAL_API_TOKEN
+    - secretKey: SALARY_SERVICE_INTERNAL_TOKEN
       remoteRef:
         key: secret/prod/speakasap/financial
         property: FINANCIAL_INTERNAL_API_TOKEN
