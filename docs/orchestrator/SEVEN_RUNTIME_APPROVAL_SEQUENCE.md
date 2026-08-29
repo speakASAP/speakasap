@@ -124,7 +124,10 @@ Required evidence:
 - `/tmp/speakasap-seven-deploy-execution-v1.json`
 - `/tmp/speakasap-seven-deploy-smoke-v1.json`
 
-Boundary: this gate must not use the broad root `scripts/deploy.sh`, restart unrelated services, run rollback, import data, copy media, or retire legacy routes.
+Boundary: this gate must not use the broad shared runner command
+`/home/ssf/Documents/Github/shared/scripts/deploy.sh speakasap`, restart
+unrelated services, run rollback, import data, copy media, or retire legacy
+routes. The root `scripts/deploy.sh` is retired and must remain a refusal stub.
 
 ## Gate 5: Visual QA
 

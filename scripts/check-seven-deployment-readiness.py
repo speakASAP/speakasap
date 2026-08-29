@@ -27,6 +27,7 @@ SCOPED_MANIFESTS = {
 APPROVAL_DOC = Path("docs/orchestrator/SEVEN_DEPLOYMENT_APPROVAL.md")
 FRONTEND_DEPLOY = Path("scripts/deploy-frontend.sh")
 ROOT_DEPLOY = Path("scripts/deploy.sh")
+DEPLOY_CONFIG = Path("deploy.config.sh")
 SMOKE_CHECKER = Path("scripts/check-seven-deployment-smoke.py")
 DEPLOY_OPERATOR = Path("scripts/deploy-seven-approved.sh")
 
@@ -65,15 +66,15 @@ def config_value(manifest: str, key: str) -> str | None:
 
 def command_mentions_only_scoped_deployments(text: str) -> dict[str, Any]:
     rollout_restart = sorted(set(re.findall(r"kubectl\s+rollout\s+restart\s+deployment/([A-Za-z0-9_.-]+)", text)))
-    rollout_status = sorted(set(re.findall(r"kubectl\s+rollout\s+status\s+deployment/([A-Za-z0-9_.-]+)", text)))
     allowed = set(SCOPED_DEPLOYMENTS.values())
+    waiter_present = "wait-for-rollout.sh" in text
+    rollout_wait = sorted(name for name in allowed if waiter_present and name in text)
     return {
         "rolloutRestart": rollout_restart,
-        "rolloutStatus": rollout_status,
+        "rolloutWait": rollout_wait,
         "unexpectedRolloutRestart": [name for name in rollout_restart if name not in allowed],
-        "unexpectedRolloutStatus": [name for name in rollout_status if name not in allowed],
         "mentionsAllScopedRestarts": allowed.issubset(set(rollout_restart) | {"speakasap-frontend"}),
-        "mentionsAllScopedStatus": allowed.issubset(set(rollout_status)),
+        "mentionsAllScopedWaits": allowed.issubset(set(rollout_wait)),
     }
 
 
@@ -87,6 +88,7 @@ def main() -> int:
     approval = read(APPROVAL_DOC)
     frontend_deploy = read(FRONTEND_DEPLOY)
     root_deploy = read(ROOT_DEPLOY)
+    deploy_config = read(DEPLOY_CONFIG)
     smoke = read(SMOKE_CHECKER)
     deploy_operator = read(DEPLOY_OPERATOR)
     manifests = {name: read(path) for name, path in SCOPED_MANIFESTS.items()}
@@ -95,6 +97,7 @@ def main() -> int:
         "approvalDoc": APPROVAL_DOC.exists(),
         "frontendDeployScript": FRONTEND_DEPLOY.exists(),
         "rootDeployScript": ROOT_DEPLOY.exists(),
+        "deployConfig": DEPLOY_CONFIG.exists(),
         "smokeChecker": SMOKE_CHECKER.exists(),
         "deployOperator": DEPLOY_OPERATOR.exists(),
         **{f"{name}Manifest": path.exists() for name, path in SCOPED_MANIFESTS.items()},
@@ -111,10 +114,11 @@ def main() -> int:
     }
     approval_commands = command_mentions_only_scoped_deployments(approval)
     root_breadth = {
-        "rootDeployAppliesAllServiceManifests": '"$SERVICES_DIR"/*.yaml' in root_deploy or "$SERVICES_DIR\"/*.yaml" in root_deploy,
-        "rootDeployRestartsAllServices": "Rollout restart (all services)" in root_deploy and "SPEAKASAP_SERVICES" in root_deploy,
-        "rootDeployContainsFrontend": "speakasap-frontend" in root_deploy,
-        "rootDeployContainsSalary": "speakasap-salary" in root_deploy,
+        "rootDeployIsRetired": "RETIRED" in root_deploy and "refuses" in root_deploy,
+        "rootDeployPointsToSharedRunner": "shared/scripts/deploy.sh" in root_deploy,
+        "deployConfigContainsFrontend": "speakasap-frontend" in deploy_config,
+        "deployConfigContainsSalary": "speakasap-salary" in deploy_config,
+        "deployConfigContainsUser": "speakasap-user" in deploy_config,
     }
     deploy_operator_contract = {
         "path": str(DEPLOY_OPERATOR),
@@ -132,13 +136,23 @@ def main() -> int:
         and "failureStage" in deploy_operator
         and "smokeOk" in deploy_operator
         and "exitCode" in deploy_operator,
-        "doesNotRunRootDeploy": "\n./scripts/deploy.sh" not in deploy_operator and "\nscripts/deploy.sh" not in deploy_operator and "bash scripts/deploy.sh" not in deploy_operator,
+        "usesSharedRolloutWaiter": "wait-for-rollout.sh" in deploy_operator
+        and "kubectl rollout status" not in deploy_operator,
+        "acquiresDeployLock": "deploy_lock_acquire" in deploy_operator
+        and "deploy_lock_release" in deploy_operator,
+        "doesNotRunBroadDeploy": "\n./scripts/deploy.sh" not in deploy_operator
+        and "\nscripts/deploy.sh" not in deploy_operator
+        and "bash scripts/deploy.sh" not in deploy_operator
+        and "shared/scripts/deploy.sh" not in deploy_operator,
         "marksRollbackRetirementFalse": all(value in deploy_operator for value in ["dataRollbackApproved", "mediaRollbackApproved", "legacyRetirementApproved"]),
     }
     assertions = {
         "requiredFilesPresent": all(files.values()),
         "approvalStatusIsDraft": "Status: draft approval packet" in approval,
-        "approvalDeniesBroadDeploy": contains_all(approval, ["must not restart all", "scripts/deploy.sh"]),
+        "approvalDeniesBroadDeploy": contains_all(
+            approval,
+            ["must not use the broad shared runner", "shared/scripts/deploy.sh speakasap"],
+        ),
         "approvalScopesServices": contains_all(approval, list(SCOPED_DEPLOYMENTS.values())),
         "approvalRequiresGates": contains_all(
             approval,
@@ -151,10 +165,9 @@ def main() -> int:
         ),
         "approvalRequiresSmokeChecker": str(SMOKE_CHECKER) in approval,
         "approvalHasRollbackBoundary": contains_all(approval, ["Rollback Boundary", "previous image"]),
-        "approvalCommandsAvoidUnexpectedRollouts": not approval_commands["unexpectedRolloutRestart"]
-        and not approval_commands["unexpectedRolloutStatus"],
-        "approvalCommandsCoverScopedStatus": approval_commands["mentionsAllScopedStatus"],
-        "rootDeployIsTooBroad": all(root_breadth.values()),
+        "approvalCommandsAvoidUnexpectedRollouts": not approval_commands["unexpectedRolloutRestart"],
+        "approvalCommandsCoverScopedWaits": approval_commands["mentionsAllScopedWaits"],
+        "rootDeployBoundaryIsCurrent": all(root_breadth.values()),
         "frontendDeployOnlyBuildsFrontend": "frontend/Dockerfile" in frontend_deploy
         and "content-service/Dockerfile" not in frontend_deploy
         and "api-gateway/Dockerfile" not in frontend_deploy,

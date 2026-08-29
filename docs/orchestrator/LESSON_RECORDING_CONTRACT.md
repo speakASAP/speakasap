@@ -334,8 +334,7 @@ ssh alfares 'cd /home/ssf/Documents/Github/speakasap/api-gateway && npm run buil
 After deployment:
 
 ```bash
-ssh alfares 'kubectl rollout status deployment/speakasap-education -n statex-apps'
-ssh alfares 'kubectl rollout status deployment/speakasap-api-gateway -n statex-apps'
+ssh alfares '/home/ssf/Documents/Github/shared/scripts/wait-for-rollout.sh -n statex-apps -t 180 speakasap-education speakasap-api-gateway'
 ```
 
 Runtime smoke checks must include:

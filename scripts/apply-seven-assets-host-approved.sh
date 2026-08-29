@@ -7,6 +7,8 @@ MANIFEST="${ASSETS_HOST_MANIFEST:-k8s/services/assets-service.yaml}"
 TARGET_ROOT="${MEDIA_TARGET_ROOT:-/home/ssf/speakasap-assets}"
 REPORT_PREFIX="${REPORT_PREFIX:-/tmp/speakasap-seven-assets-host}"
 ASSETS_BASE_URL="${ASSETS_BASE_URL:-https://assets.alfares.cz}"
+WAIT_FOR_ROLLOUT="$ROOT_DIR/../shared/scripts/wait-for-rollout.sh"
+DEPLOY_LOCK_LIB="$ROOT_DIR/../shared/scripts/deploy-lib/lock.sh"
 
 usage() {
   cat <<USAGE
@@ -97,11 +99,15 @@ PY
 
 kubectl apply --dry-run=server -f "$MANIFEST" -n statex-apps -o json > "$DRY_RUN_REPORT"
 
+source "$DEPLOY_LOCK_LIB"
+deploy_lock_acquire "speakasap assets host deploy - ${USER:-unknown}@${ROOT_DIR}"
+trap 'deploy_lock_release' EXIT
+
 mkdir -p "$TARGET_ROOT/media/.well-known"
 printf 'ok\n' > "$TARGET_ROOT/media/.well-known/health.txt"
 
 kubectl apply -f "$MANIFEST" -n statex-apps
-kubectl rollout status deployment/speakasap-assets -n statex-apps --timeout=180s
+"$WAIT_FOR_ROLLOUT" -n statex-apps -t 180 speakasap-assets
 
 python3 - <<'PY'
 import json

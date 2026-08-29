@@ -36,6 +36,7 @@ def main() -> int:
 
     manifest = read(MANIFEST)
     operator = read(OPERATOR)
+    operator_wait_lines = [line for line in operator.splitlines() if "WAIT_FOR_ROLLOUT" in line]
     files = {
         "manifest": MANIFEST.exists(),
         "operator": OPERATOR.exists(),
@@ -62,9 +63,14 @@ def main() -> int:
         "pinsTargetRoot": EXPECTED_TARGET_ROOT in operator and "MEDIA_TARGET_ROOT must remain" in operator,
         "serverDryRunBeforeApply": "kubectl apply --dry-run=server" in operator,
         "appliesOnlyAssetsManifest": 'kubectl apply -f "$MANIFEST"' in operator and "k8s/services/assets-service.yaml" in operator,
-        "waitsOnlyAssetsRollout": "kubectl rollout status deployment/speakasap-assets" in operator
-        and "kubectl rollout status deployment/speakasap-content" not in operator
+        "waitsOnlyAssetsRollout": any("speakasap-assets" in line for line in operator_wait_lines)
+        and all(
+            service not in line
+            for line in operator_wait_lines
+            for service in ["speakasap-content", "speakasap-api-gateway", "speakasap-frontend"]
+        )
         and "kubectl rollout restart" not in operator,
+        "acquiresDeployLock": "deploy_lock_acquire" in operator and "deploy_lock_release" in operator,
         "verifiesPublicHost": "/media/.well-known/health.txt" in operator and "missingMedia" in operator,
         "writesExecutionReport": "execution-v1.json" in operator and "approvalSha256" in operator,
         "doesNotCopyMedia": "copy-seven-media-approved" not in operator and "curl -fL" not in operator,

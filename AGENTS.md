@@ -33,25 +33,15 @@ SpeakASAP is being refactored from the legacy Django portal into the new Alphari
 
 ## Knowledge Retrieval
 
-Query the RAG service first when it is reachable, then verify against repository files:
+Use `docs-rag-microservice` for bounded discovery when it is healthy, then
+verify deployment, security, database, integration and public-contract facts
+against the cited Git source. Git remains authoritative.
 
-```bash
-kubectl -n statex-apps exec deployment/speakasap -- sh -c 'curl -s -X POST http://docs-rag-microservice:3397/retrieval/agent-context \
-  -H "Authorization: Bearer $JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data "$1"' -- '{"query": "YOUR QUESTION HERE", "maxTokens": 3000}'
-```
+Authority and fallback rules:
+`/home/ssf/Documents/Github/shared/docs/DOCUMENTATION_AUTHORITY.md`.
 
-From inside the cluster or a shell that already has cluster DNS and `JWT_TOKEN`, the direct service URL also works:
-
-```bash
-curl -s -X POST http://docs-rag-microservice.statex-apps.svc.cluster.local:3397/retrieval/agent-context \
-  -H "Authorization: Bearer $JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "YOUR QUESTION HERE", "maxTokens": 3000}'
-```
-
-If RAG is unavailable, continue from repository evidence and record that in `docs/orchestrator/STATUS.md`.
+Do not generate tokens in documentation or assume an unconfident/failed RAG
+response means that source documentation does not exist.
 
 ## Repositories
 

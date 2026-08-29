@@ -28,8 +28,8 @@ Approved only for Goal 9.6 salary readiness planning gate:
 If the education rollout fails or health checks fail, inspect the current deployment snapshot and run only the scoped Kubernetes undo/status path for `speakasap-education`:
 
 ```bash
-kubectl rollout undo deployment/speakasap-education -n statex-apps
-kubectl rollout status deployment/speakasap-education -n statex-apps --timeout=180s
+/home/ssf/Documents/Github/shared/scripts/with-deploy-lock.sh bash -lc \
+  'kubectl rollout undo deployment/speakasap-education -n statex-apps && /home/ssf/Documents/Github/shared/scripts/wait-for-rollout.sh -n statex-apps -t 180 speakasap-education'
 ```
 
 Rollback execution still requires recording the failure and rollback evidence in `docs/orchestrator/STATUS.md`.

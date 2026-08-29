@@ -160,12 +160,11 @@ Rollback must be owner-approved if users have interacted with migrated data or i
 Non-destructive deployment rollback commands:
 
 ```bash
-kubectl rollout undo deployment/speakasap-frontend -n statex-apps
-kubectl rollout undo deployment/speakasap-api-gateway -n statex-apps
-kubectl rollout undo deployment/speakasap-education -n statex-apps
-kubectl rollout status deployment/speakasap-frontend -n statex-apps --timeout=180s
-kubectl rollout status deployment/speakasap-api-gateway -n statex-apps --timeout=180s
-kubectl rollout status deployment/speakasap-education -n statex-apps --timeout=180s
+/home/ssf/Documents/Github/shared/scripts/with-deploy-lock.sh bash -lc \
+  'kubectl rollout undo deployment/speakasap-frontend -n statex-apps &&
+   kubectl rollout undo deployment/speakasap-api-gateway -n statex-apps &&
+   kubectl rollout undo deployment/speakasap-education -n statex-apps &&
+   /home/ssf/Documents/Github/shared/scripts/wait-for-rollout.sh -n statex-apps -t 180 speakasap-frontend speakasap-api-gateway speakasap-education'
 ```
 
 Ingress rollback options:

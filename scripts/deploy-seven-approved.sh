@@ -12,6 +12,8 @@ ASSETS_BASE_URL="${ASSETS_BASE_URL:-https://assets.alfares.cz}"
 CONTENT_IMAGE="${CONTENT_IMAGE:-localhost:5000/speakasap-content:latest}"
 GATEWAY_IMAGE="${GATEWAY_IMAGE:-localhost:5000/speakasap-api-gateway:latest}"
 FRONTEND_IMAGE="${FRONTEND_IMAGE:-localhost:5000/speakasap-frontend:latest}"
+WAIT_FOR_ROLLOUT="$ROOT_DIR/../shared/scripts/wait-for-rollout.sh"
+DEPLOY_LOCK_LIB="$ROOT_DIR/../shared/scripts/deploy-lib/lock.sh"
 
 usage() {
   cat <<USAGE
@@ -62,6 +64,10 @@ for path in sys.argv[1:]:
         print(f"ERROR: execution report is not ok: {path}", file=sys.stderr)
         sys.exit(2)
 PY
+
+source "$DEPLOY_LOCK_LIB"
+deploy_lock_acquire "speakasap seven scoped deploy - ${USER:-unknown}@${ROOT_DIR}"
+trap 'deploy_lock_release' EXIT
 
 cd "$ROOT_DIR"
 PREDEPLOY_REPORT="${REPORT_PREFIX}-predeploy-images-v1.json"
@@ -147,10 +153,8 @@ kubectl rollout restart deployment/speakasap-content -n statex-apps
 kubectl rollout restart deployment/speakasap-api-gateway -n statex-apps
 kubectl rollout restart deployment/speakasap-frontend -n statex-apps
 
-CURRENT_STAGE="rollout-status"
-kubectl rollout status deployment/speakasap-content -n statex-apps --timeout=180s
-kubectl rollout status deployment/speakasap-api-gateway -n statex-apps --timeout=180s
-kubectl rollout status deployment/speakasap-frontend -n statex-apps --timeout=180s
+CURRENT_STAGE="rollout-convergence"
+"$WAIT_FOR_ROLLOUT" -n statex-apps -t 180 speakasap-content speakasap-api-gateway speakasap-frontend
 
 CURRENT_STAGE="deployment-smoke"
 scripts/check-seven-deployment-smoke.py \

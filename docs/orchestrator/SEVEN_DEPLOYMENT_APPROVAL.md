@@ -11,7 +11,10 @@ After schema readiness, seven data apply, and media copy/routing gates are compl
 - `speakasap-api-gateway` for `/api/v1/seven` upstream routing and anonymous `GET` access.
 - `speakasap-frontend` for `/<languageCode>/seven` and `/<languageCode>/seven/<order>` pages.
 
-This approval must not restart all SpeakASAP services via the broad root `scripts/deploy.sh`; that script applies/restarts every service and is too broad for this migration slice unless separately approved.
+This approval must not use the broad shared runner command
+`/home/ssf/Documents/Github/shared/scripts/deploy.sh speakasap`, whose
+`deploy.config.sh` contract builds and rolls out every SpeakASAP service.
+The root `scripts/deploy.sh` is a retired refusal stub, not an alternative.
 
 ## Preconditions
 
@@ -46,36 +49,17 @@ MEDIA_EXECUTION_REPORT=/tmp/speakasap-seven-media-copy-execution-v1.json \
   scripts/deploy-seven-approved.sh --execute
 ```
 
-The operator refuses to run without `--execute`, exact `SEVEN_DEPLOY_APPROVAL_TEXT`, and `ok=true` schema/data/media execution reports. It captures predeploy deployment JSON, builds/pushes only the scoped images, applies only the scoped service manifests plus ingress, restarts only the scoped deployments, runs the deployment smoke, and writes `/tmp/speakasap-seven-deploy-execution-v1.json`.
+The operator refuses to run without `--execute`, exact
+`SEVEN_DEPLOY_APPROVAL_TEXT`, and `ok=true` schema/data/media execution reports.
+It acquires the ecosystem deploy lock, captures predeploy Deployment JSON,
+builds and pushes only the scoped images, applies only the scoped service
+manifests plus ingress, restarts only the scoped Deployments, waits through
+`shared/scripts/wait-for-rollout.sh` for `speakasap-content`,
+`speakasap-api-gateway`, and `speakasap-frontend`, runs the deployment smoke,
+and writes `/tmp/speakasap-seven-deploy-execution-v1.json`.
 
-Use service-specific image builds/pushes and rollout restarts for only these deployments:
-
-```bash
-cd /home/ssf/Documents/Github/speakasap
-
-# Build and push scoped images; capture digests after push.
-docker build -f content-service/Dockerfile -t localhost:5000/speakasap-content:latest content-service
-docker push localhost:5000/speakasap-content:latest
-
-docker build -f api-gateway/Dockerfile -t localhost:5000/speakasap-api-gateway:latest api-gateway
-docker push localhost:5000/speakasap-api-gateway:latest
-
-IMAGE=localhost:5000/speakasap-frontend:latest PUBLIC_URL=https://speakasap.alfares.cz ./scripts/deploy-frontend.sh
-
-# Apply only scoped manifests if config changes are needed.
-kubectl apply -f k8s/services/content-service.yaml -n statex-apps
-kubectl apply -f k8s/services/api-gateway.yaml -n statex-apps
-kubectl apply -f k8s/services/frontend.yaml -n statex-apps
-kubectl apply -f k8s/ingress.yaml -n statex-apps
-
-kubectl rollout restart deployment/speakasap-content -n statex-apps
-kubectl rollout restart deployment/speakasap-api-gateway -n statex-apps
-kubectl rollout status deployment/speakasap-content -n statex-apps --timeout=180s
-kubectl rollout status deployment/speakasap-api-gateway -n statex-apps --timeout=180s
-kubectl rollout status deployment/speakasap-frontend -n statex-apps --timeout=180s
-```
-
-The exact commands should be refreshed at approval time based on the final image/build process and any media routing decision.
+Do not reproduce the operator's build, push, apply or restart steps manually.
+The operator is the single approved execution path for this scoped rollout.
 
 ## Required Post-Deploy Smoke
 

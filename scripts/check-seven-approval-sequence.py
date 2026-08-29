@@ -59,7 +59,7 @@ REQUIRED_BOUNDARY_PHRASES = [
     "Do not skip ahead",
     "does not approve",
     "legacy route retirement",
-    "broad root `scripts/deploy.sh`",
+    "broad shared runner command",
     "Each action still requires the exact approval text",
 ]
 
