@@ -15,7 +15,7 @@ Record known validation failures that are not caused by the current task, so age
 
 | ID | Date | Command | Failure Summary | Scope | Owner | Blocks Current Task? | Unblock Condition | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| VD-001 | YYYY-MM-DD | `[command]` | `[sanitized failure]` | repo-wide / task-specific / external service | `[owner]` | yes/no | `[required fix or approval]` | `[report path or safe excerpt]` |
+| VD-001 | 2026-08-29 | `python3 scripts/check-seven-no-write-suite.py --json-report /tmp/seven-no-write-suite.json` | The suite defaults to expired `/tmp/speakasap-seven-dry-run-v20.json` and stops with `FileNotFoundError` before the asset contract. | Seven migration validation harness reproducibility | SpeakASAP migration maintainer | no | Regenerate every declared `DEFAULT_INPUTS` artifact in sequence, or replace ephemeral defaults with stable fixtures and explicit input arguments. | Targeted assets-host, deployment-readiness, approval-sequence, Python compile, and shell syntax checks pass independently. |
 
 ## Current-Task Decision Checklist
 
