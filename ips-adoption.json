@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "profile": "runtime-service",
+  "project": {
+    "name": "speakasap",
+    "repository": "https://github.com/speakASAP/speakasap.git"
+  },
+  "standard": {
+    "repository": "https://github.com/speakASAP/intent-preservation-system",
+    "revision": "3e36f64c11e31b878fd2fe09267426738b25ae7f"
+  },
+  "artifacts": {
+    "readme": "README.md",
+    "business": "BUSINESS.md",
+    "system": "SYSTEM.md",
+    "agents": "AGENTS.md",
+    "operations": "AGENT_OPERATIONS.md",
+    "claude": "CLAUDE.md",
+    "tasks": "TASKS.md",
+    "state": "STATE.json",
+    "constitution": "docs/00_constitution/CONSTITUTION.md",
+    "vision": "docs/01_vision/VISION.md",
+    "integrationContract": "docs/06_architecture/INTEGRATION_CONTRACT.md",
+    "projectInvariants": "docs/17_governance/PROJECT_INVARIANTS.md",
+    "validationDebt": "docs/orchestrator/VALIDATION_DEBT.md",
+    "bootstrapTask": "docs/11_tasks/TASK-001-bootstrap-service.md",
+    "bootstrapGoalImpact": "docs/22_goal_impact/GOAL-IMPACT-TASK-001.md",
+    "bootstrapExecutionPlan": "docs/21_execution_plans/EP-TASK-001-bootstrap-service.md",
+    "bootstrapValidation": "docs/12_validation/VAL-TASK-001-bootstrap-service.md"
+  },
+  "integrationReview": [
+    {
+      "capability": "auth",
+      "component": "auth-microservice",
+      "decision": "required",
+      "reason": "All services validate student/teacher/operator identity via JWTs issued by auth-microservice before granting access to protected course, assessment, and payment APIs.",
+      "contract": "JWT validation on protected routes across all 42xx services and api-gateway",
+      "configuration": "Service URL and JWT validation middleware per NestJS service",
+      "failureMode": "Requests without a valid JWT are rejected; protected endpoints remain unavailable until auth-microservice recovers.",
+      "validation": "Auth-protected route smoke checks confirm JWT validation is enforced per service."
+    },
+    {
+      "capability": "postgres",
+      "component": "database-server (db-server-postgres)",
+      "decision": "required",
+      "reason": "Each service (content, certification, assessment, course, education, user, payment, notification, salary, financial) persists its domain data in its own speakasap_*_db PostgreSQL database.",
+      "contract": "Per-service PostgreSQL databases via Prisma",
+      "configuration": "DATABASE_URL per service, provisioned via database-server:5432",
+      "failureMode": "A database outage blocks the affected service's reads/writes; other services remain isolated by per-service DB ownership.",
+      "validation": "Per-service Prisma migration status and connectivity checks."
+    },
+    {
+      "capability": "redis",
+      "component": "database-server (db-server-redis)",
+      "decision": "required",
+      "reason": "Services share a Redis cache via database-server:6379 for session/cache data as documented in SYSTEM.md.",
+      "contract": "Shared Redis cache access via database-server:6379",
+      "configuration": "REDIS_URL configured per service",
+      "failureMode": "Cache unavailability degrades performance but does not lose durable data held in PostgreSQL.",
+      "validation": "Redis connectivity smoke checks."
+    },
+    {
+      "capability": "logging",
+      "component": "logging-microservice",
+      "decision": "required",
+      "reason": "All services publish centralized structured logs to logging-microservice:3367.",
+      "contract": "POST structured log payloads per the platform logging contract",
+      "configuration": "Logging service URL configured per service",
+      "failureMode": "Logging outage degrades observability without blocking service operation.",
+      "validation": "Structured log delivery checks."
+    },
+    {
+      "capability": "notifications",
+      "component": "notifications-microservice",
+      "decision": "required",
+      "reason": "notification-service dispatches student/teacher email, Telegram, and WhatsApp notifications via notifications-microservice:3368.",
+      "contract": "Notification dispatch API for transactional student/teacher messages",
+      "configuration": "Notification channel and template configuration in notification-service",
+      "failureMode": "Notification failures are retried/logged; course and payment operations are not blocked by a notification outage.",
+      "validation": "Notification dispatch smoke tests."
+    },
+    {
+      "capability": "ai",
+      "component": "ai-microservice",
+      "decision": "required",
+      "reason": "AI-orchestrated grammar drill generation and validation agents (part of the drilling-assignments feature) call ai-microservice:3380, per SYSTEM.md.",
+      "contract": "AI inference calls for drill generation/validation with constrained content-safety prompts",
+      "configuration": "AI service endpoint and model selection configured per calling service",
+      "failureMode": "AI outage degrades AI-authored drill generation; existing drill content and manual workflows remain available.",
+      "validation": "Targeted AI smoke tests for drill generation/validation agents."
+    },
+    {
+      "capability": "payments",
+      "component": "payments-microservice",
+      "decision": "required",
+      "reason": "payment-service delegates all course payment processing to payments-microservice:3468; this is an explicit business constraint (no direct payment processing in speakasap).",
+      "contract": "Payment initiation/capture requests delegated to payments-microservice",
+      "configuration": "payments-microservice endpoint configured in payment-service",
+      "failureMode": "Payment processing is unavailable until payments-microservice recovers; no local fallback payment path exists by design.",
+      "validation": "Payment delegation smoke tests against payments-microservice."
+    },
+    {
+      "capability": "catalog",
+      "component": "catalog-microservice",
+      "decision": "not-applicable",
+      "reason": "SpeakASAP is an education platform with its own course/content data model; it does not use the e-commerce product catalog domain."
+    },
+    {
+      "capability": "orders",
+      "component": "orders-microservice",
+      "decision": "not-applicable",
+      "reason": "Course enrollment and payment are handled within speakasap and payments-microservice; there is no e-commerce order-processing integration."
+    },
+    {
+      "capability": "warehouse",
+      "component": "warehouse-microservice",
+      "decision": "not-applicable",
+      "reason": "SpeakASAP has no physical inventory or warehouse concern."
+    },
+    {
+      "capability": "invoices",
+      "component": "invoices-microservice",
+      "decision": "not-applicable",
+      "reason": "Course payments are financial transactions handled by payments-microservice; no proforma/tax invoice workflow exists in this repository."
+    },
+    {
+      "capability": "object-storage",
+      "component": "minio-microservice",
+      "decision": "required",
+      "reason": "education-service stores teacher lesson recordings via a MinIO-backed storage service (`education-service/src/lesson-records/storage.service.ts`), and k8s manifests reference the minio-microservice Vault secret.",
+      "contract": "Object storage for lesson-recording audio files via MinIO S3-compatible API",
+      "configuration": "MinIO endpoint and credentials pulled from Vault `secret/prod/minio-microservice` via ESO into education-service",
+      "failureMode": "Storage outage blocks new lesson-recording uploads/downloads; existing course/assessment data is unaffected.",
+      "validation": "Lesson-recording upload/download smoke checks against the storage service."
+    },
+    {
+      "capability": "event-bus",
+      "component": "RabbitMQ",
+      "decision": "not-applicable",
+      "reason": "No RabbitMQ/AMQP client usage was found in the repository; services integrate via direct HTTP calls to other microservices rather than the shared event bus."
+    },
+    {
+      "capability": "docs-rag",
+      "component": "docs-rag-microservice",
+      "decision": "required",
+      "reason": "The repository must remain discoverable through the ecosystem documentation index for bounded-context discovery, as already referenced in AGENTS.md.",
+      "contract": "Direct Git repository ingestion and repository-scoped retrieval",
+      "configuration": "Tracked in the canonical repository registry and docs-RAG index",
+      "failureMode": "When docs-RAG is unavailable, Git remains authoritative per AGENTS.md.",
+      "validation": "Repository documents resolve to the owning repository path and remain discoverable."
+    },
+    {
+      "capability": "monitoring",
+      "component": "monitoring-microservice",
+      "decision": "required",
+      "reason": "Runtime health and rollout readiness for all 12+ services must be observable through the shared monitoring stack.",
+      "contract": "GET /health and Kubernetes readiness probes per service",
+      "configuration": "Deployment probes and health endpoints per service manifest",
+      "failureMode": "An unhealthy service fails rollout readiness and is surfaced to the owner via monitoring.",
+      "validation": "Monitoring stack confirms health/readiness per deployed service."
+    },
+    {
+      "capability": "backups",
+      "component": "backups-microservice",
+      "decision": "required",
+      "reason": "Per-service PostgreSQL databases are backed up via backups-microservice scripts, as referenced in the drilling-assignments rollout docs (`backups-microservice/scripts/backup-db.sh <db-name>`).",
+      "contract": "Scheduled/manual PostgreSQL backups per speakasap_*_db database",
+      "configuration": "backup-db.sh invoked with each service database name",
+      "failureMode": "Missed backups increase data-loss risk on failure; this must be flagged as an operational blocker if backup automation lapses.",
+      "validation": "Backup script execution and restore-drill evidence."
+    }
+  ]
+}

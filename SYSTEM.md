@@ -1,62 +1,88 @@
-# System: speakasap
+# System: SpeakASAP Platform
 
-## Architecture
+```yaml
+id: SYSTEM-speakasap
+status: approved
+owner: project owner
+created: 2026-08-30
+last_updated: 2026-08-30
+completeness_level: validated
+upstream:
+  - BUSINESS.md
+  - docs/01_vision/VISION.md
+downstream:
+  - docs/06_architecture/INTEGRATION_CONTRACT.md
+  - docs/11_tasks/TASK-001-bootstrap-service.md
+```
 
-NestJS microservices (42xx range) · PostgreSQL · Redis · Next.js frontend.
-Services: content, certification, assessment, course, education, user, payment, notification, salary, financial, api-gateway, frontend.
+## purpose
 
-## Deployment
+SpeakASAP is the production NestJS/Next.js microservice platform delivering online language-learning education: content, assessments, certifications, courses, education workflows (including drilling assignments), user accounts, payments, notifications, and teacher payroll.
 
-**Production:** Kubernetes `statex-apps` namespace on k3s. Manifests: `speakasap/k8s/`.
-**Secrets:** Vault (`secret/prod/speakasap`) → ESO → K8s Secrets → pod `envFrom`.
-**Local dev:** `./shared/scripts/vault-env-gen.sh speakasap prod` → `.env` → docker compose.
+## responsibilities
 
-## Integrations
+- Own course, lesson, content, and vocabulary data (content-service)
+- Own assessment and certification workflows and records (assessment-service, certification-service)
+- Own course/education workflows, drill assignments, grading, and AI-orchestrated drill generation/validation (course-service, education-service)
+- Own student/user account data (user-service)
+- Coordinate course payments via payments-microservice (payment-service)
+- Compute teacher salary and recording-duration payroll (salary-service, financial-service)
+- Dispatch student/teacher notifications (notification-service)
+- Expose a single API surface (api-gateway) and web UI (frontend)
 
-| Service | Usage |
-|---------|-------|
-| auth-microservice:3370 | JWT validation |
-| database-server:5432 | PostgreSQL (per-service DBs) |
-| database-server:6379 | Redis (shared cache) |
-| logging-microservice:3367 | Centralized logging |
-| notifications-microservice:3368 | Student emails/Telegram |
-| payments-microservice:3468 | Course payments |
-| ai-microservice:3380 | AI content + education features |
+## non-responsibilities
 
-## Drilling Assignments
+- It does not process payments directly; it delegates to payments-microservice
+- It does not own identity/auth issuance; auth-microservice validates JWTs
+- It is not the legacy Django portal and does not replace its read-only production role during migration
+- It does not fabricate migration completion evidence; every legacy-behavior migration chunk requires intent-preservation evidence
 
-Teacher-assigned and self-serve grammar drills. Spans content (item bank,
-vocabulary, set library), education (assignments, grading, runner,
-AI orchestration), notification (emails), ai-microservice (generator and
-validator agents), and the legacy portal (entry points + SSO handoff).
+## inputs
 
-Plan and per-track evidence: `docs/superpowers/plans/2026-07-29-drilling-assignments/`.
+- Student and teacher account actions via api-gateway/frontend
+- Legacy portal SSO handoff data during migration
+- Course, lesson, and drill content authored by staff
+- Payment events from payments-microservice
+- Teacher lesson recordings uploaded to MinIO-backed storage (education-service)
 
-Live in production. Content bank as of 2026-08-06: 27,619 drill items
-(24,102 grammar · 3,477 seven · 40 AI), 45,077 course-vocabulary rows,
-547 topics.
+## outputs
 
-**Answers never reach the browser** — the runner response carries no `answer` or
-`alternatives` key. Treat that as a hard invariant when touching runner code.
+- Course, assessment, and certification records per student
+- Payment requests to payments-microservice
+- Teacher salary/payroll calculations
+- Student/teacher notifications (email/Telegram/WhatsApp)
+- Structured logs to logging-microservice
 
-## Database Conventions
+## dependencies
 
-`content-service` and `education-service` both map models to snake_case tables
-via Prisma `@@map`. Physical table names are snake_case; the Prisma Client API
-stays camelCase (`prisma.drillItem` → `drill_item`).
+- PostgreSQL per-service databases (speakasap_*_db) via database-server:5432
+- Shared Redis cache via database-server:6379
+- auth-microservice:3370 for JWT validation
+- logging-microservice:3367 for centralized logs
+- notifications-microservice:3368 for student/teacher notifications
+- payments-microservice:3468 for course payments
+- ai-microservice:3380 for AI content and drill generation/validation features
+- minio-microservice for lesson-recording object storage (education-service `storage.service.ts`)
+- backups-microservice for per-database backups
 
-Renaming a table here needs a **hand-written** `ALTER TABLE … RENAME` migration.
-Prisma's `migrate diff` renders a rename as `DROP TABLE` + `CREATE TABLE`, which
-silently destroys data. See `content-service/prisma/migrations/20260806143845_snake_case_table_names`.
+## upstream traceability
 
-## Current State
+This system implements the approved intent in `BUSINESS.md` and the product vision in `docs/01_vision/VISION.md`.
 
-Stage: active — Phases 1–5 complete, all services deployed on K8s.
-Drilling assignments live; rollout Track K.4 (browser reproduction) outstanding.
+## downstream artifacts
 
-## Known Issues
+- `docs/06_architecture/INTEGRATION_CONTRACT.md`
+- `docs/11_tasks/TASK-001-bootstrap-service.md`
+- `docs/12_validation/VAL-TASK-001-bootstrap-service.md`
+- `docs/21_execution_plans/EP-TASK-001-bootstrap-service.md`
 
-- `content-service` test `src/drills/contracts.spec.ts` fails: it resolves
-  `../../../shared/scripts/sync-drill-contracts.sh`, which lands at
-  `speakasap/shared/`, but the script lives at the ecosystem root
-  `Github/shared/`. Pre-existing path bug, unrelated to the contracts themselves.
+## validation criteria
+
+- Service health passes `GET /health` for every deployed service
+- Drill runner responses never leak `answer`/`alternatives` (hard invariant, enforced by contract tests)
+- Migration chunks carry recorded intent-preservation evidence in `docs/orchestrator/INTENT_PRESERVATION_SYSTEM.md`
+- Per-service Jest suites pass for changed services
+
+## open questions
+
+- The current migration cadence follows goal-by-goal orchestrator planning (docs/orchestrator/GOALS.md); no fixed calendar completion date for the full legacy-portal migration is recorded in this repository.

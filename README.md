@@ -1,43 +1,60 @@
 # SpeakASAP Platform
 
-Online education platform — language learning courses, assessments, certifications, payments.
+## status
 
-**Stack:** NestJS microservices (42xx range) · PostgreSQL · Redis · K8s (`statex-apps`)
-**Deployment:** Kubernetes — manifests in `speakasap/k8s/`. Secrets via Vault → ESO → K8s Secrets.
-**Local dev:** `vault-env-gen.sh speakasap prod` → `.env`, then `docker compose up`.
+SpeakASAP is an active production education platform on Kubernetes. This repository is the new NestJS/Next.js microservice monorepo replacing the legacy `speakasap-portal` Django app; migration is in progress under the intent-preservation orchestrator pack in `docs/orchestrator/`.
 
-## Services & Ports
+## documentation authority
 
-| Service | Port | DB |
-|---------|------|----|
-| content-service | 4201 | speakasap_content_db |
-| certification-service | 4202 | speakasap_certification_db |
-| assessment-service | 4203 | speakasap_assessment_db |
-| course-service | 4205 | speakasap_course_db |
-| education-service | 4206 | speakasap_education_db |
-| user-service | 4207 | speakasap_user_db |
-| payment-service | 4208 | speakasap_payment_db |
-| notification-service | 4209 | speakasap_notification_db |
-| api-gateway | 4210 | — |
-| frontend | 4211 | — |
-| salary-service | 4212 | speakasap_salary_db |
-| financial-service | 4213 | speakasap_financial_db |
+- `BUSINESS.md` for approved product intent
+- `SYSTEM.md` for architecture and integration facts
+- `docs/orchestrator/*` for the migration orchestrator pack (MASTER_PROMPT, GOALS, PLAN, STATE.json)
+- `AGENTS.md` for repository agent instructions
+- `docs/01_vision/VISION.md` for durable product direction
 
-## Shared integrations
+## capabilities
 
-| Service | Purpose |
-|---------|---------|
-| auth-microservice:3370 | JWT auth |
-| database-server:5432/6379 | PostgreSQL + Redis |
-| logging-microservice:3367 | Centralized logs |
-| notifications-microservice:3368 | Email/Telegram/WhatsApp |
-| payments-microservice:3468 | Payment processing |
-| ai-microservice:3380 | AI features |
+- Language-learning course delivery, lessons and content management (content-service)
+- Assessments and certifications (assessment-service, certification-service)
+- Course/education workflows including teacher-assigned and self-serve grammar drills (course-service, education-service)
+- Student/user account management (user-service)
+- Course payments (payment-service, via payments-microservice)
+- Salary and recording-duration payroll for teachers (salary-service, financial-service)
+- Student notifications via email/Telegram/WhatsApp (notification-service)
+- Unified API entry point (api-gateway) and web frontend (frontend)
 
-## Key docs
+## interfaces
 
-- Secrets: `../shared/docs/VAULT.md`
-- K8s ops: `../shared/docs/KUBERNETES_SETUP_GUIDE.md`
-- Deploy standard: `../shared/docs/DEPLOY_STANDARD.md`
-- Port allocation: `docs/infrastructure/PORT_ALLOCATION.md`
-- API gateway contract: `docs/refactoring/GATEWAY_API_CONTRACT.md`
+- api-gateway on port 4210 as the unified HTTP entry point
+- frontend (Next.js) on port 4211
+- Per-service REST APIs on ports 4201-4213 (see Services & Ports table)
+- Per-service PostgreSQL databases (speakasap_*_db) via database-server
+- Shared Redis cache via database-server
+
+## development
+
+- Stack: NestJS microservices (42xx port range), Next.js frontend, PostgreSQL, Redis
+- Local secrets: `./shared/scripts/vault-env-gen.sh speakasap prod` generates `.env`
+- Local run: `docker compose up` after `.env` generation
+- Per-service tests run with each service's own Jest config; see `jest.config.base.js`
+
+## configuration
+
+- Runtime namespace: `statex-apps`
+- Secrets: Vault `secret/prod/speakasap` -> External Secrets Operator -> Kubernetes Secrets -> pod `envFrom`
+- Manifests: `k8s/services/*.yaml`
+- Deploy config: `deploy.config.sh`
+
+## deployment
+
+- Deploy command: `./scripts/deploy.sh` (or repo-standard `shared/scripts/deploy.sh` from the ecosystem root)
+- Target: Kubernetes `statex-apps` namespace on the single-node `alfares` k3s cluster
+- Rollout restart per-service: `kubectl rollout restart deployment/<svc> -n statex-apps`
+- Deployment is serialized via the shared ecosystem deploy lock
+
+## health and observability
+
+- Health endpoint: `GET /health` on each service and on api-gateway
+- Structured logging via `logging-microservice:3367`
+- Notifications/escalation via `notifications-microservice:3368`
+- Database backups via `backups-microservice` (`backup-db.sh <db-name>` per service database)
