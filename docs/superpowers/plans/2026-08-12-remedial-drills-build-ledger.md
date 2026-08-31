@@ -1,3 +1,9 @@
+---
+status: review
+owner: repository-owner
+last_updated: 2026-08-31
+---
+
 # SDD ledger — plan: docs/superpowers/plans/2026-08-12-remedial-drills-error-analysis.md
 
 Repos: speakasap (education-service, frontend) + ai-microservice (Task 6).

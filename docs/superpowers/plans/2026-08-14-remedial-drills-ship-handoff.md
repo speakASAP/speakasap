@@ -1,3 +1,9 @@
+---
+status: review
+owner: repository-owner
+last_updated: 2026-08-31
+---
+
 # Работа над ошибками — Ship Handoff
 
 > **For the agent picking this up:** the feature is fully built, reviewed and green. Four

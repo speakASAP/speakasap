@@ -1,3 +1,9 @@
+---
+status: review
+owner: repository-owner
+last_updated: 2026-08-31
+---
+
 # Lesson API — Single Source of Truth Implementation Plan
 
 > **STATUS 2026-08-09 (updated mid-execution).** Tasks 1-9 are implemented and

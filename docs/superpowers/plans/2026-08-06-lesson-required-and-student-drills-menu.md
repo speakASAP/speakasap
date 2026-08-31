@@ -1,3 +1,9 @@
+---
+status: review
+owner: repository-owner
+last_updated: 2026-08-31
+---
+
 # Lesson-Required Assignments + Student Drills Menu
 
 **Date:** 2026-08-06 · **Owner decision:** full scope, all three parts
