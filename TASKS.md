@@ -2,13 +2,16 @@
 
 This file is the concise human-readable work queue. Detailed task contracts live under `docs/11_tasks/` and execution records remain linked there.
 
-## Active
+## active
+
 - See `docs/orchestrator/STATE.json` (`activeGoal`/`activeChunk`) for the live migration goal; root `TASKS.md` mirrors detailed per-goal task history.
 
-## Ready Next
+## ready next
+
 - Continue the orchestrator-driven migration cadence per `docs/orchestrator/GOALS.md` and `docs/orchestrator/PLAN.md`.
 
-## Blocked
+## blocked
+
 - None recorded at IPS adoption time beyond the pre-existing `content-service` test path bug noted in `SYSTEM.md` (Known Issues).
 
 ## completed
