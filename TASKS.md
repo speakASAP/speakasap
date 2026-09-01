@@ -7,6 +7,8 @@ This file is the concise human-readable work queue. Detailed task contracts live
 
 ## Ready Next
 - Continue the orchestrator-driven migration cadence per `docs/orchestrator/GOALS.md` and `docs/orchestrator/PLAN.md`.
+- Continue orchestrator-driven migration per docs/orchestrator/GOALS.md and docs/orchestrator/PLAN.md
+- IPS adoption profile completed 2026-08-30; run the planning validator before further scope changes
 
 ## Blocked
 - None recorded at IPS adoption time beyond the pre-existing `content-service` test path bug noted in `SYSTEM.md` (Known Issues).

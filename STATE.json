@@ -1,20 +1,4 @@
 {
-  "schemaVersion": 1,
-  "project": "speakasap",
-  "lifecycle": "active",
-  "health": "healthy",
-  "activeTask": "Goal 9 - Salary And Recording-Duration Payroll Migration (see docs/orchestrator/STATE.json for live chunk detail)",
-  "lastUpdated": "2026-08-30",
-  "deployment": {
-    "status": "commit-triggered-auto-queue",
-    "image": null,
-    "revision": null
-  },
-  "blockers": [],
-  "followUps": [
-    "Continue orchestrator-driven migration per docs/orchestrator/GOALS.md and docs/orchestrator/PLAN.md",
-    "IPS adoption profile completed 2026-08-30; run the planning validator before further scope changes"
-  ],
   "schema_version": "1.0",
   "repository": "speakasap",
   "service": {
