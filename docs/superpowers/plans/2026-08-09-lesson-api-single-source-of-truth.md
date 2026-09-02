@@ -1,8 +1,10 @@
 ---
-status: review
+status: done
 owner: repository-owner
-last_updated: 2026-08-31
+last_updated: 2026-09-02
 ---
+
+<!-- VERIFIED DONE: 9be52b1 records Tasks 10-11 complete; production checks passed and copied lesson tables were removed. -->
 
 # Lesson API — Single Source of Truth Implementation Plan
 
@@ -97,7 +99,7 @@ Two features read the frozen copy and break for any lesson after that date:
 - Consumes: `django.conf.settings.PORTAL_INBOUND_API_TOKEN`
 - Produces: `InternalTokenPermission` — a DRF `BasePermission` subclass with `has_permission(self, request, view) -> bool`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # education/internal_api/tests/test_auth.py
@@ -138,12 +140,12 @@ class InternalTokenPermissionTests(TestCase):
         self.assertFalse(self.permission.has_permission(self.request_with('anything'), None))
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `rtk python manage.py test education.internal_api.tests.test_auth -v 2`
 Expected: FAIL — `ImportError: No module named 'education.internal_api'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # education/internal_api/__init__.py
@@ -199,12 +201,12 @@ class InternalTokenPermission(BasePermission):
         return True
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `rtk python manage.py test education.internal_api.tests.test_auth -v 2`
 Expected: PASS — 4 tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add education/internal_api/__init__.py education/internal_api/auth.py education/internal_api/tests/
@@ -228,7 +230,7 @@ git commit -m "feat(internal-api): add internal token permission guard"
 
 Field names are **snake_case** matching Django. The TypeScript client maps them to camelCase — do not pre-camelize here.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # education/internal_api/tests/test_serializers.py
@@ -259,12 +261,12 @@ class LessonWriteSerializerTests(TestCase):
         self.assertFalse(s.is_valid())
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `rtk python manage.py test education.internal_api.tests.test_serializers -v 2`
 Expected: FAIL — `ImportError: cannot import name 'LessonWriteSerializer'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # education/internal_api/serializers.py
@@ -320,12 +322,12 @@ class RosterSerializer(serializers.Serializer):
     student_ids = serializers.ListField(child=serializers.IntegerField())
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `rtk python manage.py test education.internal_api.tests.test_serializers -v 2`
 Expected: PASS — 4 tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add education/internal_api/serializers.py education/internal_api/tests/test_serializers.py
@@ -351,7 +353,7 @@ git commit -m "feat(internal-api): add lesson serializers"
 
 `404` means the lesson genuinely does not exist. It must be distinguishable from a transport failure — the client treats them differently.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # education/internal_api/tests/test_views.py
@@ -396,12 +398,12 @@ class LessonDetailViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `rtk python manage.py test education.internal_api.tests.test_views -v 2`
 Expected: FAIL — 404 routing error / `ImportError`, because the URLs are not mounted yet
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # education/internal_api/views.py
@@ -522,12 +524,12 @@ Then add exactly one line to `rest/urls.py`, after the `demo` include at line 50
 
 **Verify the mount path.** `rest/urls.py` is included under some prefix by `speakasap_site/urls.py`. Run `rtk rg -nE "include\('rest\.urls'\)" speakasap_site/urls.py` and confirm the resulting full path is `/api/v1/internal/lessons/...`. If the prefix differs, record the real base path here and use it in Task 5's `PORTAL_API_URL` — do not guess.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `rtk python manage.py test education.internal_api -v 2`
 Expected: PASS — all tests across the three test modules
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add education/internal_api/views.py education/internal_api/urls.py education/internal_api/tests/test_views.py rest/urls.py
@@ -546,7 +548,7 @@ git commit -m "feat(internal-api): expose lesson detail and roster endpoints"
 **Interfaces:**
 - Produces: `settings.PORTAL_INBOUND_API_TOKEN`, read from the `PORTAL_INBOUND_API_TOKEN` env var, defaulting to `''`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # education/internal_api/tests/test_settings.py
@@ -564,12 +566,12 @@ class InternalTokenSettingTests(TestCase):
         self.assertIsInstance(settings.PORTAL_INBOUND_API_TOKEN, str)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `rtk python manage.py test education.internal_api.tests.test_settings -v 2`
 Expected: FAIL — `AssertionError: False is not true` (setting undefined)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `portal/settings.py`, directly below the existing `DRILLS_CLIENT_TIMEOUT` line (~line 93):
 
@@ -588,12 +590,12 @@ Add to `.env.example`:
 PORTAL_INBOUND_API_TOKEN=
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `rtk python manage.py test education.internal_api -v 2`
 Expected: PASS — all internal_api tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add portal/settings.py .env.example education/internal_api/tests/test_settings.py
@@ -619,7 +621,7 @@ git commit -m "feat(internal-api): read PORTAL_INBOUND_API_TOKEN from environmen
 
 Two distinct error classes is the point of this task: "the lesson does not exist" and "I could not reach the portal" must never collapse into one condition, and neither may be represented by an empty result.
 
-- [ ] **Step 1: Write the implementation** (types + errors, no test cycle of their own)
+- [x] **Step 1: Write the implementation** (types + errors, no test cycle of their own)
 
 ```typescript
 // education-service/src/lesson-client/lesson-client.types.ts
@@ -685,12 +687,12 @@ export class LessonServiceUnavailableError extends Error {
 }
 ```
 
-- [ ] **Step 2: Verify it compiles**
+- [x] **Step 2: Verify it compiles**
 
 Run: `cd education-service && ./node_modules/.bin/tsc --noEmit -p tsconfig.json`
 Expected: no errors
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add education-service/src/lesson-client/lesson-client.types.ts
@@ -715,7 +717,7 @@ git commit -m "feat(lesson-client): add portal lesson types and error classes"
 - Produces: `LessonClientModule` exporting `LessonClientService`
 - Env: `PORTAL_API_URL`, `PORTAL_INBOUND_API_TOKEN`, `PORTAL_CLIENT_TIMEOUT_MS` (default `5000`)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // education-service/src/lesson-client/lesson-client.service.spec.ts
@@ -796,12 +798,12 @@ describe('LessonClientService', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd education-service && npx jest src/lesson-client --silent`
 Expected: FAIL — `Cannot find module './lesson-client.service'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```typescript
 // education-service/src/lesson-client/lesson-client.service.ts
@@ -956,16 +958,16 @@ import { LessonClientService } from './lesson-client.service';
 export class LessonClientModule {}
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd education-service && npx jest src/lesson-client --silent`
 Expected: PASS — 7 tests
 
-- [ ] **Step 5: Verify the tests fail when they should**
+- [x] **Step 5: Verify the tests fail when they should**
 
 Temporarily change the `404` branch to `return {} as Record<string, unknown>;` and re-run. The `raises LessonNotFoundError on 404` test MUST fail. Revert the change. A green check that never ran is worse than a red one.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add education-service/src/lesson-client/
@@ -989,7 +991,7 @@ git commit -m "feat(lesson-client): add portal lesson HTTP client"
 
 **Behavior change — this is the fix.** `listForLesson` currently returns an empty roster and logs a warning when the lesson is missing. It must now propagate the error. `listForTeacher` keeps its existing prisma-free path only if it does not touch lesson tables — it does (`roster.service.ts:73`), so it must also move to the portal, or be restricted to lesson-scoped use. Implement lesson-scoped first; see Task 9 for `listForTeacher`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // education-service/src/drills/teacher/roster.service.spec.ts (add to the existing file)
@@ -1031,12 +1033,12 @@ describe('TeacherRosterService.listForLesson via portal', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd education-service && npx jest src/drills/teacher/roster.service --silent`
 Expected: FAIL — constructor arity mismatch / `getRoster is not a function`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Replace the constructor and `listForLesson` in `roster.service.ts`:
 
@@ -1129,17 +1131,17 @@ In `drills.module.ts`, add `LessonClientModule` to `imports`.
 
 **Note:** `pageStudents` returns `groups: []`; `listForLesson` overwrites it with the portal's groups. Keep that ordering — spreading `page` first and setting `groups` after is what makes it correct.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd education-service && npx jest src/drills --silent`
 Expected: PASS — including the three new tests. Pre-existing tests that asserted the empty-roster fallback will fail; those assertions encoded the bug and must be updated to expect a raised error.
 
-- [ ] **Step 5: Typecheck**
+- [x] **Step 5: Typecheck**
 
 Run: `cd education-service && ./node_modules/.bin/tsc --noEmit -p tsconfig.json`
 Expected: no errors
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add education-service/src/drills/
@@ -1163,7 +1165,7 @@ git commit -m "fix(drills): read lesson roster from portal, raise instead of emp
 
 **Paid-access caveat.** Line 440 distinguishes `hasAnyAccess` from `hasPaidAccess` using `education_studentaccess.is_paid`, which the roster endpoint does not carry. Extend the portal roster response with `paid_student_ids` (mirroring `student_ids`) and `PortalRoster.paidStudentIds`, then map `hasPaidAccess` to it. Add the field to `RosterSerializer` in Task 2's file and to the view in Task 3's file before starting this task — do not approximate paid access with `student_ids`, as that would grant playback to unpaid students.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // education-service/src/lesson-records/lesson-records.service.spec.ts (add)
@@ -1198,12 +1200,12 @@ describe('LessonRecordsService lesson sourcing', () => {
 
 `buildService` is a helper in the existing spec file; extend it to accept a `lessons` stub. If it does not exist, write it to construct `LessonRecordsService` with stubbed prisma/storage/lessons dependencies.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd education-service && npx jest src/lesson-records --silent`
 Expected: FAIL — `loadLessonAndRecord` still calls `prisma.lesson.findUnique`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Replace `loadLessonAndRecord`:
 
@@ -1249,17 +1251,17 @@ Replace the `tx.lesson.update` block (line 195) — the lesson write now goes to
 
 Add `LessonClientModule` to `lesson-records.module.ts` imports and inject `LessonClientService`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd education-service && npx jest src/lesson-records --silent`
 Expected: PASS
 
-- [ ] **Step 5: Typecheck**
+- [x] **Step 5: Typecheck**
 
 Run: `cd education-service && ./node_modules/.bin/tsc --noEmit -p tsconfig.json`
 Expected: no errors
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add education-service/src/lesson-records/
@@ -1280,13 +1282,13 @@ git commit -m "fix(lesson-records): source lessons from portal instead of copied
 
 These modules read the same frozen tables and are serving stale data today. They are not part of the reported breakage, so they are handled after drills and lesson-records work.
 
-- [ ] **Step 1: Inventory what each caller needs**
+- [x] **Step 1: Inventory what each caller needs**
 
 Run: `rtk rg -nE 'prisma\.(lesson|studentCourse|studentAccess|homework|group)' education-service/src --include='*.ts' | rg -vE 'spec|lessonRecord'`
 
 For each hit, record in this plan file which portal endpoint satisfies it. If a caller needs a query the portal API does not expose (for example `internal-salary` aggregating lessons by teacher across a date range), add that endpoint to `education/internal_api/` following Task 3's pattern, with its own tests, rather than reinstating a database read.
 
-- [ ] **Step 2: Decide `listForTeacher`**
+- [x] **Step 2: Decide `listForTeacher`**
 
 `listForTeacher` (roster.service.ts:73) queries `lesson.findMany({where: {teacherId}})` — a cross-lesson query with no portal endpoint yet. Either:
 - (a) add `GET /api/v1/internal/teachers/<id>/roster/` to the portal, or
@@ -1294,16 +1296,16 @@ For each hit, record in this plan file which portal endpoint satisfies it. If a 
 
 `drills.controller.ts:145` calls it when `lessonUuid` is absent. Check whether the teacher UI ever omits `lessonUuid`; if it always sends one, prefer (b) — deleting code beats adding an endpoint before sunset.
 
-- [ ] **Step 3: Implement the chosen path for each module, with tests**
+- [x] **Step 3: Implement the chosen path for each module, with tests**
 
 Follow the Task 7 pattern exactly: failing test asserting the error propagates, then the portal call, then typecheck, then commit per module.
 
-- [ ] **Step 4: Verify no prisma lesson reads remain**
+- [x] **Step 4: Verify no prisma lesson reads remain**
 
 Run: `rtk rg -nE 'prisma\.(lesson|studentCourse|studentAccess|homework|group)\.' education-service/src --include='*.ts' | rg -vE 'spec|lessonRecord'`
 Expected: no output. `prisma.lessonRecord` and `prisma.lessonRecordPart` legitimately remain — those tables are owned by this service.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add education-service/src/
@@ -1324,7 +1326,7 @@ git commit -m "refactor(education): move remaining lesson readers to portal API"
 
 **This task performs destructive production changes. Do not run it until Tasks 1-9 are merged, the portal API is deployed by the owner, and Task 11's verification has passed against production.**
 
-- [ ] **Step 1: Edit the schema**
+- [x] **Step 1: Edit the schema**
 
 Remove these six models entirely: `Lesson`, `StudentCourse`, `StudentAccess`, `Group`, `GroupStudent`, `Homework`. Keep `LessonRecord` and `LessonRecordPart` — this service owns those.
 
@@ -1344,7 +1346,7 @@ Delete the `lesson` and `studentCourse` relation fields. Keep the `batch` relati
 
 Also remove `drillAssignments DrillAssignment[]` back-relations from the deleted models (they vanish with the models) and `studentAccesses`/`homeworks`/`lessonRecord` relations that pointed at `Lesson`. `LessonRecord.lessonUuid` becomes a bare column too, for the same reason.
 
-- [ ] **Step 2: Generate the migration OFFLINE**
+- [x] **Step 2: Generate the migration OFFLINE**
 
 Never `prisma migrate dev`. Run:
 
@@ -1358,7 +1360,7 @@ npx prisma migrate diff \
 
 Inspect `/tmp/claude-1000/drop-legacy.sql`. It must contain only: `ALTER TABLE ... DROP CONSTRAINT` for the drill FKs, and `DROP TABLE` for the six legacy tables. If it contains `ALTER COLUMN "updated" DROP DEFAULT`, strip that line — it is known drift documented at `schema.prisma:116`.
 
-- [ ] **Step 3: Dry-run against a scratch database**
+- [x] **Step 3: Dry-run against a scratch database**
 
 Offline-generated migrations are unexecuted code. Take a schema-only dump, load it into a scratch database, apply the migration there, and confirm it succeeds before it goes anywhere near production.
 
@@ -1379,19 +1381,19 @@ SELECT count(*), count(DISTINCT student_id), count(DISTINCT teacher_id) FROM dri
 
 Expected: `6 | 1 | 1`. **If the counts differ, STOP and ask the owner** — real student data may have arrived since 2026-08-09.
 
-- [ ] **Step 5: Apply to production**
+- [x] **Step 5: Apply to production**
 
 ```bash
 cd education-service && npm run prisma:migrate:deploy
 ```
 
-- [ ] **Step 6: Delete the ETL script**
+- [x] **Step 6: Delete the ETL script**
 
 ```bash
 git rm education-service/scripts/migrate-education-from-legacy.py
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add education-service/prisma/
@@ -1406,7 +1408,7 @@ git commit -m "refactor(education): drop copied lesson tables and cross-database
 
 The originally reported lesson is `f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477` (student 215116, start 2026-08-12, teacher_id 182, student_course `43c00027-cf75-4d60-8775-da38dea408a1`). It exists in portal_db and did not exist in `speakasap_education_db` — that is the whole bug.
 
-- [ ] **Step 1: Confirm the portal serves it**
+- [x] **Step 1: Confirm the portal serves it**
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' \
@@ -1416,7 +1418,7 @@ curl -s -o /dev/null -w '%{http_code}\n' \
 
 Expected: `200`. A `401` means the token does not match; a `404` means the mount path from Task 3 Step 3 is wrong.
 
-- [ ] **Step 2: Confirm the roster is non-empty**
+- [x] **Step 2: Confirm the roster is non-empty**
 
 ```bash
 curl -s -H "x-internal-token: $PORTAL_INBOUND_API_TOKEN" \
@@ -1425,23 +1427,23 @@ curl -s -H "x-internal-token: $PORTAL_INBOUND_API_TOKEN" \
 
 Expected: `teacher_id: 182` and a non-empty `student_ids`.
 
-- [ ] **Step 3: Reproduce the original failing scenario in the browser**
+- [x] **Step 3: Reproduce the original failing scenario in the browser**
 
 Open `https://speakasap.com/teacher/students/215116/lessons/f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477/`, start the drill wizard, and confirm the student picker lists students. This is the exact scenario the owner reported; a passing unit test is not a substitute.
 
-- [ ] **Step 4: Confirm a future lesson works**
+- [x] **Step 4: Confirm a future lesson works**
 
 Pick any lesson with `start > now()` from portal_db and repeat Step 3. The original complaint was specifically that future lessons must work.
 
-- [ ] **Step 5: Confirm lesson-records works for a post-June lesson**
+- [x] **Step 5: Confirm lesson-records works for a post-June lesson**
 
 Open the teacher record view for a lesson created after 2026-06-26 and confirm it loads instead of `Lesson not found`.
 
-- [ ] **Step 6: Confirm failures are loud**
+- [x] **Step 6: Confirm failures are loud**
 
 Temporarily set `PORTAL_API_URL` to an unreachable host, restart the pod, and confirm the drill wizard surfaces an explicit error rather than an empty student list. Restore the setting afterwards. This verifies the fix for the actual root-cause class, not just this instance.
 
-- [ ] **Step 7: Record the outcome**
+- [x] **Step 7: Record the outcome**
 
 Update `TASKS.md` and `STATE.json` with what was verified and what remains.
 

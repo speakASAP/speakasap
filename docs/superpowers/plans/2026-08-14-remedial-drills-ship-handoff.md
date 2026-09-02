@@ -1,8 +1,10 @@
 ---
-status: review
+status: blocked
 owner: repository-owner
-last_updated: 2026-08-31
+last_updated: 2026-09-02
 ---
+
+<!-- BLOCKED: 21e89d6 says the feature is built/reviewed/green, while migration, taxonomy seed, and deployment remain owner actions; no later completion record exists here. -->
 
 # Работа над ошибками — Ship Handoff
 

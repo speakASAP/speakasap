@@ -1,8 +1,10 @@
 ---
-status: review
+status: blocked
 owner: repository-owner
-last_updated: 2026-08-31
+last_updated: 2026-09-02
 ---
+
+<!-- BLOCKED: Code and focused tests are present, but the ship handoff (21e89d6) deferred migration, taxonomy seed, and deployment; this checkout has no evidence those gates completed. -->
 
 # Работа над ошибками — Error Analysis and Remedial Drills Implementation Plan
 

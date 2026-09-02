@@ -1,8 +1,10 @@
 ---
-status: review
+status: blocked
 owner: repository-owner
-last_updated: 2026-08-31
+last_updated: 2026-09-02
 ---
+
+<!-- BLOCKED: Implementation and review are complete, but 21e89d6 explicitly deferred migration, taxonomy seed, and deploy to the owner; no later completion evidence exists here. -->
 
 # SDD ledger — plan: docs/superpowers/plans/2026-08-12-remedial-drills-error-analysis.md
 

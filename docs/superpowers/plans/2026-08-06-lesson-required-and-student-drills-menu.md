@@ -1,8 +1,10 @@
 ---
-status: review
+status: blocked
 owner: repository-owner
-last_updated: 2026-08-31
+last_updated: 2026-09-02
 ---
+
+<!-- BLOCKED: Parts 1-2 are live in speakasap (098d74f); Part 3 is portal-side and its owner-run deployment is not evidenced in this checkout. -->
 
 # Lesson-Required Assignments + Student Drills Menu
 
