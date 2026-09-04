@@ -1,6 +1,6 @@
 import { getAuthSession } from '@/lib/auth-session';
 import { getGatewayBaseUrl } from '@/lib/gateway';
-import { redirectToLogin } from '@/lib/drills/auth-redirect';
+import { redirectToLogin } from '@/lib/auth-redirect';
 import type {
   AssignFromSetRequest,
   AssignFromSetResponse,

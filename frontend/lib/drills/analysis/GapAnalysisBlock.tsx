@@ -13,7 +13,7 @@ import {
   type RemedialCreationResult,
 } from '@/lib/drills/analysis/contracts';
 import { GapCard } from './GapCard';
-import { isRedirectingToLogin } from '@/lib/drills/auth-redirect';
+import { isRedirectingToLogin } from '@/lib/auth-redirect';
 
 const POLL_INTERVAL_MS = 4000;
 

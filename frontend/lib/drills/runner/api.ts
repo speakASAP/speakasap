@@ -1,6 +1,6 @@
 import { getAuthSession } from '@/lib/auth-session';
 import { getGatewayBaseUrl } from '@/lib/gateway';
-import { redirectToLogin } from '@/lib/drills/auth-redirect';
+import { redirectToLogin } from '@/lib/auth-redirect';
 import type {
   CheckBlankRequest,
   CheckBlankResponse,
@@ -33,7 +33,7 @@ export class DrillRunnerError extends Error {
   readonly blockingAssignmentUuid: string | null;
   /**
    * True when this rejection has already been answered by sending the browser to the
-   * login screen, so the caller should render nothing. See `lib/drills/auth-redirect`.
+   * login screen, so the caller should render nothing. See `lib/auth-redirect`.
    */
   readonly redirectingToLogin: boolean;
 
@@ -105,7 +105,7 @@ async function request<T>(path: string, init: { method?: string; body?: unknown 
 
   if (response.status === 401) {
     // Expired or invalid token. The student cannot recover from this on the page, so they
-    // go to login and return to this same drill. See `lib/drills/auth-redirect`.
+    // go to login and return to this same drill. See `lib/auth-redirect`.
     redirectToLogin();
     throw new DrillRunnerError(
       401,

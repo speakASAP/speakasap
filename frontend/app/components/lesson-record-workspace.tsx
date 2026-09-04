@@ -87,12 +87,16 @@ export function LessonRecordWorkspace({ role, initialLessonUuid }: LessonRecordW
     setBusy(true);
     setError(null);
     try {
+      // `keepUnauthorized` because this workspace reports what each gateway route answered,
+      // status included — redirecting on 401 would throw away the result the user is here
+      // to read. `login()` above is the deliberate way back.
       const response = await callGateway({
         path,
         method: init?.method,
         body: init?.body,
         headers: init?.headers,
         token: init?.tokenRequired === false ? undefined : token,
+        keepUnauthorized: true,
       });
       if (response.status === 401 || response.status === 403) {
         clearAuthSession();

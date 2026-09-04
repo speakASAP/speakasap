@@ -16,7 +16,7 @@ import {
 import { SentenceEditor, type EditedSentence } from '@/lib/drills/teacher/SentenceEditor';
 import { parseToWords } from '@/lib/drills/sentence-editing';
 import { GapAnalysisBlock } from '@/lib/drills/analysis/GapAnalysisBlock';
-import { isRedirectingToLogin } from '@/lib/drills/auth-redirect';
+import { isRedirectingToLogin } from '@/lib/auth-redirect';
 
 /**
  * What a student has done with one drill, and the teacher's chance to correct it.

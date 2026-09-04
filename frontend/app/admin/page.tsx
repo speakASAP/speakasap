@@ -34,7 +34,11 @@ export default function AdminPage() {
       login();
       return;
     }
-    const response = await callGateway({ path, token });
+    // `keepUnauthorized` because this page exists to show what a gateway route answered.
+    // Redirecting on 401 would navigate away from the very answer the operator opened the
+    // console to read — so the 401 is reported here, and signing in again is their choice
+    // via the button above.
+    const response = await callGateway({ path, token, keepUnauthorized: true });
     if (response.status === 401 || response.status === 403) {
       clearAuthSession();
       setToken(null);

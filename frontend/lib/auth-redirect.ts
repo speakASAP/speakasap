@@ -3,11 +3,15 @@ import { buildHostedAuthLoginUrl, clearAuthSession } from '@/lib/auth-session';
 /**
  * What to do when the gateway says the caller is not authenticated.
  *
- * Both drill API clients — the teacher one and the runner one — used to surface a 401 as
- * an ordinary failed request, so an expired token rendered as a red "Invalid token" box
- * with no way forward: the page could not load, and nothing on it offered a way to sign in
- * again. The token is dead, the browser is holding it, and only the user can fix that by
- * logging in, so the page sends them to do exactly that.
+ * Every API client here used to surface a 401 as an ordinary failed request, so an expired
+ * token rendered as a red "Invalid token" box with no way forward: the page could not
+ * load, and nothing on it offered a way to sign in again. The token is dead, the browser
+ * is holding it, and only the user can fix that by logging in, so the page sends them to
+ * do exactly that.
+ *
+ * Shared by the drill clients (`lib/drills/**`) and the gateway client
+ * (`lib/api-client.ts`), which is why it sits at the top of `lib/` rather than under any
+ * one feature.
  *
  * The stale session is cleared FIRST. Leaving it in localStorage means the login flow
  * returns to a page that immediately reads the same dead token back out and bounces again.

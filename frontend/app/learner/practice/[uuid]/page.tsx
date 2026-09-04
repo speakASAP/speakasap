@@ -11,7 +11,7 @@ import { GapCard } from '@/lib/drills/analysis/GapCard';
 import { GapAnalysisBlock } from '@/lib/drills/analysis/GapAnalysisBlock';
 import { DrillRunner } from '@/lib/drills/runner/DrillRunner';
 import { fetchRunner } from '@/lib/drills/runner/api';
-import { isRedirectingToLogin } from '@/lib/drills/auth-redirect';
+import { isRedirectingToLogin } from '@/lib/auth-redirect';
 
 /**
  * One assignment, running.
