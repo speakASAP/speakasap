@@ -1,5 +1,6 @@
 import { getAuthSession } from '@/lib/auth-session';
 import { getGatewayBaseUrl } from '@/lib/gateway';
+import { redirectToLogin } from '@/lib/drills/auth-redirect';
 import type {
   AssignFromSetRequest,
   AssignFromSetResponse,
@@ -44,12 +45,25 @@ export type {
 export class DrillApiError extends Error {
   readonly status: number;
   readonly code: DrillErrorCode | null;
+  /**
+   * True when this rejection has already been answered by sending the browser to the
+   * login screen, so the caller should render nothing. Not folded into `code`: that union
+   * is the set of codes education-service itself emits, and a client-only sentinel in it
+   * would look like a server contract to the next reader.
+   */
+  readonly redirectingToLogin: boolean;
 
-  constructor(status: number, code: DrillErrorCode | null, message: string) {
+  constructor(
+    status: number,
+    code: DrillErrorCode | null,
+    message: string,
+    redirectingToLogin = false,
+  ) {
     super(message);
     this.name = 'DrillApiError';
     this.status = status;
     this.code = code;
+    this.redirectingToLogin = redirectingToLogin;
   }
 }
 
@@ -120,6 +134,15 @@ export async function request<T>(
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
     cache: 'no-store',
   });
+
+  if (response.status === 401) {
+    // The token is expired or invalid. Nothing on the page can recover from that, so the
+    // user goes to the login screen and comes back to this same URL. The error still
+    // throws so the caller's own flow unwinds; `isRedirectingToLogin` tells it to stay
+    // quiet rather than paint a box over a page that is already navigating away.
+    redirectToLogin();
+    throw new DrillApiError(401, null, 'Session expired — redirecting to sign in', true);
+  }
 
   if (!response.ok) {
     // The body is the server's typed error when the route produced it, and anything at

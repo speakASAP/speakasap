@@ -11,6 +11,7 @@ import { GapCard } from '@/lib/drills/analysis/GapCard';
 import { GapAnalysisBlock } from '@/lib/drills/analysis/GapAnalysisBlock';
 import { DrillRunner } from '@/lib/drills/runner/DrillRunner';
 import { fetchRunner } from '@/lib/drills/runner/api';
+import { isRedirectingToLogin } from '@/lib/drills/auth-redirect';
 
 /**
  * One assignment, running.
@@ -41,10 +42,13 @@ export default function PracticeRunnerPage() {
           setRunner(response);
         }
       })
-      .catch(() => {
-        if (active) {
-          setError('Не удалось загрузить упражнение. Обновите страницу.');
+      .catch((error) => {
+        // An expired token already redirected to login; this page is on its way out and
+        // must not paint an error the student cannot act on.
+        if (isRedirectingToLogin(error) || !active) {
+          return;
         }
+        setError('Не удалось загрузить упражнение. Обновите страницу.');
       })
       .finally(() => {
         if (active) {
@@ -70,7 +74,11 @@ export default function PracticeRunnerPage() {
       })
       .catch((error) => {
         // The drill itself is still usable without the theory above it, so this does not
-        // replace the page — but it must not vanish either.
+        // replace the page — but it must not vanish either. A 401 is the exception: the
+        // browser is already navigating to login.
+        if (isRedirectingToLogin(error)) {
+          return;
+        }
         if (active) {
           setError(
             `Не удалось загрузить теорию к этой работе над ошибками: ${

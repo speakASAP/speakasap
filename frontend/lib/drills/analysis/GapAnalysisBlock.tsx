@@ -13,6 +13,7 @@ import {
   type RemedialCreationResult,
 } from '@/lib/drills/analysis/contracts';
 import { GapCard } from './GapCard';
+import { isRedirectingToLogin } from '@/lib/drills/auth-redirect';
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -77,6 +78,12 @@ export function GapAnalysisBlock({
       setLoadError(null);
       return response;
     } catch (error) {
+      // A 401 has already sent the browser to login. Showing "Разбор ошибок не удался:
+      // Invalid token" on a page that is navigating away told the user their analysis had
+      // failed, when in fact only their session had expired.
+      if (isRedirectingToLogin(error)) {
+        return null;
+      }
       // Never fall back to an empty analysis — see the component doc comment.
       setLoadError(
         error instanceof Error ? error.message : 'Не удалось загрузить разбор ошибок',
@@ -132,6 +139,9 @@ export function GapAnalysisBlock({
       await retryAnalysis(assignmentUuid);
       await load();
     } catch (error) {
+      if (isRedirectingToLogin(error)) {
+        return;
+      }
       setActionError(
         error instanceof Error ? error.message : 'Не удалось перезапустить разбор',
       );
@@ -162,6 +172,9 @@ export function GapAnalysisBlock({
         }));
         onRemedialCreated?.(result);
       } catch (error) {
+        if (isRedirectingToLogin(error)) {
+          return;
+        }
         const message =
           error instanceof Error ? error.message : 'Не удалось создать работу над ошибками';
         setActionError(message);

@@ -46,8 +46,26 @@ function errorFetch(status: number, body: unknown) {
 const urlOf = (f: ReturnType<typeof vi.fn>): string => String(f.mock.calls[0][0]);
 const initOf = (f: ReturnType<typeof vi.fn>): RequestInit => f.mock.calls[0][1] as RequestInit;
 
+/**
+ * `window.location.assign` is the redirect the 401 path performs. jsdom's own implementation
+ * refuses to navigate and logs "Not implemented", so it is replaced with a spy that records
+ * where the client tried to send the browser.
+ */
+const assign = vi.fn();
+
 beforeEach(() => {
   vi.unstubAllGlobals();
+  assign.mockClear();
+  localStorage.clear();
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    value: {
+      origin: 'https://speakasap.alfares.cz',
+      pathname: '/teacher/assignments/a-1/progress',
+      search: '',
+      assign,
+    },
+  });
 });
 
 describe('listSets', () => {
@@ -154,6 +172,53 @@ describe('approveSet', () => {
     const error = await approveSet('s-1').catch((e: unknown) => e);
     expect(error).toBeInstanceOf(DrillApiError);
     expect(error).toMatchObject({ status: 502, code: null });
+  });
+});
+
+/**
+ * An expired token used to surface as an ordinary failed request, so the teacher got a red
+ * "Invalid token" box on a page that could not load and offered no way to sign in again.
+ * The only thing that fixes a dead token is a new login, so the client goes there.
+ */
+describe('401 handling', () => {
+  it('clears the stale session and sends the browser to login', async () => {
+    localStorage.setItem(
+      'speakasap.auth.tokens',
+      JSON.stringify({ accessToken: 'expired.jwt.value', storedAt: Date.now() }),
+    );
+    errorFetch(401, { error: { code: 'UNAUTHORIZED', message: 'Invalid token' } });
+
+    await expect(getSet('s-1')).rejects.toMatchObject({ redirectingToLogin: true });
+
+    // The dead token must not survive the redirect: the login flow returns to this same
+    // page, which would read it straight back out and bounce again.
+    expect(localStorage.getItem('speakasap.auth.tokens')).toBeNull();
+    expect(assign).toHaveBeenCalledTimes(1);
+    const target = new URL(String(assign.mock.calls[0][0]));
+    expect(target.pathname).toBe('/login');
+    expect(target.searchParams.get('client_id')).toBe('speakasap');
+
+    // The return path does NOT travel in the login URL — hosted auth is told only to come
+    // back to /auth/callback. `buildHostedAuthLoginUrl` stashes the real destination under
+    // the state key, and the callback page reads it back out. Asserting on the URL alone
+    // would pass while the teacher landed on the portal root instead of their drill.
+    const state = target.searchParams.get('state');
+    expect(state).toBeTruthy();
+    expect(localStorage.getItem(`speakasap.auth.return.${state}`)).toBe(
+      '/teacher/assignments/a-1/progress',
+    );
+  });
+
+  /**
+   * 403 is a different thing — an authenticated user without the right role. Logging them
+   * out to log them back in as the same person changes nothing and destroys a working
+   * session, so it stays an ordinary error.
+   */
+  it('leaves a 403 as an ordinary error and does not redirect', async () => {
+    errorFetch(403, { error: { code: 'SET_NOT_APPROVED', message: 'Forbidden' } });
+    const error = await getSet('s-1').catch((e: unknown) => e);
+    expect(error).toMatchObject({ status: 403, redirectingToLogin: false });
+    expect(assign).not.toHaveBeenCalled();
   });
 });
 

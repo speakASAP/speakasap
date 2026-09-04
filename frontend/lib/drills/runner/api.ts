@@ -1,5 +1,6 @@
 import { getAuthSession } from '@/lib/auth-session';
 import { getGatewayBaseUrl } from '@/lib/gateway';
+import { redirectToLogin } from '@/lib/drills/auth-redirect';
 import type {
   CheckBlankRequest,
   CheckBlankResponse,
@@ -30,18 +31,25 @@ export class DrillRunnerError extends Error {
   readonly status: number;
   readonly code: DrillErrorCode | null;
   readonly blockingAssignmentUuid: string | null;
+  /**
+   * True when this rejection has already been answered by sending the browser to the
+   * login screen, so the caller should render nothing. See `lib/drills/auth-redirect`.
+   */
+  readonly redirectingToLogin: boolean;
 
   constructor(
     status: number,
     code: DrillErrorCode | null,
     message: string,
     blockingAssignmentUuid: string | null = null,
+    redirectingToLogin = false,
   ) {
     super(message);
     this.name = 'DrillRunnerError';
     this.status = status;
     this.code = code;
     this.blockingAssignmentUuid = blockingAssignmentUuid;
+    this.redirectingToLogin = redirectingToLogin;
   }
 }
 
@@ -93,6 +101,19 @@ async function request<T>(path: string, init: { method?: string; body?: unknown 
   } catch (cause) {
     // The request never left, or no reply came back. Nothing was recorded server-side.
     throw new NetworkError(cause instanceof Error ? cause.message : 'network request failed', cause);
+  }
+
+  if (response.status === 401) {
+    // Expired or invalid token. The student cannot recover from this on the page, so they
+    // go to login and return to this same drill. See `lib/drills/auth-redirect`.
+    redirectToLogin();
+    throw new DrillRunnerError(
+      401,
+      null,
+      'Session expired — redirecting to sign in',
+      null,
+      true,
+    );
   }
 
   if (!response.ok) {

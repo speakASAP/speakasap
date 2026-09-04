@@ -569,4 +569,40 @@ describe('progress page — gap analysis', () => {
     expect(screen.getAllByRole('status')).toHaveLength(1);
     confirmSpy.mockRestore();
   });
+
+  /**
+   * The page is reached by pasted link, bookmark, and the return trip from login at least
+   * as often as by in-app navigation, and in all of those this app has no history entry to
+   * go back to. `router.back()` therefore did nothing, leaving the only navigation control
+   * on the screen dead.
+   */
+  it('offers Back as a real link to the assignment list, not a history step', async () => {
+    getTeacherProgress.mockResolvedValue(base);
+    mocks.fetchAnalysis.mockResolvedValue({ status: 'NOT_ANALYZED', clusters: [] });
+
+    render(<ProgressPage />);
+
+    const back = await screen.findByRole('link', { name: /back/i });
+    expect(back).toHaveAttribute('href', '/teacher/assignments');
+  });
+
+  /**
+   * An expired token used to render as a bare "Invalid token" box with no way forward.
+   * The client redirects to login instead, and the page must stay silent while it does —
+   * a red box painted over a page that is navigating away told the teacher their drill had
+   * failed when only their session had.
+   */
+  it('renders no error when the API client is redirecting an expired session to login', async () => {
+    const expired = Object.assign(new Error('Invalid token'), { redirectingToLogin: true });
+    getTeacherProgress.mockRejectedValue(expired);
+    mocks.fetchAnalysis.mockRejectedValue(expired);
+
+    render(<ProgressPage />);
+
+    await waitFor(() => {
+      expect(getTeacherProgress).toHaveBeenCalled();
+    });
+    expect(screen.queryByText(/Invalid token/i)).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });

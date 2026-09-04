@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 
 import {
   DrillApiError,
@@ -16,6 +16,7 @@ import {
 import { SentenceEditor, type EditedSentence } from '@/lib/drills/teacher/SentenceEditor';
 import { parseToWords } from '@/lib/drills/sentence-editing';
 import { GapAnalysisBlock } from '@/lib/drills/analysis/GapAnalysisBlock';
+import { isRedirectingToLogin } from '@/lib/drills/auth-redirect';
 
 /**
  * What a student has done with one drill, and the teacher's chance to correct it.
@@ -31,7 +32,6 @@ import { GapAnalysisBlock } from '@/lib/drills/analysis/GapAnalysisBlock';
  */
 export default function AssignmentProgressPage() {
   const params = useParams<{ uuid: string }>();
-  const router = useRouter();
   const [progress, setProgress] = useState<TeacherProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +73,11 @@ export default function AssignmentProgressPage() {
     try {
       setProgress(await getTeacherProgress(params.uuid));
     } catch (e) {
+      // An expired token has already sent the browser to login. Painting "Invalid token"
+      // over a page that is navigating away is what left the teacher at a dead end.
+      if (isRedirectingToLogin(e)) {
+        return;
+      }
       setError(e instanceof DrillApiError ? e.message : 'Could not load this drill');
     } finally {
       setLoading(false);
@@ -134,13 +139,19 @@ export default function AssignmentProgressPage() {
   return (
     <main className="min-h-full bg-zinc-50 px-4 py-8 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6 sm:py-10">
       <div className="mx-auto w-full max-w-3xl space-y-5">
-        <button
-          type="button"
+        {/*
+          A plain link, not `router.back()`. This URL is reached directly as often as it is
+          reached by navigation — from a bookmark, a pasted link, or a return trip through
+          the login screen — and in every one of those cases there is no previous entry in
+          this app's history, so `back()` either did nothing at all or threw the teacher out
+          to whatever site they came from. The assignment list is where "back" means to go.
+        */}
+        <Link
+          href="/teacher/assignments"
           className="text-sm text-sky-700 underline hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-sky-400"
-          onClick={() => router.back()}
         >
           ← Back
-        </button>
+        </Link>
 
         <h1 className="text-2xl font-semibold">{progress ? progress.title : 'Drill progress'}</h1>
 
