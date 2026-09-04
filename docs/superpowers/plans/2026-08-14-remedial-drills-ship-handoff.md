@@ -1,10 +1,32 @@
 ---
-status: blocked
+status: complete
 owner: repository-owner
-last_updated: 2026-09-02
+last_updated: 2026-09-04
 ---
 
-<!-- BLOCKED: 21e89d6 says the feature is built/reviewed/green, while migration, taxonomy seed, and deployment remain owner actions; no later completion record exists here. -->
+<!--
+COMPLETE 2026-09-04, verified against production rather than against this document:
+
+- Step 1 (createForGap race): migration 20260814090000_remedial_idempotence is committed,
+  and the catch converting P2002 / 23505 into `reused: true` is present at
+  education-service/src/drills/analysis/remedial.service.ts:32-38,167-168.
+- Step 2 (push): both repos have zero unpushed commits against origin/main.
+- Steps 3-4 (migration + seed): _prisma_migrations in speakasap_education_db shows all four
+  remedial migrations finished. grammar_topic holds 141 rows across 19 language codes, with
+  one `*other*` slug per language — exactly the expected count. Index
+  drill_assignment_live_remedial_per_gap exists in pg_indexes on drill_assignment.
+- Step 5 (deploy): speakasap-education, speakasap-frontend and ai-microservice pods all
+  started after the last feature commit (2026-08-25), and the built artefacts in the running
+  pods contain the feature — dist/drills/analysis/remedial.service.js matches the race-fix
+  markers, dist/teacher-assistant/teacher-assistant.controller.js carries analyze-drill-errors.
+- Step 6 (smoke): /health returns {"status":"ok"} on port 4206. The analysis route answers
+  401 "Missing bearer token" at /api/v1/drill-assignments/<uuid>/analysis — note the
+  api/v1 global prefix, which this document's unprefixed example path omits; the unprefixed
+  form 404s.
+
+Remaining: the owner's human test of a failed drill (Step 6's hand-back), which was always
+theirs to run.
+-->
 
 # Работа над ошибками — Ship Handoff
 
