@@ -26,6 +26,17 @@ COMPLETE 2026-09-04, verified against production rather than against this docume
 
 Remaining: the owner's human test of a failed drill (Step 6's hand-back), which was always
 theirs to run.
+
+One blocker on that test, and the decision that settles it. Step 6 asks the owner to confirm
+that a FAILED analysis shows a visible red error rather than an empty block — but there is
+no FAILED run to look at: all six drill_analysis_run rows in production are READY. The only
+way to manufacture one is to break the path deliberately, e.g. point AI_SERVICE_URL at a
+dead port, trigger an analysis, and revert.
+
+DO NOT DO THAT. Asked on 2026-09-04, the owner declined it: mutating a live deployment's env
+to produce a test fixture is not an acceptable trade. The red-error path stays verified by
+its unit tests (GapAnalysisBlock renders `status: 'FAILED'` as a visible alert) until a
+genuine failure occurs in production. Do not re-propose the forced-failure workaround.
 -->
 
 # Работа над ошибками — Ship Handoff
