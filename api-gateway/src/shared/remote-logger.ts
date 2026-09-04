@@ -33,7 +33,9 @@ export class RemoteLogger implements LoggerService {
   }
 
   verbose(message: unknown, context?: string): void {
-    this.emit('verbose', message, context);
+    // LogEntryDto's LogLevel enum has no 'verbose', so emitting it verbatim is a
+    // 400 that emit()'s catch would swallow. Map to the nearest accepted level.
+    this.emit('debug', message, context);
   }
 
   private emit(level: string, message: unknown, context?: string, meta?: LogMeta): void {
