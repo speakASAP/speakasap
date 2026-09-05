@@ -81,7 +81,7 @@ Required education secret key names are present:
 
 - `DATABASE_URL`
 - `DB_PASSWORD`
-- `INTERNAL_API_TOKEN`
+- Machine identity follows the [Service Identity Consumer Standard](https://github.com/speakASAP/auth-microservice/blob/main/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md)
 - `JWT_TOKEN`
 - `RECORDS_S3_ACCESS_KEY`
 - `RECORDS_S3_BUCKET`
