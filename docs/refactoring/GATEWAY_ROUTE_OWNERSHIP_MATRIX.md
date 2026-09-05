@@ -8,8 +8,6 @@ Source of truth: `api-gateway/src/proxy/upstream-resolve.ts`.
 
 The API gateway uses longest-prefix ownership by ordered matching. A request is forwarded when the request path equals a configured prefix or starts with `<prefix>/`. If no route matches, the gateway returns `NOT_FOUND`.
 
-All frontend/browser API traffic should enter through `/api/v1/...` on `api-gateway`. Service-to-service internal routes use `/api/v1/internal/...` and require `x-internal-token`.
-
 ## Ownership Matrix
 
 | Prefix | Upstream env | Owning service | Boundary |

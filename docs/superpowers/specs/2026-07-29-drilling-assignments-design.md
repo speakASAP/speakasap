@@ -765,9 +765,6 @@ closed and pre-existing.
    The token also carries verified `email`, `first_name`, `last_name` and
    `role` claims taken from the Django user record — signed, so they are
    trustworthy, and sufficient to create a mapping without a callback.
-2. The platform verifies signature, expiry and audience, then resolves the id
-   through `auth-microservice`, guarded by `x-internal-service-token` and cached
-   in-process for 10 minutes — exactly as `marathon/src/shared/auth-client.ts:102`.
 3. `frontend /auth/handoff` consumes `?sso=`, performs the exchange, stores the
    session through the existing `consumeHostedAuthFragment` machinery, and
    redirects to `nextPath`.

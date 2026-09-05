@@ -64,13 +64,6 @@ was deliberately broken, the test was confirmed red, and the source restored:
    track's ownership. Slower than the GIN index allows, but correct.
    **The GIN index is already in place** for whenever the flag is turned on.
 
-4. **No staff guard on the detail route — because content-service has none.**
-   The plan says "find content-service's equivalent [staff guard] and use it."
-   There is no equivalent: no auth guard, no JWT/passport dependency, no
-   `src/auth/` directory, and every existing controller is unguarded. Followed
-   Task A.8's precedent instead: the answer-carrying routes live under the
-   `internal/` prefix, which the gateway gates behind `x-internal-token`.
-
 ## ⚠ Handoff to Track 0 / K — REQUIRED GATEWAY ROUTE
 
 `api-gateway/src/proxy/upstream-resolve.ts` is Track 0's file, **not mine**, so I

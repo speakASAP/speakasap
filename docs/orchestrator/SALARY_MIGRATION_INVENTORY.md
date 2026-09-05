@@ -192,11 +192,6 @@ Target evidence:
 
 Salary-service already calls `education-service` through `EducationClientService`:
 
-```text
-GET /api/v1/internal/salary/period-aggregates?period=YYYY-MM&legacyPortalUserIds=1,2,3
-Header: X-Internal-Token: <internal token>
-```
-
 Current status: `education-service` has a read-only implementation for `internal/salary/period-aggregates`, and `user-service` has a deployed internal teacher legacy-user mapping endpoint. Runtime smoke on 2026-06-13 returned valid JSON for the education aggregate endpoint. On 2026-06-13, target code/schema support was added for lesson record `duration_seconds` and the salary aggregate rule was changed to record-duration minutes with a fixed five-minute full-lesson tolerance. Existing migrated records still need trusted duration values before aggregate parity can be proven.
 
 ### Request
@@ -207,8 +202,6 @@ Query parameters:
 - `legacyPortalUserIds`: optional comma-separated legacy `auth_user.id` values. When absent, return all teacher users for the period.
 
 Headers:
-
-- `X-Internal-Token`: required. Must match `EDUCATION_SERVICE_INTERNAL_TOKEN` or shared internal token policy.
 
 ### Response
 
@@ -402,10 +395,6 @@ ssh alfares 'cd /home/ssf/Documents/Github/speakasap/salary-service && npm run m
 ### Education Aggregate Smoke
 
 After deploying the internal education endpoint, run from inside the cluster or through a temporary smoke pod so the internal token stays inside Kubernetes secret scope:
-
-```bash
-ssh alfares 'kubectl -n statex-apps run speakasap-education-salary-smoke --rm -i --restart=Never --image=curlimages/curl:8.10.1 --env="TOKEN=$(kubectl -n statex-apps get secret speakasap-education-secret -o jsonpath={.data.EDUCATION_SERVICE_INTERNAL_TOKEN} | base64 -d)" -- sh -lc '''curl -sS -H "X-Internal-Token: $TOKEN" "http://speakasap-education:4206/api/v1/internal/salary/period-aggregates?period=YYYY-MM&legacyPortalUserIds=<legacy-user-id>"''''
-```
 
 Expected: JSON response with `items[].legacyPortalUserId`, `finishedLessonCount`, and `totalMinutes`; no private student fields or recording object keys. The 2026-06-13 smoke returned valid JSON and warning `no_teacher_mapping_for_requested_legacy_users` for the sampled legacy user.
 

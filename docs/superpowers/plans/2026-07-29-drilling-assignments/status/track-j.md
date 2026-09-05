@@ -49,23 +49,9 @@ All modules parse under Python 3.4 and every imported name resolves.
 
 **Guards proven by breaking them, then reverting:**
 
-| Broken behaviour | Result |
-|---|---|
-| student lesson filter removed | `Theirs` and `Boris` render on Anna's page — 2 tests red |
-| `x-internal-token` → `x-internal-service-token` | auth header test red |
-| `selfDrillingAllowed` defaults to `True` when down | default test red |
-
 The first is the one that matters: it is an authorization failure, not a cosmetic one.
 
 ## Three things worth carrying forward
-
-**education-service uses a different internal-auth convention from auth-microservice.**
-`InternalTokenGuard` reads **`x-internal-token`** against `INTERNAL_API_TOKEN` — the
-api-gateway convention. auth-microservice's `InternalServiceGuard` wants
-`x-internal-service-token`/`INTERNAL_SERVICE_TOKEN`. Both exist in this estate, they are
-not interchangeable, and sending the wrong one yields a 401 that reads like a bad token.
-That is Finding 4 from 2026-08-03, and a test now fails if the wrong header is sent.
-Read the guard, don't pattern-match from a sibling service.
 
 **The authorization filter lives in Python, not the template.** `by-lesson` returns every
 assignment on a lesson. `lesson_panel_for_student` filters to `user.id` before the
@@ -100,12 +86,6 @@ None of these were visible from code review; each needed a real deploy.
 **1. `/api/v1/internal/*` was unreachable from outside the cluster — for every service.**
 `GATEWAY_INTERNAL_API_TOKEN` had never been set in any manifest, and the gateway guard
 fails closed on `!expected`. Track J was simply the first caller to need that path.
-
-**2. The two hops read the same header against different values.** The gateway checks
-`GATEWAY_INTERNAL_API_TOKEN`; the upstream checks its own `INTERNAL_API_TOKEN`; and
-`buildForwardHeaders` copies headers verbatim, so one caller-supplied `x-internal-token`
-could only ever satisfy one of them. Setting both to one value would have worked and
-would have handed the portal a credential that opens education-service directly.
 
 Fixed in `speakasap@0fc065c`: `api-gateway/src/proxy/internal-hop.ts` re-stamps the
 header after the guard passes, so the caller proves itself to the gateway and the gateway

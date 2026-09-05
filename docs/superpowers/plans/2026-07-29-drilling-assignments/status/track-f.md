@@ -116,10 +116,6 @@ matching the runner — a 403 confirms the assignment exists.
   request-body field, both of which would encode content-service's primary key somewhere
   that cannot be kept in step with it. education-service caches the code→id map for the
   process lifetime; a failed lookup is not cached.
-- **The teacher's bearer token is forwarded** to content-service and ai-microservice as
-  `GenerationJob.token`, not swapped for a service token. The routes carrying answers
-  additionally require `x-internal-token`, which the clients add themselves, so
-  forwarding keeps the request attributable without widening its reach.
 
 **Roster shape.** `Group` has no teacher column — the legacy Django shape puts the
 teacher on `Lesson` — so the roster walks lessons → student courses → groups → students.

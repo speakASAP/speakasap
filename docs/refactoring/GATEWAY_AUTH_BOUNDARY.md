@@ -12,8 +12,6 @@ Date: 2026-06-12
 - Validate bearer tokens through `auth-microservice`.
 - Attach request context for logging.
 - Allow only explicitly approved public webhook exceptions.
-- Require `x-internal-token` for `/api/v1/internal/...`.
-- Treat `x-internal-token` as transitional machine auth, not Auth RBAC. After token validation, attach `serviceActor` metadata from `X-Service-Name` or the `internal-service` fallback.
 - Forward requests to owner services by route matrix.
 
 ## Domain Service Responsibilities
@@ -25,11 +23,6 @@ Date: 2026-06-12
 - Log actor, route, decision, and request ID without logging secrets.
 
 ## Current Gateway Exceptions
-
-| Route | Exception | Required service-side control |
-|---|---|---|
-| `POST /api/v1/webhooks/payments` | Bearer auth bypassed at gateway | `payment-service` must verify webhook signature/provider authenticity. |
-| `/api/v1/internal/...` | Uses `x-internal-token` instead of bearer token | Owning service must treat as internal-only machine auth, validate token/contract, and attach `serviceActor` metadata. |
 
 ## Lesson Recording Auth Boundary
 
@@ -50,5 +43,3 @@ For implementation chunks, verify at least:
 - Valid user without domain access returns `403`.
 - Unknown/private resource returns `404`.
 - Payment webhook path does not allow arbitrary unauthenticated mutation.
-- Internal routes reject missing or wrong `x-internal-token`.
-- Internal route source contract follows `auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md`: `X-Service-Name` identifies the caller where available, and local internal tokens remain a transitional service credential boundary rather than a human user identity.

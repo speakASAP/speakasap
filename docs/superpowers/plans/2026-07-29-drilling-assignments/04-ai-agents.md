@@ -32,52 +32,6 @@
   ```
   Both agents use it. It is the only place that talks to `/ai/complete`.
 
-> **CORRECTION — 2026-07-31.** The client and spec originally given below were
-> wrong in three ways and had never worked against the real `/ai/complete`. All
-> three were found in the whole-track review after C.1–C.4 were implemented,
-> reviewed and committed; the blocks in this task have been replaced with the
-> corrected versions. Anyone re-reading this plan, and Track D in particular,
-> should treat the text below — not the original — as the truth.
->
-> 1. **No `Authorization` header — every call would have 401'd.** `/ai/complete`
->    sits behind `ServiceAuthGuard`, registered as `APP_GUARD` in
->    `ServiceIdentityModule`, and `AiController` carries no `@Public()`. The
->    client must mint a self-issued service token with the in-repo
->    `JwtUtil.sign(...)` (HS256 over `JWT_SECRET`, issuer pinned to
->    `ai-microservice` by `JwtUtil.verify`) and send it as a bearer token.
-> 2. **The response shape was imagined.** The plan assumed
->    `{ content, model, usage }`. The real contract
->    (`src/contracts/ai-complete.contract.ts`) is
->    `{ schemaVersion, text, model_used, inputTokens?, outputTokens?,
->    token_usage_estimate?, error_code?, error_message?, … }`. There is no
->    `content`, no `model`, no `usage`. In practice `payload.content` was
->    `undefined` → `raw = ''` → `JSON.parse('')` threw, so **every** request
->    ended as a 503 reading "ai/complete content is not valid JSON", and `meta`
->    was permanently `{ model: 'unknown', promptTokens: 0, completionTokens: 0 }`
->    — i.e. Track D's cost telemetry would have been dead on arrival.
->    The original spec mocked the imagined shape, which is exactly why five green
->    tests certified a client that failed 100% of real requests. The corrected
->    spec builds every fixture through the real `AiCompleteResponseSchema`, so a
->    contract change now breaks the tests instead of silently passing them.
-> 3. **`output_schema` does not constrain the model.** `AiService` uses it only
->    as a boolean flag — presence prepends "Respond with valid JSON only. No
->    markdown fences." and sets `response_format: { type: 'json_object' }`. The
->    schema object itself is never serialized into the prompt nor forwarded to
->    the provider, so the model never learned the field names (`items`,
->    `template`, `blanks`, `topicSlug`, `newWords`, or the validator's
->    `{ results: [{ itemRef, … }] }` envelope) that C.2/C.3 require. Near-100% of
->    generated items would have been dropped and `itemRef` correlation would have
->    been a coin flip. `LlmClient` now appends the serialized schema to the
->    outgoing `user_prompt`, and still sends `output_schema` in the body because
->    its presence is what turns on JSON mode upstream.
->
-> Two further defects fixed at the same time: a **200 response carrying
-> `error_code`** (`RATE_LIMIT` / `AI_AUTH_ERROR` / `CLI_FAILED` — `AiService`
-> returns HTTP 200 with an empty `text` on provider failure) was treated as
-> success and surfaced as "not valid JSON"; and there was **no timeout**, so a
-> 50-item generate on the CC-CLI path could hold a Nest request open for
-> undici's ~300s default with no bound of its own.
-
 - [ ] **Step 1: Write the failing test**
 
 ```ts

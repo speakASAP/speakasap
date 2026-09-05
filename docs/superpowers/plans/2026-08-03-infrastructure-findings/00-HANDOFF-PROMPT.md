@@ -187,13 +187,6 @@ production: teacher 10 has **656 students and 931 groups**, all unnamed.
 **RESOLVED**, but it took four fixes — the feature was written and committed
 without ever being run against production, and each defect hid the next.
 
-| Probe | Cause | Fix |
-|---|---|---|
-| **404** | auth-microservice was 7 commits behind; `names-by-legacy-ids` existed in source but not in the running image | deployed auth |
-| **401** | education sent `x-internal-token`/`INTERNAL_API_TOKEN` — the api-gateway's convention. auth's `InternalServiceGuard` wants `x-internal-service-token`/`INTERNAL_SERVICE_TOKEN` | `speakasap@885b1da` + Vault key + allowlist |
-| **500** | `findNamesByLegacyIds` passed quoted identifiers, so TypeORM emitted `"mapping"."mapping"."legacyUserId"` → `syntax error at or near "."` | `auth@16311eb` |
-| **401** | `x-service-name` read `process.env.SERVICE_NAME`, the K8s deployment name `speakasap-education`; the allowlist is keyed on `education-service` | `speakasap@3e4da71` |
-
 **Verified against production:**
 
 ```

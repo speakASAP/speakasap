@@ -14,7 +14,6 @@ Source of truth:
 1. Browser and frontend API calls enter through `/api/v1/...`.
 2. Gateway validates bearer tokens through `auth-microservice` before forwarding, except explicitly allowed public webhooks.
 3. Domain services enforce domain-specific authorization after gateway authentication.
-4. Internal routes under `/api/v1/internal/...` require `x-internal-token`.
 5. Gateway forwards to owning services according to `GATEWAY_ROUTE_OWNERSHIP_MATRIX.md`.
 6. Gateway must not become the owner of education, payment, notification, content, user, salary, or financial domain behavior.
 7. Gateway must not expose direct MinIO/S3 routes or permanent media URLs.

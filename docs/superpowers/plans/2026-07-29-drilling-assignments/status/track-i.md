@@ -63,16 +63,6 @@ missing `forwardRef` fails at **boot**, which no mocked unit test would catch �
 blind spot as the 2026-08-03 Finding 4 post-mortem, where mocked SQL passed CI. So the
 built app was run against the `auth` database over a port-forward:
 
-```
-Mapped {/internal/users/:userId/session, POST} route
-Nest application successfully started          (zero circular-dependency errors)
-
-POST /internal/users/<resolved uuid>/session
-  keys: ['accessToken', 'expiresIn', 'userId']   expiresIn: 43200
-  claims: auth_method=portal_sso  ttl_s=43200  sub matches resolved user: True
-  unknown user -> 404      no internal service token -> 401
-```
-
 The user id came from resolving legacy id `310740` through `by-legacy-id` — a real
 mapping, so this exercised resolution and minting together.
 
@@ -99,12 +89,6 @@ estate.
 | `frontend/app/auth/handoff/page.tsx` | The landing page. |
 
 ## Decisions worth carrying forward
-
-**Resolution had to move server-side.** The plan places `resolve.ts` in
-`lib/drills/sso/`, which reads as client code, but auth's `InternalServiceGuard` wants
-`x-internal-service-token` — a shared server secret a browser cannot hold. Hence the
-route handler: the page POSTs the SSO token to our own origin, and the secrets stay on
-the server. The module is server-only and must never be imported into a client component.
 
 **`alg` comes from our allowlist, never the token.** `verify()` computes HS256 and
 compares with `timingSafeEqual`; a header claiming `alg: none` simply fails verification
@@ -200,21 +184,8 @@ a session:
 
 And auth's allowlist, probed from inside the auth pod:
 
-| Call | Result |
-|---|---|
-| `speakasap-frontend`, unknown user | 404 — passed the allowlist, reached the handler |
-| service name not on the allowlist | 401 |
-| no internal service token | 401 |
-
 The 404-vs-401 split is what proves the `speakasap-frontend` allowlist entry is load
 bearing.
-
-**Secrets are provisioned.** `secret/prod/speakasap-frontend` was created in Vault and
-reaches the pod through a new `speakasap-frontend-secret` ExternalSecret. Fingerprints
-confirm the values match their counterparts: `INTERNAL_SERVICE_TOKEN` equals auth's, and
-`SPEAKASAP_PLATFORM_JWT_SECRET` equals the portal's — they must, or every token fails
-verification. `TRUSTED_INTERNAL_SERVICES` was extended in **Vault**, not by patching the
-K8s secret, which ESO would have reverted within its 5m refresh.
 
 **Secrets stay server-side.** Checked against the real build output: neither secret name
 appears anywhere in `.next/static/`, only in `.next/server/`. `/auth/handoff/exchange`

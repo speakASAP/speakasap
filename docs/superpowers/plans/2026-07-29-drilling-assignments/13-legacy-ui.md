@@ -41,7 +41,6 @@ from cabinet.drills_client import (
 
 BASE = 'http://education:4205'
 
-
 @override_settings(EDUCATION_SERVICE_URL=BASE, DRILLS_CLIENT_TIMEOUT=2)
 class DrillsClientTests(TestCase):
 
@@ -101,13 +100,6 @@ ssh speakasap 'cd speakasap-portal && python manage.py test cabinet.tests.test_d
 ```
 
 - [ ] **Step 3: Implement**
-
-Use `requests` with an explicit timeout from `settings.DRILLS_CLIENT_TIMEOUT`
-(default 2 seconds — a dashboard must not hang on a slow microservice). Catch
-`requests.RequestException` and any non-2xx, returning the documented safe shape
-with `unavailable: True`. Authenticate with the internal service token header,
-matching how other portal→microservice calls already authenticate; read an
-existing client in the portal first and follow it.
 
 `platform_link` calls `get_platform_bearer_token(user, 'speakasap-platform')`
 from Track I and appends `?sso=…&next=…`. If the token is `None`, return the

@@ -148,12 +148,6 @@ could not be bumped would be the wrong trade, and the counter feeds library rank
    vendored contracts file and redeclares nothing. Same trade-off B2 resolved for
    `template.ts` by placing it at matching depth.
 
-3. **Internal routes send `x-internal-token`, which the plan's D.1 test did not.** The
-   gateway rejects `/api/v1/internal/*` without it
-   (`api-gateway/src/proxy/gateway-auth.guard.ts:40`). A bearer-only client gets 403, the
-   orchestrator reads "the bank is empty", and it generates a full set of AI items nobody
-   asked for — the same failure class the plan warns about for swallowed 500s.
-
 4. **`createSet({ partial: true })` became `RunSummary.partial`.** The plan's D.3 test
    asserts a `partial` flag on the create call, but `CreateSetInput` has no such field, so
    content-service would drop it silently and the test would pass while asserting nothing.

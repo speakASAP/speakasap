@@ -31,8 +31,6 @@ last_updated: 2026-09-02
 
 **Goal:** Stop copying lesson data between databases — education-service reads and writes lessons through a new portal HTTP API, so lessons created after 2026-06-26 (and all future lessons) work for drills and lesson-records.
 
-**Architecture:** speakasap-portal (legacy Django, sole owner of lesson data) gains a small internal REST API guarded by the existing `x-internal-token` convention. education-service drops its six copied Django tables and its cross-database foreign keys, replacing `prisma.lesson`/`prisma.group`/`prisma.studentCourse` reads with a `LessonClient` HTTP call. No data is copied between databases and no service is granted access to another service's database.
-
 **Tech Stack:** Django 1.11.2 / Python 3.4 / Django REST Framework (portal, legacy — do NOT upgrade) · NestJS 10 / Prisma 5 / TypeScript / Jest (education-service)
 
 ## Global Constraints
@@ -45,7 +43,6 @@ last_updated: 2026-09-02
 - **Never run `prisma migrate dev`** against any database. Use `migrate diff` offline, then `migrate deploy`.
 - Portal production deploys are manual by the owner. Subagents must never deploy, never SSH-write to the speakasap server, and never scp.
 - `ssh speakasap` is READ ONLY.
-- Internal auth header is **`x-internal-token`** matched against `PORTAL_INBOUND_API_TOKEN` — NOT auth-microservice's `x-internal-service-token`. This mix-up cost a day on 2026-08-03.
 - Prefix shell commands with `rtk`. Use `rg -E` (it is a GNU grep shim).
 - Drill data is disposable: 6 test assignments, student id 3 / teacher id 182 only. No backfill or data migration is required for drill tables.
 
@@ -68,7 +65,6 @@ Two features read the frozen copy and break for any lesson after that date:
 
 **speakasap-portal (new, isolated for sunset):**
 - `education/internal_api/__init__.py` — empty package marker
-- `education/internal_api/auth.py` — `InternalTokenPermission`, validates `x-internal-token`
 - `education/internal_api/serializers.py` — `LessonSerializer`, `RosterSerializer`, `LessonWriteSerializer`
 - `education/internal_api/views.py` — `LessonDetailView`, `LessonRosterView`
 - `education/internal_api/urls.py` — route table
@@ -108,7 +104,6 @@ from django.test import TestCase, RequestFactory
 from django.test.utils import override_settings
 
 from education.internal_api.auth import InternalTokenPermission
-
 
 @override_settings(PORTAL_INBOUND_API_TOKEN='secret-token')
 class InternalTokenPermissionTests(TestCase):
@@ -151,56 +146,6 @@ Expected: FAIL — `ImportError: No module named 'education.internal_api'`
 # education/internal_api/__init__.py
 ```
 
-```python
-# education/internal_api/auth.py
-# -*- coding: utf-8 -*-
-"""
-Internal-token guard for the education internal API.
-
-DRILLING/LESSON-API: transitional — delete at legacy sunset.
-
-Uses ``x-internal-token`` matched against ``PORTAL_INBOUND_API_TOKEN``, the api-gateway
-convention that education-service's own ``InternalTokenGuard`` already speaks. This is
-NOT auth-microservice's ``x-internal-service-token``/``INTERNAL_SERVICE_TOKEN``; sending
-the wrong header produces a 401 that reads like a bad token.
-"""
-from django.conf import settings
-from rest_framework.permissions import BasePermission
-
-from utils.logger import CentralizedLogger
-
-logger = CentralizedLogger(__name__)
-
-HEADER = 'HTTP_X_INTERNAL_TOKEN'
-
-
-class InternalTokenPermission(BasePermission):
-    """Allow only callers presenting the shared internal token."""
-
-    message = 'Invalid or missing internal token.'
-
-    def has_permission(self, request, view):
-        expected = getattr(settings, 'PORTAL_INBOUND_API_TOKEN', '') or ''
-        if not expected:
-            # Fails CLOSED. An unconfigured token must never mean "allow everyone".
-            logger.error('internal api - PORTAL_INBOUND_API_TOKEN is not configured; denying')
-            return False
-
-        presented = request.META.get(HEADER, '') or ''
-        if not presented:
-            logger.warning('internal api - request without x-internal-token',
-                           path=request.path)
-            return False
-
-        # constant_time_compare guards against timing attacks on the shared secret.
-        from django.utils.crypto import constant_time_compare
-        if not constant_time_compare(presented, expected):
-            logger.warning('internal api - x-internal-token mismatch', path=request.path)
-            return False
-
-        return True
-```
-
 - [x] **Step 4: Run test to verify it passes**
 
 Run: `rtk python manage.py test education.internal_api.tests.test_auth -v 2`
@@ -238,7 +183,6 @@ Field names are **snake_case** matching Django. The TypeScript client maps them 
 from django.test import TestCase
 
 from education.internal_api.serializers import LessonWriteSerializer
-
 
 class LessonWriteSerializerTests(TestCase):
     def test_accepts_both_fields(self):
@@ -283,7 +227,6 @@ from rest_framework import serializers
 
 from education.models import Lesson
 
-
 class LessonSerializer(serializers.ModelSerializer):
     """One lesson, with the fields education-service actually consumes."""
 
@@ -299,19 +242,16 @@ class LessonSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-
 class LessonWriteSerializer(serializers.Serializer):
     """The only two lesson fields education-service is permitted to write."""
 
     recommendation = serializers.CharField(required=False, allow_blank=True)
     to_manager = serializers.CharField(required=False, allow_blank=True)
 
-
 class GroupRosterSerializer(serializers.Serializer):
     uuid = serializers.CharField()
     name = serializers.CharField()
     student_ids = serializers.ListField(child=serializers.IntegerField())
-
 
 class RosterSerializer(serializers.Serializer):
     """The students attached to a lesson, via its student course and group."""
@@ -368,7 +308,6 @@ from django.test.utils import override_settings
 from education.models import Lesson
 
 HEADERS = {'HTTP_X_INTERNAL_TOKEN': 'secret-token'}
-
 
 @override_settings(PORTAL_INBOUND_API_TOKEN='secret-token')
 class LessonDetailViewTests(TestCase):
@@ -431,7 +370,6 @@ from utils.logger import CentralizedLogger
 
 logger = CentralizedLogger(__name__)
 
-
 class LessonDetailView(APIView):
     """GET and PATCH a single lesson."""
 
@@ -462,7 +400,6 @@ class LessonDetailView(APIView):
                         lesson_uuid=str(lesson_uuid), fields=','.join(updated))
 
         return Response(LessonSerializer(lesson).data)
-
 
 class LessonRosterView(APIView):
     """The students attached to a lesson, through its student course and group."""
@@ -555,7 +492,6 @@ git commit -m "feat(internal-api): expose lesson detail and roster endpoints"
 # -*- coding: utf-8 -*-
 from django.conf import settings
 from django.test import TestCase
-
 
 class InternalTokenSettingTests(TestCase):
     def test_setting_exists(self):
@@ -719,232 +655,12 @@ git commit -m "feat(lesson-client): add portal lesson types and error classes"
 
 - [x] **Step 1: Write the failing test**
 
-```typescript
-// education-service/src/lesson-client/lesson-client.service.spec.ts
-import { LessonClientService } from './lesson-client.service';
-import { LessonNotFoundError, LessonServiceUnavailableError } from './lesson-client.types';
-
-const LESSON = 'f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477';
-
-function serviceWith(fetchImpl: jest.Mock): LessonClientService {
-  const service = new LessonClientService();
-  (service as unknown as { fetchFn: typeof fetch }).fetchFn =
-    fetchImpl as unknown as typeof fetch;
-  (service as unknown as { baseUrl: string }).baseUrl = 'http://portal.test';
-  (service as unknown as { token: string }).token = 'secret-token';
-  return service;
-}
-
-describe('LessonClientService', () => {
-  it('camelizes a lesson payload', async () => {
-    const fetchFn = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        uuid: LESSON, order: 3, teacher_id: 182, start: '2026-08-12T17:00:00+02:00',
-        is_finished: false, student_course_uuid: '43c00027-cf75-4d60-8775-da38dea408a1',
-        module_class: 'Module3T', needs_teacher: false,
-        recommendation: 'r', to_manager: 'm',
-      }),
-    });
-    const lesson = await serviceWith(fetchFn).getLesson(LESSON);
-    expect(lesson.teacherId).toBe(182);
-    expect(lesson.studentCourseUuid).toBe('43c00027-cf75-4d60-8775-da38dea408a1');
-    expect(lesson.moduleClass).toBe('Module3T');
-  });
-
-  it('sends the x-internal-token header', async () => {
-    const fetchFn = jest.fn().mockResolvedValue({
-      ok: true, status: 200,
-      json: async () => ({ uuid: LESSON, order: 1, teacher_id: null, start: null,
-        is_finished: false, student_course_uuid: 'c', module_class: '',
-        needs_teacher: false, recommendation: '', to_manager: '' }),
-    });
-    await serviceWith(fetchFn).getLesson(LESSON);
-    const headers = fetchFn.mock.calls[0][1].headers;
-    expect(headers['x-internal-token']).toBe('secret-token');
-  });
-
-  it('raises LessonNotFoundError on 404', async () => {
-    const fetchFn = jest.fn().mockResolvedValue({ ok: false, status: 404, text: async () => '' });
-    await expect(serviceWith(fetchFn).getLesson(LESSON))
-      .rejects.toBeInstanceOf(LessonNotFoundError);
-  });
-
-  it('raises LessonServiceUnavailableError on 500', async () => {
-    const fetchFn = jest.fn().mockResolvedValue({ ok: false, status: 500, text: async () => 'boom' });
-    await expect(serviceWith(fetchFn).getLesson(LESSON))
-      .rejects.toBeInstanceOf(LessonServiceUnavailableError);
-  });
-
-  it('raises LessonServiceUnavailableError when the transport throws', async () => {
-    const fetchFn = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
-    await expect(serviceWith(fetchFn).getLesson(LESSON))
-      .rejects.toBeInstanceOf(LessonServiceUnavailableError);
-  });
-
-  it('NEVER returns an empty roster in place of an error', async () => {
-    const fetchFn = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
-    await expect(serviceWith(fetchFn).getRoster(LESSON)).rejects.toThrow();
-  });
-
-  it('raises when the base url is unconfigured', async () => {
-    const service = new LessonClientService();
-    (service as unknown as { baseUrl: string }).baseUrl = '';
-    (service as unknown as { token: string }).token = 't';
-    await expect(service.getLesson(LESSON))
-      .rejects.toBeInstanceOf(LessonServiceUnavailableError);
-  });
-});
-```
-
 - [x] **Step 2: Run test to verify it fails**
 
 Run: `cd education-service && npx jest src/lesson-client --silent`
 Expected: FAIL — `Cannot find module './lesson-client.service'`
 
 - [x] **Step 3: Write minimal implementation**
-
-```typescript
-// education-service/src/lesson-client/lesson-client.service.ts
-import { Injectable, Logger } from '@nestjs/common';
-import {
-  LessonNotFoundError,
-  LessonServiceUnavailableError,
-  PortalLesson,
-  PortalRoster,
-} from './lesson-client.types';
-
-const DEFAULT_TIMEOUT_MS = 5000;
-
-/**
- * The portal is the single source of truth for lessons. This service holds no lesson
- * tables; every lesson read and the two permitted lesson writes go through here.
- *
- * Deliberately NOT fail-soft. `cabinet/drills_client.py` on the portal side is fail-soft
- * because a drilling outage must not break an unrelated dashboard. Here the lesson IS
- * the request — a roster or a recording with no lesson behind it is meaningless, and
- * returning an empty one hid a frozen lesson table for six weeks. Every failure raises.
- */
-@Injectable()
-export class LessonClientService {
-  private readonly logger = new Logger(LessonClientService.name);
-  private readonly baseUrl = (process.env.PORTAL_API_URL || '').replace(/\/$/, '');
-  private readonly token = process.env.PORTAL_INBOUND_API_TOKEN || '';
-  private readonly timeoutMs = Number(process.env.PORTAL_CLIENT_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
-  private readonly fetchFn: typeof fetch = fetch;
-
-  async getLesson(lessonUuid: string): Promise<PortalLesson> {
-    const body = await this.request(lessonUuid, `/lessons/${encodeURIComponent(lessonUuid)}/`);
-    return this.toLesson(body);
-  }
-
-  async getRoster(lessonUuid: string): Promise<PortalRoster> {
-    const body = await this.request(
-      lessonUuid, `/lessons/${encodeURIComponent(lessonUuid)}/roster/`);
-    return {
-      lessonUuid: String(body.lesson_uuid),
-      teacherId: body.teacher_id === null || body.teacher_id === undefined
-        ? null : Number(body.teacher_id),
-      groups: (Array.isArray(body.groups) ? body.groups : []).map((g: Record<string, unknown>) => ({
-        uuid: String(g.uuid),
-        name: String(g.name ?? ''),
-        studentIds: (Array.isArray(g.student_ids) ? g.student_ids : []).map(Number),
-      })),
-      studentIds: (Array.isArray(body.student_ids) ? body.student_ids : []).map(Number),
-    };
-  }
-
-  async updateLesson(
-    lessonUuid: string,
-    patch: { recommendation?: string; toManager?: string },
-  ): Promise<PortalLesson> {
-    const payload: Record<string, string> = {};
-    if (patch.recommendation !== undefined) payload.recommendation = patch.recommendation;
-    if (patch.toManager !== undefined) payload.to_manager = patch.toManager;
-
-    const body = await this.request(
-      lessonUuid, `/lessons/${encodeURIComponent(lessonUuid)}/`, 'PATCH', payload);
-    return this.toLesson(body);
-  }
-
-  /** Single exit point for every call, so no failure mode can skip the error handling. */
-  private async request(
-    lessonUuid: string,
-    path: string,
-    method: 'GET' | 'PATCH' = 'GET',
-    payload?: Record<string, string>,
-  ): Promise<Record<string, unknown>> {
-    if (!this.baseUrl || !this.token) {
-      // Misconfiguration is a failure, not a reason to degrade quietly.
-      this.logger.error('PORTAL_API_URL/PORTAL_INBOUND_API_TOKEN not configured');
-      throw new LessonServiceUnavailableError(
-        lessonUuid, 'PORTAL_API_URL/PORTAL_INBOUND_API_TOKEN not configured');
-    }
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-    let response: Response;
-    try {
-      response = await this.fetchFn(this.baseUrl + path, {
-        method,
-        headers: {
-          'x-internal-token': this.token,
-          'x-service-name': 'education-service',
-          'content-type': 'application/json',
-        },
-        body: payload ? JSON.stringify(payload) : undefined,
-        signal: controller.signal,
-      });
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Portal lesson request failed: ${method} ${path} lesson=${lessonUuid} reason=${reason}`);
-      throw new LessonServiceUnavailableError(lessonUuid, reason);
-    } finally {
-      clearTimeout(timer);
-    }
-
-    if (response.status === 404) {
-      this.logger.warn(`Portal reports lesson ${lessonUuid} does not exist`);
-      throw new LessonNotFoundError(lessonUuid);
-    }
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      this.logger.error(
-        `Portal lesson request non-ok: ${method} ${path} lesson=${lessonUuid} ` +
-        `status=${response.status} body=${text.slice(0, 500)}`);
-      throw new LessonServiceUnavailableError(lessonUuid, `HTTP ${response.status}`);
-    }
-
-    try {
-      return (await response.json()) as Record<string, unknown>;
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Portal lesson response was not JSON: lesson=${lessonUuid} reason=${reason}`);
-      throw new LessonServiceUnavailableError(lessonUuid, `unparseable response: ${reason}`);
-    }
-  }
-
-  private toLesson(body: Record<string, unknown>): PortalLesson {
-    return {
-      uuid: String(body.uuid),
-      order: Number(body.order ?? 0),
-      teacherId: body.teacher_id === null || body.teacher_id === undefined
-        ? null : Number(body.teacher_id),
-      start: (body.start as string | null) ?? null,
-      isFinished: Boolean(body.is_finished),
-      studentCourseUuid: String(body.student_course_uuid),
-      moduleClass: String(body.module_class ?? ''),
-      needsTeacher: Boolean(body.needs_teacher),
-      recommendation: String(body.recommendation ?? ''),
-      toManager: String(body.to_manager ?? ''),
-    };
-  }
-}
-```
 
 ```typescript
 // education-service/src/lesson-client/lesson-client.module.ts
@@ -1410,20 +1126,9 @@ The originally reported lesson is `f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477` (studen
 
 - [x] **Step 1: Confirm the portal serves it**
 
-```bash
-curl -s -o /dev/null -w '%{http_code}\n' \
-  -H "x-internal-token: $PORTAL_INBOUND_API_TOKEN" \
-  https://speakasap.com/api/v1/internal/lessons/f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477/
-```
-
 Expected: `200`. A `401` means the token does not match; a `404` means the mount path from Task 3 Step 3 is wrong.
 
 - [x] **Step 2: Confirm the roster is non-empty**
-
-```bash
-curl -s -H "x-internal-token: $PORTAL_INBOUND_API_TOKEN" \
-  https://speakasap.com/api/v1/internal/lessons/f249c6e4-e6ef-451d-a1b0-c4fb0a3b4477/roster/
-```
 
 Expected: `teacher_id: 182` and a non-empty `student_ids`.
 

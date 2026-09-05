@@ -44,7 +44,6 @@ from portal.platform_sso import get_platform_bearer_token
 
 SECRET = 'test-secret-value'
 
-
 @override_settings(SPEAKASAP_PLATFORM_JWT_SECRET=SECRET)
 class PlatformSsoTests(TestCase):
     def setUp(self):
@@ -197,12 +196,6 @@ Tests 3, 4 and 5 are the fail-closed rule. Test 9 guards against the classic JWT
 `alg: none` bypass — verify with an explicit `algorithms: ['HS256']` allowlist.
 
 - [ ] **Step 2: Run, confirm failure. Implement**
-
-Verification order: signature (HS256 only) → expiry → audience → resolve. The
-resolve step calls
-`POST {AUTH_SERVICE_URL}/internal/users/resolve-or-provision-legacy` with the
-`x-internal-service-token` header and a 5 s timeout. **Any** non-2xx or thrown
-error maps to `IDENTITY_UNRESOLVED`; there is no other branch.
 
 - [ ] **Step 3: Run, confirm PASS (9 passed)**
 

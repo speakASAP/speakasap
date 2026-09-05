@@ -45,15 +45,6 @@ non-overlapping.
 
 ## API surface for Track D
 
-```
-GET  /api/v1/drill-topics                      public-authenticated (no answers)
-POST /api/v1/internal/drill-items/search       INTERNAL — requires x-internal-token
-GET  /api/v1/internal/course-vocabulary        INTERNAL — requires x-internal-token
-```
-
-The last two are internal **because their responses carry `answer` and `alternatives`**.
-Track D must send `x-internal-token`. Do not promote them to a public prefix.
-
 ## Things Track A2 / D must know
 
 1. **`GrammarLesson` has 0 rows.** `DrillTopicDTO.publicUrl` is `null` for every topic.

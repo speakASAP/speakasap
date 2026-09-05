@@ -26,8 +26,6 @@ Mounted by `portal/urls.py` under `/api/v1/internal/`:
 | PATCH | `/api/v1/internal/lessons/<uuid>/` | `recommendation`, `to_manager` |
 | GET | `/api/v1/internal/lessons/<uuid>/roster/` | `student_ids` + `paid_student_ids` |
 
-Guarded by `x-internal-token`, matched against `PORTAL_INBOUND_API_TOKEN`.
-
 ### Every id in this API is an auth USER id
 
 The portal has **two numerically overlapping id spaces**: `auth_user.id` and
@@ -188,11 +186,6 @@ tell that nothing was built — a real monorepo build takes minutes. Track K rec
 same trap for the frontend. A green banner is not evidence.
 
 ## Verifying
-
-```bash
-curl -s -H "x-internal-token: $PORTAL_INBOUND_API_TOKEN" \
-  https://speakasap.com/api/v1/internal/lessons/<uuid>/
-```
 
 **Do not check the status code — check the body.** The plan originally said "401 means
 the token does not match". That is wrong on this host: `CustomLoginRequiredMiddleware`

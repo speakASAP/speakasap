@@ -34,7 +34,6 @@ Evidence:
 Boundary:
 - No production login, live contact delivery, DB query, backfill, secret read, or legacy runtime mutation was executed.
 
-
 ## 2026-06-24 - Hosted Auth Link Runtime Fix
 
 Status: deployed for new SpeakASAP frontend; legacy speakasap-portal untouched.
@@ -60,7 +59,6 @@ Evidence:
 Boundary:
 - No legacy speakasap-portal file, runtime, DB, or secret was touched.
 - No live user login, password, contact-code delivery, or data backfill was executed.
-
 
 ## 2026-06-24 - WS-G Hosted Auth Frontend Adapter
 
@@ -1089,7 +1087,6 @@ Next:
 
 - Restore target salary/education DB connectivity on `alfares`, run the no-write `--dry-run --lesson-uuid-backfill-only --json-report /tmp/speakasap-salary-lesson-uuid-backfill-dry-run-v1.json`, then request explicit owner approval before any backfill apply.
 
-
 ## 2026-06-13 - Goal 10 Seven Write-Gated Apply Path
 
 Status: apply path implemented and verified in no-write mode; no schema migration, data apply, deployment, object mutation, destructive operation, or legacy retirement ran.
@@ -1120,7 +1117,6 @@ Boundaries:
 Next:
 
 - Get owner approval to apply only `content-service/prisma/migrations/20260613110000_seven_content/migration.sql`, then rerun the DB-backed no-write seven report before any data apply approval is considered.
-
 
 ## 2026-06-13 - Goal 10 Seven Schema/API, Dry-Run Importer, And Frontend Routes
 
@@ -1159,7 +1155,6 @@ Intent / ownership:
 Next:
 
 - Get owner approval using `docs/orchestrator/CONTENT_BASE_SCHEMA_APPROVAL.md` for content-service base schema readiness plus seven schema creation, then rerun DB-backed no-write report before any seven content data apply.
-
 
 ## 2026-06-13 - Goal 10 Seven-Lesson Frontend Migration Plan
 
@@ -1392,7 +1387,6 @@ Status: partial; code implemented, runtime DB-backed salary dry-run blocked by t
 Changed:
 
 - Added `user-service` internal `GET /api/v1/internal/teachers/legacy-user-map` to map legacy portal user IDs to legacy teacher IDs for cross-service salary aggregation.
-- Added `education-service` internal `GET /api/v1/internal/salary/period-aggregates` guarded by `X-Internal-Token`.
 - Added education salary aggregate module/service and wired it into `education-service/src/app.module.ts`.
 - Hardened `salary-service/scripts/migrate-salary-data.ts` with `--json-report`, `--apply`, `--confirm-write`, `--approval-note`, and `--rollback-plan` gates; legacy `--load` is now treated as write mode and requires the same gates.
 - Copied/updated `docs/orchestrator/SALARY_MIGRATION_INVENTORY.md` in the authoritative remote checkout.
@@ -3163,7 +3157,6 @@ Next:
 
 - Prepare the next owner-approved Goal 5 follow-up: frontend/gateway integration or merge/delete implementation scope, without changing legacy routing yet.
 
-
 ## 2026-06-13 - Goal 5 Follow-up Gateway Integration And Merge/Delete Confirmation Gates
 
 Current focus:
@@ -3211,13 +3204,11 @@ Next:
 
 - Restore the original paid fixture object or provide an owner-approved safe replacement fixture, then rerun gateway smoke and update the evidence before any commit or cutover.
 
-
 Focused fresh-fixture addendum:
 
 - Read-only candidate search found ready lesson d7d708dc-8c89-496f-a5b6-af30ed6db104 with an existing private object; the check read only bytes 0-31.
 - Focused deployed gateway smoke report /tmp/speakasap-goal55-focused-gateway-smoke-20260613-v1.json verified staff playback 200 with gateway-download tokenized URL, gateway range download 206 audio/mpeg with Content-Range bytes 0-31/7407935 and 32 bytes, already-ready merge idempotent noop, and delete without confirmDelete blocked with 400.
 - This focused smoke is the current successful media playback evidence while the older paid fixture object remains missing.
-
 
 ## 2026-06-13 - Goal 5 Gateway Smoke Restored After Owner-Approved Fixture Replacement
 
@@ -3249,7 +3240,6 @@ Gate decision:
 Next:
 
 - Prepare the intent-preservation commit or locate the frontend deployment path before cutover, keeping confirmed destructive merge/delete usage out of smoke tests unless explicitly scoped.
-
 
 ## 2026-06-13 - Goal 6 Frontend Deployment Path Discovery
 
@@ -3353,7 +3343,6 @@ Next:
 
 - Continue Goal 6 with authorized frontend parity checks when fresh learner/teacher/staff JWTs are available, or move to broader protected route parity cases if owner provides test credentials.
 
-
 ## 2026-06-13 - Goal 6.3 Authorized Frontend Lesson-Recording Parity Checks
 
 Status: done for authorized learner/teacher/staff frontend parity checks
@@ -3394,7 +3383,6 @@ Gate decision:
 Next:
 
 - Start Goal 7 operational cutover readiness: verify Kubernetes manifests, secrets, health checks, logging, smoke URLs, and rollback/cutover runbook for the lesson-recording path before any cutover approval.
-
 
 ## 2026-06-13 - Goal 7.1 Operational Cutover Readiness
 
@@ -3445,7 +3433,6 @@ Next:
 
 - Request explicit owner approval for the exact Goal 8 cutover action, rollback window, monitoring plan, and acceptance smoke list before changing traffic or retiring legacy routes.
 
-
 ## 2026-06-13 - Goal 8.1 Controlled Cutover Validation
 
 Status: done for controlled cutover validation; legacy freeze/decommission not executed
@@ -3490,7 +3477,6 @@ Gate decision:
 Next:
 
 - Select the exact reversible legacy freeze/decommission target for lesson recordings, or close the migration wave with legacy retained as rollback/reference until a later owner-approved retirement window.
-
 
 ## 2026-06-13 - Goal 8 Legacy Fallback Decision And Goal 9 Salary Migration Setup
 
@@ -3611,7 +3597,6 @@ Boundaries:
 Next:
 
 - Implement salary lesson UUID backfill by mapping legacy lesson salary expense lesson IDs to target education lesson UUIDs, then rerun read-only reconciliation before any salary calculation or payout flow.
-
 
 ## 2026-06-13 - Goal 10.1 Worker 10.1 Seven Content Schema/API Contract
 
@@ -4120,7 +4105,6 @@ Next:
 
 - Keep the immediate gate on `CONTENT_BASE_SCHEMA_APPROVAL.md`; in parallel, locate authoritative legacy `/media/audio` and `/media/pdf` source storage before requesting `SEVEN_MEDIA_MIGRATION_APPROVAL.md`.
 
-
 ## 2026-06-13 - Goal 10 Seven Media Source Discovery
 
 Status: read-only source discovery completed; media copy/routing remains approval-gated.
@@ -4141,7 +4125,6 @@ Boundary:
 Next:
 
 - Treat `https://speakasap.com` as the current source candidate for approved media migration, but resolve or explicitly document the `media/audio/ru` gap before claiming complete media parity.
-
 
 ## 2026-06-13 - Goal 10 Seven Media Copy Manifest
 
@@ -4191,7 +4174,6 @@ Boundary:
 Next:
 
 - Keep the immediate gate on `CONTENT_BASE_SCHEMA_APPROVAL.md`; after schema/data/media gates complete, use `SEVEN_DEPLOYMENT_APPROVAL.md` for the scoped deployment approval and run the post-deploy smoke checker plus browser typography QA.
-
 
 ## 2026-06-13 - Goal 10 Rendered HTML Safety Gate
 
@@ -4937,7 +4919,6 @@ Boundary:
 
 - Seven content data apply already ran under owner approval with rollback SQL. No media copy/object mutation, image build/push, Kubernetes rollout, destructive rollback, public route cutover, or legacy route retirement ran.
 
-
 ## 2026-06-13 - Goal 10 Schema And Data Gates Executed
 
 Status: schema and seven public content data gates executed under owner approval; media/deploy/legacy-retirement remain blocked.
@@ -5517,7 +5498,6 @@ Scope performed:
 - Read remote repo instructions and orchestrator/state docs where present.
 - Queried DocsRAG from `deployment/speakasap`; request returned HTTP 200 but no context/sources for the AOS/auth modernization query.
 - Inventoried frontend auth entrypoints/adapters, api-gateway auth routing, and user-service auth id mapping.
-- Created `docs/orchestrator/2026-06-24-aos-auth-surface-inventory.md`.
 
 Evidence:
 
@@ -5539,7 +5519,6 @@ Validation:
 Approval and rollback:
 
 - No write/deploy/runtime approval used.
-- Rollback for this docs-only pass is reverting `docs/orchestrator/2026-06-24-aos-auth-surface-inventory.md` and this STATUS entry.
 
 Next action:
 
@@ -5553,7 +5532,6 @@ Role: WS-C2 SpeakASAP Certification Auth Parity Owner for Alfares AOS/auth moder
 
 Scope performed:
 
-- Read `AGENTS.md`, `docs/orchestrator/2026-06-24-aos-auth-modernization-plan.md`, and `docs/orchestrator/2026-06-24-aos-auth-surface-inventory.md`.
 - Queried DocsRAG from `deployment/speakasap`; request returned HTTP 200 with empty context/sources for the certification auth parity query.
 - Replaced certification-service protected bearer-token validation from local `JWT_SECRET` verification to auth-microservice `POST /auth/validate`.
 - Preserved the certification-local `JwtUser` request contract by mapping auth-microservice `user.id` to `req.user.sub`, normalizing roles, and keeping optional email.
@@ -5577,7 +5555,6 @@ Approval and rollback:
 
 - No deployment or runtime mutation was performed.
 - Rollback is reverting the WS-C2 certification-service source changes and this STATUS entry.
-
 
 ## 2026-06-24 - WS-G Runtime Deploy Evidence
 
@@ -5720,7 +5697,6 @@ IPS chain:
 - Task: add an executable no-write check that covers protected service `JwtAuthGuard` and `AuthClientService` convergence.
 - Execution Plan: static checker and docs/status update only; no runtime service behavior change, no deploy, no DB or secret access.
 - Coding Prompt: work remote-only in `/home/ssf/Documents/Github/speakasap`; do not touch legacy `speakasap-portal`; preserve internal-token machine-auth exceptions.
-- Code: `scripts/check-auth-validate-contract.py`, `docs/orchestrator/2026-06-24-aos-auth-modernization-plan.md`, `docs/orchestrator/2026-06-24-aos-auth-surface-inventory.md`, and this status entry.
 - Validation: central Auth validate checker, hosted Auth checker, service identity checker, Python compile, and git diff whitespace check.
 
 Evidence:
@@ -5728,13 +5704,11 @@ Evidence:
 - `[MISSING: docs/orchestrator/IMPLEMENTATION_ORCHESTRATOR.md]` remains missing from the remote repo although listed by instructions.
 - The new checker covers user-service, course-service, education-service, assessment-service, certification-service, financial-service, notification-service, payment-service, and salary-service protected bearer-token guards/clients.
 - It requires guard delegation to `AuthClientService`, service clients using `POST /auth/validate` with `{ token }`, env validation for `AUTH_SERVICE_URL` and `AUTH_SERVICE_TIMEOUT`, and absence of local bearer JWT validation patterns.
-- It explicitly preserves certification public certificate view-token signing as outside the protected bearer-token scope and preserves internal-token machine-auth exceptions outside Auth `/auth/validate` until an Auth-issued service JWT design is approved.
 - `./scripts/check-auth-validate-contract.py --json-report /tmp/speakasap-auth-validate-contract-wsc3.json` passed with `ok=true`.
 - `./scripts/check-hosted-auth-contract.py --json-report /tmp/speakasap-hosted-auth-contract-wsc3.json` passed.
 - `./scripts/check-service-identity-contract.py --json-report /tmp/speakasap-service-identity-contract-wsc3.json` passed.
 - `python3 -m py_compile scripts/check-auth-validate-contract.py scripts/check-hosted-auth-contract.py scripts/check-service-identity-contract.py` passed.
 - `cd frontend && npm run build` passed and included `/auth/callback`.
-- `git diff --check -- scripts/check-auth-validate-contract.py docs/orchestrator/2026-06-24-aos-auth-modernization-plan.md docs/orchestrator/2026-06-24-aos-auth-surface-inventory.md docs/orchestrator/STATUS.md` passed.
 
 Approval and rollback:
 - No live DB, secret, PII, deployment, service restart, object mutation, salary/payment/content operation, or legacy runtime access was performed.
