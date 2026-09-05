@@ -12,7 +12,7 @@ Two **independent** AI agents behind two JWT-guarded HTTP routes:
 
 | File | Purpose |
 |---|---|
-| `llm.client.ts` | The only thing in the directory that talks to `/ai/complete`. Signs a service JWT, appends the output schema to the prompt, strips markdown fences, and fails loudly. |
+| `llm.client.ts` | The only thing in the directory that talks to `/ai/complete`. Presents the mounted Auth-issued service credential, appends the output schema to the prompt, strips markdown fences, and fails loudly. |
 | `generate.prompt.ts` / `.schema.ts` / `.service.ts` | Writes drill sentences. Performs **no** quality judgement — deliberately. |
 | `validate.prompt.ts` / `.schema.ts` / `.service.ts` | Judges drill sentences, blind to their origin. |
 | `teacher-assistant.controller.ts` + `dto/` | `POST /api/teacher-assistant/generate-drill`, `POST /api/teacher-assistant/validate-drill`. |
@@ -80,8 +80,8 @@ models.
 
 ```bash
 kubectl port-forward -n statex-apps svc/ai-microservice 3380:3380 &
-export JWT_SECRET=$(kubectl get secret -n statex-apps ai-microservice-secret \
-  -o go-template='{{index .data "JWT_SECRET"}}' | base64 -d)   # never echo this
+# Present the Auth-issued service credential the caller already mounts; never mint one.
+# Provisioning and delivery: auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md
 export AI_ORCHESTRATOR_URL=http://127.0.0.1:3380
 export DRILL_GENERATION_MODEL_TIER=smart
 # no ts-node in this repo; compile inside the tree so node_modules resolves
@@ -98,7 +98,7 @@ rm -rf .evaltmp
    malformed, or a verdict value was outside its enum. Treat it as *retry or escalate*,
    never as "clean".
 3. **`state` is never `OVERRIDDEN`** from this service — that transition is Track D's.
-4. **Both routes return 200**, require a service JWT (`ServiceAuthGuard`), and today throw
+4. **Both routes return 200**, require an Auth-issued service credential, and today throw
    `503` for every upstream problem. Retry policy cannot yet distinguish a rate limit from
    malformed JSON.
 5. **`acceptedText` is the student's raw trimmed text**, never the normalized form — see

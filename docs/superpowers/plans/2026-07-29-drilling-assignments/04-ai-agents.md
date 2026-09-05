@@ -36,7 +36,6 @@
 
 ```ts
 import { LlmClient } from './llm.client';
-import { JwtUtil } from '../service-identity/jwt.util';
 import {
   AiCompleteResponse,
   AiCompleteResponseSchema,
@@ -52,8 +51,6 @@ function okResponse(overrides: Record<string, unknown> = {}) {
   return { ok: true, status: 200, json: async () => aiCompleteResponse(overrides) };
 }
 
-const TEST_SECRET = 'test-jwt-secret-not-a-real-credential';
-
 describe('LlmClient.completeJson', () => {
   const fetchMock = jest.fn();
   beforeEach(() => {
@@ -61,7 +58,6 @@ describe('LlmClient.completeJson', () => {
     global.fetch = fetchMock as unknown as typeof fetch;
     process.env.AI_ORCHESTRATOR_URL = 'http://ai-microservice:3380';
     process.env.DRILL_GENERATION_MODEL_TIER = 'smart';
-    process.env.JWT_SECRET = TEST_SECRET;
   });
 
   const call = (client: LlmClient, outputSchema: unknown = { type: 'object' }) =>
@@ -69,22 +65,6 @@ describe('LlmClient.completeJson', () => {
       systemPrompt: 'sys', userPrompt: 'user', outputSchema, correlationId: 'c-1',
     });
   const lastInit = () => fetchMock.mock.calls[0][1] as RequestInit;
-
-  it('sends a service token that ServiceAuthGuard would accept', async () => {
-    fetchMock.mockResolvedValue(okResponse({ text: '{"items":[]}' }));
-    await call(new LlmClient());
-    const headers = lastInit().headers as Record<string, string>;
-    expect(headers.Authorization).toMatch(/^Bearer \S+$/);
-    // Verified exactly the way the guard does it.
-    const payload = JwtUtil.verify(headers.Authorization.slice(7), TEST_SECRET);
-    expect(payload.serviceId).toBe('ai-microservice');
-  });
-
-  it('fails closed rather than calling unauthenticated when JWT_SECRET is absent', async () => {
-    delete process.env.JWT_SECRET;
-    await expect(call(new LlmClient())).rejects.toThrow(/auth is not configured/i);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
 
   it('parses the JSON body out of the contract `text` field', async () => {
     fetchMock.mockResolvedValue(okResponse({ text: '{"items":[{"template":"a"}]}' }));
@@ -149,9 +129,13 @@ rtk npm --prefix /home/ssf/Documents/Github/ai-microservice test -- llm.client
 
 - [ ] **Step 3: Implement**
 
+> Machine identity for this call follows the sole canonical
+> [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md).
+> `authorizationHeader()` presents the Auth-issued credential the service already mounts;
+> this plan does not restate, vary or substitute that protocol.
+
 ```ts
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { JwtUtil } from '../service-identity/jwt.util';
 import { AiCompleteResponse } from '../contracts/ai-complete.contract';
 
 export interface LlmMeta {
@@ -170,13 +154,6 @@ export interface CompleteJsonArgs {
 }
 
 const FENCE = /^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$/;
-
-/** `/ai/complete` runs behind ServiceAuthGuard (APP_GUARD in
- *  ServiceIdentityModule) and AiController has no `@Public()`. The guard
- *  verifies HS256 against `JWT_SECRET` and JwtUtil.verify pins `iss` to
- *  `ai-microservice`, so this service mints its own token with the same util. */
-const SELF_SERVICE_ID = 'ai-microservice';
-const SERVICE_TOKEN_TTL_SECONDS = 900;
 
 /** Generous on purpose: a 50-item generate on the claude-CLI path is minutes. */
 const DEFAULT_TIMEOUT_MS = 300_000;
@@ -201,7 +178,7 @@ export class LlmClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.mintServiceToken()}`,
+        ...this.authorizationHeader(),
       },
       signal: AbortSignal.timeout(this.resolveTimeoutMs()),
       body: JSON.stringify({
@@ -264,13 +241,6 @@ export class LlmClient {
   private withSchema(userPrompt: string, outputSchema: unknown): string {
     if (outputSchema === undefined || outputSchema === null) return userPrompt;
     return `${userPrompt}\n\nReturn JSON matching exactly this schema:\n${JSON.stringify(outputSchema)}`;
-  }
-
-  /** The secret is read here and never logged, stored, or thrown. */
-  private mintServiceToken(): string {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new ServiceUnavailableException('ai/complete auth is not configured');
-    return JwtUtil.sign(SELF_SERVICE_ID, secret, SERVICE_TOKEN_TTL_SECONDS);
   }
 
   private resolveTimeoutMs(): number {

@@ -31,6 +31,11 @@
 
 - [ ] **Step 1: Write the failing test**
 
+> The credential in these tests is education-service's Auth-issued
+> `education-service -> content-service` token, mounted from Vault. A caller's user token is
+> never forwarded to another service; the protocol is defined once, in
+> [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md).
+
 ```ts
 import { ContentClient } from './content.client';
 
@@ -42,7 +47,7 @@ describe('ContentClient', () => {
     process.env.CONTENT_SERVICE_URL = 'http://content:4201';
   });
 
-  it('forwards the caller bearer token', async () => {
+  it('presents its own service credential, never the caller token', async () => {
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({ items: [], totalAvailable: 0 }) });
     await new ContentClient().searchItems(
       { languageCode: 'de', materialLanguage: 'ru', topicSlugs: [], limit: 5 },

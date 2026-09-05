@@ -180,21 +180,20 @@ The pipeline reaches ai-microservice and is refused:
 ai-microservice responded 401: {"message":"Malformed token", ...}
 ```
 
-`TeacherAssistantController` is behind `ServiceAuthGuard`, which verifies a
-**service JWT signed with `JWT_SECRET`**. `AiClient.generate/validate` forward
-`job.token` — the *teacher's* bearer token, taken from the incoming request.
-Those are different credentials, so this fails for any real teacher, not just a
+`TeacherAssistantController` requires a machine identity. `AiClient.generate/validate`
+forwarded `job.token` — the *teacher's* bearer token, taken from the incoming request.
+A user token is not a service credential, so this fails for any real teacher, not just a
 test harness.
 
-education-service has neither `JWT_SECRET` nor `SERVICE_JWT` in its environment,
-so it currently cannot mint what the guard wants. `ContentClient` already solves
-the equivalent problem by sending `internalToken` alongside the bearer token;
-`AiClient` has no such second credential.
+education-service had no service credential of its own for this call, so it could not
+present one.
 
-This is Track C/D contract surface — deliberately not improvised in production.
-Whoever picks it up chooses between: give education-service `JWT_SECRET` and mint
-a service JWT in `AiClient` (mirroring `ContentClient.internalToken()`), or widen
-`ServiceAuthGuard` to accept the internal token that every other hop already uses.
+This is Track C/D contract surface — deliberately not improvised in production. The fix is
+the one the sole canonical
+[`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md)
+prescribes: an Auth-issued `education-service -> ai-microservice` credential, delivered
+through Vault, presented as a bearer token and validated against Auth. No alternative
+credential, header or local signing arrangement is acceptable.
 
 An earlier 404 on the same call was a separate problem, now fixed:
 ai-microservice was running an image 20 commits old that predated Track C's

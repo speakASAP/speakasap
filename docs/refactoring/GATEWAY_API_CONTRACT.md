@@ -28,7 +28,7 @@ Frontend to gateway:
 
 Gateway to service:
 
-- Forward `Authorization` unless the route is an internal token route or approved webhook.
+- Forward `Authorization` unless the route is a service-to-service route governed by [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md) or an approved webhook.
 - Preserve `x-request-id`.
 - Preserve useful content headers.
 - Strip hop-by-hop headers.

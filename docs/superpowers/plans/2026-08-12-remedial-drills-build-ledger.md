@@ -51,7 +51,7 @@ Task 6: review 1 — spec PASS, quality approved. Three implementer judgment cal
 Task 6: minor (deferred): rules.map(String) turns a model-returned object into "[object Object]" instead of dropping it. Pre-existing codebase convention (generate/validate do the same), cosmetic only.
 Task 6: complete (ai-microservice ef04988..e298aad, review clean)
 
-Task 7: implemented (commit 8e2906e) — AnalysisClient + wire types, 4 tests. Auth (minted service token), non-fail-soft propagation and env-var raising all verified by reviewer.
+Task 7: implemented (commit 8e2906e) — AnalysisClient + wire types, 4 tests. Auth (the service's own Auth-issued credential), non-fail-soft propagation and env-var raising all verified by reviewer.
 Task 7: review 1 — spec conditional, 1 finding: AnalyzeErrorsResponse.meta typed `meta?: unknown` but ai-microservice declares `meta: LlmMeta` required and always sends it.
 Task 7: RULING (controller) — reviewer called it Critical; downgraded to Important. Not a wire mismatch, no runtime impact, field currently unread by education-service. Still fixed: an optional type on an always-present field invites dead branches. Brief specified `meta?: unknown`, so this is a plan defect, not implementer error.
 Task 7: fix round 1/5 dispatched (resumed implementer a89c06e661b98f139)
@@ -144,7 +144,7 @@ Task 18: VERIFICATION RUN BY CONTROLLER DIRECTLY (not delegated — the point is
   npm run build (each service, own compiler, never npx tsc) -> all exit 0
   (ERROR/WARN lines in output are deliberate failure-path tests logging as designed.)
 Task 18: migration 20260813084200_remedial_drills audited statically — 4 CREATE TABLE, 7 CREATE INDEX, 3 CREATE UNIQUE INDEX, 5 ALTER TABLE (2 ADD COLUMN + 4 ADD CONSTRAINT). ZERO DROP, zero ALTER COLUMN. Purely additive.
-Task 18: env check — AI_SERVICE_URL present in .env.example; AI_SERVICE_JWT_SECRET provisioned via k8s/services/education-service.yaml (ExternalSecret) and ALREADY required by the pre-existing AiClient, so AnalysisClient introduces NO new required config. DRILL_ANALYSIS_CLIENT_TIMEOUT_MS optional, defaults 120000.
+Task 18: env check — AI_SERVICE_URL present in .env.example; the Auth-issued service credential provisioned via k8s/services/education-service.yaml (ExternalSecret) and ALREADY required by the pre-existing AiClient, so AnalysisClient introduces NO new required config. DRILL_ANALYSIS_CLIENT_TIMEOUT_MS optional, defaults 120000.
 Task 18: NOT DONE — scratch-database apply (brief Step 3). No scratch DB URL available and production must not be touched. Owner action.
 Task 18: complete (verification only, no code changes)
 

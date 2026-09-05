@@ -252,8 +252,8 @@ For each finished lesson in the period:
 
 ### Failure Modes
 
-- Missing internal token: `401`.
-- Invalid token: `403`.
+- Missing or invalid service credential: `401`.
+- Service role not allowed for the route: `403`. Machine identity for this endpoint follows the sole canonical [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md).
 - Invalid period or malformed user IDs: `400`.
 - Unknown requested user IDs: return no item for that ID and list count in `meta.missingUserIds` if implemented.
 - Education database unavailable: `503`.
@@ -394,7 +394,7 @@ ssh alfares 'cd /home/ssf/Documents/Github/speakasap/salary-service && npm run m
 
 ### Education Aggregate Smoke
 
-After deploying the internal education endpoint, run from inside the cluster or through a temporary smoke pod so the internal token stays inside Kubernetes secret scope:
+After deploying the internal education endpoint, run from inside the cluster or through a temporary smoke pod so the service credential stays inside Kubernetes secret scope:
 
 Expected: JSON response with `items[].legacyPortalUserId`, `finishedLessonCount`, and `totalMinutes`; no private student fields or recording object keys. The 2026-06-13 smoke returned valid JSON and warning `no_teacher_mapping_for_requested_legacy_users` for the sampled legacy user.
 

@@ -47,7 +47,7 @@ The explanation is written **once**, stored **once**, and rendered in **both** p
 | Assignment / item / attempt rows | `education-service` Prisma: `DrillAssignment`, `DrillAssignmentItem`, `DrillAttempt` |
 | Generation pipeline | `education-service/src/drills/orchestration/generation.service.ts` — RESOLVING → BANK → GENERATING → VALIDATING → READY |
 | Item bank | content-service, via `ContentClient.searchItems` |
-| Model calls | ai-microservice `POST /api/teacher-assistant/{generate,validate}-drill`, service JWT (`AI_SERVICE_JWT_SECRET`), **not** the caller's token |
+| Model calls | ai-microservice `POST /api/teacher-assistant/{generate,validate}-drill`, education-service's Auth-issued service credential, **not** the caller's token |
 | Grading / normalization | `education-service/src/drills/grading.ts`, `gradingOptionsFor(languageCode)` |
 | Completion transition | `RunnerService.check()` — `IN_PROGRESS → COMPLETED`, then `notifications.onCompleted` |
 | Teacher mistake view | `TeacherAssignmentsService.progressForTeacher` — already aggregates `wrongAttempts` per blank |
@@ -242,8 +242,9 @@ Sibling of `GenerationService`, in `education-service/src/drills/analysis/`.
 ### 6.3 New ai-microservice endpoint
 
 `POST /api/teacher-assistant/analyze-drill-errors`, on the existing
-`TeacherAssistantController` behind `ServiceAuthGuard`, called with a minted service token
-exactly as `AiClient.generate` does. Files follow the existing generate/validate shape:
+`TeacherAssistantController` behind its service-identity guard, called with education-service's
+Auth-issued credential exactly as `AiClient.generate` does. Files follow the existing
+generate/validate shape:
 `analyze.prompt.ts`, `analyze.schema.ts`, `analyze.service.ts`, plus specs.
 
 **Request**

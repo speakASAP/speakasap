@@ -81,42 +81,29 @@ different things — lesson-record playback is for payers only. Collapsing them 
 recordings to students who never paid, so a test asserts the split and was confirmed to
 fail when the two lists are swapped.
 
-## Configuration — both sides, same value
+## Configuration
 
-The portal validates exactly what education-service sends, so one secret goes to two
-places. **They are different stores on different hosts.**
+Machine identity for the `education-service -> speakasap-portal` call is governed
+exclusively by the sole canonical
+[`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md).
+That standard owns the principal, the credential, its provisioning, delivery and
+rotation; none of it is restated, varied or substituted here. A credential shared by two
+services, a locally generated secret, an API-key or self-asserted caller header is not an
+acceptable substitute for it.
+
+The non-credential settings this lane needs:
 
 | Side | Key | Where |
 |---|---|---|
-| education-service | `PORTAL_INBOUND_API_TOKEN` | Vault `secret/prod/speakasap/education` |
-| education-service | `PORTAL_API_URL` | same — `https://speakasap.com/api/v1/internal` |
+| education-service | `PORTAL_API_URL` | Vault `secret/prod/speakasap/education` — `https://speakasap.com/api/v1/internal` |
 | education-service | `PORTAL_CLIENT_TIMEOUT_MS` | optional, defaults to 5000 |
-| speakasap-portal | `PORTAL_INBOUND_API_TOKEN` | `.env` on the **speakasap** host (no Vault there) |
-
-```bash
-export VAULT_ADDR=http://127.0.0.1:8200
-TOK=$(openssl rand -hex 32)
-vault kv patch secret/prod/speakasap/education \
-  PORTAL_INBOUND_API_TOKEN="$TOK" \
-  PORTAL_API_URL="https://speakasap.com/api/v1/internal"
-vault kv patch secret/prod/speakasap-portal PORTAL_INBOUND_API_TOKEN="$TOK"
-unset TOK
-
-kubectl annotate externalsecret speakasap-education -n statex-apps \
-  force-sync="$(date +%s)" --overwrite
-kubectl rollout restart deployment/speakasap-education -n statex-apps
-shared/scripts/wait-for-rollout.sh -n statex-apps speakasap-education
-```
-
-`secret/prod/speakasap-portal` is a convenience copy — the portal host does not read
-Vault. Put the value in its `.env` and restart supervisord there.
 
 Never `vault kv put` on these paths: it replaces the whole secret and would drop
 `DATABASE_URL` and the S3 keys. Always `patch`.
 
 ### Order matters: Vault key first, manifest second
 
-`k8s/services/education-service.yaml` declares `PORTAL_INBOUND_API_TOKEN` as an
+`k8s/services/education-service.yaml` declares the lane's service credential as an
 ExternalSecret entry pointing at `secret/prod/speakasap/education`. ESO resolves the
 entries of one ExternalSecret together, so a missing Vault property risks failing the
 whole sync — which would take `DATABASE_URL` and the S3 keys with it.
@@ -140,10 +127,10 @@ is a secret, and a URL in plain sight is easier to correct than one buried in Va
 Neither side degrades quietly when misconfigured, and this is the point of the whole
 change:
 
-- **Portal**: an empty `PORTAL_INBOUND_API_TOKEN` denies every request. It does not
+- **Portal**: a request without a valid service credential is denied. It does not
   become an open endpoint through misconfiguration.
 - **education-service**: `LessonClientService` raises `LessonServiceUnavailableError`
-  when `PORTAL_API_URL` or the token is unset — it never returns an empty roster.
+  when `PORTAL_API_URL` or its service credential is unset — it never returns an empty roster.
 
 `LessonNotFoundError` (a real 404 about a real lesson) and
 `LessonServiceUnavailableError` (could not ask) are separate types on purpose. Collapsing

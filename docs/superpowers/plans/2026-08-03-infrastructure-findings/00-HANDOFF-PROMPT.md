@@ -460,10 +460,9 @@ not a replica count.
 | content-service port | 4201, global prefix `/api/v1` |
 | education-service port | 4206, global prefix `/api/v1` |
 | ai-microservice port | 3380, **no** global prefix |
-| ai-microservice JWT secret | Vault `secret/prod/ai-microservice`, key `JWT_SECRET` |
 | Drill assignments in prod | 0 (test rows cleaned up) |
 | Drill sets in prod | 0 (test sets cleaned up) |
-| ai-microservice auth | FIXED — `speakasap@4516fb7`, AiClient mints a service JWT |
+| ai-microservice auth | FIXED — `speakasap@4516fb7`; callers present their Auth-issued service credential per [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md) |
 | Pipeline status | **working end to end** — 3 generated, 3 persisted, verified 2026-08-03 |
 | Track F status | `speakasap/docs/superpowers/plans/2026-07-29-drilling-assignments/status/track-f.md` |
 | Pod janitor | `k8s-manifests/services/pod-janitor.yaml`, every 15 min |

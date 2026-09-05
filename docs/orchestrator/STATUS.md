@@ -432,7 +432,7 @@ Boundary:
 
 Next:
 
-- Run `npm run check:salary-readiness -- --period <YYYY-MM> --json-report /tmp/speakasap-salary-readiness-<period>.json` from a context that can reach `http://speakasap-education:4206` with the internal token, then reconcile the reported missing-duration, short-record, and teacher-mapping samples before setting `SALARY_CALCULATION_RUNS_ENABLED=true` or `SALARY_PAYOUT_FLOWS_ENABLED=true`.
+- Run `npm run check:salary-readiness -- --period <YYYY-MM> --json-report /tmp/speakasap-salary-readiness-<period>.json` from a context that can reach `http://speakasap-education:4206` with its Auth-issued service credential, then reconcile the reported missing-duration, short-record, and teacher-mapping samples before setting `SALARY_CALCULATION_RUNS_ENABLED=true` or `SALARY_PAYOUT_FLOWS_ENABLED=true`.
 
 ## 2026-06-13 - Salary Education Aggregate Parity Comparison
 
@@ -5434,7 +5434,7 @@ Status: approved payout commit/payment execution was attempted and stopped with 
 - Commit `039e59b` fixed salary disbursement idempotency to key on the per-line body `idempotencyKey`.
 - Deployed payment-service image: `localhost:5000/speakasap-payment:039e59b`.
 - Deployed route check: authenticated no-write GET for a fake payout ref returned `404`, proving route present and auth passed.
-- Salary runtime has `PAYMENT_SERVICE_URL` and `PAYMENT_SERVICE_INTERNAL_TOKEN` set.
+- Salary runtime has `PAYMENT_SERVICE_URL` and its Auth-issued service credential for the salary -> payment pair set.
 
 ### Boundary
 

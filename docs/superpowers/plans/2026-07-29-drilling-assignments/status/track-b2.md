@@ -29,7 +29,7 @@ source was deliberately broken, the test confirmed red, the source restored:
 | 1 | add `answer`/`alternatives` back to the runner blank (cast past the type) | **4 leak tests fail** |
 | 2 | replace the server count check with `grade.correct` | **2 tests fail** — see below |
 | 3 | remove the self-drilling gate | **3 gate tests fail** |
-| 4 | remove `@UseGuards(InternalTokenGuard)` | **guard test fails** |
+| 4 | remove the service-identity guard from the internal routes | **guard test fails** |
 
 Falsification 1 also showed a second, independent defence: the same edit **without**
 the cast is rejected by TypeScript, because `RunnerBlankDTO` has no `answer` field.

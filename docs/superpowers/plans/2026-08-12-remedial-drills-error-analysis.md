@@ -31,7 +31,7 @@ last_updated: 2026-09-02
 - **Max 20 sentences per assignment**; overflow splits into parts titled `Работа над ошибками: <тема> (часть N)`.
 - **3 consecutive clean appearances** retire a word (`masteredAt` set); a later miss clears it.
 - **Explanations are written in `materialLanguage`** (`ru` or `en`); example sentences are in the target language with a `gloss` in `materialLanguage`.
-- **ai-microservice calls use a minted service token**, never the caller's bearer token. `mintServiceToken('education-service', requiredEnv('AI_SERVICE_JWT_SECRET', 'ai-microservice'))` — forwarding a user token produces `401 Malformed token`.
+- **ai-microservice calls use this service's own Auth-issued service credential**, never the caller's bearer token and never a locally minted one. The protocol is defined once, in [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md); forwarding a user token produces `401 Malformed token`.
 - **Teacher ownership returns 404, never 403**, for another teacher's assignment, and accepts both id spaces (`[userId, lessonTeacherId]`) exactly as `teacherProgress` does.
 - **Deploys are serialized.** Subagents must not deploy. Stop at build/test/typecheck and report ready.
 - **Typecheck with the service's own compiler**, never `npx tsc`.
@@ -48,7 +48,7 @@ last_updated: 2026-09-02
 | `src/drills/analysis/mastery.ts` | Pure: attempts → per-word clean/miss deltas |
 | `src/drills/analysis/mastery.repository.ts` | Upserts `StudentWordMastery`, reads mastered words |
 | `src/drills/analysis/taxonomy.ts` | Loads `GrammarTopic` slugs per language; coerces unknown slugs to `<lang>.other` |
-| `src/drills/analysis/analysis.client.ts` | Calls ai-microservice `analyze-drill-errors` with a service token |
+| `src/drills/analysis/analysis.client.ts` | Calls ai-microservice `analyze-drill-errors` with this service's Auth-issued credential |
 | `src/drills/analysis/analysis.service.ts` | The job: load → cluster → persist → run status |
 | `src/drills/analysis/analysis.repository.ts` | `DrillAnalysisRun` + `DrillGapAnalysis` reads/writes |
 | `src/drills/analysis/analysis.job-runner.ts` | `AnalysisJobRunner` (fire-and-forget enqueue, never rejects) and `CompletionAnalysisAdapter` (the port `RunnerService` calls on completion) |
@@ -1691,7 +1691,7 @@ git commit -m "feat(drills): grammar taxonomy loader with fallback slug coercion
 - Create: `src/teacher-assistant/dto/analyze-errors-request.dto.ts`
 
 **Interfaces:**
-- Consumes: `LlmClient.completeJson` (existing), `ServiceAuthGuard` (existing)
+- Consumes: `LlmClient.completeJson` (existing), the service-identity guard that validates Auth-issued service tokens (existing)
 - Produces: `POST /api/teacher-assistant/analyze-drill-errors`
   - Request `AnalyzeErrorsRequest { languageCode, materialLanguage, level, allowedTopicSlugs: string[], failures: AnalyzeFailure[], correlationId }`
   - `AnalyzeFailure { answer: string; sentence: string; prompt: string | null; wrongAttempts: string[]; revealed: boolean; mistakeCount: number }`
@@ -2269,7 +2269,7 @@ git commit -m "feat(teacher-assistant): analyze drill errors into grammar gap cl
 - Modify: `education-service/src/drills/analysis/contracts.ts` (append the wire types)
 
 **Interfaces:**
-- Consumes: `requestUpstream`, `numericEnv`, `requiredEnv` from `../orchestration/http`; `mintServiceToken` from `../orchestration/service-token`
+- Consumes: `requestUpstream`, `numericEnv`, `requiredEnv` from `../orchestration/http`. The Auth-issued service credential is read from the environment, never minted locally
 - Produces:
   - `class AnalysisClient` with `analyze(req: AnalyzeErrorsRequest): Promise<AnalyzeErrorsResponse>`
   - Types `AnalyzeErrorsRequest`, `AnalyzeFailure`, `AnalyzedGapCluster`, `AnalyzeErrorsResponse` (mirroring Task 6's, this side of the wire)
@@ -2324,7 +2324,6 @@ Create `education-service/src/drills/analysis/analysis.client.spec.ts`:
 ```ts
 import { AnalysisClient } from './analysis.client';
 import * as http from '../orchestration/http';
-import * as serviceToken from '../orchestration/service-token';
 
 const request = {
   languageCode: 'en',
@@ -2346,17 +2345,17 @@ const request = {
 
 describe('AnalysisClient', () => {
   const originalUrl = process.env.AI_SERVICE_URL;
-  const originalSecret = process.env.AI_SERVICE_JWT_SECRET;
+  const originalToken = process.env.AI_SERVICE_TOKEN;
 
   beforeEach(() => {
     process.env.AI_SERVICE_URL = 'http://ai-microservice:3400';
-    process.env.AI_SERVICE_JWT_SECRET = 'test-secret';
+    process.env.AI_SERVICE_TOKEN = 'test-service-credential';
     jest.restoreAllMocks();
   });
 
   afterAll(() => {
     process.env.AI_SERVICE_URL = originalUrl;
-    process.env.AI_SERVICE_JWT_SECRET = originalSecret;
+    process.env.AI_SERVICE_TOKEN = originalToken;
   });
 
   it('posts to the analyze route', async () => {
@@ -2375,16 +2374,14 @@ describe('AnalysisClient', () => {
     );
   });
 
-  it('sends a minted service token, never a caller token', async () => {
-    const mint = jest.spyOn(serviceToken, 'mintServiceToken').mockReturnValue('minted');
+  it('sends its own mounted service credential, never a caller token', async () => {
     const spy = jest
       .spyOn(http, 'requestUpstream')
       .mockResolvedValue({ clusters: [] } as any);
 
     await new AnalysisClient().analyze(request);
 
-    expect(mint).toHaveBeenCalledWith('education-service', 'test-secret');
-    expect(spy.mock.calls[0][0].token).toBe('minted');
+    expect(spy.mock.calls[0][0].token).toBe('test-service-credential');
   });
 
   it('propagates an upstream failure rather than returning empty clusters', async () => {
@@ -2413,19 +2410,17 @@ Create `education-service/src/drills/analysis/analysis.client.ts`:
 ```ts
 import { Injectable } from '@nestjs/common';
 import { numericEnv, requestUpstream, requiredEnv } from '../orchestration/http';
-import { mintServiceToken } from '../orchestration/service-token';
 import { AnalyzeErrorsRequest, AnalyzeErrorsResponse } from './contracts';
 
 const UPSTREAM = 'ai-microservice';
-const SERVICE_ID = 'education-service';
 
 /**
  * Calls ai-microservice's error analyzer.
  *
- * AUTHENTICATION — a minted service token, never a caller's bearer token, for the same
- * reason as `AiClient`: `TeacherAssistantController` sits behind `ServiceAuthGuard`, which
- * verifies a service JWT signed with `AI_SERVICE_JWT_SECRET` and has no per-user concept.
- * Forwarding a user token returns `401 Malformed token`.
+ * AUTHENTICATION — the pair-specific, Auth-issued service credential this service already
+ * mounts, presented as a bearer token and never constructed here. The protocol is defined
+ * once, in `auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md`; a caller's own
+ * user token is never forwarded to another service.
  *
  * **Not fail-soft.** A failure here must reach `AnalysisService`, which records it as a
  * `FAILED` run the student and teacher can see and retry. Returning empty clusters would
@@ -2441,15 +2436,15 @@ export class AnalysisClient {
     return requestUpstream<AnalyzeErrorsResponse>({
       url: `${this.baseUrl()}/api/teacher-assistant/analyze-drill-errors`,
       method: 'POST',
-      token: this.serviceToken(),
+      token: this.serviceCredential(),
       body: req,
       timeoutMs: this.timeoutMs(),
       upstream: UPSTREAM,
     });
   }
 
-  private serviceToken(): string {
-    return mintServiceToken(SERVICE_ID, requiredEnv('AI_SERVICE_JWT_SECRET', UPSTREAM));
+  private serviceCredential(): string {
+    return requiredEnv('AI_SERVICE_TOKEN', UPSTREAM);
   }
 
   private baseUrl(): string {
@@ -6447,7 +6442,7 @@ migration is unexecuted code — this step is what makes it tested code.
 - [ ] **Step 4: Confirm the new env var is set**
 
 `DRILL_ANALYSIS_CLIENT_TIMEOUT_MS` is optional (defaults to 120000). `AI_SERVICE_URL` and
-`AI_SERVICE_JWT_SECRET` already exist for `AiClient` — verify they are present in
+the Auth-issued service credential already exist for `AiClient` — verify they are present in
 education-service's environment, because `AnalysisClient` shares them:
 
 ```bash

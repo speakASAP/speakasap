@@ -283,7 +283,7 @@ the *old* pod).
 
 `DRY_RUN=1 ./scripts/deploy.sh` is honoured if you want to see the plan first.
 
-**No new configuration is needed.** `AI_SERVICE_URL` and `AI_SERVICE_JWT_SECRET` are already
+**No new configuration is needed.** `AI_SERVICE_URL` and the Auth-issued service credential are already
 provisioned in `k8s/services/education-service.yaml` and already required by the
 pre-existing `AiClient`. `DRILL_ANALYSIS_CLIENT_TIMEOUT_MS` is optional and defaults to
 120000.

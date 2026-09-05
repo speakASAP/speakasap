@@ -349,7 +349,7 @@ Assert, at minimum:
 - `GET /runner` response contains no answer (repeat the leak assertion at the HTTP layer — projection tests do not prove the controller did not add fields back)
 - `POST /self` surfaces the 409 body shape from contract C7 including `blockingAssignmentUuid`
 - teacher-only routes reject a student-role token
-- the three internal routes are behind `InternalTokenGuard` (`src/auth/internal-token.guard.ts` already exists — use it)
+- the three service-to-service routes require an Auth-issued service credential and declare their allowed service roles, per the sole canonical [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md)
 - `InternalStudentAssignmentsResponse.selfDrillingAllowed` is `false` when an assignment is outstanding, mirroring the gate exactly
 
 That last one matters: Track J renders the legacy dashboard from this flag. If it

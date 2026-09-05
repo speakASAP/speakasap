@@ -26,7 +26,7 @@ assumed:
 | `cabinet/templates/student/_lesson_drilling_panel.html` | **new** |
 | `cabinet/templates/teacher/_drilling_block.html` | **new** |
 | `cabinet/templates/teacher/_lesson_drilling_panel.html` | **new** |
-| `portal/local_settings_default.py` | `EDUCATION_SERVICE_URL`, `DRILLS_INTERNAL_TOKEN`, `DRILLS_CLIENT_TIMEOUT` |
+| `portal/local_settings_default.py` | `EDUCATION_SERVICE_URL`, the Auth-issued service credential for the portal -> education-service pair, `DRILLS_CLIENT_TIMEOUT` |
 
 All thirteen code/template files carry `DRILLING: transitional — delete at legacy sunset`,
 so removal at sunset is `grep -rl` and delete.
