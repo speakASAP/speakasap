@@ -1,8 +1,29 @@
 {
   "schema_version": "1.0",
   "repository": "speakasap",
-  "generated_at": "2026-08-31T18:25:00Z",
-  "artifacts": [],
+  "generated_at": "2026-09-05T18:05:04Z",
+  "artifacts": [
+    {
+      "id": "GOAL-SPEAKASAP-001",
+      "type": "goal",
+      "status": "active",
+      "title": "Goal 9 - Salary And Recording-Duration Payroll Migration",
+      "parent_ids": [],
+      "updated_at": "2026-09-05T18:05:04Z",
+      "path": "TASKS.md"
+    },
+    {
+      "id": "TASK-SPEAKASAP-001",
+      "type": "task",
+      "status": "active",
+      "title": "9.6 manual payout settlement recorded; payout completed",
+      "path": "TASKS.md",
+      "parent_ids": [
+        "GOAL-SPEAKASAP-001"
+      ],
+      "updated_at": "2026-09-05T18:05:04Z"
+    }
+  ],
   "warnings": [
     "MISSING_RUNLAYER_PROJECT_MAPPING: RunLayer mapping is not yet verified for speakasap."
   ]
