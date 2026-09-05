@@ -190,7 +190,7 @@ present one.
 
 This is Track C/D contract surface — deliberately not improvised in production. The fix is
 the one the sole canonical
-[`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md)
+[`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md)
 prescribes: an Auth-issued `education-service -> ai-microservice` credential, delivered
 through Vault, presented as a bearer token and validated against Auth. No alternative
 credential, header or local signing arrangement is acceptable.
@@ -211,7 +211,7 @@ zero drill assignments.
   it. `notification-service` too, for the seeded templates.
 - Confirm `NOTIFICATION_SERVICE_URL` and the Auth-issued `education-service -> notification-service`
   credential are in education-service's ExternalSecret before the first assignment is created,
-  and that the credential is provisioned under [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md). Still unexercised, as `track-g.md` noted.
+  and that the credential is provisioned under [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md). Still unexercised, as `track-g.md` noted.
 - **Nothing has been exercised against a running service.** Every test here is a unit
   test with mocked upstreams. The first real generate call is the first time the
   pipeline, content-service and ai-microservice run end to end together.

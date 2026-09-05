@@ -89,7 +89,7 @@ fails closed on `!expected`. Track J was simply the first caller to need that pa
 
 Fixed in `speakasap@0fc065c`: `api-gateway/src/proxy/internal-hop.ts` re-stamps the
 credential after the guard passes, so the caller proves itself to the gateway and the gateway
-proves itself to the upstream, each under [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md). A missing upstream credential strips the header rather than
+proves itself to the upstream, each under [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md). A missing upstream credential strips the header rather than
 leaking the caller's. Six tests; three go red if the swap is removed.
 
 **Credential separation verified in production:**

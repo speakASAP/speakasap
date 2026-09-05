@@ -1,3 +1,5 @@
+Service-to-service authentication follows the [canonical service identity standard](../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md).
+
 # SpeakASAP Orchestrator Status Log
 
 > **This file is history, not current state.** It is append-only evidence, newest

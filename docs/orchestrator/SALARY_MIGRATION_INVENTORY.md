@@ -253,7 +253,7 @@ For each finished lesson in the period:
 ### Failure Modes
 
 - Missing or invalid service credential: `401`.
-- Service role not allowed for the route: `403`. Machine identity for this endpoint follows the sole canonical [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md).
+- Service role not allowed for the route: `403`. Machine identity for this endpoint follows the sole canonical [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md).
 - Invalid period or malformed user IDs: `400`.
 - Unknown requested user IDs: return no item for that ID and list count in `meta.missingUserIds` if implemented.
 - Education database unavailable: `503`.

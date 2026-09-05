@@ -25,7 +25,7 @@ other track's work is invalidated.
   credential must be present in education-service's environment. `NOTIFICATION_SERVICE_URL` exists in
   `.env.example:109`; confirm both are in the K8s ExternalSecret before the first
   assignment is created, or every dispatch degrades to a logged warning.
-  `dispatch/email` requires a validated service identity, so the credential must be the one [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md) prescribes for that pair
+  `dispatch/email` requires a validated service identity, so the credential must be the one [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md) prescribes for that pair
   — verify this at deploy time; it was not exercised here.
 
 ## Verification run
