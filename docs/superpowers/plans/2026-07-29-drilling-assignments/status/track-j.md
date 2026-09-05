@@ -84,12 +84,12 @@ as raw counts (`18 / 50`), never a percentage — the platform owns what progres
 None of these were visible from code review; each needed a real deploy.
 
 **1. `/api/v1/internal/*` was unreachable from outside the cluster — for every service.**
-`GATEWAY_INTERNAL_API_TOKEN` had never been set in any manifest, and the gateway guard
+The gateway had no service credential set in any manifest, and its guard
 fails closed on `!expected`. Track J was simply the first caller to need that path.
 
 Fixed in `speakasap@0fc065c`: `api-gateway/src/proxy/internal-hop.ts` re-stamps the
-header after the guard passes, so the caller proves itself to the gateway and the gateway
-proves itself to the upstream. Missing upstream token strips the header rather than
+credential after the guard passes, so the caller proves itself to the gateway and the gateway
+proves itself to the upstream, each under [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md). A missing upstream credential strips the header rather than
 leaking the caller's. Six tests; three go red if the swap is removed.
 
 **Credential separation verified in production:**

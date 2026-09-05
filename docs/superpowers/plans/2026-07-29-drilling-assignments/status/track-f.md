@@ -209,9 +209,9 @@ zero drill assignments.
   and its gateway prefix), then `education-service`, then `frontend`. Assigning before
   content-service is up fails the language lookup, which is the correct order to notice
   it. `notification-service` too, for the seeded templates.
-- Confirm `NOTIFICATION_SERVICE_URL` and `INTERNAL_API_TOKEN` are in education-service's
-  ExternalSecret before the first assignment is created, and that the token is one
-  `dispatch/email`'s JWT guard accepts. Still unexercised, as `track-g.md` noted.
+- Confirm `NOTIFICATION_SERVICE_URL` and the Auth-issued `education-service -> notification-service`
+  credential are in education-service's ExternalSecret before the first assignment is created,
+  and that the credential is provisioned under [`SERVICE_IDENTITY_CONSUMER_STANDARD.md`](../../../../../auth-microservice/docs/SERVICE_IDENTITY_CONSUMER_STANDARD.md). Still unexercised, as `track-g.md` noted.
 - **Nothing has been exercised against a running service.** Every test here is a unit
   test with mocked upstreams. The first real generate call is the first time the
   pipeline, content-service and ai-microservice run end to end together.

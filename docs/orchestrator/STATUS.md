@@ -421,7 +421,7 @@ Verification:
 - `cd salary-service && ./node_modules/.bin/tsx scripts/check-salary-readiness.ts --period invalid --json-report /tmp/speakasap-salary-readiness-invalid.json` failed with expected validation message `--period must be YYYY-MM`.
 - Attempted no-write report command:
   - `cd salary-service && set -a && test -f ../.env && . ../.env && set +a && npm run check:salary-readiness -- --period 2026-05 --json-report /tmp/speakasap-salary-readiness-2026-05.json`
-  - Result: blocked before HTTP because `.env` has `INTERNAL_API_TOKEN` but no `EDUCATION_SERVICE_URL`.
+  - Result: blocked before HTTP because `.env` has the service credential but no `EDUCATION_SERVICE_URL`.
   - K8s manifests identify the in-cluster education URL as `http://speakasap-education:4206`; the host shell cannot resolve the cluster service directly without a pod/port-forward/deployed command path.
 
 Boundary:

@@ -184,8 +184,8 @@ could not be bumped would be the wrong trade, and the counter feeds library rank
 - **No migration.** Track D added no schema changes. `generationProgress` and
   `DrillItemRevision` already exist from Tracks B and A.
 - **New env vars** consumed by the clients, all with defaults except the URLs:
-  `CONTENT_SERVICE_URL` (required), `INTERNAL_API_TOKEN` (required, already in
-  `REQUIRED_ENV`), `AI_SERVICE_URL` (required, already in `REQUIRED_ENV`),
+  `CONTENT_SERVICE_URL` (required), the Auth-issued credential for each caller -> target pair
+  (required), `AI_SERVICE_URL` (required, already in `REQUIRED_ENV`),
   `DRILL_CLIENT_TIMEOUT_MS` (default 30000), `DRILL_AI_CLIENT_TIMEOUT_MS` (default
   180000), `DRILL_GENERATION_TIMEOUT_SECONDS` (default 900).
   **`CONTENT_SERVICE_URL` is not in `validate-env.ts`'s `REQUIRED_ENV`** — adding it means
